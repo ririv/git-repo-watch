@@ -1,12 +1,12 @@
 # gw
 
-面向 macOS 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `gw` 进入 TUI；`gw status` 查询已有结果。系统任务每六小时执行一次，完成后退出，期间没有常驻服务，也不依赖 Agent。
+面向 macOS 和 Linux 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `gw` 进入 TUI；`gw status` 查询已有结果。系统任务每六小时执行一次，完成后退出，期间没有常驻服务，也不依赖 Agent。
 
 项目使用 Rust。本地仓库能力通过 libgit2 实现；fetch、commit、push 和服务器引用查询固定使用系统 Git，保留网络认证、凭据助手、钩子与提交签名行为。两类后端按职责组合，不在失败时自动换用另一种实现。
 
 ## 安装
 
-需要 macOS、Xcode Command Line Tools、Rust。项目工具链固定在 `rust-toolchain.toml`，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2，不要求用户安装 Go、Python 或独立 libgit2 运行库。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
+需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2，不要求用户安装 Go、Python 或独立 libgit2 运行库。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
 
 ```sh
 cp config.example.json config.json
@@ -14,7 +14,7 @@ cp config.example.json config.json
 ./install.sh
 ```
 
-安装位置：
+macOS 安装位置：
 
 - `~/.local/bin/gw`：原生可执行文件。
 - `~/Library/Application Support/gw/location.json`：安装目录和二进制 SHA-256。
@@ -27,6 +27,22 @@ cp config.example.json config.json
 ./gw status        # 项目内查询已有结果
 ./uninstall.sh     # 卸载系统任务，保留数据和管理命令
 ```
+
+Linux 安装使用同一个 `./install.sh`。Debian/Ubuntu 构建依赖可执行：
+
+```sh
+sudo apt-get install build-essential pkg-config git openssh-client libnotify-bin
+```
+
+Linux 安装位置：
+
+- `~/.local/bin/gw`：原生可执行文件。
+- `$XDG_DATA_HOME/gw/location.json`：安装定位，未设置时使用 `~/.local/share/gw/`。
+- `$XDG_CONFIG_HOME/systemd/user/local.git-repo-watch.service`、`.timer`：用户任务，未设置时使用 `~/.config/systemd/user/`。
+
+XDG 路径必须为绝对路径。安装需能连接 `systemctl --user`，不自动改用 cron。只启用 timer，首轮在配置间隔后运行；每轮是一次性进程，结束后退出。默认随用户会话管理；若需要退出登录后仍运行，可由用户显式执行 `loginctl enable-linger`。日志使用 `journalctl --user -u local.git-repo-watch.service` 查看。自动推送失败通知通过 `notify-send` 发送，需要桌面通知服务和用户会话 D-Bus；无桌面的服务器不能显示通知，失败会写入报告。
+
+Windows 后端尚未实现，当前明确拒绝编译。调度、通知与终端启动分别按平台隔离；后续 Windows 还需实现任务计划、进程树管理、文件锁和权限语义。
 
 构建脚本对 Rust 和 C 依赖执行源码路径裁剪。`config.json`、`var/`、`target/`、`dist/`、日志和定位信息不进入版本控制。
 
@@ -100,7 +116,9 @@ gw install
 
 ### 命令栏与单仓库操作
 
-`/terminal` 在选中仓库目录打开系统默认终端（例如 Ghostty），供交互式 Git 操作或其他命令使用；输入 `/te` 后按 Tab 补全。通过 Launch Services 读取 `public.unix-executable` 的默认应用关联，再将目录作为独立路径参数交给该应用，不拼接 Shell 命令，也不固定使用 Apple Terminal。每次打开都重新读取系统关联，无需重启程序。未配置默认应用、目录不存在或启动失败时明确报错，不切换其他终端或目录。打开终端不改变历史检查报告，也不触发检查、提交或推送。
+`/terminal` 在选中仓库目录打开系统默认终端（例如 Ghostty），供交互式 Git 操作或其他命令使用；输入 `/te` 后按 Tab 补全。macOS 通过 Launch Services 读取 `public.unix-executable` 的默认应用关联，再将目录作为独立路径参数交给该应用，不拼接 Shell 命令，也不固定使用 Apple Terminal。每次打开都重新读取系统关联，无需重启程序。未配置默认应用、目录不存在或启动失败时明确报错，不切换其他终端或目录。打开终端不改变历史检查报告，也不触发检查、提交或推送。
+
+Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-csp/xdg-terminal-exec) 的 `--dir` 参数打开首选终端。需另行安装该工具并通过 `xdg-terminals.list` 配置首选终端；这是 XDG 终端选择规范的提案实现，目录支持取决于所选终端的桌面条目。程序不会遍历猜测终端名称，也不会改用其他目录。启动确认仅表示启动器未立即失败，不代表用户已看到窗口；终端进程独立于检查任务存活。
 
 命令候选明确标记当前仓库、当前视图或全局范围。仓库范围在输入命令前缀 `/` 时固定；命令栏不执行 Shell 命令。
 
@@ -167,7 +185,7 @@ Git 命令默认超时 120 秒，SSH 禁止交互提示并限制连接等待。l
 - 核对本地及服务器引用仍等于预览快照，并确认祖先关系。
 - 固定提交 ID 和目标引用，显式禁用强推、镜像、标签跟随和递归子模块推送。
 - 保留 pre-push 钩子；推送后再次查询服务器，确认目标提交已生效。
-- 自动推送失败时发送“GW 自动推送失败”macOS 通知；通知失败也记入报告。
+- 自动推送失败时发送“GW 自动推送失败”系统通知；通知失败也记入报告。
 
 本地提交在核验后变化时不会被意外包含在本轮推送中；远程并发变化由普通推送规则拒绝非快进更新。工作区存在普通改动时，已提交的安全快照仍可发布，工作区问题继续单独统计。
 
@@ -205,7 +223,7 @@ gw check
 - `var/import-report.json`：最近一次扫描报告。
 - `var/manual-commit.json`、`var/manual-push.json`：最近一次已执行的单仓库操作记录。
 - `var/check.lock`：跨进程排他锁；不会通过删除文件解锁。
-- `var/launchd.stdout.log`、`var/launchd.stderr.log`：系统任务输出。
+- `var/launchd.stdout.log`、`var/launchd.stderr.log`：macOS 系统任务输出；Linux 输出保存在用户 journal。
 
 配置、报告和日志含本机私有路径。JSON 数据原子写入，文件权限 0600，运行目录 0700。报告缺失与报告损坏分开处理，损坏数据明确报错。
 
@@ -237,7 +255,7 @@ gw check
 | `crates/engine/src/discovery.rs` | 忽略规则感知的仓库发现 |
 | `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
 | `crates/engine/src/state.rs` | 原子持久化与进程锁 |
-| `crates/engine/src/scheduler.rs`、`notify.rs` | launchd 与系统通知 |
+| `crates/engine/src/scheduler/`、`notify/`、`terminal/` | 各平台调度、桌面通知与终端启动 |
 | `crates/engine/src/process.rs`、`cancel.rs` | 子进程收尾、超时与取消 |
 | `crates/tui/src/input/`、`view/`、`task.rs` | 交互转换、绘制和异步任务收尾 |
 | `src/cli.rs`、`src/main.rs` | CLI 适配和程序入口 |
@@ -254,8 +272,8 @@ gw check
 | --- | --- |
 | `APP_COMMAND` | 安装命令名、`dist/` 文件名、帮助和操作提示中的命令名 |
 | `APP_DISPLAY_NAME` | 系统通知中的产品显示名 |
-| `APP_DATA_DIRECTORY` | `Library/Application Support/` 下的安装定位目录 |
-| `APP_SERVICE_LABEL` | launchd 标签及 plist 文件名 |
+| `APP_DATA_DIRECTORY` | 各平台安装定位目录名 |
+| `APP_SERVICE_LABEL` | 系统任务标识及定义文件名 |
 
 该文件是共享的 `KEY=VALUE` 配置；值使用 ASCII 字母、数字、点、下划线和连字符，命令名以字母开头。不使用 Shell 表达式、空格或引号。`identity` 在编译时严格检查字段和取值，Shell 脚本与 Rust 读取同一份定义，不依赖额外运行时。
 
@@ -273,6 +291,8 @@ cargo clippy --workspace --locked --all-targets -- -D warnings
 ```
 
 测试使用临时本地仓库和 bare 远程，不访问真实仓库、不访问网络、不发送系统通知、不安装用户系统任务。覆盖 Git 忽略规则、子模块、关联工作区、索引、diff、提交钩子、受控推送、并发上限、真实 fetch 重叠、取消与子进程收尾、旧数据兼容和 TUI 操作。
+
+GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格式检查、Clippy、全部测试和发布构建。Ubuntu 另验证真实 systemd 用户任务的安装、重复安装、延迟首轮、临时仓库检查和卸载；不使用 Docker。桌面窗口和通知显示仍需相应桌面会话手动验证。工作流在 push、pull request 或手动触发时执行，见 `.github/workflows/ci.yml`。
 
 ## 许可证
 

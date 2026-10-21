@@ -1,0 +1,41 @@
+name: 平台验证
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  test:
+    name: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, ubuntu-24.04]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Linux 编译依赖
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config git openssh-client libnotify-bin dbus-user-session
+      - name: 安装项目固定的 Rust 工具链
+        run: rustup show
+      - name: 检查格式
+        run: cargo fmt --all --check
+      - name: 静态检查
+        run: cargo clippy --workspace --locked --all-targets -- -D warnings
+      - name: 运行全部测试
+        run: cargo test --workspace --locked
+      - name: 构建发布程序
+        run: ./build.sh
+      - name: 验证 Linux 用户定时器生命周期
+        if: runner.os == 'Linux'
+        run: |
+          sudo loginctl enable-linger "$USER"
+          sudo systemctl start "user@$(id -u).service"
+          export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+          export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+          ./scripts/ci/linux-scheduler.sh

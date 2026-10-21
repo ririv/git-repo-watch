@@ -2,6 +2,10 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    SystemdPathControlUnsupported,
+    UnexpectedSystemdTimerState,
+    XdgDirectoryMustBeAbsolute,
+    LinuxTerminalLauncherRequired,
     ReadDefaultTerminalFailed,
     DefaultTerminalNotConfigured,
     OpenRepositoryTerminal,
@@ -391,6 +395,28 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::SystemdPathControlUnsupported, Language::English) => {
+                "Unsupported control character in systemd path"
+            }
+            (Self::SystemdPathControlUnsupported, Language::Chinese) => {
+                "systemd 路径包含不支持的控制字符"
+            }
+            (Self::UnexpectedSystemdTimerState, Language::English) => {
+                "Unexpected systemd timer state"
+            }
+            (Self::UnexpectedSystemdTimerState, Language::Chinese) => {
+                "systemd 定时器返回了非预期状态"
+            }
+            (Self::XdgDirectoryMustBeAbsolute, Language::English) => {
+                "XDG directory must be an absolute path"
+            }
+            (Self::XdgDirectoryMustBeAbsolute, Language::Chinese) => "XDG 目录必须是绝对路径",
+            (Self::LinuxTerminalLauncherRequired, Language::English) => {
+                "Install xdg-terminal-exec and configure your preferred terminal before opening repository terminals"
+            }
+            (Self::LinuxTerminalLauncherRequired, Language::Chinese) => {
+                "请先安装 xdg-terminal-exec 并配置首选终端，再打开仓库终端"
+            }
             (Self::ReadDefaultTerminalFailed, Language::English) => {
                 "Unable to read the system default terminal application"
             }

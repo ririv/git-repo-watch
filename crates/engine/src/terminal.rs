@@ -1,9 +1,19 @@
 //! Open repository directories with the user's system-selected terminal application.
+#[cfg(any(target_os = "linux", test))]
+mod linux;
+#[cfg(target_os = "macos")]
 mod macos;
-use crate::{cancel::Cancel, process};
+use crate::cancel::Cancel;
+#[cfg(target_os = "macos")]
+use crate::process;
 use anyhow::{Result, ensure};
-use std::{ffi::OsString, path::Path, time::Duration};
+#[cfg(any(target_os = "macos", test))]
+use std::ffi::OsString;
+use std::path::Path;
+#[cfg(target_os = "macos")]
+use std::time::Duration;
 
+#[cfg(any(target_os = "macos", test))]
 fn arguments(application: &str, directory: &Path) -> Vec<OsString> {
     vec![
         "-b".into(),
@@ -16,15 +26,22 @@ pub fn open(path: &Path, cancel: &Cancel) -> Result<()> {
     cancel.check()?;
     ensure!(path.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
     ensure!(path.is_dir(), i18n::tr!(TerminalDirectoryMissing));
-    let application = macos::default_application()?;
-    process::run(
-        Path::new("/usr/bin/open"),
-        &arguments(&application, path),
-        None,
-        cancel,
-        Duration::from_secs(30),
-    )?
-    .success(i18n::tr!(OpenRepositoryTerminal))?;
+    #[cfg(target_os = "linux")]
+    {
+        linux::open(path, cancel)?;
+    }
+    #[cfg(target_os = "macos")]
+    {
+        let application = macos::default_application()?;
+        process::run(
+            Path::new("/usr/bin/open"),
+            &arguments(&application, path),
+            None,
+            cancel,
+            Duration::from_secs(30),
+        )?
+        .success(i18n::tr!(OpenRepositoryTerminal))?;
+    }
     Ok(())
 }
 

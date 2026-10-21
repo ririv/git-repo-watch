@@ -54,10 +54,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             max_concurrency: 4,
         })
         .unwrap();
-    let manager = Manager {
-        user_home: temp.path().to_owned(),
-        uid: unsafe { libc::getuid() },
-    };
+    let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
     let service = Service::new(store.home, manager);
     (temp, screen(service))
 }

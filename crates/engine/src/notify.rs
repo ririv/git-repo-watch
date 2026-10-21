@@ -1,37 +1,43 @@
-//! macOS notifications with data passed as arguments, never script interpolation.
+//! Desktop notifications with payloads passed as literal arguments.
+#[cfg(target_os = "macos")]
+#[path = "notify/macos.rs"]
+mod platform;
+#[cfg(target_os = "linux")]
+#[path = "notify/linux.rs"]
+mod platform;
 use crate::{
     cancel::Cancel,
     domain::{Notice, PushTarget},
     process,
 };
-use std::{ffi::OsString, path::Path, time::Duration};
-const SCRIPT: &str = "on run argv\n display notification (item 1 of argv) with title (item 3 of argv) subtitle (item 2 of argv) sound name \"Basso\"\nend run";
-fn arguments(path: &Path, target: &PushTarget, error: &str) -> Vec<OsString> {
-    let message = i18n::tf!(
-        PushReportDetails,
-        error.chars().take(240).collect::<String>()
-    );
-    let subtitle = format!(
-        "{} / {}",
-        path.file_name()
-            .unwrap_or(path.as_os_str())
-            .to_string_lossy(),
-        target.branch
-    );
-    vec![
-        OsString::from("-e"),
-        SCRIPT.into(),
-        "--".into(),
-        message.into(),
-        subtitle.into(),
-        i18n::tr!(AutoPushFailureTitle).into(),
-    ]
+use std::{path::Path, time::Duration};
+struct Payload {
+    title: String,
+    subtitle: String,
+    message: String,
 }
-
+impl Payload {
+    fn new(path: &Path, target: &PushTarget, error: &str) -> Self {
+        Self {
+            title: i18n::tr!(AutoPushFailureTitle).to_owned(),
+            subtitle: format!(
+                "{} / {}",
+                path.file_name()
+                    .unwrap_or(path.as_os_str())
+                    .to_string_lossy(),
+                target.branch
+            ),
+            message: i18n::tf!(
+                PushReportDetails,
+                error.chars().take(240).collect::<String>()
+            ),
+        }
+    }
+}
 pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -> Notice {
-    let args = arguments(path, target, error);
+    let args = platform::arguments(&Payload::new(path, target, error));
     let attempt = process::run(
-        Path::new("/usr/bin/osascript"),
+        platform::program(),
         &args,
         None,
         cancel,
@@ -54,9 +60,8 @@ pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -
 #[cfg(test)]
 mod tests {
     use super::*;
-
     #[test]
-    fn notification_localizes_copy_and_keeps_payload_outside_script() {
+    fn notification_payload_uses_selected_language_and_bounds_error_length() {
         let target = PushTarget {
             branch: "feature".into(),
             local_ref: "refs/heads/feature".into(),
@@ -79,22 +84,16 @@ mod tests {
             ),
         ] {
             let _language = i18n::using(language);
-            let args = arguments(Path::new("/example/a \" repo"), &target, "network error");
-            assert_eq!(args[5], title);
-            assert!(args[3].to_str().unwrap().contains(details));
-            assert_eq!(args[4], "a \" repo / feature");
-            assert!(!SCRIPT.contains("network error"));
+            let payload = Payload::new(
+                Path::new("/example/中文 \" repo"),
+                &target,
+                &"错误".repeat(300),
+            );
+            assert_eq!(payload.title, title);
+            assert_eq!(payload.subtitle, "中文 \" repo / feature");
+            assert!(payload.message.contains(details));
+            assert!(payload.message.contains(&"错误".repeat(120)));
+            assert!(!payload.message.contains(&"错误".repeat(121)));
         }
-        let temp = tempfile::tempdir().unwrap();
-        let status = std::process::Command::new("/usr/bin/osacompile")
-            .args(["-e", SCRIPT, "-o"])
-            .arg(temp.path().join("notification.scpt"))
-            .output()
-            .unwrap();
-        assert!(
-            status.status.success(),
-            "{}",
-            String::from_utf8_lossy(&status.stderr)
-        );
     }
 }

@@ -13,3 +13,8 @@ pub mod service;
 pub mod state;
 pub mod terminal;
 pub mod transport;
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
+compile_error!(
+    "This application currently supports macOS and Linux; a Windows platform backend is not implemented yet."
+);

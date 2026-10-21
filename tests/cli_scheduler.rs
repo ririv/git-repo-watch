@@ -1,7 +1,7 @@
 use engine::{
     cancel::Cancel,
     domain::PushPolicy,
-    scheduler::{self, Manager},
+    scheduler::Manager,
     state::{Config, Store},
 };
 use std::{
@@ -109,10 +109,11 @@ fn help_is_available_without_installation() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("concurrency"));
 }
+#[cfg(target_os = "macos")]
 #[test]
 fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let payload = scheduler::plist(
+    let payload = engine::scheduler::plist(
         std::path::Path::new("/path/中文 & folder"),
         std::path::Path::new("/path/bin/command"),
         21600,
@@ -138,10 +139,7 @@ fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
 fn installation_refuses_unowned_binary_before_mutation() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
-    let manager = Manager {
-        user_home: temp.path().to_owned(),
-        uid: unsafe { libc::getuid() },
-    };
+    let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
     fs::create_dir_all(manager.binary().parent().unwrap()).unwrap();
     fs::write(manager.binary(), b"unowned binary").unwrap();
     assert!(
@@ -155,7 +153,7 @@ fn installation_refuses_unowned_binary_before_mutation() {
             .is_err()
     );
     assert_eq!(fs::read(manager.binary()).unwrap(), b"unowned binary");
-    assert!(!manager.plist().exists());
+    assert!(!manager.definition().exists());
 }
 
 #[test]
