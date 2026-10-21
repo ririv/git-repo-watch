@@ -1,6 +1,19 @@
 //! Locked single-repository operations and manual journals.
 use super::*;
 impl Service {
+    pub fn open_terminal(&self, path: &Path, cancel: &Cancel) -> Result<()> {
+        cancel.check()?;
+        ensure!(
+            self.store
+                .config()?
+                .repositories
+                .iter()
+                .any(|registered| registered == path),
+            i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
+        );
+        crate::terminal::open(path, cancel)
+    }
+
     fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<Lock> {
         cancel.check()?;
         let lock = self.store.lock()?;

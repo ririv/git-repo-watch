@@ -81,7 +81,7 @@ impl Screen {
                 result
             };
             match result {
-                Ok(outcome) => self.finish(outcome, root),
+                Ok(outcome) => self.finish(outcome, *pending.origin, root),
                 Err(e) => {
                     let detail =
                         if pending.effect != Effect::ReadOnly && pending.cancel.is_cancelled() {
@@ -101,10 +101,14 @@ impl Screen {
         }
         changed
     }
-    pub(super) fn finish(&mut self, outcome: Outcome, root: &Cancel) {
+    pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
         self.scroll = 0;
         match outcome {
+            Outcome::TerminalOpened(path) => {
+                self.mode = origin;
+                self.message = i18n::tf!(RepositoryTerminalOpened, path.display());
+            }
             Outcome::Files(snapshot, area) => {
                 self.mode = Mode::Files(FileSession {
                     snapshot,

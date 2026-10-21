@@ -83,6 +83,20 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
+            Action::Terminal => {
+                if let Some(path) = path {
+                    self.start(
+                        i18n::tr!(OpenRepositoryTerminal),
+                        Effect::ReadOnly,
+                        move |service, cancel, _| {
+                            service.open_terminal(&path, &cancel)?;
+                            Ok(Outcome::TerminalOpened(path))
+                        },
+                    );
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
             Action::Remove => {
                 if let Some(path) = path {
                     self.mode = Mode::Confirm(Confirmation::Remove(path))

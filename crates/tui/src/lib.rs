@@ -184,6 +184,7 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    TerminalOpened(PathBuf),
     Files(Files, FileArea),
     Diff(FileSession, String),
     CommitPrepared(CommitPlan),

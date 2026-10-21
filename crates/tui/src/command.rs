@@ -6,6 +6,7 @@ pub enum Action {
     Diff,
     Commit,
     Push,
+    Terminal,
     CheckAll,
     Refresh,
     Settings,
@@ -67,6 +68,12 @@ pub const COMMANDS: &[Command] = &[
         action: Push,
         scope: Repository,
         description: i18n::Message::ReviewCurrentBranchAndRemoteUpstreamThen,
+    },
+    Command {
+        name: "terminal",
+        action: Terminal,
+        scope: Repository,
+        description: i18n::Message::OpenRepositoryTerminal,
     },
     Command {
         name: "check all",

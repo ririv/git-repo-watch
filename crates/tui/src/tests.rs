@@ -524,3 +524,59 @@ fn english_worker_errors_follow_the_ui_language() {
     assert!(text.contains("Enter/Esc back"));
     assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
 }
+
+#[test]
+fn terminal_command_completes_and_freezes_repository_scope() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_temp, mut s) = fixture(vec![
+            "/example/unavailable-alpha".into(),
+            "/example/unavailable-beta".into(),
+        ]);
+        s.paste("/te");
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.editor().text, "/terminal");
+        assert_eq!(command::exact("terminal"), Some(Action::Terminal));
+        assert!(matches!(s.mode, Mode::Browsing));
+        s.selected = 1;
+        assert!(
+            matches!(&s.bar, crate::bar::InputBar::Command { path: Some(path), .. } if path == &PathBuf::from("/example/unavailable-alpha"))
+        );
+        key(&mut s, KeyCode::Enter);
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::Error { .. }));
+        let text = render(&mut s, 80, 24);
+        assert!(text.contains(i18n::tr!(TerminalDirectoryMissing)));
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.selected, 1);
+    }
+}
+
+#[test]
+fn terminal_requires_selection_and_preserves_origin_on_success() {
+    let _language = i18n::using(i18n::Language::English);
+    let (_temp, mut empty) = fixture(vec![]);
+    command(&mut empty, "terminal");
+    assert!(matches!(empty.mode, Mode::Browsing));
+    assert_eq!(empty.message, "Select a repository first");
+    let f = support::Fixture::create();
+    let (_temp, mut s) = fixture(vec![f.repo.clone()]);
+    let origin = Mode::Files(FileSession {
+        snapshot: s.service.files(&f.repo, &Cancel::default()).unwrap(),
+        area: FileArea::Index,
+        cursor: 0,
+        selected: BTreeSet::new(),
+        query: "filter".into(),
+    });
+    s.finish(
+        Outcome::TerminalOpened(f.repo.clone()),
+        origin,
+        &Cancel::default(),
+    );
+    assert!(
+        matches!(&s.mode, Mode::Files(session) if session.area == FileArea::Index && session.query == "filter")
+    );
+    assert!(s.message.starts_with("Opened Terminal:"));
+    assert_eq!(s.bar.editor().text, "filter");
+    assert!(!s.service.store.state_dir().join("latest.json").exists());
+}
