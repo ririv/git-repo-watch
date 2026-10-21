@@ -1,7 +1,23 @@
 use super::*;
 use engine::local::files::{self, Area, patch::Source};
+use ratatui::text::Text;
 use std::path::Path;
 use test_support::*;
+
+fn styled(title: &str, document: Document, cancel: &Cancel) -> Result<Text<'static>> {
+    let view = prepare(title, document, Area::Unstaged, cancel)?;
+    let cache = layout::arrange(&view.rows, view.digits, 200, Layout::Unified);
+    Ok(Text::from(
+        cache
+            .rows
+            .into_iter()
+            .map(|row| match row {
+                VisualRow::Full { line, .. } => line,
+                VisualRow::Columns { .. } => unreachable!(),
+            })
+            .collect::<Vec<_>>(),
+    ))
+}
 
 fn document(f: &Fixture, name: &str, area: Area) -> Document {
     let snapshot = files::read(&f.repo).unwrap();

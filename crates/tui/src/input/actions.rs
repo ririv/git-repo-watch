@@ -59,6 +59,10 @@ impl Screen {
                     self.error(i18n::tr!(RefreshFailed), e)
                 }
             }
+            Action::DiffLayout(preference) => {
+                self.diff_preference = preference;
+                self.message = i18n::tf!(DiffLayoutSelected, preference.label());
+            }
             Action::Stage | Action::Unstage | Action::Diff => {
                 if let Some(session) = self.mode.file_session() {
                     if action == Action::Diff {
@@ -227,7 +231,7 @@ impl Screen {
             let content = s.diff(&session.snapshot, &change, &c)?;
             Ok(Outcome::Diff(
                 session,
-                diff::prepare(&change.location.display(), content, &c)?,
+                diff::prepare(&change.location.display(), content, change.area, &c)?,
             ))
         })
     }

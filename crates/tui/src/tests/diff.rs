@@ -57,3 +57,129 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
         assert!(s.service.store.report().unwrap().is_none());
     }
 }
+
+#[test]
+fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapshot() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        f.commit("one.rs", "fn old() {}\n");
+        support::write(f.repo.join("one.rs"), "fn cached_new() {}\n");
+        support::write(f.repo.join("two.rs"), "fn second() {}\n");
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        let before = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+        command(&mut s, "stage");
+        wait(&mut s);
+        key(&mut s, KeyCode::Enter);
+        wait(&mut s);
+        let text = render(&mut s, 160, 32);
+        assert!(
+            text.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))),
+            "{text}"
+        );
+        assert!(
+            text.contains(&i18n::tf!(DiffAfter, i18n::tr!(Worktree))),
+            "{text}"
+        );
+        assert!(text.contains(&format!(
+            "{}: {}",
+            i18n::tr!(DiffAuto),
+            i18n::tr!(DiffSplit)
+        )));
+        s.paste("/diff ");
+        let menu = render(&mut s, 160, 32);
+        for name in ["diff auto", "diff split", "diff unified"] {
+            assert!(menu.contains(name));
+        }
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.editor().text, "/diff split");
+        support::write(f.repo.join("one.rs"), "fn changed_after_snapshot() {}\n");
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::Diff { .. }));
+        assert_eq!(s.diff_preference, crate::diff::Preference::Split);
+        let narrow = render(&mut s, 80, 28);
+        assert!(narrow.contains("cached_new"), "{narrow}");
+        assert!(!narrow.contains("changed_after_snapshot"));
+        assert!(narrow.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))));
+        command(&mut s, "diff unified");
+        assert!(matches!(s.mode, Mode::Diff { .. }));
+        let wide = render(&mut s, 160, 32);
+        assert!(wide.contains(&format!("{} → {}", i18n::tr!(Index), i18n::tr!(Worktree))));
+        command(&mut s, "diff auto");
+        let narrow = render(&mut s, 80, 28);
+        assert!(narrow.contains(&format!(
+            "{}: {}",
+            i18n::tr!(DiffAuto),
+            i18n::tr!(DiffUnified)
+        )));
+        assert!(render(&mut s, 160, 32).contains(&format!(
+            "{}: {}",
+            i18n::tr!(DiffAuto),
+            i18n::tr!(DiffSplit)
+        )));
+        command(&mut s, "diff unified");
+        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Enter);
+        wait(&mut s);
+        let second = render(&mut s, 160, 32);
+        assert!(second.contains("second"));
+        assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
+        assert_eq!(
+            std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+            before
+        );
+        assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
+        assert!(s.service.store.report().unwrap().is_none());
+    }
+}
+
+#[test]
+fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only() {
+    let f = support::Fixture::create();
+    f.commit("stage.rs", "fn head() {}\n");
+    support::write(f.repo.join("stage.rs"), "fn index() {}\n");
+    support::git(&f.repo, &["add", "stage.rs"]);
+    support::write(f.repo.join("stage.rs"), "fn worktree() {}\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "diff split");
+    assert!(matches!(s.mode, Mode::Browsing));
+    command(&mut s, "unstage");
+    wait(&mut s);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    let text = render(&mut s, 160, 32);
+    assert!(text.contains(&i18n::tf!(DiffBefore, "HEAD")));
+    assert!(text.contains(&i18n::tf!(DiffAfter, i18n::tr!(Index))));
+    assert!(text.contains("fn head") && text.contains("fn index"));
+    assert!(!text.contains("fn worktree"));
+    assert_eq!(
+        screen(Service::new(
+            s.service.store.home.clone(),
+            s.service.scheduler.clone()
+        ))
+        .diff_preference,
+        crate::diff::Preference::Auto
+    );
+    let cached = support::git(&f.repo, &["diff", "--cached"]);
+    assert!(cached.contains("+fn index"));
+}
+
+#[test]
+fn narrow_forced_split_is_explicit_and_restores_the_view_when_enlarged() {
+    let _language = i18n::using(i18n::Language::English);
+    let f = support::Fixture::create();
+    support::write(f.repo.join("narrow.rs"), "fn visible_again() {}\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "stage");
+    wait(&mut s);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    command(&mut s, "diff split");
+    assert!(render(&mut s, 160, 32).contains("visible_again"));
+    let narrow = render(&mut s, 12, 18);
+    assert!(narrow.contains("resize"), "{narrow}");
+    assert!(matches!(s.mode, Mode::Diff { .. }));
+    assert!(render(&mut s, 160, 32).contains("visible_again"));
+}

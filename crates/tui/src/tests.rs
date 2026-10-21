@@ -38,6 +38,7 @@ fn screen(service: Service) -> Screen {
         page: Page::Repositories,
         history: vec![],
         mode: Mode::Browsing,
+        diff_preference: Default::default(),
         bar: crate::bar::InputBar::default(),
         repository_viewport,
         scroll_input: input::scroll::ScrollInput::default(),

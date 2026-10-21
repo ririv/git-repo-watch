@@ -1,180 +1,182 @@
-//! Prepare immutable diff styling in the file worker; redraws reuse the paragraph.
+//! Cached logical diff rows shared by responsive unified and side-by-side layouts.
+mod build;
+mod layout;
+#[cfg(test)]
+mod layout_tests;
 mod source;
 #[cfg(test)]
 mod tests;
 mod text;
+mod wrap;
 use crate::view::safe;
 use anyhow::Result;
 use engine::{
     cancel::Cancel,
-    local::files::patch::{Document, Extent, Line as PatchLine, Metadata},
+    local::files::{
+        Area,
+        patch::{Document, Extent, Line as PatchLine, Metadata},
+    },
 };
+pub(super) use layout::{Cache, VisualRow};
 use ratatui::{
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
-    widgets::{Paragraph, Wrap},
+    text::{Line, Span},
 };
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, num::NonZeroU32};
 
 pub(super) const ADDED: Color = Color::Rgb(28, 51, 43);
 pub(super) const REMOVED: Color = Color::Rgb(58, 32, 41);
 const MUTED: Color = Color::Rgb(125, 140, 155);
+const MIN_SPLIT_WIDTH: u16 = 140;
+const MIN_AUTO_CODE_WIDTH: u16 = 60;
 
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Preference {
+    #[default]
+    Auto,
+    Split,
+    Unified,
+}
+impl Preference {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => i18n::tr!(DiffAuto),
+            Self::Split => i18n::tr!(DiffSplit),
+            Self::Unified => i18n::tr!(DiffUnified),
+        }
+    }
+    fn resolve(self, width: u16, digits: u16) -> Layout {
+        match self {
+            Self::Unified => Layout::Unified,
+            Self::Split => Layout::Split,
+            Self::Auto => {
+                let column = width.saturating_sub(1) / 2;
+                if width >= MIN_SPLIT_WIDTH
+                    && column.saturating_sub(digits + 3) >= MIN_AUTO_CODE_WIDTH
+                {
+                    Layout::Split
+                } else {
+                    Layout::Unified
+                }
+            }
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum Layout {
+    Unified,
+    Split,
+}
+impl Layout {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Unified => i18n::tr!(DiffUnified),
+            Self::Split => i18n::tr!(DiffSplit),
+        }
+    }
+}
+#[derive(Debug, Clone, Copy)]
+enum Comparison {
+    Staged,
+    Working,
+}
+impl Comparison {
+    fn labels(self) -> (&'static str, &'static str) {
+        match self {
+            Self::Staged => ("HEAD", i18n::tr!(Index)),
+            Self::Working => (i18n::tr!(Index), i18n::tr!(Worktree)),
+        }
+    }
+}
+#[derive(Debug)]
+struct Code {
+    number: NonZeroU32,
+    content: Line<'static>,
+}
+#[derive(Debug)]
+enum Row {
+    Metadata(Line<'static>),
+    Context { old: Code, new: Code },
+    Added(Code),
+    Removed(Code),
+}
+impl Row {
+    fn is_edit(&self) -> bool {
+        matches!(self, Self::Added(_) | Self::Removed(_))
+    }
+    fn max_number(&self) -> u32 {
+        match self {
+            Self::Context { old, new } => old.number.get().max(new.number.get()),
+            Self::Added(code) | Self::Removed(code) => code.number.get(),
+            Self::Metadata(_) => 1,
+        }
+    }
+}
 #[derive(Debug)]
 pub(super) struct View {
-    pub paragraph: Paragraph<'static>,
-    measurement: Option<(u16, usize)>,
+    rows: Vec<Row>,
+    digits: u16,
+    comparison: Comparison,
+    cache: Option<Cache>,
 }
 impl View {
-    pub fn line_count(&mut self, width: u16) -> usize {
-        if let Some((measured_width, lines)) = self.measurement
-            && measured_width == width
+    pub fn selected_layout(&self, width: u16, preference: Preference) -> Layout {
+        preference.resolve(width, self.digits)
+    }
+    pub fn minimum_width(&self, mode: Layout) -> u16 {
+        match mode {
+            Layout::Unified => 2 * self.digits + 6,
+            Layout::Split => 2 * (self.digits + 5) + 1,
+        }
+    }
+    pub fn arrange(
+        &mut self,
+        width: u16,
+        preference: Preference,
+        scroll: &mut usize,
+    ) -> &mut Cache {
+        let mode = preference.resolve(width, self.digits);
+        if self
+            .cache
+            .as_ref()
+            .is_none_or(|cache| cache.width != width || cache.mode != mode)
         {
-            return lines;
+            let anchor = self.cache.as_ref().and_then(|cache| cache.anchor(*scroll));
+            let mut cache = layout::arrange(&self.rows, self.digits, width, mode);
+            if let Some(anchor) = anchor {
+                *scroll = cache.locate(anchor);
+                cache.restore(anchor, *scroll);
+            }
+            self.cache = Some(cache);
         }
-        let lines = self.paragraph.line_count(width);
-        self.measurement = Some((width, lines));
-        lines
+        self.cache.as_mut().expect("diff layout prepared")
+    }
+    pub fn labels(&self) -> (&'static str, &'static str) {
+        self.comparison.labels()
     }
 }
 
-pub(super) fn prepare(title: &str, document: Document, cancel: &Cancel) -> Result<Box<View>> {
-    let text = styled(title, document, cancel)?;
+pub(super) fn prepare(
+    title: &str,
+    document: Document,
+    area: Area,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    let rows = build::rows(title, document, cancel)?;
+    let digits = rows
+        .iter()
+        .map(Row::max_number)
+        .max()
+        .unwrap_or(1)
+        .to_string()
+        .len() as u16;
     Ok(Box::new(View {
-        paragraph: Paragraph::new(text).wrap(Wrap { trim: false }),
-        measurement: None,
+        rows,
+        digits,
+        comparison: match area {
+            Area::Staged => Comparison::Staged,
+            Area::Unstaged | Area::Untracked => Comparison::Working,
+        },
+        cache: None,
     }))
-}
-
-fn styled(title: &str, document: Document, cancel: &Cancel) -> Result<Text<'static>> {
-    cancel.check()?;
-    let mut lines = vec![
-        Line::styled(safe(title), Style::default().fg(Color::LightBlue).bold()),
-        Line::default(),
-    ];
-    match document {
-        Document::Notice(text) => lines.extend(text.lines().map(|line| Line::raw(safe(line)))),
-        Document::Patch { files, extent } => {
-            for file in files {
-                let mut old_numbers = BTreeSet::new();
-                let mut new_numbers = BTreeSet::new();
-                for line in &file.lines {
-                    match line {
-                        PatchLine::Context { old, new, .. } => {
-                            old_numbers.insert(*old);
-                            new_numbers.insert(*new);
-                        }
-                        PatchLine::Added { new, .. } => {
-                            new_numbers.insert(*new);
-                        }
-                        PatchLine::Removed { old, .. } => {
-                            old_numbers.insert(*old);
-                        }
-                        _ => {}
-                    }
-                }
-                let old = source::prepare(
-                    &file.before,
-                    &old_numbers,
-                    &file.lines,
-                    source::Side::Old,
-                    cancel,
-                )?;
-                let new = source::prepare(
-                    &file.after,
-                    &new_numbers,
-                    &file.lines,
-                    source::Side::New,
-                    cancel,
-                )?;
-                let labels = [old.label(), new.label()]
-                    .into_iter()
-                    .flatten()
-                    .collect::<Vec<_>>();
-                let mut unique = Vec::new();
-                for label in labels {
-                    if !unique.contains(&label) {
-                        unique.push(label);
-                    }
-                }
-                if !unique.is_empty() {
-                    lines.push(Line::styled(
-                        format!("{}: {}", i18n::tr!(SyntaxLabel), unique.join(" → ")),
-                        Style::default().fg(MUTED),
-                    ));
-                }
-                let max_number = old_numbers
-                    .iter()
-                    .chain(&new_numbers)
-                    .copied()
-                    .map(|number| number.get())
-                    .max()
-                    .unwrap_or(1);
-                let width = max_number.to_string().len();
-                for line in file.lines {
-                    cancel.check()?;
-                    let (before, after, prefix, background, tokens) = match &line {
-                        PatchLine::Context {
-                            old: before,
-                            new: after,
-                            ..
-                        } => (
-                            format!("{before:>width$}"),
-                            format!("{after:>width$}"),
-                            " ",
-                            None,
-                            new.line(*after),
-                        ),
-                        PatchLine::Added { new: number, .. } => (
-                            " ".repeat(width),
-                            format!("{number:>width$}"),
-                            "+",
-                            Some(ADDED),
-                            new.line(*number),
-                        ),
-                        PatchLine::Removed { old: number, .. } => (
-                            format!("{number:>width$}"),
-                            " ".repeat(width),
-                            "-",
-                            Some(REMOVED),
-                            old.line(*number),
-                        ),
-                        PatchLine::Metadata { kind, text } => {
-                            let style = match kind {
-                                Metadata::File => Style::default().fg(Color::LightBlue).bold(),
-                                Metadata::Hunk => Style::default().fg(Color::Rgb(180, 142, 220)),
-                                Metadata::Notice => Style::default().fg(MUTED).italic(),
-                            };
-                            lines.extend(text.lines().map(|text| Line::styled(safe(text), style)));
-                            continue;
-                        }
-                    };
-                    let base = background
-                        .map(|color| Style::default().bg(color))
-                        .unwrap_or_default();
-                    let marker = match line {
-                        PatchLine::Added { .. } => Color::LightGreen,
-                        PatchLine::Removed { .. } => Color::LightRed,
-                        _ => MUTED,
-                    };
-                    let mut spans = vec![
-                        Span::styled(format!("{before} {after} │"), base.fg(MUTED)),
-                        Span::styled(prefix, base.fg(marker)),
-                    ];
-                    spans.extend(source::spans(line.content(), tokens, base));
-                    lines.push(Line::from(spans).style(base));
-                }
-                lines.push(Line::default());
-            }
-            if extent == Extent::Truncated {
-                lines.extend(
-                    i18n::tr!(DiffExceeds128KibOnlyTheBeginning)
-                        .lines()
-                        .map(|text| Line::styled(safe(text), Style::default().fg(Color::Yellow))),
-                );
-            }
-        }
-    }
-    cancel.check()?;
-    Ok(Text::from(lines))
 }

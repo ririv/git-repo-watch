@@ -55,7 +55,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
         Mode::Diff {
             content, scroll, ..
-        } => diff::render(frame, area, content, scroll),
+        } => diff::render(frame, area, content, scroll, screen.diff_preference),
         Mode::CommitMessage { plan, scroll, .. } => text_view(
             frame,
             area,

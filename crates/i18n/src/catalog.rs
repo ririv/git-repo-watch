@@ -2,6 +2,16 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    DiffAuto,
+    DiffSplit,
+    DiffUnified,
+    DiffChooseAuto,
+    DiffChooseSplit,
+    DiffChooseUnified,
+    DiffLayoutSelected,
+    DiffBefore,
+    DiffAfter,
+    DiffTooNarrow,
     InvalidDiffStructure,
     DiffSourceChanged,
     SyntaxLabel,
@@ -489,6 +499,32 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::DiffAuto, Language::English) => "Auto",
+            (Self::DiffAuto, Language::Chinese) => "自动",
+            (Self::DiffSplit, Language::English) => "Split",
+            (Self::DiffSplit, Language::Chinese) => "双栏",
+            (Self::DiffUnified, Language::English) => "Unified",
+            (Self::DiffUnified, Language::Chinese) => "统一",
+            (Self::DiffChooseAuto, Language::English) => "Choose diff layout by available width",
+            (Self::DiffChooseAuto, Language::Chinese) => "根据可用宽度自动选择差异布局",
+            (Self::DiffChooseSplit, Language::English) => {
+                "Compare old and new versions side by side"
+            }
+            (Self::DiffChooseSplit, Language::Chinese) => "左右对比旧版与新版",
+            (Self::DiffChooseUnified, Language::English) => "Show changes in a single unified diff",
+            (Self::DiffChooseUnified, Language::Chinese) => "在统一视图中查看差异",
+            (Self::DiffLayoutSelected, Language::English) => "Diff layout: {} · This TUI session",
+            (Self::DiffLayoutSelected, Language::Chinese) => "差异布局：{} · 本次 TUI 会话生效",
+            (Self::DiffBefore, Language::English) => "Before · {}",
+            (Self::DiffBefore, Language::Chinese) => "旧版 · {}",
+            (Self::DiffAfter, Language::English) => "After · {}",
+            (Self::DiffAfter, Language::Chinese) => "新版 · {}",
+            (Self::DiffTooNarrow, Language::English) => {
+                "This diff layout needs at least {} columns. Enlarge the window or use /diff auto."
+            }
+            (Self::DiffTooNarrow, Language::Chinese) => {
+                "此差异布局至少需要 {} 列。请扩大窗口或使用 /diff auto。"
+            }
             (Self::InvalidDiffStructure, Language::English) => {
                 "Invalid diff structure returned by libgit2"
             }
@@ -2098,9 +2134,9 @@ impl Message {
                 "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选 · Tab 区域"
             }
             (Self::ScrollEscFilesCommands, Language::English) => {
-                "↑↓ scroll · ←/Esc files · /commands"
+                "↑↓ scroll · ←/Esc files · /diff layout"
             }
-            (Self::ScrollEscFilesCommands, Language::Chinese) => "↑↓滚动 · ←/Esc 返回文件 · /命令",
+            (Self::ScrollEscFilesCommands, Language::Chinese) => "↑↓滚动 · ←/Esc 返回 · /diff 布局",
             (Self::SelectEnterDetailsCtrlFFilterTab, Language::English) => {
                 "↑↓ select · →/Enter open · ←/Esc back · Ctrl+F · F1"
             }
@@ -2283,6 +2319,22 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (DiffLayoutSelected $(, $($args:tt)*)?) => { match $crate::language() {
+        $crate::Language::English => format!("Diff layout: {} · This TUI session" $(, $($args)*)?),
+        $crate::Language::Chinese => format!("差异布局：{} · 本次 TUI 会话生效" $(, $($args)*)?),
+    } };
+    (DiffBefore $(, $($args:tt)*)?) => { match $crate::language() {
+        $crate::Language::English => format!("Before · {}" $(, $($args)*)?),
+        $crate::Language::Chinese => format!("旧版 · {}" $(, $($args)*)?),
+    } };
+    (DiffAfter $(, $($args:tt)*)?) => { match $crate::language() {
+        $crate::Language::English => format!("After · {}" $(, $($args)*)?),
+        $crate::Language::Chinese => format!("新版 · {}" $(, $($args)*)?),
+    } };
+    (DiffTooNarrow $(, $($args:tt)*)?) => { match $crate::language() {
+        $crate::Language::English => format!("This diff layout needs at least {} columns. Enlarge the window or use /diff auto." $(, $($args)*)?),
+        $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /diff auto。" $(, $($args)*)?),
+    } };
     (StartupCheckStatus $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Check all on TUI startup: {}\n" $(, $($args)*)?),
         $crate::Language::Chinese => format!("TUI 启动时检查全部：{}\n" $(, $($args)*)?),

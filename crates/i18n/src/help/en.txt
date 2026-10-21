@@ -24,6 +24,8 @@
 
 ## Files, commits and pushes
 - `/stage` opens worktree files; `/unstage` opens the index. `Tab` switches areas; `→` / `Enter` opens a file diff.
+- Diff defaults to side-by-side on wide screens and unified on narrow screens. Both sides scroll together and align wrapped lines.
+- `/diff auto`, `/diff split`, `/diff unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
 - `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
 - In the file panel, `/stage` / `/unstage` acts on marked files, or the cursor file when none are marked.
 - Unstaging retains worktree contents. Git-ignored files are not listed.

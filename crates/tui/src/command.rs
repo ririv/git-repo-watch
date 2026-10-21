@@ -7,6 +7,7 @@ pub enum Action {
     Stage,
     Unstage,
     Diff,
+    DiffLayout(crate::diff::Preference),
     Commit,
     Push,
     Terminal,
@@ -66,6 +67,24 @@ pub const COMMANDS: &[Command] = &[
         action: Diff,
         scope: Repository,
         description: i18n::Message::ViewTheCurrentFileDiff,
+    },
+    Command {
+        name: "diff auto",
+        action: DiffLayout(crate::diff::Preference::Auto),
+        scope: View,
+        description: i18n::Message::DiffChooseAuto,
+    },
+    Command {
+        name: "diff split",
+        action: DiffLayout(crate::diff::Preference::Split),
+        scope: View,
+        description: i18n::Message::DiffChooseSplit,
+    },
+    Command {
+        name: "diff unified",
+        action: DiffLayout(crate::diff::Preference::Unified),
+        scope: View,
+        description: i18n::Message::DiffChooseUnified,
     },
     Command {
         name: "commit",
