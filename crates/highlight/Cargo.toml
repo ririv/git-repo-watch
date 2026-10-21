@@ -1,0 +1,12 @@
+[package]
+name = "highlight"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "与 Git 和终端界面无关的源码语法高亮"
+
+[dependencies]
+anyhow.workspace = true
+syntect.workspace = true

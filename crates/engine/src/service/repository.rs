@@ -33,9 +33,14 @@ impl Service {
         self.validate_repository(path, cancel)?;
         files::read(path)
     }
-    pub fn diff(&self, snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<String> {
+    pub fn diff(
+        &self,
+        snapshot: &Files,
+        change: &Change,
+        cancel: &Cancel,
+    ) -> Result<files::patch::Document> {
         self.validate_repository(&snapshot.path, cancel)?;
-        files::diff(snapshot, change)
+        files::document(snapshot, change, cancel)
     }
     pub fn edit_index(
         &self,

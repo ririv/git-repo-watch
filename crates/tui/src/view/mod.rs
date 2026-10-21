@@ -1,6 +1,7 @@
 //! Terminal layout and shared text-safe widgets.
 mod body;
 mod completion;
+mod diff;
 mod help;
 mod input;
 mod repository;
@@ -34,7 +35,7 @@ const MUTED: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;
 const BAD: Color = Color::LightRed;
 const WARN: Color = Color::Yellow;
-fn safe(text: &str) -> String {
+pub(crate) fn safe(text: &str) -> String {
     String::from_utf8_lossy(&strip_ansi_escapes::strip(text))
         .chars()
         .map(|c| if c.is_control() { ' ' } else { c })

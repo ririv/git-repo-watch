@@ -3,6 +3,7 @@ mod bar;
 mod checks;
 mod command;
 mod confirmation;
+mod diff;
 mod editor;
 mod input;
 mod task;
@@ -113,7 +114,7 @@ enum Mode {
     Files(FileSession),
     Diff {
         session: FileSession,
-        content: String,
+        content: Box<diff::View>,
         scroll: usize,
     },
     CommitMessage {
@@ -191,7 +192,7 @@ enum WorkerEvent {
 enum Outcome {
     TerminalOpened(PathBuf),
     Files(Files, FileArea),
-    Diff(FileSession, String),
+    Diff(FileSession, Box<diff::View>),
     CommitPrepared(CommitPlan),
     PushPrepared(PushPlan),
     Committed(CommitResult),

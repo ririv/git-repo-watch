@@ -2,6 +2,15 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    InvalidDiffStructure,
+    DiffSourceChanged,
+    SyntaxLabel,
+    SyntaxUnknown,
+    SyntaxSourceLimit,
+    SyntaxLineLimit,
+    SyntaxLineCountLimit,
+    SyntaxBinary,
+    SyntaxNonRegular,
     CheckAllOnStartup,
     StartupCheckArgumentHint,
     BooleanArgumentRequired,
@@ -480,6 +489,40 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::InvalidDiffStructure, Language::English) => {
+                "Invalid diff structure returned by libgit2"
+            }
+            (Self::InvalidDiffStructure, Language::Chinese) => "libgit2 返回了无效的差异结构",
+            (Self::DiffSourceChanged, Language::English) => {
+                "Source does not match the diff; refresh the file list and reopen the diff"
+            }
+            (Self::DiffSourceChanged, Language::Chinese) => {
+                "源码与差异不一致，请刷新文件列表后重新打开差异"
+            }
+            (Self::SyntaxLabel, Language::English) => "Syntax",
+            (Self::SyntaxLabel, Language::Chinese) => "语法",
+            (Self::SyntaxUnknown, Language::English) => "Unrecognized language · diff colors only",
+            (Self::SyntaxUnknown, Language::Chinese) => "未识别语言 · 仅显示差异颜色",
+            (Self::SyntaxSourceLimit, Language::English) => {
+                "Source exceeds 1 MiB · diff colors only"
+            }
+            (Self::SyntaxSourceLimit, Language::Chinese) => "源码超过 1 MiB · 仅显示差异颜色",
+            (Self::SyntaxLineLimit, Language::English) => {
+                "Source line exceeds 16 KiB · diff colors only"
+            }
+            (Self::SyntaxLineLimit, Language::Chinese) => "源码单行超过 16 KiB · 仅显示差异颜色",
+            (Self::SyntaxLineCountLimit, Language::English) => {
+                "Source exceeds 50,000 lines · diff colors only"
+            }
+            (Self::SyntaxLineCountLimit, Language::Chinese) => {
+                "源码超过 50,000 行 · 仅显示差异颜色"
+            }
+            (Self::SyntaxBinary, Language::English) => "Binary content · no syntax highlighting",
+            (Self::SyntaxBinary, Language::Chinese) => "二进制内容 · 不进行语法高亮",
+            (Self::SyntaxNonRegular, Language::English) => {
+                "Non-regular file · no syntax highlighting"
+            }
+            (Self::SyntaxNonRegular, Language::Chinese) => "非普通文件 · 不进行语法高亮",
             (Self::SystemdPathControlUnsupported, Language::English) => {
                 "Unsupported control character in systemd path"
             }

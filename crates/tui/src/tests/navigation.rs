@@ -35,9 +35,8 @@ fn empty_input_file_arrows_open_diff_and_return_through_the_same_file_session() 
     key(&mut s, KeyCode::Char(' '));
     key(&mut s, KeyCode::Right);
     wait(&mut s);
-    assert!(
-        matches!(&s.mode, Mode::Diff { content, .. } if content.contains("navigation content"))
-    );
+    assert!(matches!(&s.mode, Mode::Diff { .. }));
+    assert!(render(&mut s, 100, 28).contains("navigation content"));
     key(&mut s, KeyCode::Left);
     assert!(
         matches!(&s.mode, Mode::Files(session) if session.cursor == 0 && session.selected.len() == 1)

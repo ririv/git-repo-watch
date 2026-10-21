@@ -227,7 +227,7 @@ impl Screen {
             let content = s.diff(&session.snapshot, &change, &c)?;
             Ok(Outcome::Diff(
                 session,
-                format!("{}\n\n{content}", change.location.display()),
+                diff::prepare(&change.location.display(), content, &c)?,
             ))
         })
     }

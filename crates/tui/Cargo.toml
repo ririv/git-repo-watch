@@ -11,12 +11,14 @@ description = "Ratatui 终端交互适配器"
 identity.workspace = true
 i18n.workspace = true
 engine.workspace = true
+highlight.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 crossterm.workspace = true
 ratatui.workspace = true
 strip-ansi-escapes.workspace = true
 unicode-width.workspace = true
+vte.workspace = true
 
 [dev-dependencies]
 test-support.workspace = true

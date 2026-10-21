@@ -55,13 +55,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
         Mode::Diff {
             content, scroll, ..
-        } => text_view(
-            frame,
-            area,
-            &multiline(content),
-            scroll,
-            i18n::tr!(FileDiff),
-        ),
+        } => diff::render(frame, area, content, scroll),
         Mode::CommitMessage { plan, scroll, .. } => text_view(
             frame,
             area,

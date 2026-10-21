@@ -1,9 +1,11 @@
 //! File snapshots; index mutation and diff rendering are separate capabilities.
 mod diff;
 mod index;
+pub mod patch;
+mod source;
 use super::{Head, head, idle, open, utf8_path};
 use anyhow::{Context, Result, ensure};
-pub use diff::diff;
+pub use diff::{diff, document};
 use git2::{Delta, Oid, Repository, Status, StatusOptions};
 pub use index::edit;
 use std::path::{Path, PathBuf};

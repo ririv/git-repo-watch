@@ -1,4 +1,5 @@
 mod completion;
+mod diff;
 mod help;
 mod navigation;
 mod startup;
@@ -188,7 +189,8 @@ fn file_selection_commit_and_push_through_command_bar() {
         key(&mut s, KeyCode::Char(' '));
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
-        assert!(matches!(&s.mode,Mode::Diff{content,..}if content.contains("+one")));
+        assert!(matches!(&s.mode, Mode::Diff { .. }));
+        assert!(render(&mut s, 100, 28).contains("+one"));
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Char('/'));
         key(&mut s, KeyCode::Esc);

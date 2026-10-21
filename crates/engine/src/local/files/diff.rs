@@ -1,10 +1,24 @@
-//! Bounded, literal-path diffs with untracked and binary handling.
-use super::{Area, Change, Files, validate};
-use crate::local::{Head, open, utf8_path};
+//! Bounded literal-path patches with line coordinates and independent source versions.
+use super::{
+    Area, Change, Files,
+    patch::*,
+    source::{FileInfo, Storage},
+    validate,
+};
+use crate::{
+    cancel::Cancel,
+    local::{Head, open, utf8_path},
+};
 use anyhow::{Context, Result, ensure};
-use git2::{DiffFormat, DiffOptions};
-use std::fs;
+use git2::{DiffFile, DiffFormat, DiffLine, DiffLineType, DiffOptions};
+use std::{fs, num::NonZeroU32};
+
 pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
+    Ok(document(snapshot, change, &Cancel::default())?.text())
+}
+
+pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Document> {
+    cancel.check()?;
     let repo = open(&snapshot.path)?;
     validate(&repo, snapshot)?;
     ensure!(
@@ -15,17 +29,22 @@ pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
         let path = snapshot.path.join(change.location.name());
         let meta = fs::symlink_metadata(&path)?;
         if meta.file_type().is_symlink() {
-            return Ok(i18n::tf!(
+            return Ok(Document::Notice(i18n::tf!(
                 NewSymlink,
                 change.location.name(),
                 fs::read_link(path)?
-            ));
+            )));
         }
         if !meta.is_file() {
-            return Ok(i18n::tr!(DirectoryOrSpecialFileTextDiffIs).into());
+            return Ok(Document::Notice(
+                i18n::tr!(DirectoryOrSpecialFileTextDiffIs).into(),
+            ));
         }
-        if meta.len() > 1024 * 1024 {
-            return Ok(i18n::tf!(LargeUntrackedFileBytesViewWithAn, meta.len()));
+        if meta.len() > MAX_SOURCE_BYTES as u64 {
+            return Ok(Document::Notice(i18n::tf!(
+                LargeUntrackedFileBytesViewWithAn,
+                meta.len()
+            )));
         }
     }
     let mut options = DiffOptions::new();
@@ -47,28 +66,124 @@ pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
     } else {
         repo.diff_index_to_workdir(None, Some(&mut options))?
     };
-    let mut out = Vec::new();
-    let mut truncated = false;
-    diff.print(DiffFormat::Patch, |_, _, line| {
-        if truncated {
-            return true;
-        }
-        if out.len() + line.content().len() + 1 > 128 * 1024 {
-            truncated = true;
-            return true;
-        }
-        if matches!(line.origin(), '+' | '-' | ' ') {
-            out.push(line.origin() as u8)
-        }
-        out.extend_from_slice(line.content());
-        true
-    })?;
-    let mut text = String::from_utf8(out).context(i18n::tr!(DiffIsNotUtf8ViewWith))?;
-    if truncated {
-        text.push_str(i18n::tr!(DiffExceeds128KibOnlyTheBeginning))
+    struct Pending {
+        before: FileInfo,
+        after: FileInfo,
+        lines: Vec<Line>,
     }
-    if text.is_empty() {
-        text = i18n::tr!(NoTextDiffAvailablePossiblyBinaryOr).into()
+    let mut files: Vec<Pending> = Vec::new();
+    let mut bytes = 0;
+    enum Collection {
+        Complete,
+        Truncated,
+        Failed(anyhow::Error),
     }
-    Ok(text)
+    let mut collection = Collection::Complete;
+    let printed = diff.print(DiffFormat::Patch, |delta, _, line| {
+        if cancel.is_cancelled() {
+            return false;
+        }
+        if bytes + line.content().len() + 1 > 128 * 1024 {
+            collection = Collection::Truncated;
+            return false;
+        }
+        bytes += line.content().len() + 1;
+        let converted = (|| -> Result<()> {
+            if line.origin_value() == DiffLineType::FileHeader {
+                files.push(Pending {
+                    before: info(delta.old_file())?,
+                    after: info(delta.new_file())?,
+                    lines: Vec::new(),
+                });
+            }
+            let file = files.last_mut().context(i18n::tr!(InvalidDiffStructure))?;
+            file.lines.push(convert(line)?);
+            Ok(())
+        })();
+        match converted {
+            Ok(()) => true,
+            Err(error) => {
+                collection = Collection::Failed(error);
+                false
+            }
+        }
+    });
+    cancel.check()?;
+    let extent = match collection {
+        Collection::Complete => {
+            printed?;
+            Extent::Complete
+        }
+        Collection::Truncated => Extent::Truncated,
+        Collection::Failed(error) => return Err(error),
+    };
+    if files.is_empty() && extent == Extent::Complete {
+        return Ok(Document::Notice(
+            i18n::tr!(NoTextDiffAvailablePossiblyBinaryOr).into(),
+        ));
+    }
+    let mut result = Vec::new();
+    for file in files {
+        cancel.check()?;
+        result.push(FilePatch {
+            before: file.before.read(&repo, Storage::Object)?,
+            after: file.after.read(
+                &repo,
+                if change.area == Area::Staged {
+                    Storage::Object
+                } else {
+                    Storage::Worktree
+                },
+            )?,
+            lines: file.lines,
+        });
+    }
+    validate(&repo, snapshot)?;
+    cancel.check()?;
+    Ok(Document::Patch {
+        files: result,
+        extent,
+    })
+}
+
+fn info(file: DiffFile<'_>) -> Result<FileInfo> {
+    Ok(FileInfo {
+        path: file.path().context(i18n::tr!(ChangeHasNoPath))?.to_owned(),
+        oid: file.id(),
+        mode: file.mode(),
+        binary: file.is_binary(),
+        exists: file.exists(),
+    })
+}
+fn convert(line: DiffLine<'_>) -> Result<Line> {
+    let text =
+        String::from_utf8(line.content().to_vec()).context(i18n::tr!(DiffIsNotUtf8ViewWith))?;
+    let number = |value: Option<u32>| {
+        value
+            .and_then(NonZeroU32::new)
+            .context(i18n::tr!(InvalidDiffStructure))
+    };
+    Ok(match line.origin_value() {
+        DiffLineType::Context => Line::Context {
+            old: number(line.old_lineno())?,
+            new: number(line.new_lineno())?,
+            text,
+        },
+        DiffLineType::Addition => Line::Added {
+            new: number(line.new_lineno())?,
+            text,
+        },
+        DiffLineType::Deletion => Line::Removed {
+            old: number(line.old_lineno())?,
+            text,
+        },
+        kind => Line::Metadata {
+            kind: match kind {
+                DiffLineType::FileHeader => Metadata::File,
+                DiffLineType::HunkHeader => Metadata::Hunk,
+                _ => Metadata::Notice,
+            },
+            text,
+        },
+    })
 }
