@@ -32,7 +32,7 @@ func TestFailureReasonIsVisibleInListAtEverySupportedSize(t *testing.T) {
 		m.Update(size)
 		m.page = repositories
 		view := m.View().Content
-		if !strings.Contains(view, "↳ 远程 TLS 连接失败") || !strings.Contains(view, "SSL_ERROR_SYSCALL") {
+		if !strings.Contains(view, "TLS失败") || strings.Contains(view, "↳") {
 			t.Fatal(size, view)
 		}
 		if lipgloss.Height(view) > size.Height || lipgloss.Width(view) > size.Width {
@@ -47,7 +47,7 @@ func TestFailureReasonIsVisibleInListAtEverySupportedSize(t *testing.T) {
 	}
 }
 
-func TestFailureRowsKeepSelectedRepositoryAndItsReasonTogether(t *testing.T) {
+func TestFailureRowsStayOnOneLine(t *testing.T) {
 	m, _ := fixture(t)
 	saved := m.snapshot.Report.(app.AvailableReport)
 	saved.Report.Repositories = []model.Repository{}
@@ -59,7 +59,16 @@ func TestFailureRowsKeepSelectedRepositoryAndItsReasonTogether(t *testing.T) {
 	for i := range len(m.rows()) {
 		m.selected = i
 		view := m.listView()
-		if !strings.Contains(view, "↳ 上游引用不一致") || !strings.Contains(view, strings.TrimPrefix(m.rows()[i].Path, "/path/to/")) {
+		if strings.Contains(view, "↳") {
+			t.Fatal(i, view)
+		}
+		found := false
+		for _, line := range strings.Split(view, "\n") {
+			if strings.Contains(line, strings.TrimPrefix(m.rows()[i].Path, "/path/to/")) && strings.Contains(line, "引用不符") {
+				found = true
+			}
+		}
+		if !found {
 			t.Fatal(i, view)
 		}
 	}

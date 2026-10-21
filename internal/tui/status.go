@@ -58,7 +58,7 @@ func badges(r model.Repository) repositoryBadges {
 		}
 	}
 	if r.Status == model.Failed {
-		b.remote = badge{"检查失败", bad}
+		b.remote = badge{describeFailure(r.Error).label, bad}
 	}
 	success, failed := 0, 0
 	for _, p := range r.Pushes {
@@ -92,31 +92,18 @@ func priority(s model.Status) int {
 	}
 	return 4
 }
-func oneLineIssue(r model.Repository) string {
-	if r.Error != "" {
-		return failureSummary(r.Error)
-	}
-	parts := []string{}
-	for _, i := range r.Issues {
-		parts = append(parts, safe(i.Detail))
-	}
-	if len(parts) > 0 {
-		return strings.Join(parts, "；")
-	}
-	if r.Status == "" {
-		return "尚未出现在完整报告中"
-	}
-	return "已配置远程上游的分支检查通过；无上游分支单独统计"
-}
 
-// failureSummary shortens recognized Git diagnostics without inferring an unreported cause.
-func failureSummary(diagnostic string) string {
+type failureText struct{ label, summary string }
+
+// describeFailure supplies a compact table label and an explicit detail explanation.
+func describeFailure(diagnostic string) failureText {
 	switch {
 	case strings.Contains(diagnostic, "SSL_ERROR_SYSCALL"):
-		return "远程 TLS 连接失败（SSL_ERROR_SYSCALL）"
+		return failureText{"TLS失败", "远程 TLS 连接失败（SSL_ERROR_SYSCALL）"}
 	case strings.Contains(diagnostic, "远程在 fetch 后发生变化或 fetch refspec 未更新上游"):
-		return "上游引用不一致：远程更新或 fetch 配置未更新该上游"
+		return failureText{"引用不符", "上游引用不一致：远程更新或 fetch 配置未更新该上游"}
 	default:
-		return safe(diagnostic)
+		return failureText{"检查失败", safe(diagnostic)}
 	}
 }
+func failureSummary(diagnostic string) string { return describeFailure(diagnostic).summary }
