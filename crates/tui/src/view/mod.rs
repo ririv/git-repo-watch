@@ -21,7 +21,7 @@ use ratatui::{
     text::{Line, Span, Text},
     widgets::{
         Block, Borders, Cell, Clear, List, ListItem, ListState, Paragraph, Row as TableRow, Table,
-        TableState, Wrap,
+        Wrap,
     },
 };
 use repository::{detail_text, repositories};
@@ -70,6 +70,8 @@ fn block(title: impl Into<String>) -> Block<'static> {
         .title_style(Style::default().fg(ACCENT))
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
+    screen.body_area = None;
+    screen.repository_area = None;
     let area = frame.area();
     if area.width < 60 || area.height < 18 {
         frame.render_widget(Paragraph::new(i18n::tr!(TerminalSizeTooSmall)), area);
@@ -86,6 +88,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
         .split(area);
     frame.render_widget(Paragraph::new(header), layout[0]);
     input::render(frame, screen, layout[2]);
+    screen.body_area = Some(layout[1]);
     render_body(frame, screen, layout[1]);
     render_commands(frame, screen, layout[1]);
 }

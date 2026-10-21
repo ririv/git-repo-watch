@@ -36,8 +36,7 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     }
     frame.render_widget(Paragraph::new(Line::from(filters)), parts[0]);
     frame.render_widget(
-        Paragraph::new(i18n::tr!(WorktreeChangesUnknownPushSuccessFailureCounts))
-            .style(Style::default().fg(MUTED)),
+        Paragraph::new(i18n::tr!(WorktreeAndSyncLegend)).style(Style::default().fg(MUTED)),
         parts[1],
     );
     let body = parts[2];
@@ -46,7 +45,7 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .split(body);
         repository_table(frame, screen, columns[0]);
         let rows = screen.rows();
-        let selected = rows.get(screen.selected);
+        let selected = rows.get(screen.selected());
         let title = selected
             .map(|row| name(&row.path))
             .unwrap_or_else(|| i18n::tr!(NoRepositorySelectedAlt).into());
@@ -66,67 +65,91 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
 struct Badges {
     overall: &'static str,
     workspace: &'static str,
-    remote: &'static str,
-    experimental: String,
-    push: String,
+    sync: SyncStatus,
     color: Color,
+}
+#[derive(Debug, PartialEq, Eq)]
+enum SyncStatus {
+    Unknown,
+    CheckFailed(&'static str),
+    PushFailed(usize),
+    Pending,
+    Unavailable(&'static str),
+    Synced { pushed: usize },
+}
+impl SyncStatus {
+    fn from_result(result: &RepositoryResult) -> Self {
+        if let RepositoryResult::Failed { error, .. } = result {
+            return Self::CheckFailed(failure_label(error));
+        }
+        let failed = result
+            .pushes()
+            .iter()
+            .filter(|p| matches!(p, Publication::Failed { .. }))
+            .count();
+        if failed > 0 {
+            return Self::PushFailed(failed);
+        }
+        if let RepositoryResult::Attention { issues, .. } = result {
+            // 按明确优先级选取状态，避免成功记录或问题顺序掩盖尚未解决的同步问题。
+            for (kind, label) in [
+                (IssueKind::PushFailed, i18n::tr!(PushFailed)),
+                (IssueKind::MissingUpstream, i18n::tr!(MissingUpstream)),
+                (IssueKind::NoCommits, i18n::tr!(NoCommits)),
+            ] {
+                if issues.iter().any(|issue| issue.kind == kind) {
+                    return Self::Unavailable(label);
+                }
+            }
+            if issues
+                .iter()
+                .any(|issue| issue.kind == IssueKind::OutOfSync)
+            {
+                return Self::Pending;
+            }
+        }
+        Self::Synced {
+            pushed: result.pushes().len(),
+        }
+    }
+    fn label(&self) -> String {
+        match self {
+            Self::Unknown => "?".into(),
+            Self::CheckFailed(label) | Self::Unavailable(label) => (*label).into(),
+            Self::PushFailed(count) => i18n::tf!(SyncPushFailedCount, count),
+            Self::Pending => i18n::tr!(OutOfSync).into(),
+            Self::Synced { pushed: 0 } => i18n::tr!(Synced).into(),
+            Self::Synced { pushed } => i18n::tf!(SyncPushedCount, pushed),
+        }
+    }
 }
 fn badges(result: Option<&RepositoryResult>) -> Badges {
     let mut b = Badges {
         overall: "·",
         workspace: "?",
-        remote: "?",
-        experimental: "?".into(),
-        push: "—".into(),
+        sync: SyncStatus::Unknown,
         color: MUTED,
     };
     let Some(result) = result else { return b };
+    b.sync = SyncStatus::from_result(result);
     match result {
-        RepositoryResult::Clean {
-            branches_without_upstream,
-            ..
-        } => {
+        RepositoryResult::Clean { .. } => {
             b.overall = "✓";
             b.workspace = i18n::tr!(CleanAlt);
-            b.remote = i18n::tr!(Passed);
-            b.experimental = branches_without_upstream.len().to_string();
-            b.color = GOOD
+            b.color = GOOD;
         }
-        RepositoryResult::Attention {
-            issues,
-            branches_without_upstream,
-            ..
-        } => {
+        RepositoryResult::Attention { issues, .. } => {
             b.overall = "!";
             b.workspace = i18n::tr!(CleanAlt);
-            b.remote = i18n::tr!(Passed);
-            b.experimental = branches_without_upstream.len().to_string();
             b.color = WARN;
-            for issue in issues {
-                match issue.kind {
-                    IssueKind::Dirty => b.workspace = i18n::tr!(Changes),
-                    IssueKind::OutOfSync => b.remote = i18n::tr!(OutOfSync),
-                    IssueKind::MissingUpstream => b.remote = i18n::tr!(MissingUpstream),
-                    IssueKind::PushFailed => b.remote = i18n::tr!(PushFailed),
-                    IssueKind::NoCommits => b.remote = i18n::tr!(NoCommits),
-                    _ => {}
-                }
+            if issues.iter().any(|issue| issue.kind == IssueKind::Dirty) {
+                b.workspace = i18n::tr!(Changes);
             }
         }
-        RepositoryResult::Failed { error, .. } => {
+        RepositoryResult::Failed { .. } => {
             b.overall = "×";
-            b.remote = failure_label(error);
-            b.color = BAD
+            b.color = BAD;
         }
-    }
-    let good = result
-        .pushes()
-        .iter()
-        .filter(|p| matches!(p, Publication::Pushed { .. }))
-        .count();
-    let bad = result.pushes().len() - good;
-    if good + bad > 0 {
-        b.push = format!("↑{good} !{bad}")
     }
     b
 }
@@ -152,7 +175,7 @@ fn failure_label(error: &str) -> &'static str {
         FailureKind::Other => i18n::tr!(CheckFailed),
     }
 }
-fn repository_table(frame: &mut Frame, screen: &Screen, area: Rect) {
+fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let rows = screen.rows();
     let data = rows
         .iter()
@@ -161,9 +184,7 @@ fn repository_table(frame: &mut Frame, screen: &Screen, area: Rect) {
             TableRow::new(vec![
                 Cell::from(format!("{} {}", b.overall, name(&row.path))),
                 Cell::from(b.workspace),
-                Cell::from(b.remote),
-                Cell::from(b.experimental),
-                Cell::from(b.push),
+                Cell::from(b.sync.label()),
             ])
             .style(Style::default().fg(b.color))
         })
@@ -173,18 +194,14 @@ fn repository_table(frame: &mut Frame, screen: &Screen, area: Rect) {
         [
             Constraint::Min(12),
             Constraint::Length(9),
-            Constraint::Length(12),
-            Constraint::Length(6),
-            Constraint::Length(8),
+            Constraint::Length(18),
         ],
     )
     .header(
         TableRow::new([
             i18n::tr!(Repositories),
             i18n::tr!(Worktree),
-            i18n::tr!(Remote),
-            i18n::tr!(NoUpstreamColumn),
-            i18n::tr!(Pushes),
+            i18n::tr!(SyncColumn),
         ])
         .style(Style::default().fg(MUTED)),
     )
@@ -196,12 +213,8 @@ fn repository_table(frame: &mut Frame, screen: &Screen, area: Rect) {
     .row_highlight_style(selected_style())
     .highlight_symbol("› ")
     .column_spacing(1);
-    let mut state = TableState::default().with_selected(if rows.is_empty() {
-        None
-    } else {
-        Some(screen.selected)
-    });
-    frame.render_stateful_widget(table, area, &mut state);
+    screen.repository_area = Some(area);
+    frame.render_stateful_widget(table, area, &mut screen.repository_viewport);
     if rows.is_empty() {
         let inner = Rect {
             y: area.y + 2,
@@ -350,6 +363,111 @@ mod tests {
     use super::*;
     use engine::domain::{Issue, Issues};
 
+    fn publication(failed: bool) -> Publication {
+        let target = engine::domain::PushTarget {
+            branch: "main".into(),
+            local_ref: "refs/heads/main".into(),
+            local_oid: "a".repeat(40),
+            remote: "origin".into(),
+            remote_ref: "refs/heads/main".into(),
+            remote_oid: "b".repeat(40),
+            ahead_commits: 1,
+        };
+        if failed {
+            Publication::Failed {
+                target,
+                phase: engine::domain::Phase::Transfer,
+                error: "rejected".into(),
+            }
+        } else {
+            Publication::Pushed { target }
+        }
+    }
+    fn attention(kinds: Vec<IssueKind>, pushes: Vec<Publication>) -> RepositoryResult {
+        let mut issues = kinds.into_iter().map(|kind| Issue {
+            kind,
+            detail: "test".into(),
+        });
+        RepositoryResult::Attention {
+            path: "/example/repo".into(),
+            issues: Issues::new(issues.next().unwrap(), issues.collect()),
+            branches_without_upstream: vec![],
+            pushes,
+        }
+    }
+    #[test]
+    fn sync_state_prioritizes_failures_and_pending_branches_over_successful_pushes() {
+        assert_eq!(
+            SyncStatus::from_result(&RepositoryResult::Clean {
+                path: "/example/repo".into(),
+                branches_without_upstream: vec![],
+                pushes: vec![]
+            }),
+            SyncStatus::Synced { pushed: 0 }
+        );
+        assert_eq!(
+            SyncStatus::from_result(&attention(vec![IssueKind::Dirty], vec![publication(false)])),
+            SyncStatus::Synced { pushed: 1 }
+        );
+        assert_eq!(
+            SyncStatus::from_result(&attention(
+                vec![IssueKind::OutOfSync],
+                vec![publication(false)]
+            )),
+            SyncStatus::Pending
+        );
+        assert_eq!(
+            SyncStatus::from_result(&attention(
+                vec![IssueKind::OutOfSync, IssueKind::PushFailed],
+                vec![publication(false), publication(true)]
+            )),
+            SyncStatus::PushFailed(1)
+        );
+        let failed = RepositoryResult::Failed {
+            path: "/example/repo".into(),
+            error: "SSL_ERROR_SYSCALL".into(),
+            pushes: vec![publication(false), publication(true)],
+        };
+        assert_eq!(
+            SyncStatus::from_result(&failed),
+            SyncStatus::CheckFailed(i18n::tr!(TlsFailed))
+        );
+        for kinds in [
+            vec![IssueKind::OutOfSync, IssueKind::MissingUpstream],
+            vec![IssueKind::MissingUpstream, IssueKind::OutOfSync],
+        ] {
+            assert_eq!(
+                SyncStatus::from_result(&attention(kinds, vec![])),
+                SyncStatus::Unavailable(i18n::tr!(MissingUpstream))
+            );
+        }
+    }
+    #[test]
+    fn sync_labels_are_localized_without_losing_push_counts() {
+        for (language, synced, pushed, failed, pending) in [
+            (
+                i18n::Language::English,
+                "Synced",
+                "Pushed 2",
+                "Push failed · 1",
+                "Out of sync",
+            ),
+            (
+                i18n::Language::Chinese,
+                "已同步",
+                "已推送 2",
+                "推送失败 · 1",
+                "待同步",
+            ),
+        ] {
+            let _language = i18n::using(language);
+            assert_eq!(SyncStatus::Unknown.label(), "?");
+            assert_eq!(SyncStatus::Synced { pushed: 0 }.label(), synced);
+            assert_eq!(SyncStatus::Synced { pushed: 2 }.label(), pushed);
+            assert_eq!(SyncStatus::PushFailed(1).label(), failed);
+            assert_eq!(SyncStatus::Pending.label(), pending);
+        }
+    }
     #[test]
     fn detail_values_have_labels_for_each_report_state() {
         let _language = i18n::using(i18n::Language::Chinese);

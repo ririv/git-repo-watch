@@ -1,7 +1,9 @@
 //! Shared input validation and scrolling primitives.
 mod actions;
 mod keys;
+mod mouse;
 mod navigation;
+pub(crate) mod scroll;
 use super::*;
 use anyhow::{Result, ensure};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};

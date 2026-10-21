@@ -94,7 +94,7 @@ impl Screen {
                 }
                 Mode::Browsing if self.query != query => {
                     self.query = query;
-                    self.selected = 0;
+                    self.select(0);
                     self.page = Page::Repositories;
                 }
                 _ => {}

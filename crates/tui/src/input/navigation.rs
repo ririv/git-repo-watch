@@ -38,16 +38,12 @@ impl Screen {
             Page::Repositories => {
                 let count = self.rows().len();
                 match key.code {
-                    KeyCode::Up => self.selected = self.selected.saturating_sub(1),
-                    KeyCode::Down => {
-                        self.selected = (self.selected + 1).min(count.saturating_sub(1))
-                    }
-                    KeyCode::PageDown => {
-                        self.selected = (self.selected + 10).min(count.saturating_sub(1))
-                    }
-                    KeyCode::PageUp => self.selected = self.selected.saturating_sub(10),
-                    KeyCode::Home => self.selected = 0,
-                    KeyCode::End => self.selected = count.saturating_sub(1),
+                    KeyCode::Up => self.select(self.selected().saturating_sub(1)),
+                    KeyCode::Down => self.select(self.selected().saturating_add(1)),
+                    KeyCode::PageDown => self.select(self.selected().saturating_add(10)),
+                    KeyCode::PageUp => self.select(self.selected().saturating_sub(10)),
+                    KeyCode::Home => self.select(0),
+                    KeyCode::End => self.select(count.saturating_sub(1)),
                     KeyCode::Enter if count > 0 => {
                         self.history.push(self.page);
                         self.page = Page::Detail;

@@ -137,7 +137,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Page::Detail => {
                 let rows = screen.rows();
                 let text = rows
-                    .get(screen.selected)
+                    .get(screen.selected())
                     .map(detail_text)
                     .unwrap_or_else(|| i18n::tr!(CurrentRepositoryIsNotInTheFiltered).into());
                 review::styled_text_view(

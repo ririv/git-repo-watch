@@ -11,6 +11,20 @@ impl Screen {
         }
     }
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+        if matches!(
+            key.code,
+            KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::PageUp
+                | KeyCode::PageDown
+                | KeyCode::Home
+                | KeyCode::End
+        ) {
+            self.scroll_input.keyboard(std::time::Instant::now());
+        }
+        self.dispatch_key(key, root)
+    }
+    pub(super) fn dispatch_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         if let Mode::Busy(p) = &mut self.mode {
             if key.code == KeyCode::Esc || ctrl_c(key) {
                 p.cancel.cancel();

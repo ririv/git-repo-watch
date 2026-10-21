@@ -2,6 +2,10 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    SyncPushFailedCount,
+    SyncPushedCount,
+    Synced,
+    SyncColumn,
     SystemdPathControlUnsupported,
     UnexpectedSystemdTimerState,
     XdgDirectoryMustBeAbsolute,
@@ -305,7 +309,7 @@ pub enum Message {
     TuiHelp,
     Repos,
     Search,
-    WorktreeChangesUnknownPushSuccessFailureCounts,
+    WorktreeAndSyncLegend,
     NoRepositorySelectedAlt,
     NoRepositories,
     CleanAlt,
@@ -411,6 +415,14 @@ impl Message {
                 "XDG directory must be an absolute path"
             }
             (Self::XdgDirectoryMustBeAbsolute, Language::Chinese) => "XDG 目录必须是绝对路径",
+            (Self::SyncColumn, Language::English) => "Sync",
+            (Self::SyncColumn, Language::Chinese) => "同步",
+            (Self::Synced, Language::English) => "Synced",
+            (Self::Synced, Language::Chinese) => "已同步",
+            (Self::SyncPushedCount, Language::English) => "Pushed {}",
+            (Self::SyncPushedCount, Language::Chinese) => "已推送 {}",
+            (Self::SyncPushFailedCount, Language::English) => "Push failed · {}",
+            (Self::SyncPushFailedCount, Language::Chinese) => "推送失败 · {}",
             (Self::LinuxTerminalLauncherRequired, Language::English) => {
                 "Install xdg-terminal-exec and configure your preferred terminal before opening repository terminals"
             }
@@ -1613,23 +1625,23 @@ impl Message {
             (Self::NoMatchingCommands, Language::Chinese) => "没有匹配命令",
             (Self::TuiHelp, Language::English) => {
                 concat!(
-                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; Tab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check all checks all registered repositories after confirmation, with configured automatic push.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfiguration, checks, commits and pushes require y; n/Esc cancels.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\n↑n !m counts successful/failed branch pushes in the last check; ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
+                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check all checks all registered repositories after confirmation, with configured automatic push.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfiguration, checks, commits and pushes require y; n/Esc cancels.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
                     identity::command!(),
                     " to override.\n"
                 )
             }
             (Self::TuiHelp, Language::Chinese) => {
-                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；Tab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check all 确认后检查全部注册仓库，按当前策略自动推送。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n配置、检查、提交和推送经 y 确认，n/Esc 取消。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n↑n !m 是上次检查成功、失败的分支数，? 表示该项未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
+                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check all 确认后检查全部注册仓库，按当前策略自动推送。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n配置、检查、提交和推送经 y 确认，n/Esc 取消。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
             }
             (Self::Repos, Language::English) => " {} repos",
             (Self::Repos, Language::Chinese) => " {}库",
             (Self::Search, Language::English) => " Search: {}",
             (Self::Search, Language::Chinese) => " 搜索：{}",
-            (Self::WorktreeChangesUnknownPushSuccessFailureCounts, Language::English) => {
-                "* Worktree changes · ? Unknown · ↑/! Push success/failure counts"
+            (Self::WorktreeAndSyncLegend, Language::English) => {
+                "* Worktree changes · ? Unknown · Sync includes push results"
             }
-            (Self::WorktreeChangesUnknownPushSuccessFailureCounts, Language::Chinese) => {
-                "* 工作区改动 · ? 未知 · ↑/! 推送成功/失败分支数"
+            (Self::WorktreeAndSyncLegend, Language::Chinese) => {
+                "* 工作区改动 · ? 未知 · 同步包含推送结果"
             }
             (Self::NoRepositorySelectedAlt, Language::English) => "No repository selected",
             (Self::NoRepositorySelectedAlt, Language::Chinese) => "无选中仓库",
@@ -1879,6 +1891,18 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (SyncPushFailedCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Push failed · {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("推送失败 · {}" $(, $($args)*)?),
+        }
+    };
+    (SyncPushedCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Pushed {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("已推送 {}" $(, $($args)*)?),
+        }
+    };
     (RepositoryTerminalOpened $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Opened terminal: {}" $(, $($args)*)?),

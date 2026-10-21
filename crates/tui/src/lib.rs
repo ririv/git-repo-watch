@@ -9,7 +9,7 @@ use anyhow::{Context, Result};
 use command::Action;
 use crossterm::{
     event::{self, Event as TerminalEvent, KeyEventKind},
-    event::{DisableBracketedPaste, EnableBracketedPaste},
+    event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -202,7 +202,10 @@ struct Screen {
     history: Vec<Page>,
     mode: Mode,
     bar: bar::InputBar,
-    selected: usize,
+    repository_viewport: ratatui::widgets::TableState,
+    scroll_input: input::scroll::ScrollInput,
+    repository_area: Option<ratatui::layout::Rect>,
+    body_area: Option<ratatui::layout::Rect>,
     filter: Filter,
     query: String,
     order: Order,
@@ -219,6 +222,8 @@ impl Screen {
     fn new(service: Service, cancel: &Cancel) -> Result<Self> {
         let snapshot = service.snapshot(cancel)?;
         let config = service.store.config()?;
+        let repository_viewport = ratatui::widgets::TableState::default()
+            .with_selected((!config.repositories.is_empty()).then_some(0));
         Ok(Self {
             service: Arc::new(service),
             snapshot,
@@ -227,7 +232,10 @@ impl Screen {
             history: Vec::new(),
             mode: Mode::Browsing,
             bar: bar::InputBar::default(),
-            selected: 0,
+            repository_viewport,
+            scroll_input: input::scroll::ScrollInput::default(),
+            repository_area: None,
+            body_area: None,
             filter: Filter::All,
             query: String::new(),
             order: Order::Priority,
@@ -269,8 +277,18 @@ impl Screen {
         });
         rows
     }
+    fn selected(&self) -> usize {
+        self.repository_viewport.selected().unwrap_or(0)
+    }
+    fn select(&mut self, index: usize) {
+        let last = self.rows().len().checked_sub(1);
+        self.repository_viewport
+            .select(last.map(|last| index.min(last)));
+    }
     fn selected_path(&self) -> Option<PathBuf> {
-        self.rows().get(self.selected).map(|r| r.path.clone())
+        self.repository_viewport
+            .selected()
+            .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
         self.mode
@@ -280,9 +298,10 @@ impl Screen {
     }
     fn focus(&mut self, path: Option<PathBuf>) {
         let rows = self.rows();
-        self.selected = path
+        let index = path
             .and_then(|p| rows.iter().position(|r| r.path == p))
             .unwrap_or(0);
+        self.select(index);
     }
     fn reload(&mut self, cancel: &Cancel) -> Result<()> {
         let path = self.selected_path();
@@ -301,7 +320,12 @@ impl TerminalGuard {
     fn enter() -> Result<Self> {
         enable_raw_mode()?;
         let guard = Self;
-        execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+        execute!(
+            io::stdout(),
+            EnterAlternateScreen,
+            EnableBracketedPaste,
+            EnableMouseCapture
+        )?;
         Ok(guard)
     }
 }
@@ -311,6 +335,7 @@ impl Drop for TerminalGuard {
         let _ = execute!(
             io::stdout(),
             DisableBracketedPaste,
+            DisableMouseCapture,
             LeaveAlternateScreen,
             crossterm::cursor::Show
         );
@@ -345,12 +370,16 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 dirty = false;
             }
             if event::poll(Duration::from_millis(80))? {
-                match event::read()? {
+                let event = event::read()?;
+                match event {
                     TerminalEvent::Key(key) if key.kind != KeyEventKind::Release => {
                         dirty = true;
                         if screen.key(key, &root)? {
                             break;
                         }
+                    }
+                    TerminalEvent::Mouse(mouse) => {
+                        dirty |= screen.mouse(mouse, &root)?;
                     }
                     TerminalEvent::Paste(text) => {
                         screen.paste(&text);

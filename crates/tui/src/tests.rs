@@ -11,6 +11,8 @@ use std::time::Instant;
 use test_support as support;
 fn screen(service: Service) -> Screen {
     let config = service.store.config().unwrap();
+    let repository_viewport = ratatui::widgets::TableState::default()
+        .with_selected((!config.repositories.is_empty()).then_some(0));
     Screen {
         snapshot: Snapshot {
             registration: Registration::Loaded,
@@ -31,7 +33,10 @@ fn screen(service: Service) -> Screen {
         history: vec![],
         mode: Mode::Browsing,
         bar: crate::bar::InputBar::default(),
-        selected: 0,
+        repository_viewport,
+        scroll_input: input::scroll::ScrollInput::default(),
+        repository_area: None,
+        body_area: None,
         filter: Filter::All,
         query: String::new(),
         order: Order::Priority,
@@ -123,7 +128,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
     s.paste("remove");
-    s.selected = 1;
+    s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
         matches!(&s.mode,Mode::Confirm(Confirmation::Remove(p))if p.as_path()==std::path::Path::new("/path/to/a"))
@@ -266,9 +271,9 @@ fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
     }
     assert_eq!(s.rows().len(), 2);
     key(&mut s, KeyCode::Down);
-    assert_eq!(s.selected, 1);
+    assert_eq!(s.selected(), 1);
     key(&mut s, KeyCode::Left);
-    assert_eq!(s.selected, 1);
+    assert_eq!(s.selected(), 1);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Detail);
     assert_eq!(s.query, "alpha");
@@ -535,7 +540,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         assert_eq!(s.bar.editor().text, "/terminal");
         assert_eq!(command::exact("terminal"), Some(Action::Terminal));
         assert!(matches!(s.mode, Mode::Browsing));
-        s.selected = 1;
+        s.select(1);
         assert!(
             matches!(&s.bar, crate::bar::InputBar::Command { path: Some(path), .. } if path == &PathBuf::from("/example/unavailable-alpha"))
         );
@@ -545,7 +550,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         let text = render(&mut s, 80, 24);
         assert!(text.contains(i18n::tr!(TerminalDirectoryMissing)));
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.selected, 1);
+        assert_eq!(s.selected(), 1);
     }
 }
 
@@ -608,4 +613,270 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             key(&mut s, KeyCode::Esc);
         }
     }
+}
+
+#[test]
+fn repository_table_shows_worktree_and_combined_sync_in_both_languages() {
+    for (language, worktree, sync, removed) in [
+        (
+            i18n::Language::English,
+            "Worktree",
+            "Sync",
+            ["Remote", "No up", "Pushes"],
+        ),
+        (
+            i18n::Language::Chinese,
+            "工作区",
+            "同步",
+            ["远程", "无上游", "推送"],
+        ),
+    ] {
+        let _language = i18n::using(language);
+        let (_temp, mut screen) = fixture(vec!["/example/repository".into()]);
+        for width in [60, 90, 130, 180] {
+            let output = render(&mut screen, width, 30);
+            let header = output
+                .lines()
+                .find(|line| {
+                    line.contains(i18n::tr!(Repositories))
+                        && line.contains(worktree)
+                        && line.contains(sync)
+                })
+                .unwrap();
+            for label in removed {
+                assert!(!header.contains(label), "{header}");
+            }
+        }
+    }
+}
+
+fn wheel(s: &mut Screen, kind: crossterm::event::MouseEventKind, column: u16, row: u16) -> bool {
+    s.mouse(
+        crossterm::event::MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers: KeyModifiers::NONE,
+        },
+        &Cancel::default(),
+    )
+    .unwrap()
+}
+#[test]
+fn repository_viewport_stays_in_place_when_moving_up_and_handles_resizing_and_search() {
+    let paths = (0..80)
+        .map(|i| PathBuf::from(format!("/example/repository{i:03}")))
+        .collect();
+    let (_temp, mut s) = fixture(paths);
+    for (width, height) in [(60, 18), (90, 24), (140, 30)] {
+        for _ in 0..8 {
+            key(&mut s, KeyCode::PageDown);
+        }
+        let output = render(&mut s, width, height);
+        assert!(output.contains("repository079"));
+        let offset = s.repository_viewport.offset();
+        assert!(offset > 0);
+        key(&mut s, KeyCode::Up);
+        let output = render(&mut s, width, height);
+        assert!(output.contains("repository078"));
+        assert_eq!(s.repository_viewport.offset(), offset);
+        for _ in 0..8 {
+            key(&mut s, KeyCode::PageUp);
+        }
+        assert!(render(&mut s, width, height).contains("repository000"));
+        assert_eq!(s.repository_viewport.offset(), 0);
+    }
+    for _ in 0..8 {
+        key(&mut s, KeyCode::PageDown);
+    }
+    render(&mut s, 90, 24);
+    for c in "repository002".chars() {
+        key(&mut s, KeyCode::Char(c));
+    }
+    let output = render(&mut s, 90, 24);
+    assert!(output.contains("repository002"));
+    assert_eq!(s.selected(), 0);
+    assert_eq!(s.repository_viewport.offset(), 0);
+}
+#[test]
+fn wheel_scrolls_main_list_with_bounds_and_respects_input_and_preview_regions() {
+    use crossterm::event::MouseEventKind::{ScrollDown, ScrollUp};
+    let paths = (0..50)
+        .map(|i| PathBuf::from(format!("/example/repository{i:03}")))
+        .collect();
+    let (_temp, mut s) = fixture(paths);
+    render(&mut s, 140, 30);
+    let area = s.repository_area.unwrap();
+    let (x, y) = (area.x + 2, area.y + 3);
+    assert!(wheel(&mut s, ScrollDown, x, y));
+    assert_eq!(s.selected(), 3);
+    assert!(!wheel(&mut s, ScrollDown, area.right() + 2, y));
+    assert!(!wheel(&mut s, ScrollDown, x, 29));
+    assert_eq!(s.selected(), 3);
+    for _ in 0..30 {
+        wheel(&mut s, ScrollDown, x, y);
+    }
+    assert_eq!(s.selected(), 49);
+    assert!(render(&mut s, 140, 30).contains("repository049"));
+    let offset = s.repository_viewport.offset();
+    wheel(&mut s, ScrollUp, x, y);
+    assert_eq!(s.selected(), 46);
+    render(&mut s, 140, 30);
+    assert_eq!(s.repository_viewport.offset(), offset);
+    for _ in 0..30 {
+        wheel(&mut s, ScrollUp, x, y);
+    }
+    assert_eq!(s.selected(), 0);
+    render(&mut s, 20, 10);
+    assert!(!wheel(&mut s, ScrollDown, x, y));
+    assert_eq!(s.selected(), 0);
+}
+#[test]
+fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_lists() {
+    use crossterm::event::MouseEventKind::ScrollDown;
+    let (_temp, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    render(&mut s, 90, 24);
+    let area = s.repository_area.unwrap();
+    key(&mut s, KeyCode::Char('/'));
+    render(&mut s, 90, 24);
+    assert!(wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
+    assert_eq!(s.selected(), 0);
+    match &s.bar {
+        crate::bar::InputBar::Command { path, selected, .. } => {
+            assert_eq!(
+                path.as_deref(),
+                Some(std::path::Path::new("/example/alpha"))
+            );
+            assert_eq!(*selected, 3);
+        }
+        _ => panic!("command mode expected"),
+    }
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "check all");
+    render(&mut s, 90, 24);
+    assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
+    assert_eq!(s.selected(), 0);
+    key(&mut s, KeyCode::Esc);
+    s.config.repositories.clear();
+    render(&mut s, 90, 24);
+    wheel(&mut s, ScrollDown, area.x + 2, area.y + 3);
+    assert_eq!(s.selected(), 0);
+}
+
+#[test]
+fn keyboard_reverses_wheel_at_both_list_boundaries_without_an_extra_keypress() {
+    use crossterm::event::MouseEventKind::ScrollDown;
+    let paths = (0..52)
+        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .collect();
+    let (_temp, mut s) = fixture(paths);
+    for (width, height) in [(60, 18), (90, 24), (140, 30)] {
+        render(&mut s, width, height);
+        let area = s.repository_area.unwrap();
+        for _ in 0..30 {
+            wheel(&mut s, ScrollDown, area.x + 2, area.y + 3);
+            render(&mut s, width, height);
+        }
+        assert_eq!(s.selected(), 51);
+        assert_eq!(s.repository_viewport.selected(), Some(51));
+        key(&mut s, KeyCode::Up);
+        let output = render(&mut s, width, height);
+        assert_eq!(s.selected(), 50);
+        assert_eq!(s.repository_viewport.selected(), Some(50));
+        let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
+        assert!(highlighted.contains("repo050"), "{highlighted}");
+        for _ in 0..30 {
+            wheel(
+                &mut s,
+                crossterm::event::MouseEventKind::ScrollUp,
+                area.x + 2,
+                area.y + 3,
+            );
+            render(&mut s, width, height);
+        }
+        assert_eq!(s.selected(), 0);
+        key(&mut s, KeyCode::Down);
+        let output = render(&mut s, width, height);
+        assert_eq!(s.selected(), 1);
+        assert_eq!(s.repository_viewport.selected(), Some(1));
+        let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
+        assert!(highlighted.contains("repo001"), "{highlighted}");
+    }
+}
+
+#[test]
+fn shrinking_list_at_bottom_keeps_display_and_navigation_on_the_same_selection() {
+    let paths = (0..52)
+        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .collect();
+    let (_temp, mut s) = fixture(paths);
+    for _ in 0..6 {
+        key(&mut s, KeyCode::PageDown);
+    }
+    render(&mut s, 90, 24);
+    assert_eq!(s.selected(), 51);
+    // 列表减少一项后，渲染器会将高亮移到新的末项，导航必须立即使用同一个位置。
+    s.config.repositories.pop();
+    let output = render(&mut s, 90, 24);
+    let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
+    assert!(highlighted.contains("repo050"), "{highlighted}");
+    key(&mut s, KeyCode::Up);
+    let output = render(&mut s, 90, 24);
+    assert_eq!(s.selected_path(), Some(PathBuf::from("/example/repo049")));
+    assert!(
+        output
+            .lines()
+            .find(|line| line.contains('›'))
+            .unwrap()
+            .contains("repo049")
+    );
+    for _ in 0..10 {
+        key(&mut s, KeyCode::PageDown);
+    }
+    key(&mut s, KeyCode::Up);
+    assert_eq!(s.selected_path(), Some(PathBuf::from("/example/repo049")));
+}
+
+#[test]
+fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary() {
+    use crossterm::event::MouseEventKind::{ScrollDown, ScrollUp};
+    let paths = (0..52)
+        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .collect();
+    let (_temp, mut s) = fixture(paths);
+    render(&mut s, 90, 24);
+    let area = s.repository_area.unwrap();
+    for _ in 0..30 {
+        wheel(&mut s, ScrollDown, area.x + 2, area.y + 3);
+    }
+    key(&mut s, KeyCode::Up);
+    assert_eq!(s.selected(), 50);
+    for _ in 0..10 {
+        assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
+    }
+    assert_eq!(s.selected(), 50);
+    assert!(
+        render(&mut s, 90, 24)
+            .lines()
+            .find(|line| line.contains('›'))
+            .unwrap()
+            .contains("repo050")
+    );
+    // 反向滚动属于新的明确意图，应立即恢复响应。
+    for _ in 0..30 {
+        wheel(&mut s, ScrollUp, area.x + 2, area.y + 3);
+    }
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.selected(), 1);
+    for _ in 0..10 {
+        assert!(!wheel(&mut s, ScrollUp, area.x + 2, area.y + 3));
+    }
+    assert_eq!(s.selected(), 1);
+    assert!(
+        render(&mut s, 90, 24)
+            .lines()
+            .find(|line| line.contains('›'))
+            .unwrap()
+            .contains("repo001")
+    );
 }
