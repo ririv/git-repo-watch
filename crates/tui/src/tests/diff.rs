@@ -183,3 +183,124 @@ fn narrow_forced_split_is_explicit_and_restores_the_view_when_enlarged() {
     assert!(matches!(s.mode, Mode::Diff { .. }));
     assert!(render(&mut s, 160, 32).contains("visible_again"));
 }
+
+#[test]
+fn common_language_diffs_have_real_token_colors_in_both_layouts() {
+    use ratatui::buffer::Buffer;
+    fn token_color(buffer: &Buffer, word: &str) -> Color {
+        let chars = word.chars().map(|ch| ch.to_string()).collect::<Vec<_>>();
+        for row in buffer.content.chunks(buffer.area.width as usize) {
+            for (column, cells) in row.windows(chars.len()).enumerate() {
+                if cells
+                    .iter()
+                    .zip(&chars)
+                    .all(|(cell, ch)| cell.symbol() == ch)
+                    && row[column].bg == crate::diff::ADDED
+                {
+                    return row[column].fg;
+                }
+            }
+        }
+        panic!("新增代码中没有找到 {word}");
+    }
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        for (file, before, after, syntax, keyword) in [
+            (
+                "types.ts",
+                "export type Mode = \"item\";\n",
+                "export type Mode = \"toolbar\" | \"item\"; // comment\n",
+                "TypeScript",
+                "export",
+            ),
+            (
+                "view.tsx",
+                "export const View = () => <button />;\n",
+                "export const View = () => <button title=\"toolbar\" />; // comment\n",
+                "TypeScriptReact",
+                "export",
+            ),
+            (
+                "view.jsx",
+                "export const View = () => <button />;\n",
+                "export const View = () => <button title=\"toolbar\" />; // comment\n",
+                "JavaScript (Babel)",
+                "export",
+            ),
+            (
+                "main.go",
+                "package main\nconst message = \"item\"\n",
+                "package main\nconst message = \"toolbar\" // comment\n",
+                "Go",
+                "const",
+            ),
+            (
+                "main.py",
+                "message = \"item\"\n",
+                "if True: message = \"toolbar\" # comment\n",
+                "Python",
+                "if",
+            ),
+            (
+                "config.jsonc",
+                "{\"enabled\": false}\n",
+                "{\"enabled\": true, \"message\": \"toolbar\"} // comment\n",
+                "JSONC",
+                "true",
+            ),
+            (
+                "config.json5",
+                "{enabled: false}\n",
+                "{enabled: true, message: 'toolbar'} // comment\n",
+                "JSON5",
+                "true",
+            ),
+            (
+                "Page.astro",
+                "---\nconst message = \"item\";\n---\n<button />\n",
+                "---\nconst message: string = \"toolbar\"; // comment\n---\n<button title=\"save\">{message}</button>\n",
+                "Astro",
+                "const",
+            ),
+            (
+                "App.vue",
+                "<script lang=\"ts\">\nconst message = \"item\";\n</script>\n",
+                "<script lang=\"ts\">\nconst message: string = \"toolbar\"; // comment\n</script>\n",
+                "Vue Component",
+                "const",
+            ),
+            (
+                "App.svelte",
+                "<script lang=\"ts\">\nconst message = \"item\";\n</script>\n",
+                "<script lang=\"ts\">\nconst message: string = \"toolbar\"; // comment\n</script>\n",
+                "Svelte",
+                "const",
+            ),
+        ] {
+            let f = support::Fixture::create();
+            f.commit(file, before);
+            support::write(f.repo.join(file), after);
+            let (_home, mut s) = fixture(vec![f.repo.clone()]);
+            command(&mut s, "stage");
+            wait(&mut s);
+            key(&mut s, KeyCode::Enter);
+            wait(&mut s);
+            assert!(matches!(s.mode, Mode::Diff { .. }));
+            for width in [120, 180] {
+                let rendered = render(&mut s, width, 32);
+                assert!(rendered.contains(syntax), "{file}: {rendered}");
+                assert!(!rendered.contains(i18n::tr!(SyntaxUnknown)));
+                let mut terminal = Terminal::new(TestBackend::new(width, 32)).unwrap();
+                terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+                let buffer = terminal.backend().buffer();
+                assert_ne!(token_color(buffer, keyword), token_color(buffer, "toolbar"));
+                assert_ne!(
+                    token_color(buffer, "comment"),
+                    token_color(buffer, "toolbar")
+                );
+            }
+            assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
+            assert!(s.service.store.report().unwrap().is_none());
+        }
+    }
+}

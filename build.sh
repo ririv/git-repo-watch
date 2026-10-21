@@ -18,6 +18,11 @@ export CARGO_ENCODED_RUSTFLAGS
 # 同时裁剪内置 libgit2 等 C 依赖的源码路径。
 CFLAGS="${CFLAGS:-} -ffile-prefix-map=\"${ROOT}=source\" -ffile-prefix-map=\"${HOME}=~\""
 export CFLAGS
+# 发布构建始终编入 Oniguruma，避免受本机系统库和动态链接环境影响。
+RUSTONIG_SYSTEM_LIBONIG=0
+RUSTONIG_DYNAMIC_LIBONIG=0
+export RUSTONIG_SYSTEM_LIBONIG RUSTONIG_DYNAMIC_LIBONIG
 cargo build --release --locked --package app
 mkdir -p dist
 cp target/release/app "dist/$APP_COMMAND"
+cp THIRD_PARTY_NOTICES.md dist/THIRD_PARTY_NOTICES.md

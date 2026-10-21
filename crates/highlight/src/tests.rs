@@ -1,5 +1,6 @@
 use super::*;
 use std::{collections::BTreeSet, num::NonZeroU32, path::Path};
+mod coverage;
 
 fn numbers(values: &[u32]) -> BTreeSet<NonZeroU32> {
     values
@@ -62,9 +63,18 @@ fn language_detection_uses_names_extensions_and_shebangs() {
     for (path, text, expected) in [
         ("main.go", "package main\n", "Go"),
         ("main.py", "print('hi')\n", "Python"),
-        ("app.js", "const x = 1;\n", "JavaScript"),
+        ("app.js", "const x = 1;\n", "JavaScript (Babel)"),
+        ("module.mjs", "export const x = 1;\n", "JavaScript (Babel)"),
+        ("module.cjs", "module.exports = 1;\n", "JavaScript (Babel)"),
+        (
+            "view.jsx",
+            "const View = () => <button />;\n",
+            "JavaScript (Babel)",
+        ),
         ("data.json", "{\"x\": 1}\n", "JSON"),
         ("Makefile", "all:\n\techo hi\n", "Makefile"),
+        ("Dockerfile", "FROM alpine\n", "Dockerfile"),
+        ("config.toml", "enabled = true\n", "TOML"),
         ("script", "#!/usr/bin/env python3\nprint('hi')\n", "Python"),
     ] {
         assert!(
@@ -76,6 +86,80 @@ fn language_detection_uses_names_extensions_and_shebangs() {
         source("file.unrecognized_extension", "opaque\n", &[1]),
         Source::UnknownLanguage
     ));
+}
+
+#[test]
+fn typescript_and_tsx_use_their_own_grammars() {
+    for (path, text, expected) in [
+        (
+            "types.ts",
+            "export type Location = \"toolbar\" | \"record\";\n",
+            "TypeScript",
+        ),
+        ("types.mts", "export type Mode = string;\n", "TypeScript"),
+        ("types.cts", "export type Mode = string;\n", "TypeScript"),
+        (
+            "component.tsx",
+            "export const View = () => <button title=\"保存\">Save</button>;\n",
+            "TypeScriptReact",
+        ),
+    ] {
+        assert!(
+            matches!(source(path, text, &[1]), Source::Syntax { language, .. } if language == expected),
+            "{path} 未识别为 {expected}"
+        );
+    }
+}
+
+#[test]
+fn typescript_keywords_generic_constraints_strings_and_comments_have_distinct_colors() {
+    let text = concat!(
+        "export type Mode = \"global\" | \"item\"; // available modes\n",
+        "export interface Command<T extends string> {\n",
+        "  readonly location: Mode;\n",
+        "  readonly id: string;\n",
+        "}\n",
+    );
+    let highlighted = source("types.d.ts", text, &[1, 2, 3, 4, 5]);
+    let get = |number| &lines(&highlighted)[&NonZeroU32::new(number).unwrap()];
+    assert_ne!(color(get(1), "export"), color(get(1), "global"));
+    assert_ne!(color(get(1), "export"), color(get(1), "available"));
+    assert_ne!(color(get(3), "readonly"), color(get(3), "location"));
+    assert_ne!(color(get(2), "extends"), color(get(1), "global"));
+    assert_ne!(color(get(4), "string"), color(get(1), "global"));
+    for line in lines(&highlighted).values() {
+        assert_eq!(
+            line.tokens
+                .iter()
+                .map(|token| &line.text[token.range.clone()])
+                .collect::<String>(),
+            line.text
+        );
+    }
+}
+
+#[test]
+fn tsx_tags_attributes_strings_and_embedded_typescript_keep_their_colors() {
+    let text = "export const View = ({ label }: { label: string }) => <button title=\"保存\">{label}</button>; // end\n";
+    let highlighted = source("component.tsx", text, &[1]);
+    let line = &lines(&highlighted)[&NonZeroU32::new(1).unwrap()];
+    assert_ne!(color(line, "export"), color(line, "保存"));
+    assert_ne!(color(line, "button"), color(line, "保存"));
+    assert_ne!(color(line, "title"), color(line, "保存"));
+    assert_ne!(color(line, "end"), color(line, "保存"));
+}
+
+#[test]
+fn typescript_skipped_context_retains_template_string_and_comment_state() {
+    let text = format!(
+        "/*\n{}*/\nexport const template = `\n{}end`;\nexport type Mode = \"global\";\n",
+        "context\n".repeat(20),
+        "template\n".repeat(20)
+    );
+    let highlighted = source("context.ts", &text, &[15, 40, 45]);
+    let get = |number| &lines(&highlighted)[&NonZeroU32::new(number).unwrap()];
+    assert_ne!(color(get(15), "context"), color(get(40), "template"));
+    assert_ne!(color(get(40), "template"), color(get(45), "export"));
 }
 
 #[test]

@@ -1,0 +1,11 @@
+%YAML 1.2
+---
+name: JSONC
+scope: source.json.comments
+file_extensions:
+  - jsonc
+  - code-workspace
+contexts:
+  main:
+    # 内置 JSON 定义已支持行注释、块注释和尾逗号，显式复用其词法规则。
+    - include: scope:source.json

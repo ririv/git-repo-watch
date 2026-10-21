@@ -10,3 +10,7 @@ description = "与 Git 和终端界面无关的源码语法高亮"
 [dependencies]
 anyhow.workspace = true
 syntect.workspace = true
+
+[build-dependencies]
+syntect = { workspace = true, features = ["yaml-load", "dump-create"] }
+two-face.workspace = true

@@ -1,5 +1,5 @@
 //! Parse old and new sources independently, retaining tokens only for requested lines.
-use crate::{Color, SYNTAXES, Style, THEMES};
+use crate::{Color, Style, THEMES, syntax};
 use anyhow::{Context, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -65,24 +65,8 @@ pub fn highlight(
     if let Some(limit) = limited {
         return Ok(Source::Limited(limit));
     }
-    let syntaxes = &*SYNTAXES;
-    let filename = path
-        .file_name()
-        .and_then(|name| name.to_str())
-        .context("Source filename is not UTF-8")?;
-    let syntax = syntaxes
-        .find_syntax_by_extension(filename)
-        .or_else(|| {
-            path.extension()
-                .and_then(|ext| ext.to_str())
-                .and_then(|ext| syntaxes.find_syntax_by_extension(ext))
-        })
-        .or_else(|| {
-            text.lines()
-                .next()
-                .and_then(|first| syntaxes.find_syntax_by_first_line(first))
-        });
-    let Some(syntax) = syntax else {
+    let syntaxes = syntax::set();
+    let Some(syntax) = syntax::detect(syntaxes, path, text.lines().next())? else {
         return Ok(Source::UnknownLanguage);
     };
     let theme = THEMES
