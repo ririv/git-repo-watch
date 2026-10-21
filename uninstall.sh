@@ -1,4 +1,5 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-exec "$ROOT/dist/gw" --home "$ROOT" uninstall
+. "$ROOT/application.env"
+exec "$ROOT/dist/$APP_COMMAND" --home "$ROOT" uninstall

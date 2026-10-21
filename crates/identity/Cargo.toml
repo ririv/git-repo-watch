@@ -1,0 +1,8 @@
+[package]
+name = "identity"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "程序标识的单一来源与编译期常量"

@@ -33,6 +33,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "330a5ed07fa54e4702c9d6c4174f74427fc0ef6e214bbd677ae50a5099946470"
 
 [[package]]
+name = "app"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "ctrlc",
+ "engine",
+ "i18n",
+ "identity",
+ "libc",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "tui",
+]
+
+[[package]]
 name = "approx"
 version = "0.5.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -380,6 +397,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0e9c71c2167ca323c882b99918929403426e2373ea17242ff5653e0d5e1058be"
 
 [[package]]
+name = "engine"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "git2",
+ "i18n",
+ "identity",
+ "libc",
+ "serde",
+ "serde_json",
+ "sha2",
+ "tempfile",
+ "test-support",
+]
+
+[[package]]
 name = "equivalent"
 version = "1.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -531,66 +565,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "gw"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "ctrlc",
- "gw-core",
- "gw-i18n",
- "gw-tui",
- "libc",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
-name = "gw-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "git2",
- "gw-i18n",
- "gw-test-support",
- "libc",
- "serde",
- "serde_json",
- "sha2",
- "tempfile",
-]
-
-[[package]]
-name = "gw-i18n"
-version = "0.1.0"
-
-[[package]]
-name = "gw-test-support"
-version = "0.1.0"
-dependencies = [
- "tempfile",
-]
-
-[[package]]
-name = "gw-tui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "chrono",
- "crossterm",
- "gw-core",
- "gw-i18n",
- "gw-test-support",
- "libc",
- "ratatui",
- "strip-ansi-escapes",
- "tempfile",
- "unicode-width",
-]
-
-[[package]]
 name = "hashbrown"
 version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -612,6 +586,13 @@ name = "hex"
 version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f24254aa9a54b5c858eaee2f5bccdb46aaf0e486a595ed5fd8f86ba55232a70"
+
+[[package]]
+name = "i18n"
+version = "0.1.0"
+dependencies = [
+ "identity",
+]
 
 [[package]]
 name = "iana-time-zone"
@@ -642,6 +623,10 @@ name = "ident_case"
 version = "1.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
+
+[[package]]
+name = "identity"
+version = "0.1.0"
 
 [[package]]
 name = "indoc"
@@ -1656,6 +1641,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "test-support"
+version = "0.1.0"
+dependencies = [
+ "tempfile",
+]
+
+[[package]]
 name = "thiserror"
 version = "1.0.69"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1715,6 +1707,24 @@ name = "time-core"
 version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9e1c906769ad99c88eaa54e728060edef082f8e358ff32030cb7c7d315e81109"
+
+[[package]]
+name = "tui"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "chrono",
+ "crossterm",
+ "engine",
+ "i18n",
+ "identity",
+ "libc",
+ "ratatui",
+ "strip-ansi-escapes",
+ "tempfile",
+ "test-support",
+ "unicode-width",
+]
 
 [[package]]
 name = "typenum"

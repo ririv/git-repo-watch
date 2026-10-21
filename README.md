@@ -34,17 +34,17 @@ cp config.example.json config.json
 
 支持中文和英文。首次显示前读取语言偏好，同一次运行期间保持一致；macOS 首选语言为中文（含简繁体区域标识）时使用中文，其余语言默认英文。当前中文文案为简体中文。后台任务使用同一套系统语言检测，不依赖终端常驻。
 
-优先级为 `GW_LANG` → 非空 `LC_ALL` → 非空 `LC_MESSAGES` → macOS 首选语言 → `LANG` → 英文。终端的 `LANG` 不会覆盖 macOS 明确的系统首选语言；`LC_ALL` 和 `LC_MESSAGES` 视为用户显式指定的消息语言。
+优先级为 `APP_LANG` → 非空 `LC_ALL` → 非空 `LC_MESSAGES` → macOS 首选语言 → `LANG` → 英文。终端的 `LANG` 不会覆盖 macOS 明确的系统首选语言；`LC_ALL` 和 `LC_MESSAGES` 视为用户显式指定的消息语言。
 
 ```sh
-GW_LANG=en gw          # 本次以英文打开 TUI
-GW_LANG=zh gw          # 本次以中文打开 TUI
-GW_LANG=en gw status   # 本次以英文查询
+APP_LANG=en gw          # 本次以英文打开 TUI
+APP_LANG=zh gw          # 本次以中文打开 TUI
+APP_LANG=en gw status   # 本次以英文查询
 ```
 
-`GW_LANG` 只接受 `en` 或 `zh`，其他值明确报错。未设置时自动检测；切换系统语言后重新运行 `gw` 生效。语言选择不修改现有配置格式、JSON 字段名、枚举值或报告数据。路径、分支名、用户提交说明、Git 原始错误与历史报告中保存的原始说明保留原文。
+`APP_LANG` 只接受 `en` 或 `zh`，其他值明确报错。未设置时自动检测；切换系统语言后重新运行 `gw` 生效。语言选择不修改现有配置格式、JSON 字段名、枚举值或报告数据。路径、分支名、用户提交说明、Git 原始错误与历史报告中保存的原始说明保留原文。
 
-文案通过 `gw-i18n::Message` 标识集中维护，两种语言都必须显式提供；格式化消息在编译期检查参数。异步任务显式继承当前语言，界面不会因线程切换而混用语言。
+文案通过 `i18n::Message` 标识集中维护，两种语言都必须显式提供；格式化消息在编译期检查参数。异步任务显式继承当前语言，界面不会因线程切换而混用语言。
 
 ## 配置
 
@@ -209,37 +209,57 @@ gw check
 
 ## Workspace 与模块结构
 
-项目使用 Cargo workspace，四个生产 crate 和一个仅供测试的辅助 crate：
+项目使用 Cargo workspace，五个生产 crate 和一个仅供测试的辅助 crate：
 
 | Crate | 职责 | 项目内运行时依赖 |
 | --- | --- | --- |
-| `gw`（根目录） | CLI 命令解析、文本与 JSON 输出、程序入口 | `gw-core`、`gw-tui`、`gw-i18n` |
-| `gw-core` | 领域模型、本地 Git 能力、传输、应用服务、持久化和系统集成 | `gw-i18n` |
-| `gw-tui` | Ratatui 交互状态、命令栏、文件面板和视图 | `gw-core`、`gw-i18n` |
-| `gw-i18n` | 类型化中英文文案、系统语言检测与线程语言作用域 | 无 |
-| `gw-test-support` | 共享临时本地 Git 仓库夹具，不发布 | 无；只作为其他 crate 的开发依赖 |
+| `app`（根目录） | CLI 命令解析、文本与 JSON 输出、程序入口 | `engine`、`tui`、`i18n`、`identity` |
+| `engine` | 领域模型、本地 Git 能力、传输、应用服务、持久化和系统集成 | `i18n`、`identity` |
+| `tui` | Ratatui 交互状态、命令栏、文件面板和视图 | `engine`、`i18n`、`identity` |
+| `i18n` | 类型化中英文文案、系统语言检测与线程语言作用域 | `identity` |
+| `identity` | 从 `application.env` 编译产品标识，供界面、通知和安装共用 | 无 |
+| `test-support` | 共享临时本地 Git 仓库夹具，不发布 | 无；只作为其他 crate 的开发依赖 |
 
-`gw-core` 不依赖 CLI 或 TUI，也不引入 Ratatui/Crossterm；`gw-tui` 不依赖 CLI，也不直接依赖 `git2`，通过 core 的文件快照、提交预览、推送预览和应用服务执行操作。CLI 和 TUI 各自负责输出格式化，避免界面适配器互相调用。
+`engine` 不依赖 CLI 或 TUI，也不引入 Ratatui/Crossterm；`tui` 不依赖 CLI，也不直接依赖 `git2`，通过 engine 的文件快照、提交预览、推送预览和应用服务执行操作。CLI 和 TUI 各自负责输出格式化，避免界面适配器互相调用。
 
 核心内部继续按能力拆分：
 
 | 模块 | 职责 |
 | --- | --- |
-| `crates/gw-core/src/domain.rs` | 结果枚举、非空问题列表、兼容的 JSON 数据边界 |
-| `crates/gw-core/src/local/` | libgit2 仓库、分支、状态、索引、差异和提交预览 |
-| `crates/gw-core/src/transport.rs` | 固定系统 Git 网络与提交命令 |
-| `crates/gw-core/src/operations/` | 提交和推送的预览、核验、执行 |
-| `crates/gw-core/src/check.rs` | 单仓库检查流程 |
-| `crates/gw-core/src/executor.rs` | 有界任务池、同组串行、进度汇聚 |
-| `crates/gw-core/src/discovery.rs` | 忽略规则感知的仓库发现 |
-| `crates/gw-core/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
-| `crates/gw-core/src/state.rs` | 原子持久化与进程锁 |
-| `crates/gw-core/src/scheduler.rs`、`notify.rs` | launchd 与系统通知 |
-| `crates/gw-core/src/process.rs`、`cancel.rs` | 子进程收尾、超时与取消 |
-| `crates/gw-tui/src/input/`、`view/`、`task.rs` | 交互转换、绘制和异步任务收尾 |
+| `crates/engine/src/domain.rs` | 结果枚举、非空问题列表、兼容的 JSON 数据边界 |
+| `crates/engine/src/local/` | libgit2 仓库、分支、状态、索引、差异和提交预览 |
+| `crates/engine/src/transport.rs` | 固定系统 Git 网络与提交命令 |
+| `crates/engine/src/operations/` | 提交和推送的预览、核验、执行 |
+| `crates/engine/src/check.rs` | 单仓库检查流程 |
+| `crates/engine/src/executor.rs` | 有界任务池、同组串行、进度汇聚 |
+| `crates/engine/src/discovery.rs` | 忽略规则感知的仓库发现 |
+| `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
+| `crates/engine/src/state.rs` | 原子持久化与进程锁 |
+| `crates/engine/src/scheduler.rs`、`notify.rs` | launchd 与系统通知 |
+| `crates/engine/src/process.rs`、`cancel.rs` | 子进程收尾、超时与取消 |
+| `crates/tui/src/input/`、`view/`、`task.rs` | 交互转换、绘制和异步任务收尾 |
 | `src/cli.rs`、`src/main.rs` | CLI 适配和程序入口 |
 
 依赖版本统一放在根目录的 `[workspace.dependencies]`；每个 crate 显式声明自己使用的依赖。互斥状态使用枚举表达，配置和历史 JSON 是明确的数据边界。
+
+## 程序标识与更名
+
+所有 crate 都设置 `publish = false`，内部名称按职责命名，不包含产品前缀。入口包及构建产物固定叫 `app`；公开命令名与内部包名相互独立。
+
+产品标识只在根目录 `application.env` 定义：
+
+| 字段 | 用途 |
+| --- | --- |
+| `APP_COMMAND` | 安装命令名、`dist/` 文件名、帮助和操作提示中的命令名 |
+| `APP_DISPLAY_NAME` | 系统通知中的产品显示名 |
+| `APP_DATA_DIRECTORY` | `Library/Application Support/` 下的安装定位目录 |
+| `APP_SERVICE_LABEL` | launchd 标签及 plist 文件名 |
+
+该文件是共享的 `KEY=VALUE` 配置；值使用 ASCII 字母、数字、点、下划线和连字符，命令名以字母开头。不使用 Shell 表达式、空格或引号。`identity` 在编译时严格检查字段和取值，Shell 脚本与 Rust 读取同一份定义，不依赖额外运行时。
+
+以后修改 `APP_COMMAND` 后重新构建、安装即可更换公开命令，无需改 Cargo 包名、依赖引用、帮助文案或安装脚本。数据目录和调度标签单独定义，避免仅修改命令名就丢失已有定位或调度。修改这些持久标识时需显式安排迁移；安装器不猜测旧路径。
+
+项目内统一入口为 `./run.sh`，当前 `./gw` 仅作为兼容启动脚本转发到它。语言覆盖固定使用不含产品前缀的 `APP_LANG`，不随命令更名而改变。
 
 ## 开发与验证
 

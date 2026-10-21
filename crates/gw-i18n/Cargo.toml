@@ -1,7 +1,0 @@
-[package]
-name = "gw-i18n"
-version.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-license.workspace = true
-description = "gw 的类型化中英文文案与系统语言检测"

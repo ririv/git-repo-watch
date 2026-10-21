@@ -1,6 +1,6 @@
 //! Command routing and backward-compatible machine output.
 use anyhow::{Context, Result, bail, ensure};
-use gw_core::{
+use engine::{
     cancel::{Cancel, Cancelled},
     discovery,
     domain::*,
@@ -12,37 +12,37 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-pub const HELP: gw_i18n::Message = gw_i18n::Message::CliHelp;
+pub const HELP: i18n::Message = i18n::Message::CliHelp;
 pub fn execute(args: Vec<OsString>) -> i32 {
-    if let Err(error) = gw_i18n::validate_environment() {
+    if let Err(error) = i18n::validate_environment() {
         eprintln!("{error}");
         return 2;
     }
     let cancel = Cancel::default();
     let signal = cancel.clone();
     if let Err(e) = ctrlc::set_handler(move || signal.cancel()) {
-        eprintln!("{}", gw_i18n::tf!(UnableToRegisterExitSignalE, e = e));
+        eprintln!("{}", i18n::tf!(UnableToRegisterExitSignalE, e = e));
         return 2;
     }
     match run(args, &cancel) {
         Ok(code) => code,
         Err(e) if e.downcast_ref::<Cancelled>().is_some() || cancel.is_cancelled() => {
-            eprintln!("{}", gw_i18n::tr!(OperationCancelled));
+            eprintln!("{}", i18n::tr!(OperationCancelled));
             130
         }
         Err(e) => {
-            eprintln!("{}", gw_i18n::tf!(ErrorE, e = e));
+            eprintln!("{}", i18n::tf!(ErrorE, e = e));
             2
         }
     }
 }
 pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
-    gw_i18n::validate_environment().map_err(anyhow::Error::msg)?;
+    i18n::validate_environment().map_err(anyhow::Error::msg)?;
     let mut args = args
         .into_iter()
         .map(|s| {
             s.into_string()
-                .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(ArgumentsMustBeUtf8)))
+                .map_err(|_| anyhow::anyhow!(i18n::tr!(ArgumentsMustBeUtf8)))
         })
         .collect::<Result<Vec<_>>>()?;
     if args
@@ -54,17 +54,17 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
     }
     let manager = Manager::new()?;
     let home = if args.first().is_some_and(|a| a == "--home") {
-        ensure!(args.len() >= 2, gw_i18n::tr!(HomeRequiresAPath));
+        ensure!(args.len() >= 2, i18n::tr!(HomeRequiresAPath));
         let home = PathBuf::from(&args[1]);
         args.drain(..2);
         home
     } else {
         manager
             .read_location()
-            .context(gw_i18n::tr!(CannotReadInstallationLocationRunInstallSh))?
+            .context(i18n::tr!(CannotReadInstallationLocationRunInstallSh))?
             .home
     };
-    ensure!(home.is_absolute(), gw_i18n::tr!(HomeMustBeAnAbsolutePath));
+    ensure!(home.is_absolute(), i18n::tr!(HomeMustBeAnAbsolutePath));
     let service = Service::new(home, manager);
     let command = if args.is_empty() {
         "tui".to_owned()
@@ -78,7 +78,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         }
         "tui" => {
             none(&args)?;
-            gw_tui::run(service, cancel.clone())?;
+            tui::run(service, cancel.clone())?;
             Ok(0)
         }
         "status" if args == ["--help"] || args == ["-h"] => {
@@ -92,7 +92,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "status" => {
             ensure!(
                 args.is_empty() || args == ["--json"],
-                gw_i18n::tr!(StatusOnlyAcceptsJson)
+                i18n::tr!(StatusOnlyAcceptsJson)
             );
             let s = service.snapshot(cancel)?;
             if args == ["--json"] {
@@ -105,7 +105,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "report" => {
             let (machine, filter) = report_options(&args)?;
             let Some(mut report) = service.store.report()? else {
-                println!("{}", gw_i18n::tr!(NoCompleteReportYetWaitForThe));
+                println!("{}", i18n::tr!(NoCompleteReportYetWaitForThe));
                 return Ok(1);
             };
             if machine {
@@ -137,11 +137,11 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "add" => {
             ensure!(
                 !args.is_empty(),
-                gw_i18n::tr!(AddRequiresAtLeastOneRepositoryPath)
+                i18n::tr!(AddRequiresAtLeastOneRepositoryPath)
             );
             let paths = args.iter().map(PathBuf::from).collect::<Vec<_>>();
             let n = service.add(&paths)?;
-            println!("{}", gw_i18n::tf!(AddedNRepositories, n = n));
+            println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
         "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency" => {
@@ -156,7 +156,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 _ => unreachable!(),
             };
             service.configure(edit)?;
-            println!("{}", gw_i18n::tr!(ConfigurationSavedRunGwInstallToApply));
+            println!("{}", i18n::tr!(ConfigurationSavedApplySchedule));
             Ok(0)
         }
         "scan" | "import-tree" => {
@@ -177,7 +177,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 .count();
             println!(
                 "{}",
-                gw_i18n::tf!(
+                i18n::tf!(
                     FoundRepositoriesFailedCouldNotBeRead,
                     report.repositories.len(),
                     failed = failed
@@ -188,18 +188,18 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "check" => {
             none(&args)?;
             let report = service.run(cancel, |event| match event {
-                Event::Checking(p) => println!("{}", gw_i18n::tf!(Checking, p.display())),
+                Event::Checking(p) => println!("{}", i18n::tf!(Checking, p.display())),
                 Event::Checked(r) => match serde_json::to_string_pretty(&r) {
                     Ok(s) => println!("{s}"),
-                    Err(e) => eprintln!("{}", gw_i18n::tf!(UnableToPrintResultE, e = e)),
+                    Err(e) => eprintln!("{}", i18n::tf!(UnableToPrintResultE, e = e)),
                 },
                 Event::NotificationProblem(n) => {
-                    eprintln!("{}", gw_i18n::tf!(SystemNotificationFailedN, n = n))
+                    eprintln!("{}", i18n::tf!(SystemNotificationFailedN, n = n))
                 }
             })?;
             println!(
                 "{}",
-                gw_i18n::tf!(
+                i18n::tf!(
                     CheckCompleteRepositories,
                     report.status,
                     report.repositories.len()
@@ -212,8 +212,8 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             service.install(cancel)?;
             println!(
                 "{}",
-                gw_i18n::tf!(
-                    InstalledNativeGwAndSystemScheduleChecking,
+                i18n::tf!(
+                    InstalledCommandAndSystemSchedule,
                     service.store.config()?.interval_seconds as f64 / 3600.0
                 )
             );
@@ -225,28 +225,22 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             service.scheduler.uninstall(cancel)?;
             println!(
                 "{}",
-                gw_i18n::tr!(ScheduleRemovedConfigurationReportsAndCommandRetained)
+                i18n::tr!(ScheduleRemovedConfigurationReportsAndCommandRetained)
             );
             Ok(0)
         }
-        _ => bail!(gw_i18n::tf!(
-            UnknownCommandCommandRunGwHelp,
-            command = command
-        )),
+        _ => bail!(i18n::tf!(UnknownCommandShowHelp, command = command)),
     }
 }
 fn none(args: &[String]) -> Result<()> {
     ensure!(
         args.is_empty(),
-        gw_i18n::tr!(ThisCommandDoesNotAcceptPositionalArguments)
+        i18n::tr!(ThisCommandDoesNotAcceptPositionalArguments)
     );
     Ok(())
 }
 fn one(args: &[String]) -> Result<&str> {
-    ensure!(
-        args.len() == 1,
-        gw_i18n::tr!(ThisCommandRequiresOneArgument)
-    );
+    ensure!(args.len() == 1, i18n::tr!(ThisCommandRequiresOneArgument));
     Ok(&args[0])
 }
 fn json(value: &impl serde::Serialize) -> Result<()> {
@@ -265,7 +259,7 @@ pub fn report_options(args: &[String]) -> Result<(bool, Filter)> {
             "--problems" | "--no-upstream" | "--pushes" => {
                 ensure!(
                     filter == Filter::All,
-                    gw_i18n::tr!(ReportFiltersAreMutuallyExclusive)
+                    i18n::tr!(ReportFiltersAreMutuallyExclusive)
                 );
                 filter = match value.as_str() {
                     "--problems" => Filter::Problems,
@@ -273,7 +267,7 @@ pub fn report_options(args: &[String]) -> Result<(bool, Filter)> {
                     _ => Filter::Pushes,
                 }
             }
-            _ => bail!(gw_i18n::tf!(UnknownReportArgumentValue, value = value)),
+            _ => bail!(i18n::tf!(UnknownReportArgumentValue, value = value)),
         }
     }
     Ok((machine, filter))
@@ -284,21 +278,21 @@ pub fn local_time(value: &str) -> String {
             .with_timezone(&chrono::Local)
             .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
-        Err(_) => gw_i18n::tf!(InvalidReportTimestampValue, value = value),
+        Err(_) => i18n::tf!(InvalidReportTimestampValue, value = value),
     }
 }
 pub fn render_status(s: &Snapshot) -> String {
-    let mut text = gw_i18n::tf!(
+    let mut text = i18n::tf!(
         SystemScheduleCheckProcessConfiguredIntervalEvery,
         if s.registration == Registration::Loaded {
-            gw_i18n::tr!(Loaded)
+            i18n::tr!(Loaded)
         } else {
-            gw_i18n::tr!(NotLoaded)
+            i18n::tr!(NotLoaded)
         },
         if matches!(s.activity, Activity::Running) {
-            gw_i18n::tr!(Running)
+            i18n::tr!(Running)
         } else {
-            gw_i18n::tr!(Idle)
+            i18n::tr!(Idle)
         },
         s.configured_interval_seconds as f64 / 3600.0,
         s.repository_count,
@@ -306,25 +300,25 @@ pub fn render_status(s: &Snapshot) -> String {
         s.push_policy
     );
     match s.schedule {
-        Schedule::Missing => text.push_str(gw_i18n::tr!(SystemScheduleFileMissing)),
+        Schedule::Missing => text.push_str(i18n::tr!(SystemScheduleFileMissing)),
         Schedule::Saved { interval_seconds } => {
-            text.push_str(&gw_i18n::tf!(
+            text.push_str(&i18n::tf!(
                 ScheduledIntervalEveryHours,
                 interval_seconds as f64 / 3600.0
             ));
             if interval_seconds != s.configured_interval_seconds {
-                text.push_str(gw_i18n::tr!(IntervalNotAppliedRunGwInstall))
+                text.push_str(i18n::tr!(IntervalNotAppliedApplySchedule))
             }
         }
     }
     for excluded in &s.excluded_roots {
-        text.push_str(&gw_i18n::tf!(ExcludedDirectory, excluded.display()))
+        text.push_str(&i18n::tf!(ExcludedDirectory, excluded.display()))
     }
     match &s.report {
-        CachedReport::Missing => text.push_str(gw_i18n::tr!(LatestReportNoCompleteReportYet)),
+        CachedReport::Missing => text.push_str(i18n::tr!(LatestReportNoCompleteReportYet)),
         CachedReport::Available { report, scope } => {
             let stats = Stats::of(report);
-            text.push_str(&gw_i18n::tf!(
+            text.push_str(&i18n::tf!(
                 LastCheckLatestResultCleanNeedAttention,
                 local_time(&report.finished_at),
                 stats.clean,
@@ -336,42 +330,42 @@ pub fn render_status(s: &Snapshot) -> String {
                 stats.no_upstream_repos
             ));
             if stats.failed > 0 {
-                text.push_str(&gw_i18n::tf!(
+                text.push_str(&i18n::tf!(
                     OtherRepositoriesFailedToCheckTheseCounts,
                     stats.failed
                 ))
             }
             if stats.notice_failed > 0 {
-                text.push_str(&gw_i18n::tf!(
-                    SystemNotificationsFailedSeeGwReportPushes,
+                text.push_str(&i18n::tf!(
+                    SystemNotificationsFailedSeePushReport,
                     stats.notice_failed
                 ))
             }
             if report.push_policy == PushPolicy::Disabled
                 && s.push_policy == PushPolicy::FastForward
             {
-                text.push_str(gw_i18n::tr!(LatestReportPredatesAutomaticPushTheNext))
+                text.push_str(i18n::tr!(LatestReportPredatesAutomaticPushTheNext))
             }
             if report.status == ReportStatus::Unconfigured {
-                text.push_str(gw_i18n::tr!(NoRepositoriesWereConfiguredForThisCheck))
+                text.push_str(i18n::tr!(NoRepositoriesWereConfiguredForThisCheck))
             }
             if matches!(scope, Scope::Outdated) {
-                text.push_str(gw_i18n::tr!(ReportScopeDiffersFromTheCurrentRepository))
+                text.push_str(i18n::tr!(ReportScopeDiffersFromTheCurrentRepository))
             }
         }
     }
     text
 }
 pub fn render_report(report: &Report, filter: Filter) -> String {
-    let mut text = gw_i18n::tf!(CheckedAt, local_time(&report.finished_at));
+    let mut text = i18n::tf!(CheckedAt, local_time(&report.finished_at));
     if let Some(time) = &report.classification_updated_at {
-        text.push_str(&gw_i18n::tf!(ClassificationUpdatedAt, local_time(time)))
+        text.push_str(&i18n::tf!(ClassificationUpdatedAt, local_time(time)))
     }
     for result in report.repositories.iter().filter(|r| filter.matches(r)) {
         text.push_str(&format!(
             "[{}] {}\n",
             if filter == Filter::WithoutUpstream {
-                gw_i18n::tr!(NoRemoteUpstream)
+                i18n::tr!(NoRemoteUpstream)
             } else {
                 result.label()
             },
@@ -382,7 +376,7 @@ pub fn render_report(report: &Report, filter: Filter) -> String {
             if let Notice::Failed { path, error, .. } = notice
                 && path == result.path()
             {
-                text.push_str(&gw_i18n::tf!(SystemNotificationFailedError, error = error))
+                text.push_str(&i18n::tf!(SystemNotificationFailedError, error = error))
             }
         }
     }
@@ -404,7 +398,7 @@ pub fn repository_detail(result: &RepositoryResult, filter: Filter) -> String {
     if filter != Filter::WithoutUpstream {
         for push in result.pushes() {
             match push {
-                Publication::Pushed { target } => text.push_str(&gw_i18n::tf!(
+                Publication::Pushed { target } => text.push_str(&i18n::tf!(
                     PushedCommits,
                     target.branch,
                     target.remote,
@@ -415,7 +409,7 @@ pub fn repository_detail(result: &RepositoryResult, filter: Filter) -> String {
                     target,
                     phase,
                     error,
-                } => text.push_str(&gw_i18n::tf!(
+                } => text.push_str(&i18n::tf!(
                     PushFailedPhaseError,
                     target.branch,
                     error = error,
@@ -428,13 +422,13 @@ pub fn repository_detail(result: &RepositoryResult, filter: Filter) -> String {
         && let Some(branches) = result.branches()
     {
         for branch in branches {
-            text.push_str(&gw_i18n::tf!(
+            text.push_str(&i18n::tf!(
                 CountedSeparately,
                 branch.branch,
                 if branch.reason == UpstreamReason::LocalUpstream {
-                    gw_i18n::tr!(UpstreamIsALocalBranch)
+                    i18n::tr!(UpstreamIsALocalBranch)
                 } else {
-                    gw_i18n::tr!(UpstreamNotConfigured)
+                    i18n::tr!(UpstreamNotConfigured)
                 }
             ))
         }

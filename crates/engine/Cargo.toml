@@ -1,0 +1,23 @@
+[package]
+name = "engine"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "与终端界面无关的 Git 仓库能力和应用服务"
+
+[dependencies]
+identity.workspace = true
+i18n.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+git2.workspace = true
+libc.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+tempfile.workspace = true
+
+[dev-dependencies]
+test-support.workspace = true

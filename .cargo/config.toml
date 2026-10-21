@@ -1,2 +1,2 @@
 [build]
-rustflags = ["--remap-path-prefix", ".=gw"]
+rustflags = ["--remap-path-prefix", ".=source"]

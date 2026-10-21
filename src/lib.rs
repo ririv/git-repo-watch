@@ -1,2 +1,2 @@
-//! Command-line entry adapter for gw.
+//! Command-line entry adapter for the application.
 pub mod cli;

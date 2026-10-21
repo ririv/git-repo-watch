@@ -1,0 +1,24 @@
+[package]
+name = "tui"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Ratatui 终端交互适配器"
+
+[dependencies]
+identity.workspace = true
+i18n.workspace = true
+engine.workspace = true
+anyhow.workspace = true
+chrono.workspace = true
+crossterm.workspace = true
+ratatui.workspace = true
+strip-ansi-escapes.workspace = true
+unicode-width.workspace = true
+
+[dev-dependencies]
+test-support.workspace = true
+libc.workspace = true
+tempfile.workspace = true
