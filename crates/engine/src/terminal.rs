@@ -1,30 +1,25 @@
-//! Open a macOS Terminal window without interpolating paths into AppleScript.
+//! Open repository directories with the user's system-selected terminal application.
+mod macos;
 use crate::{cancel::Cancel, process};
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use std::{ffi::OsString, path::Path, time::Duration};
 
-const SCRIPT: &str = "on run argv\n tell application \"Terminal\"\n do script (item 1 of argv)\n activate\n end tell\nend run";
-
-fn directory_command(path: &Path) -> Result<String> {
-    ensure!(path.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
-    let path = path.to_str().context(i18n::tr!(TerminalPathNotUtf8))?;
-    ensure!(!path.contains('\0'), i18n::tr!(TerminalPathContainsNul));
-    // 路径只作为单引号包围的 Shell 参数；单引号拆开后转义再接回。
-    Ok(format!("cd -- '{}'", path.replace('\'', "'\\''")))
+fn arguments(application: &str, directory: &Path) -> Vec<OsString> {
+    vec![
+        "-b".into(),
+        application.into(),
+        directory.as_os_str().to_owned(),
+    ]
 }
 
 pub fn open(path: &Path, cancel: &Cancel) -> Result<()> {
+    cancel.check()?;
+    ensure!(path.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
     ensure!(path.is_dir(), i18n::tr!(TerminalDirectoryMissing));
-    let command = directory_command(path)?;
-    let args = [
-        OsString::from("-e"),
-        SCRIPT.into(),
-        "--".into(),
-        command.into(),
-    ];
+    let application = macos::default_application()?;
     process::run(
-        Path::new("/usr/bin/osascript"),
-        &args,
+        Path::new("/usr/bin/open"),
+        &arguments(&application, path),
         None,
         cancel,
         Duration::from_secs(30),
@@ -38,28 +33,22 @@ mod tests {
     use super::*;
 
     #[test]
-    fn directory_command_preserves_spaces_quotes_unicode_and_shell_characters() {
-        let temp = tempfile::tempdir().unwrap();
-        for name in [
-            "simple",
-            "space and 'quote'",
-            "中文目录",
-            "$(touch escaped); & newline\nfolder",
+    fn folder_paths_are_literal_arguments_without_shell_commands() {
+        for path in [
+            "/example/simple",
+            "/example/space and 'quotes'",
+            "/example/中文目录",
+            "/example/$(touch escaped); & newline\nfolder",
         ] {
-            let directory = temp.path().join(name);
-            std::fs::create_dir(&directory).unwrap();
-            let command = format!("{}; /bin/pwd -P", directory_command(&directory).unwrap());
-            let output = std::process::Command::new("/bin/zsh")
-                .current_dir(temp.path())
-                .args(["-c", &command])
-                .output()
-                .unwrap();
-            assert!(output.status.success());
+            let args = arguments("com.mitchellh.ghostty", Path::new(path));
             assert_eq!(
-                String::from_utf8(output.stdout).unwrap(),
-                format!("{}\n", std::fs::canonicalize(&directory).unwrap().display())
+                args,
+                vec![
+                    OsString::from("-b"),
+                    OsString::from("com.mitchellh.ghostty"),
+                    OsString::from(path)
+                ]
             );
-            assert!(!temp.path().join("escaped").exists());
         }
     }
 }

@@ -576,7 +576,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     assert!(
         matches!(&s.mode, Mode::Files(session) if session.area == FileArea::Index && session.query == "filter")
     );
-    assert!(s.message.starts_with("Opened Terminal:"));
+    assert!(s.message.starts_with("Opened terminal:"));
     assert_eq!(s.bar.editor().text, "filter");
     assert!(!s.service.store.state_dir().join("latest.json").exists());
 }
