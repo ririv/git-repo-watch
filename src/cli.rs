@@ -4,14 +4,12 @@ use engine::{
     cancel::{Cancel, Cancelled},
     discovery,
     domain::*,
+    paths,
     scheduler::{Manager, Registration, Schedule},
     service::{Activity, CachedReport, ConfigEdit, Event, ScanMode, Scope, Service, Snapshot},
     state,
 };
-use std::{
-    ffi::OsString,
-    path::{Path, PathBuf},
-};
+use std::ffi::OsString;
 pub const HELP: i18n::Message = i18n::Message::CliHelp;
 pub fn execute(args: Vec<OsString>) -> i32 {
     if let Err(error) = i18n::validate_environment() {
@@ -55,7 +53,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
     let manager = Manager::new()?;
     let home = if args.first().is_some_and(|a| a == "--home") {
         ensure!(args.len() >= 2, i18n::tr!(HomeRequiresAPath));
-        let home = PathBuf::from(&args[1]);
+        let home = paths::expand_home(&args[1], manager.user_home())?;
         args.drain(..2);
         home
     } else {
@@ -139,7 +137,10 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 !args.is_empty(),
                 i18n::tr!(AddRequiresAtLeastOneRepositoryPath)
             );
-            let paths = args.iter().map(PathBuf::from).collect::<Vec<_>>();
+            let paths = args
+                .iter()
+                .map(|value| paths::expand_home(value, service.scheduler.user_home()))
+                .collect::<Result<Vec<_>>>()?;
             let n = service.add(&paths)?;
             println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
@@ -147,9 +148,15 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
-                "remove" => ConfigEdit::Remove(value.into()),
-                "exclude" => ConfigEdit::Exclude(value.into()),
-                "unexclude" => ConfigEdit::Unexclude(value.into()),
+                "remove" => {
+                    ConfigEdit::Remove(paths::expand_home(value, service.scheduler.user_home())?)
+                }
+                "exclude" => {
+                    ConfigEdit::Exclude(paths::expand_home(value, service.scheduler.user_home())?)
+                }
+                "unexclude" => {
+                    ConfigEdit::Unexclude(paths::expand_home(value, service.scheduler.user_home())?)
+                }
                 "interval" => ConfigEdit::Interval(state::interval(value)?),
                 "autopush" => ConfigEdit::Policy(value.parse()?),
                 "concurrency" => ConfigEdit::Concurrency(value.parse()?),
@@ -160,9 +167,9 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             Ok(0)
         }
         "scan" | "import-tree" => {
-            let root = one(&args)?;
+            let root = paths::expand_home(one(&args)?, service.scheduler.user_home())?;
             let report = service.scan(
-                Path::new(root),
+                &root,
                 if command == "scan" {
                     ScanMode::Preview
                 } else {
@@ -204,7 +211,11 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             let report = if command == "scheduled-check" {
                 service.run_scheduled(cancel, emit)?
             } else if let Some(path) = args.first() {
-                service.check_repository(&state::canonical(Path::new(path))?, cancel, emit)?
+                service.check_repository(
+                    &state::canonical(&paths::expand_home(path, service.scheduler.user_home())?)?,
+                    cancel,
+                    emit,
+                )?
             } else {
                 service.run(cancel, emit)?
             };

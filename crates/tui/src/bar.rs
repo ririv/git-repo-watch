@@ -172,7 +172,10 @@ impl Screen {
                         )
                         .is_some()
                         {
-                            match command::path::complete(editor) {
+                            match command::path::complete(
+                                editor,
+                                self.service.scheduler.user_home(),
+                            ) {
                                 Ok(completion) => {
                                     *menu = completion;
                                     self.message.clear();
@@ -190,7 +193,7 @@ impl Screen {
                     if let Some((argument, value)) = command::argument_input(
                         editor.text.strip_prefix('/').expect("command prefix"),
                     ) {
-                        match argument.parse(value) {
+                        match argument.parse(value, self.service.scheduler.user_home()) {
                             Ok(value) => {
                                 let draft = CommandDraft {
                                     editor: editor.clone(),

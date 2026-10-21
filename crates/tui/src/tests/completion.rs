@@ -129,3 +129,47 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
         assert!(s.bar.editor().text.ends_with("/目录 11/"));
     }
 }
+
+#[test]
+fn all_path_commands_expand_tilde_in_review_and_return_to_the_original_draft() {
+    let (home, mut s) = fixture(vec![]);
+    for name in ["add", "exclude", "unexclude", "scan", "import"] {
+        for quote in ["", "'", "\""] {
+            let draft = format!("repo {name} {quote}~/中文 空格/{quote}");
+            command(&mut s, &draft);
+            assert!(matches!(&s.mode, Mode::Confirm {
+                operation: Confirmation::Configure { value, .. }, ..
+            } if std::path::Path::new(value) == home.path().join("中文 空格")));
+            key(&mut s, KeyCode::Esc);
+            assert_eq!(s.bar.editor().text, format!("/{draft}"));
+            assert!(s.service.store.config().unwrap().repositories.is_empty());
+        }
+    }
+    command(&mut s, "repo exclude ~");
+    assert!(matches!(&s.mode, Mode::Confirm {
+        operation: Confirmation::Configure { value, .. }, ..
+    } if std::path::Path::new(value) == home.path()));
+}
+
+#[test]
+fn tilde_completed_repository_add_executes_with_the_same_home_and_saves_an_absolute_path() {
+    let (home, mut s) = fixture(vec![]);
+    let repository = home.path().join("仓库 空格");
+    support::git(home.path(), &["init", "仓库 空格"]);
+    s.paste("/repo add \"~/仓\"");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/repo add \"~/仓库 空格/\"");
+    assert!(matches!(s.mode, Mode::Browsing));
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(&s.mode, Mode::Confirm {
+        operation: Confirmation::Configure { value, .. }, ..
+    } if std::path::Path::new(value) == repository));
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(
+        s.service.store.config().unwrap().repositories,
+        vec![std::fs::canonicalize(repository).unwrap()]
+    );
+    assert!(s.service.store.report().unwrap().is_none());
+}

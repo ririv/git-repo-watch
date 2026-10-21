@@ -168,7 +168,9 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
             if let Some(argument) = c.action.argument() {
                 spans.push(Span::styled(
                     format!(" {}", argument.placeholder()),
-                    Style::default().fg(MUTED).add_modifier(Modifier::ITALIC),
+                    Style::default()
+                        .fg(Color::LightCyan)
+                        .add_modifier(Modifier::ITALIC),
                 ));
             }
             spans.push(Span::raw(" ".repeat(name_width - c.usage().len() + 1)));

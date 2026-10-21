@@ -3,6 +3,8 @@ use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
     PathArgumentHint,
+    UnsupportedNamedHome,
+    ExpandedPathNotUtf8,
     DirectoryCandidates,
     DirectoryCompletionHint,
     ReadCompletionDirectory,
@@ -1755,6 +1757,14 @@ impl Message {
             (Self::UneditableDirectoryName, Language::Chinese) => {
                 "目录名不是 UTF-8 文本或包含控制字符，无法补全"
             }
+            (Self::UnsupportedNamedHome, Language::English) => {
+                "Only ~ and ~/… are supported; named-user paths (~user) are not supported"
+            }
+            (Self::UnsupportedNamedHome, Language::Chinese) => {
+                "仅支持 ~ 和 ~/…，不支持 ~user 用户路径"
+            }
+            (Self::ExpandedPathNotUtf8, Language::English) => "Expanded path is not UTF-8 text",
+            (Self::ExpandedPathNotUtf8, Language::Chinese) => "展开后的路径不是 UTF-8 文本",
             (Self::PathArgumentHint, Language::English) => {
                 "Tab directories · Enter review · Esc clear"
             }

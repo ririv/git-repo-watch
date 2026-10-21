@@ -1,6 +1,6 @@
 //! Typed parameter commands and literal single-value parsing; no shell evaluation.
 use super::{Action, COMMANDS, Command};
-use anyhow::{Result, ensure};
+use anyhow::{Context, Result, ensure};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArgumentAction {
     Add,
@@ -55,7 +55,7 @@ impl ArgumentAction {
             Self::Concurrency => i18n::tr!(CountArgumentHint),
         }
     }
-    pub fn parse(self, value: &str) -> Result<String> {
+    pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
         let value = value.trim();
         ensure!(
             !value.is_empty(),
@@ -73,11 +73,12 @@ impl ArgumentAction {
                     }
                     _ => value,
                 };
-                ensure!(
-                    std::path::Path::new(value).is_absolute(),
-                    i18n::tr!(EnterAnAbsolutePath)
-                );
-                Ok(value.into())
+                let path = engine::paths::expand_home(value, user_home)?;
+                ensure!(path.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
+                path.into_os_string()
+                    .into_string()
+                    .ok()
+                    .context(i18n::tr!(ExpandedPathNotUtf8))
             }
             Self::Interval => {
                 engine::state::interval(value)?;

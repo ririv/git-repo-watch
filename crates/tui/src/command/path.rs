@@ -1,7 +1,10 @@
 //! Literal directory completion at the UTF-8 cursor; never evaluates shell syntax.
 use crate::Editor;
 use anyhow::{Context, Result, ensure};
-use std::{fs, path::Path};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, Default)]
 pub(crate) enum Menu {
@@ -40,11 +43,12 @@ struct PathInput {
     command: String,
     quote: Option<char>,
     parent: String,
+    directory: PathBuf,
     prefix: String,
     suffix: String,
 }
 impl PathInput {
-    fn at(editor: &Editor) -> Result<Option<Self>> {
+    fn at(editor: &Editor, user_home: &Path) -> Result<Option<Self>> {
         let Some((argument, raw)) =
             super::argument_input(editor.text.strip_prefix('/').expect("command prefix"))
         else {
@@ -76,14 +80,16 @@ impl PathInput {
         // 空参数明确从文件系统根目录开始，不猜测某个仓库或进程目录。
         let (content, position) = if content.is_empty() {
             ("/", 1)
+        } else if content == "~" && position == 1 {
+            ("~/", 2)
         } else {
             (content, position)
         };
-        if position == 0 {
+        if position == 0 || (content.starts_with("~/") && position == 1) {
             return Ok(None);
         }
         ensure!(
-            Path::new(content).is_absolute(),
+            engine::paths::expand_home(content, user_home)?.is_absolute(),
             i18n::tr!(EnterAnAbsolutePath)
         );
         let component_start = content[..position].rfind('/').map_or(0, |i| i + 1);
@@ -94,6 +100,7 @@ impl PathInput {
             command: editor.text[..start].into(),
             quote,
             parent: content[..component_start].into(),
+            directory: engine::paths::expand_home(&content[..component_start], user_home)?,
             prefix: content[component_start..position].into(),
             suffix: content[component_end..].into(),
         }))
@@ -117,12 +124,12 @@ impl PathInput {
 }
 
 /// Completes a single directory component and returns a menu only for ambiguous paths.
-pub(crate) fn complete(editor: &mut Editor) -> Result<Menu> {
-    let Some(input) = PathInput::at(editor)? else {
+pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
+    let Some(input) = PathInput::at(editor, user_home)? else {
         return Ok(Menu::Commands);
     };
     let mut names: Vec<String> = Vec::new();
-    for entry in fs::read_dir(&input.parent)
+    for entry in fs::read_dir(&input.directory)
         .with_context(|| i18n::tf!(ReadCompletionDirectory, &input.parent))?
     {
         let entry = entry.with_context(|| i18n::tf!(ReadCompletionDirectory, &input.parent))?;

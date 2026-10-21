@@ -1515,6 +1515,7 @@ fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchan
     for input in [
         "repo add ",
         "repo add relative",
+        "repo add ~someone/Proj",
         "repo add \"/unterminated",
         "schedule interval zero",
         "schedule interval 0s",

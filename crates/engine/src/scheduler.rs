@@ -75,6 +75,9 @@ impl Manager {
             uid: _uid,
         })
     }
+    pub fn user_home(&self) -> &Path {
+        &self.user_home
+    }
     pub fn binary(&self) -> PathBuf {
         self.user_home.join(".local/bin").join(identity::COMMAND)
     }

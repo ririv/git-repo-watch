@@ -7,6 +7,7 @@ pub mod executor;
 pub mod local;
 pub mod notify;
 pub mod operations;
+pub mod paths;
 pub mod process;
 pub mod scheduler;
 pub mod service;
