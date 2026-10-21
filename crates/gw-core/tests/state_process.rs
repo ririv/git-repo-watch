@@ -14,6 +14,7 @@ use std::{
 };
 #[test]
 fn legacy_config_keeps_its_shape_and_explicit_concurrency_validates() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let store = Store {
         home: temp.path().to_owned(),
@@ -40,6 +41,7 @@ fn legacy_config_keeps_its_shape_and_explicit_concurrency_validates() {
 }
 #[test]
 fn process_lock_is_shared_and_automatically_released() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let store = Store {
         home: temp.path().to_owned(),
@@ -53,6 +55,7 @@ fn process_lock_is_shared_and_automatically_released() {
 }
 #[test]
 fn cancellation_and_timeout_kill_descendants() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     for timeout in [false, true] {
         let temp = tempfile::tempdir().unwrap();
         let sentinel = temp.path().join("sentinel");
@@ -85,6 +88,7 @@ fn cancellation_and_timeout_kill_descendants() {
 }
 #[test]
 fn intervals_and_schema_boundaries() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     for (value, want) in [
         ("6h", 21600),
         ("30m", 1800),

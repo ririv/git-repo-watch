@@ -5,10 +5,10 @@ use crate::{
     process,
 };
 use std::{ffi::OsString, path::Path, time::Duration};
-const SCRIPT: &str = "on run argv\n display notification (item 1 of argv) with title \"GW 自动推送失败\" subtitle (item 2 of argv) sound name \"Basso\"\nend run";
-pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -> Notice {
-    let message = format!(
-        "{}\n详情：gw report --pushes",
+const SCRIPT: &str = "on run argv\n display notification (item 1 of argv) with title (item 3 of argv) subtitle (item 2 of argv) sound name \"Basso\"\nend run";
+fn arguments(path: &Path, target: &PushTarget, error: &str) -> Vec<OsString> {
+    let message = gw_i18n::tf!(
+        DetailsGwReportPushes,
         error.chars().take(240).collect::<String>()
     );
     let subtitle = format!(
@@ -18,13 +18,18 @@ pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -
             .to_string_lossy(),
         target.branch
     );
-    let args = vec![
+    vec![
         OsString::from("-e"),
         SCRIPT.into(),
         "--".into(),
         message.into(),
         subtitle.into(),
-    ];
+        gw_i18n::tr!(AutoPushFailureTitle).into(),
+    ]
+}
+
+pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -> Notice {
+    let args = arguments(path, target, error);
     let attempt = process::run(
         Path::new("/usr/bin/osascript"),
         &args,
@@ -32,7 +37,7 @@ pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -
         cancel,
         Duration::from_secs(15),
     )
-    .and_then(|o| o.success("系统通知"));
+    .and_then(|o| o.success(gw_i18n::tr!(SystemNotification)));
     match attempt {
         Ok(_) => Notice::Accepted {
             path: path.to_owned(),
@@ -43,5 +48,49 @@ pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -
             branch: target.branch.clone(),
             error: format!("{e:#}"),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn notification_localizes_copy_and_keeps_payload_outside_script() {
+        let target = PushTarget {
+            branch: "feature".into(),
+            local_ref: "refs/heads/feature".into(),
+            local_oid: "a".repeat(40),
+            remote: "origin".into(),
+            remote_ref: "refs/heads/feature".into(),
+            remote_oid: "b".repeat(40),
+            ahead_commits: 1,
+        };
+        for (language, title, details) in [
+            (
+                gw_i18n::Language::English,
+                "GW automatic push failed",
+                "Details:",
+            ),
+            (gw_i18n::Language::Chinese, "GW 自动推送失败", "详情："),
+        ] {
+            let _language = gw_i18n::using(language);
+            let args = arguments(Path::new("/example/a \" repo"), &target, "network error");
+            assert_eq!(args[5], title);
+            assert!(args[3].to_str().unwrap().contains(details));
+            assert_eq!(args[4], "a \" repo / feature");
+            assert!(!SCRIPT.contains("network error"));
+        }
+        let temp = tempfile::tempdir().unwrap();
+        let status = std::process::Command::new("/usr/bin/osacompile")
+            .args(["-e", SCRIPT, "-o"])
+            .arg(temp.path().join("notification.scpt"))
+            .output()
+            .unwrap();
+        assert!(
+            status.status.success(),
+            "{}",
+            String::from_utf8_lossy(&status.stderr)
+        );
     }
 }

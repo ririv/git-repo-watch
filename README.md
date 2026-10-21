@@ -30,6 +30,22 @@ cp config.example.json config.json
 
 构建脚本对 Rust 和 C 依赖执行源码路径裁剪。`config.json`、`var/`、`target/`、`dist/`、日志和定位信息不进入版本控制。
 
+## 界面语言
+
+支持中文和英文。首次显示前读取语言偏好，同一次运行期间保持一致；macOS 首选语言为中文（含简繁体区域标识）时使用中文，其余语言默认英文。当前中文文案为简体中文。后台任务使用同一套系统语言检测，不依赖终端常驻。
+
+优先级为 `GW_LANG` → 非空 `LC_ALL` → 非空 `LC_MESSAGES` → macOS 首选语言 → `LANG` → 英文。终端的 `LANG` 不会覆盖 macOS 明确的系统首选语言；`LC_ALL` 和 `LC_MESSAGES` 视为用户显式指定的消息语言。
+
+```sh
+GW_LANG=en gw          # 本次以英文打开 TUI
+GW_LANG=zh gw          # 本次以中文打开 TUI
+GW_LANG=en gw status   # 本次以英文查询
+```
+
+`GW_LANG` 只接受 `en` 或 `zh`，其他值明确报错。未设置时自动检测；切换系统语言后重新运行 `gw` 生效。语言选择不修改现有配置格式、JSON 字段名、枚举值或报告数据。路径、分支名、用户提交说明、Git 原始错误与历史报告中保存的原始说明保留原文。
+
+文案通过 `gw-i18n::Message` 标识集中维护，两种语言都必须显式提供；格式化消息在编译期检查参数。异步任务显式继承当前语言，界面不会因线程切换而混用语言。
+
 ## 配置
 
 配置保存在安装目录中的 `config.json`：
@@ -193,13 +209,14 @@ gw check
 
 ## Workspace 与模块结构
 
-项目使用 Cargo workspace，三个生产 crate 和一个仅供测试的辅助 crate：
+项目使用 Cargo workspace，四个生产 crate 和一个仅供测试的辅助 crate：
 
 | Crate | 职责 | 项目内运行时依赖 |
 | --- | --- | --- |
-| `gw`（根目录） | CLI 命令解析、文本与 JSON 输出、程序入口 | `gw-core`、`gw-tui` |
-| `gw-core` | 领域模型、本地 Git 能力、传输、应用服务、持久化和系统集成 | 无 |
-| `gw-tui` | Ratatui 交互状态、命令栏、文件面板和视图 | `gw-core` |
+| `gw`（根目录） | CLI 命令解析、文本与 JSON 输出、程序入口 | `gw-core`、`gw-tui`、`gw-i18n` |
+| `gw-core` | 领域模型、本地 Git 能力、传输、应用服务、持久化和系统集成 | `gw-i18n` |
+| `gw-tui` | Ratatui 交互状态、命令栏、文件面板和视图 | `gw-core`、`gw-i18n` |
+| `gw-i18n` | 类型化中英文文案、系统语言检测与线程语言作用域 | 无 |
 | `gw-test-support` | 共享临时本地 Git 仓库夹具，不发布 | 无；只作为其他 crate 的开发依赖 |
 
 `gw-core` 不依赖 CLI 或 TUI，也不引入 Ratatui/Crossterm；`gw-tui` 不依赖 CLI，也不直接依赖 `git2`，通过 core 的文件快照、提交预览、推送预览和应用服务执行操作。CLI 和 TUI 各自负责输出格式化，避免界面适配器互相调用。

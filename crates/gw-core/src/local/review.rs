@@ -24,7 +24,7 @@ pub fn prepare(path: &Path) -> Result<CommitPlan> {
         .collect::<Vec<_>>();
     ensure!(
         !selected.is_empty(),
-        "没有已暂存的改动；请通过 stage 选择提交内容"
+        gw_i18n::tr!(NoStagedChangesUseStageToSelect)
     );
     let repo = open(path)?;
     let tree = match snapshot.head {
@@ -41,8 +41,8 @@ pub fn prepare(path: &Path) -> Result<CommitPlan> {
             .iter()
             .map(|c| c.location.name().to_owned())
             .collect(),
-        stat: format!(
-            "{} 个文件，新增 {} 行，删除 {} 行",
+        stat: gw_i18n::tf!(
+            FilesInsertionsDeletions,
             stats.files_changed(),
             stats.insertions(),
             stats.deletions()
@@ -56,11 +56,11 @@ pub fn validate(plan: &CommitPlan) -> Result<()> {
     idle(&repo)?;
     ensure!(
         head(&repo)? == plan.head,
-        "分支或 HEAD 已变化，请重新查看提交内容"
+        gw_i18n::tr!(BranchOrHeadChangedReviewTheCommit)
     );
     ensure!(
         repo.index()?.write_tree()? == plan.tree,
-        "暂存内容已变化，请重新查看提交内容"
+        gw_i18n::tr!(StagedContentsChangedReviewTheCommitAgain)
     );
     Ok(())
 }

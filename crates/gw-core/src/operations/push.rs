@@ -25,19 +25,19 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
         oid,
     } = head
     else {
-        anyhow::bail!("当前分支还没有提交")
+        anyhow::bail!(gw_i18n::tr!(CurrentBranchHasNoCommits))
     };
     let branch = branches::list(&repo)?
         .into_iter()
         .find(|b| b.name == *name)
-        .context("当前本地分支不存在")?;
+        .context(gw_i18n::tr!(CurrentLocalBranchDoesNotExist))?;
     let Tracking::Remote {
         remote,
         remote_ref,
         upstream,
     } = branch.tracking
     else {
-        anyhow::bail!("当前分支没有配置远程上游，请先显式配置跟踪关系")
+        anyhow::bail!(gw_i18n::tr!(CurrentBranchHasNoRemoteUpstreamExplicitly))
     };
     let url = branches::url(&repo, &remote)?;
     drop(repo);
@@ -46,17 +46,24 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
     let repo = local::open(path)?;
     ensure!(
         branches::resolve(&repo, &upstream)? == server,
-        "远程上游引用不一致，请检查 fetch 配置或稍后重试"
+        gw_i18n::tr!(RemoteUpstreamReferenceIsInconsistentCheckFetch)
     );
     let (ahead, behind) = repo.graph_ahead_behind(oid, server)?;
     ensure!(
         behind == 0,
-        "当前分支领先 {ahead}、落后 {behind} 个提交；请先手动处理远程更新"
+        gw_i18n::tf!(
+            CurrentBranchIsAheadCommitsAheadAnd,
+            ahead = ahead,
+            behind = behind
+        )
     );
-    ensure!(ahead > 0, "当前分支已与远程一致，没有待推送提交");
+    ensure!(
+        ahead > 0,
+        gw_i18n::tr!(CurrentBranchMatchesTheRemoteNothingTo)
+    );
     ensure!(
         local::head(&repo)? == head,
-        "准备期间分支或 HEAD 已变化，请重新操作"
+        gw_i18n::tr!(BranchOrHeadChangedDuringPreparationStart)
     );
     Ok(PushPlan {
         path: path.to_owned(),
@@ -90,11 +97,11 @@ fn validate_review(plan: &PushPlan) -> Result<()> {
                 branch: plan.target.branch.clone(),
                 oid: plan.target.local_oid.parse()?
             },
-        "分支或 HEAD 已变化，请重新确认推送"
+        gw_i18n::tr!(BranchOrHeadChangedReviewThePush)
     );
     ensure!(
         branches::url(&repo, &plan.target.remote)? == plan.url,
-        "远程地址已变化，请重新确认推送"
+        gw_i18n::tr!(RemoteUrlChangedReviewThePushAgain)
     );
     Ok(())
 }
@@ -106,7 +113,7 @@ pub fn forward(git: &Git, path: &Path, target: &PushTarget, cancel: &Cancel) -> 
             target.local_ref.starts_with("refs/heads/")
                 && target.remote_ref.starts_with("refs/heads/")
                 && target.ahead_commits > 0,
-            "无效的推送目标"
+            gw_i18n::tr!(InvalidPushTarget)
         );
         let repo = local::open(path)?;
         local::idle(&repo)?;
@@ -116,30 +123,30 @@ pub fn forward(git: &Git, path: &Path, target: &PushTarget, cancel: &Cancel) -> 
         let remote: git2::Oid = target.remote_oid.parse()?;
         ensure!(
             branches::resolve(&repo, &target.local_ref)? == local,
-            "本地分支在检查后发生变化，取消推送"
+            gw_i18n::tr!(LocalBranchChangedAfterCheckingPushCancelled)
         );
         ensure!(
             git.head(path, &target.remote, &target.remote_ref, cancel)? == remote,
-            "远程分支在检查后发生变化，取消推送"
+            gw_i18n::tr!(RemoteBranchChangedAfterCheckingPushCancelled)
         );
         ensure!(
             repo.graph_descendant_of(local, remote)?,
-            "本地提交不是远程上游的后代"
+            gw_i18n::tr!(LocalCommitIsNotADescendantOf)
         );
         ensure!(
             branches::url(&repo, &target.remote)? == url,
-            "远程地址在核验期间发生变化，取消推送"
+            gw_i18n::tr!(RemoteUrlChangedDuringValidationPushCancelled)
         );
         ensure!(
             branches::resolve(&repo, &target.local_ref)? == local,
-            "本地分支在核验期间发生变化，取消推送"
+            gw_i18n::tr!(LocalBranchChangedDuringValidationPushCancelled)
         );
         phase = Phase::Transfer;
         git.push(path, target, cancel)?;
         phase = Phase::Verify;
         ensure!(
             git.head(path, &target.remote, &target.remote_ref, cancel)? == local,
-            "推送命令已返回，但远程提交与预期不一致"
+            gw_i18n::tr!(PushCommandReturnedButTheRemoteCommit)
         );
         Ok(())
     })();

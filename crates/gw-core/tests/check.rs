@@ -11,6 +11,7 @@ use gw_test_support::*;
 use std::{fs, path::PathBuf};
 #[test]
 fn clean_dirty_untracked_and_experimental_branches() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     git(&f.repo, &["branch", "experiment"]);
     let (result, timing) = check::repository(
@@ -43,6 +44,7 @@ fn clean_dirty_untracked_and_experimental_branches() {
 }
 #[test]
 fn automatic_push_only_publishes_ahead_commits() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     write(f.repo.join("untracked"), "private");
@@ -62,6 +64,7 @@ fn automatic_push_only_publishes_ahead_commits() {
 }
 #[test]
 fn disabled_and_behind_never_push() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     let before = git(&f.remote, &["rev-parse", "main"]);
@@ -85,6 +88,7 @@ fn disabled_and_behind_never_push() {
 }
 #[test]
 fn missing_remote_branch_and_stale_refspec_are_distinct() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     git(&f.remote, &["update-ref", "-d", "refs/heads/main"]);
     let (result, _) = check::repository(
@@ -102,6 +106,7 @@ fn missing_remote_branch_and_stale_refspec_are_distinct() {
 }
 #[test]
 fn linked_worktrees_share_one_scheduling_group() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     let linked = f.temp.path().join("linked");
     git(
@@ -115,6 +120,7 @@ fn linked_worktrees_share_one_scheduling_group() {
 }
 #[test]
 fn report_order_failure_isolation_and_cancellation_preserve_history() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let first = Fixture::create();
     let second = Fixture::create();
     let home = tempfile::tempdir().unwrap();
@@ -157,6 +163,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
 }
 #[test]
 fn git_transport_failures_do_not_become_clean() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     git(
         &f.repo,
@@ -172,6 +179,7 @@ fn git_transport_failures_do_not_become_clean() {
 }
 #[test]
 fn failed_pre_push_hook_is_preserved() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     use std::os::unix::fs::PermissionsExt;
     let f = Fixture::create();
     f.commit("ahead", "ahead");
@@ -191,6 +199,7 @@ fn failed_pre_push_hook_is_preserved() {
 
 #[test]
 fn independent_repositories_overlap_real_fetches() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     use std::os::unix::fs::PermissionsExt;
     let first = Fixture::create();
     let second = Fixture::create();

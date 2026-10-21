@@ -14,7 +14,9 @@ impl Screen {
         let task_cancel = cancel.clone();
         let service = self.service.clone();
         let (tx, rx) = mpsc::channel();
+        let language = gw_i18n::language();
         let handle = thread::spawn(move || {
+            let _language = gw_i18n::using(language);
             let result = task(service, task_cancel, tx.clone());
             let _ = tx.send(WorkerEvent::Done(result));
         });
@@ -39,13 +41,17 @@ impl Screen {
                         changed = true;
                         self.message = match event {
                             service::Event::Checking(path) => {
-                                format!("正在检查：{}", path.display())
+                                gw_i18n::tf!(Checking, path.display())
                             }
                             service::Event::Checked(result) => {
-                                format!("{}：{}", result.label(), result.path().display())
+                                format!(
+                                    "{}{}",
+                                    gw_i18n::tf!(FieldLabel, label = result.label()),
+                                    result.path().display()
+                                )
                             }
                             service::Event::NotificationProblem(notice) => {
-                                format!("系统通知发送失败：{notice:?}")
+                                gw_i18n::tf!(SystemNotificationFailedNotice, notice = notice)
                             }
                         }
                     }
@@ -55,7 +61,9 @@ impl Screen {
                     }
                     Err(mpsc::TryRecvError::Empty) => break,
                     Err(mpsc::TryRecvError::Disconnected) => {
-                        result = Some(Err(anyhow::anyhow!("后台工作线程异常退出")));
+                        result = Some(Err(anyhow::anyhow!(gw_i18n::tr!(
+                            BackgroundWorkerTerminatedUnexpectedly
+                        ))));
                         break;
                     }
                 }
@@ -68,7 +76,7 @@ impl Screen {
             };
             let joined = pending.handle.join();
             let result = if joined.is_err() {
-                Err(anyhow::anyhow!("后台工作线程发生异常"))
+                Err(anyhow::anyhow!(gw_i18n::tr!(BackgroundWorkerPanicked)))
             } else {
                 result
             };
@@ -77,7 +85,7 @@ impl Screen {
                 Err(e) => {
                     let detail =
                         if pending.effect != Effect::ReadOnly && pending.cancel.is_cancelled() {
-                            format!("操作被中断，可能已完成部分写入，请刷新并核对实际状态。\n{e:#}")
+                            gw_i18n::tf!(OperationInterruptedSomeWritesMayHaveCompleted, e = e)
                         } else {
                             format!("{e:#}")
                         };
@@ -123,11 +131,11 @@ impl Screen {
             Outcome::PushPrepared(plan) => self.mode = Mode::PushConfirm { plan, scroll: 0 },
             Outcome::Committed(result) => {
                 self.mode = Mode::Browsing;
-                self.message = format!(
-                    "已提交 {}{}；列表仍为上次检查结果",
+                self.message = gw_i18n::tf!(
+                    CommittedTheListStillShowsTheLast,
                     &result.oid[..12],
                     if result.review == gw_core::operations::commit::Review::Changed {
-                        "（实际内容发生变化，请核对提交）"
+                        gw_i18n::tr!(ContentsChangedVerifyTheCommit)
                     } else {
                         ""
                     }
@@ -136,16 +144,18 @@ impl Screen {
             Outcome::Published(result) => match result {
                 Publication::Pushed { target } => {
                     self.mode = Mode::Browsing;
-                    self.message = format!(
-                        "已推送 {} → {}/{}；列表仍为上次检查结果",
-                        target.branch, target.remote, target.remote_ref
+                    self.message = gw_i18n::tf!(
+                        PushedTheListStillShowsTheLast,
+                        target.branch,
+                        target.remote,
+                        target.remote_ref
                     )
                 }
                 Publication::Failed { phase, error, .. } => {
                     self.mode = Mode::Error {
                         origin: Box::new(Mode::Browsing),
-                        title: "推送失败".into(),
-                        detail: format!("{phase:?} 阶段：{error}"),
+                        title: gw_i18n::tr!(PushFailed).into(),
+                        detail: gw_i18n::tf!(PhasePhaseError, error = error, phase = phase),
                         scroll: 0,
                     }
                 }
@@ -154,18 +164,20 @@ impl Screen {
                 self.mode = Mode::Browsing;
                 self.message = message;
                 if let Err(e) = self.reload(root) {
-                    self.message.push_str(&format!("；刷新失败：{e:#}"))
+                    self.message.push_str(&gw_i18n::tf!(RefreshFailedE, e = e))
                 }
             }
             Outcome::Checked(report) => {
                 self.mode = Mode::Browsing;
                 let stats = domain::Stats::of(&report);
-                self.message = format!(
-                    "检查完成：{} 正常 · {} 需关注 · {} 失败",
-                    stats.clean, stats.attention, stats.failed
+                self.message = gw_i18n::tf!(
+                    CheckCompleteCleanAttentionFailed,
+                    stats.clean,
+                    stats.attention,
+                    stats.failed
                 );
                 if let Err(e) = self.reload(root) {
-                    self.message.push_str(&format!("；刷新失败：{e:#}"))
+                    self.message.push_str(&gw_i18n::tf!(RefreshFailedE, e = e))
                 }
             }
         }

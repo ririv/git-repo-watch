@@ -43,20 +43,20 @@ pub fn repository(
         if local::files::dirty(&repo)? {
             issues.push(Issue {
                 kind: IssueKind::Dirty,
-                detail: "存在暂存、未暂存、未跟踪文件或子模块改动".into(),
+                detail: gw_i18n::tr!(StagedUnstagedUntrackedFilesOrSubmoduleChanges).into(),
             })
         }
         if repo.head_detached()? {
             issues.push(Issue {
                 kind: IssueKind::DetachedHead,
-                detail: "HEAD 处于游离状态".into(),
+                detail: gw_i18n::tr!(HeadIsDetached).into(),
             })
         }
         let branches = branches::list(&repo)?;
         if branches.is_empty() {
             issues.push(Issue {
                 kind: IssueKind::NoCommits,
-                detail: "没有可检查的本地分支提交".into(),
+                detail: gw_i18n::tr!(NoLocalBranchCommitsToCheck).into(),
             })
         }
         timing.local_ms += t.elapsed().as_millis();
@@ -85,13 +85,13 @@ pub fn repository(
                     }
                     let Some(server) = heads
                         .get(&remote)
-                        .context("远程查询状态丢失")?
+                        .context(gw_i18n::tr!(RemoteQueryStateIsMissing))?
                         .get(&remote_ref)
                         .copied()
                     else {
                         issues.push(Issue {
                             kind: IssueKind::MissingUpstream,
-                            detail: format!("{}：远程上游分支不存在", branch.name),
+                            detail: gw_i18n::tf!(RemoteUpstreamBranchDoesNotExist, branch.name),
                         });
                         continue;
                     };
@@ -99,8 +99,7 @@ pub fn repository(
                     let tracked = branches::resolve(&repo, &upstream)?;
                     ensure!(
                         tracked == server,
-                        "{}：远程在 fetch 后发生变化或 fetch refspec 未更新上游",
-                        branch.name
+                        gw_i18n::tf!(RemoteChangedAfterFetchOrFetchRefspec, branch.name)
                     );
                     let (ahead, behind) = repo.graph_ahead_behind(branch.oid, tracked)?;
                     timing.local_ms += t.elapsed().as_millis();
@@ -123,13 +122,13 @@ pub fn repository(
                         if succeeded {
                             heads
                                 .get_mut(&remote)
-                                .context("远程查询状态丢失")?
+                                .context(gw_i18n::tr!(RemoteQueryStateIsMissing))?
                                 .insert(remote_ref, branch.oid);
                             if branches::resolve(&repo, &branch.reference)? != branch.oid {
                                 issues.push(Issue {
                                     kind: IssueKind::OutOfSync,
-                                    detail: format!(
-                                        "{}：推送后本地分支发生变化，待下次重新检查",
+                                    detail: gw_i18n::tf!(
+                                        LocalBranchChangedAfterPushCheckAgain,
                                         branch.name
                                     ),
                                 })
@@ -138,19 +137,21 @@ pub fn repository(
                         }
                         issues.push(Issue {
                             kind: IssueKind::PushFailed,
-                            detail: format!(
-                                "{}：自动推送失败：{}",
+                            detail: gw_i18n::tf!(
+                                AutomaticPushFailed,
                                 branch.name,
-                                error.context("失败推送缺少错误")?
+                                error.context(gw_i18n::tr!(FailedPushHasNoError))?
                             ),
                         });
                     }
                     if ahead > 0 || behind > 0 {
                         issues.push(Issue {
                             kind: IssueKind::OutOfSync,
-                            detail: format!(
-                                "{}：领先远程 {} 个提交，落后远程 {} 个提交",
-                                branch.name, ahead, behind
+                            detail: gw_i18n::tf!(
+                                AheadOfRemoteByCommitsBehindBy,
+                                branch.name,
+                                ahead,
+                                behind
                             ),
                         })
                     }

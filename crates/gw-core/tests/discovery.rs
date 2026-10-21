@@ -6,6 +6,7 @@ use gw_test_support::*;
 use std::{fs, os::unix::fs::symlink};
 #[test]
 fn repository_ignores_stop_traversal_and_tracked_paths_remain_visible() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let root = fs::canonicalize(temp.path()).unwrap();
     let parent = root.join("parent");
@@ -36,6 +37,7 @@ fn repository_ignores_stop_traversal_and_tracked_paths_remain_visible() {
 }
 #[test]
 fn linked_submodule_exclusion_markers_and_symlinks() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let root = fs::canonicalize(temp.path()).unwrap();
     let parent = root.join("parent");
@@ -65,6 +67,7 @@ fn linked_submodule_exclusion_markers_and_symlinks() {
 }
 #[test]
 fn submodules_are_discovered_using_index_gitlinks() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let parent = Fixture::create();
     let sub = Fixture::create();
     git(
@@ -90,6 +93,7 @@ fn submodules_are_discovered_using_index_gitlinks() {
 
 #[test]
 fn nested_negation_global_exclusion_and_nested_repository_rules() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let root = fs::canonicalize(temp.path()).unwrap();
     let parent = root.join("parent");

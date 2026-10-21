@@ -7,6 +7,7 @@ license.workspace = true
 description = "gw 的 Ratatui 终端交互适配器"
 
 [dependencies]
+gw-i18n.workspace = true
 gw-core.workspace = true
 anyhow.workspace = true
 chrono.workspace = true

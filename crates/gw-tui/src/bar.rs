@@ -154,7 +154,7 @@ impl Screen {
                             return Ok(BarEvent::Quit);
                         }
                     } else {
-                        self.message = "未知命令；按 Tab 补全后再执行".into();
+                        self.message = gw_i18n::tr!(UnknownCommandUseTabToCompleteBefore).into();
                     }
                 }
                 _ => {

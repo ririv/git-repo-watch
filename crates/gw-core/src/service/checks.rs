@@ -44,7 +44,7 @@ impl Service {
         let repositories = results.into_values().collect::<Vec<_>>();
         ensure!(
             repositories.len() == config.repositories.len(),
-            "检查结果不完整，不覆盖历史报告"
+            gw_i18n::tr!(CheckResultsAreIncompleteHistoricalReportWas)
         );
         let status = if repositories.is_empty() {
             ReportStatus::Unconfigured

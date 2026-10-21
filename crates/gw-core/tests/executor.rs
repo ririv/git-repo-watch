@@ -11,6 +11,7 @@ use std::{
 };
 #[test]
 fn bounded_workers_really_overlap_and_keep_group_order() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let barrier = Barrier::new(3);
     let active = AtomicUsize::new(0);
     let peak = AtomicUsize::new(0);
@@ -59,6 +60,7 @@ fn bounded_workers_really_overlap_and_keep_group_order() {
 }
 #[test]
 fn cancel_stops_queued_work_and_joins_active_workers() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let cancel = Cancel::default();
     let started = AtomicUsize::new(0);
     let groups = (0..10)

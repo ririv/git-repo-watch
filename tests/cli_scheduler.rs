@@ -27,6 +27,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
 }
 fn cli(store: &Store, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_gw"))
+        .env("GW_LANG", "zh")
         .arg("--home")
         .arg(&store.home)
         .args(args)
@@ -35,6 +36,7 @@ fn cli(store: &Store, args: &[&str]) -> Output {
 }
 #[test]
 fn status_and_default_tui_never_check_or_fallback() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, store) = fixture();
     let out = cli(&store, &["status", "--json"]);
     assert!(
@@ -56,6 +58,7 @@ fn status_and_default_tui_never_check_or_fallback() {
 }
 #[test]
 fn config_commands_are_explicit_and_do_not_run_checks() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, store) = fixture();
     for args in [
         &["interval", "12h"][..],
@@ -87,6 +90,7 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
 }
 #[test]
 fn malformed_and_missing_reports_are_distinct() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, store) = fixture();
     assert_eq!(cli(&store, &["report"]).status.code(), Some(1));
     fs::create_dir(store.state_dir()).unwrap();
@@ -96,7 +100,9 @@ fn malformed_and_missing_reports_are_distinct() {
 }
 #[test]
 fn help_is_available_without_installation() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let out = Command::new(env!("CARGO_BIN_EXE_gw"))
+        .env("GW_LANG", "zh")
         .arg("--help")
         .output()
         .unwrap();
@@ -105,6 +111,7 @@ fn help_is_available_without_installation() {
 }
 #[test]
 fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let payload = scheduler::plist(
         std::path::Path::new("/path/中文 & folder"),
         std::path::Path::new("/path/bin/gw"),
@@ -129,6 +136,7 @@ fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
 }
 #[test]
 fn installation_refuses_unowned_binary_before_mutation() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let manager = Manager {
         user_home: temp.path().to_owned(),
@@ -152,6 +160,7 @@ fn installation_refuses_unowned_binary_before_mutation() {
 
 #[test]
 fn text_time_uses_system_timezone_without_printing_zone() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let utc = "2026-10-21T04:31:16Z";
     let expected = chrono::DateTime::parse_from_rfc3339(utc)
         .unwrap()
@@ -161,4 +170,70 @@ fn text_time_uses_system_timezone_without_printing_zone() {
     assert_eq!(gw::cli::local_time(utc), expected);
     assert_eq!(gw::cli::local_time("2026-10-21T12:31:16+08:00"), expected);
     assert_eq!(expected.len(), 19);
+}
+
+#[test]
+fn language_overrides_localize_text_and_preserve_machine_output() {
+    let (_temp, store) = fixture();
+    let mut snapshots = Vec::new();
+    for (language, help_title, status_label, tui_error) in [
+        (
+            "en",
+            "gw: Git repository",
+            "System schedule:",
+            "interactive terminal",
+        ),
+        ("zh", "gw：Git 仓库", "系统任务：", "交互式终端"),
+    ] {
+        let run = |args: &[&str]| {
+            Command::new(env!("CARGO_BIN_EXE_gw"))
+                .env("GW_LANG", language)
+                .env("LC_ALL", if language == "en" { "zh_CN.UTF-8" } else { "C" })
+                .arg("--home")
+                .arg(&store.home)
+                .args(args)
+                .output()
+                .unwrap()
+        };
+        let help = run(&["help"]);
+        assert!(help.status.success());
+        assert!(String::from_utf8_lossy(&help.stdout).starts_with(help_title));
+        let status = run(&["status"]);
+        assert!(status.status.success());
+        assert!(String::from_utf8_lossy(&status.stdout).contains(status_label));
+        let tui = run(&["tui"]);
+        assert_eq!(tui.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&tui.stderr).contains(tui_error));
+        let machine = run(&["status", "--json"]);
+        assert!(machine.status.success());
+        snapshots.push(serde_json::from_slice::<serde_json::Value>(&machine.stdout).unwrap());
+    }
+    assert_eq!(snapshots[0], snapshots[1]);
+    assert!(!store.state_dir().join("latest.json").exists());
+}
+
+#[test]
+fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rejected() {
+    for (locale, expected) in [
+        ("zh_CN.UTF-8", "gw：Git 仓库"),
+        ("en_US.UTF-8", "gw: Git repository"),
+        ("fr_FR.UTF-8", "gw: Git repository"),
+        ("C", "gw: Git repository"),
+    ] {
+        let output = Command::new(env!("CARGO_BIN_EXE_gw"))
+            .env_remove("GW_LANG")
+            .env("LC_ALL", locale)
+            .arg("--help")
+            .output()
+            .unwrap();
+        assert!(output.status.success());
+        assert!(String::from_utf8_lossy(&output.stdout).starts_with(expected));
+    }
+    let output = Command::new(env!("CARGO_BIN_EXE_gw"))
+        .env("GW_LANG", "fr")
+        .arg("--help")
+        .output()
+        .unwrap();
+    assert_eq!(output.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&output.stderr).contains("GW_LANG must be en or zh"));
 }

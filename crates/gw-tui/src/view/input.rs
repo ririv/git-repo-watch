@@ -17,77 +17,77 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
             let hint = if command {
-                "Tab 补全 · ↑↓候选 · Enter 执行完整命令 · Esc 清空"
+                gw_i18n::tr!(TabCompleteCandidatesEnterRunEscClear)
             } else {
                 match screen.mode {
-                    Mode::Files(_) => "↑↓选择 · Space/Ins勾选 · Ctrl+A全选 · Tab切换区域",
-                    Mode::Diff { .. } => "↑↓滚动 · Esc返回文件 · /命令",
+                    Mode::Files(_) => gw_i18n::tr!(SelectSpaceInsMarkCtrlAAll),
+                    Mode::Diff { .. } => gw_i18n::tr!(ScrollEscFilesCommands),
                     _ => match screen.page {
-                        Page::Repositories => "↑↓选择 · Enter详情 · Ctrl+F筛选 · Tab设置 · F1帮助",
-                        Page::Settings => "↑↓选择 · Enter修改 · Tab仓库 · /命令",
-                        _ => "↑↓/PgDn滚动 · Esc返回 · /命令",
+                        Page::Repositories => gw_i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
+                        Page::Settings => gw_i18n::tr!(SelectEnterEditTabReposCommands),
+                        _ => gw_i18n::tr!(PgdnScrollEscBackCommands),
                     },
                 }
             };
             (
                 if command {
-                    " 命令 "
+                    gw_i18n::tr!(CommandsAlt)
                 } else if files {
-                    " 搜索文件 "
+                    gw_i18n::tr!(SearchFiles)
                 } else {
-                    " 搜索仓库 "
+                    gw_i18n::tr!(SearchRepositories)
                 },
                 Content::Editable {
                     editor: screen.bar.editor(),
-                    placeholder: "输入关键词搜索，或输入 / 查看命令",
+                    placeholder: gw_i18n::tr!(TypeToSearchOrForCommands),
                 },
                 hint,
             )
         }
         Mode::Input { editor, .. } => (
-            " 配置输入 ",
+            gw_i18n::tr!(ConfigurationInputAlt),
             Content::Editable {
                 editor,
-                placeholder: "请输入配置值",
+                placeholder: gw_i18n::tr!(EnterAConfigurationValue),
             },
-            "Enter 下一步 · Esc 取消",
+            gw_i18n::tr!(EnterNextEscCancel),
         ),
         Mode::CommitMessage { editor, .. } => (
-            " 提交说明 ",
+            gw_i18n::tr!(CommitMessageAlt),
             Content::Editable {
                 editor,
-                placeholder: "请输入本次提交的说明",
+                placeholder: gw_i18n::tr!(DescribeThisCommit),
             },
-            "Enter 确认 · Esc 取消 · PgUp/PgDn 查看",
+            gw_i18n::tr!(EnterConfirmEscCancelPgupPgdnReview),
         ),
         Mode::Confirm(_) => (
-            " 确认操作 ",
-            Content::Locked("等待确认".into()),
-            "y 确认执行 · n/Esc 取消",
+            gw_i18n::tr!(ConfirmOperationAlt),
+            Content::Locked(gw_i18n::tr!(AwaitingConfirmation).into()),
+            gw_i18n::tr!(YConfirmNEscCancel),
         ),
         Mode::CommitConfirm { .. } => (
-            " 确认提交 ",
-            Content::Locked("等待确认提交".into()),
-            "y 确认提交 · n/Esc 取消 · PgUp/PgDn 查看",
+            gw_i18n::tr!(ConfirmCommitAlt),
+            Content::Locked(gw_i18n::tr!(AwaitingCommitConfirmation).into()),
+            gw_i18n::tr!(YCommitNEscCancelPgupPgdn),
         ),
         Mode::PushConfirm { .. } => (
-            " 确认推送 ",
-            Content::Locked("等待确认推送".into()),
-            "y 确认推送 · n/Esc 取消 · PgUp/PgDn 查看",
+            gw_i18n::tr!(ConfirmPushAlt),
+            Content::Locked(gw_i18n::tr!(AwaitingPushConfirmation).into()),
+            gw_i18n::tr!(YPushNEscCancelPgupPgdn),
         ),
         Mode::Error { .. } => (
-            " 操作未完成 ",
-            Content::Locked("请查看错误详情".into()),
-            "↑↓/PgDn 查看完整错误 · Enter/Esc 返回",
+            gw_i18n::tr!(OperationIncomplete),
+            Content::Locked(gw_i18n::tr!(SeeErrorDetails).into()),
+            gw_i18n::tr!(PgdnFullErrorEnterEscBack),
         ),
         Mode::Busy(p) => (
-            " 执行中 ",
+            gw_i18n::tr!(RunningAlt),
             Content::Locked(if p.state == TaskState::Cancelling {
-                "正在取消…".into()
+                gw_i18n::tr!(Cancelling).into()
             } else {
                 safe(&p.title)
             }),
-            "Esc/Ctrl+C 取消并等待子进程退出",
+            gw_i18n::tr!(EscCtrlCCancelAndWaitFor),
         ),
     };
     let parts = Layout::vertical([

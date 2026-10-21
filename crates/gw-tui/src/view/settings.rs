@@ -1,10 +1,10 @@
 use super::*;
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let mut lines = vec![Line::from("检查与推送"), Line::from("")];
+    let mut lines = vec![Line::from(gw_i18n::tr!(ChecksAndPushes)), Line::from("")];
     for (i, action) in command::SETTINGS.iter().enumerate() {
         let value = match action {
             Action::Interval => {
-                format!("每 {} 小时", screen.config.interval_seconds as f64 / 3600.0)
+                gw_i18n::tf!(EveryHours, screen.config.interval_seconds as f64 / 3600.0)
             }
             Action::Autopush => screen.config.push_policy.to_string(),
             Action::Concurrency => screen.config.max_concurrency.to_string(),
@@ -28,29 +28,29 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ));
     }
     lines.push(Line::from(""));
-    lines.push(Line::from(format!(
-        "系统任务：{} · {}",
+    lines.push(Line::from(gw_i18n::tf!(
+        SystemSchedule,
         if screen.snapshot.registration == Registration::Loaded {
-            "已加载"
+            gw_i18n::tr!(Loaded)
         } else {
-            "未加载"
+            gw_i18n::tr!(NotLoaded)
         },
         if matches!(screen.snapshot.activity, Activity::Running) {
-            "检查运行中"
+            gw_i18n::tr!(CheckingAltAlt)
         } else {
-            "空闲"
+            gw_i18n::tr!(Idle)
         }
     )));
     if let Schedule::Saved { interval_seconds } = screen.snapshot.schedule
         && interval_seconds != screen.config.interval_seconds
     {
-        lines.push(Line::from(format!(
-            "已应用间隔 {} 小时，配置尚未应用",
+        lines.push(Line::from(gw_i18n::tf!(
+            AppliedIntervalHoursConfigurationNotYetApplied,
             interval_seconds as f64 / 3600.0
         )))
     }
     lines.push(Line::from(""));
-    lines.push(Line::from("排除目录"));
+    lines.push(Line::from(gw_i18n::tr!(ExcludedDirectories)));
     for path in &screen.config.excluded_roots {
         lines.push(Line::from(safe(&path.to_string_lossy())))
     }
@@ -62,7 +62,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let text = Text::from(lines);
     let paragraph = Paragraph::new(text)
         .wrap(Wrap { trim: false })
-        .block(block("设置"));
+        .block(block(gw_i18n::tr!(Settings)));
     frame.render_widget(
         paragraph.scroll((start.min(u16::MAX as usize) as u16, 0)),
         area,

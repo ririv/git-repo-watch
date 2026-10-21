@@ -33,7 +33,7 @@ pub struct Command {
     pub name: &'static str,
     pub action: Action,
     pub scope: Scope,
-    pub description: &'static str,
+    pub description: gw_i18n::Message,
 }
 use Action::*;
 use Scope::*;
@@ -42,121 +42,121 @@ pub const COMMANDS: &[Command] = &[
         name: "stage",
         action: Stage,
         scope: Repository,
-        description: "选择工作区文件并暂存",
+        description: gw_i18n::Message::SelectAndStageWorktreeFiles,
     },
     Command {
         name: "unstage",
         action: Unstage,
         scope: Repository,
-        description: "选择暂存区文件并取消暂存",
+        description: gw_i18n::Message::SelectAndUnstageIndexFiles,
     },
     Command {
         name: "diff",
         action: Diff,
         scope: Repository,
-        description: "查看光标文件的差异",
+        description: gw_i18n::Message::ViewTheCurrentFileDiff,
     },
     Command {
         name: "commit",
         action: Commit,
         scope: Repository,
-        description: "预览暂存内容，输入说明并确认提交",
+        description: gw_i18n::Message::ReviewStagedContentsEnterAMessageAnd,
     },
     Command {
         name: "push",
         action: Push,
         scope: Repository,
-        description: "核对当前分支和远程上游后确认推送",
+        description: gw_i18n::Message::ReviewCurrentBranchAndRemoteUpstreamThen,
     },
     Command {
         name: "check all",
         action: CheckAll,
         scope: Global,
-        description: "检查全部仓库，按当前配置自动推送",
+        description: gw_i18n::Message::CheckAllRepositoriesAndPushAccordingTo,
     },
     Command {
         name: "refresh",
         action: Refresh,
         scope: View,
-        description: "重新读取报告或文件列表",
+        description: gw_i18n::Message::ReloadReportOrFileList,
     },
     Command {
         name: "settings",
         action: Settings,
         scope: Global,
-        description: "打开设置",
+        description: gw_i18n::Message::OpenSettings,
     },
     Command {
         name: "add",
         action: Add,
         scope: Global,
-        description: "添加仓库根目录",
+        description: gw_i18n::Message::AddARepositoryRoot,
     },
     Command {
         name: "remove",
         action: Remove,
         scope: Repository,
-        description: "移除注册项，保留磁盘文件",
+        description: gw_i18n::Message::UnregisterRepositoryKeepFilesOnDisk,
     },
     Command {
         name: "exclude",
         action: Exclude,
         scope: Global,
-        description: "排除目录并移除其下注册项",
+        description: gw_i18n::Message::ExcludeDirectoryAndUnregisterRepositoriesWithinIt,
     },
     Command {
         name: "unexclude",
         action: Unexclude,
         scope: Global,
-        description: "取消目录排除，不自动导入",
+        description: gw_i18n::Message::RemoveDirectoryExclusionWithoutImporting,
     },
     Command {
         name: "scan",
         action: Scan,
         scope: Global,
-        description: "按 Git 忽略规则扫描预览",
+        description: gw_i18n::Message::PreviewScanUsingGitIgnoreRules,
     },
     Command {
         name: "import",
         action: Import,
         scope: Global,
-        description: "扫描并导入仓库列表",
+        description: gw_i18n::Message::ScanAndImportRepositoryList,
     },
     Command {
         name: "interval",
         action: Interval,
         scope: Global,
-        description: "保存检查频率",
+        description: gw_i18n::Message::SaveCheckInterval,
     },
     Command {
         name: "autopush",
         action: Autopush,
         scope: Global,
-        description: "保存自动推送策略",
+        description: gw_i18n::Message::SaveAutomaticPushPolicy,
     },
     Command {
         name: "concurrency",
         action: Concurrency,
         scope: Global,
-        description: "设置并发检查上限（1 至 32）",
+        description: gw_i18n::Message::SetCheckConcurrencyLimit132,
     },
     Command {
         name: "apply",
         action: Apply,
         scope: Global,
-        description: "应用系统调度，不立即检查",
+        description: gw_i18n::Message::ApplySystemScheduleWithoutStartingACheck,
     },
     Command {
         name: "help",
         action: Help,
         scope: Global,
-        description: "查看帮助",
+        description: gw_i18n::Message::ShowHelp,
     },
     Command {
         name: "quit",
         action: Quit,
         scope: Global,
-        description: "退出",
+        description: gw_i18n::Message::Quit,
     },
 ];
 pub fn matches(input: &str) -> Vec<&'static Command> {
@@ -188,4 +188,5 @@ pub fn description(action: Action) -> &'static str {
         .find(|c| c.action == action)
         .expect("catalog covers every action")
         .description
+        .text()
 }

@@ -13,8 +13,7 @@ impl Service {
                     .excluded_roots
                     .iter()
                     .any(|x| canonical.starts_with(x)),
-                "仓库位于排除目录中：{}",
-                canonical.display()
+                gw_i18n::tf!(RepositoryIsUnderAnExcludedDirectoryAlt, canonical.display())
             );
             if !config.repositories.contains(&canonical) {
                 config.repositories.push(canonical);
@@ -32,8 +31,7 @@ impl Service {
                 let path = state::canonical(&path)?;
                 ensure!(
                     config.repositories.contains(&path),
-                    "列表中不存在：{}",
-                    path.display()
+                    gw_i18n::tf!(NotInTheRepositoryList, path.display())
                 );
                 config.repositories.retain(|p| p != &path);
             }
@@ -48,7 +46,7 @@ impl Service {
                 let path = state::canonical(&path)?;
                 ensure!(
                     config.excluded_roots.contains(&path),
-                    "排除列表中不存在该目录"
+                    gw_i18n::tr!(DirectoryIsNotInTheExclusionList)
                 );
                 config.excluded_roots.retain(|p| p != &path)
             }
@@ -63,7 +61,10 @@ impl Service {
         let mut config = self.store.config()?;
         let report = discovery::discover(root, &config.excluded_roots, cancel)?;
         state::write_json(&self.store.state_dir().join("import-report.json"), &report)?;
-        ensure!(!report.repositories.is_empty(), "指定目录下未发现 Git 仓库");
+        ensure!(
+            !report.repositories.is_empty(),
+            gw_i18n::tr!(NoGitRepositoriesFoundUnderThisDirectory)
+        );
         if mode == ScanMode::Import {
             for record in &report.repositories {
                 let path = record.path().to_owned();

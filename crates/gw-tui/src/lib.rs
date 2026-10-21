@@ -318,7 +318,7 @@ impl Drop for TerminalGuard {
 pub fn run(service: Service, root: Cancel) -> Result<()> {
     anyhow::ensure!(
         io::stdin().is_terminal() && io::stdout().is_terminal(),
-        "gw tui 需要交互式终端；请使用 gw status 或 gw report 查询"
+        gw_i18n::tr!(GwTuiRequiresAnInteractiveTerminalUse)
     );
     let mut screen = Screen::new(service, &root)?;
     let _guard = TerminalGuard::enter()?;
@@ -363,7 +363,9 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
         Ok(())
     })();
     screen.shutdown();
-    terminal.show_cursor().context("无法恢复终端光标")?;
+    terminal
+        .show_cursor()
+        .context(gw_i18n::tr!(UnableToRestoreTerminalCursor))?;
     result
 }
 

@@ -53,7 +53,7 @@ impl Screen {
             Mode::Confirm(confirmation) => match key.code {
                 KeyCode::Char('y') => self.confirm(confirmation),
                 KeyCode::Char('n') | KeyCode::Esc => {
-                    self.message = "已取消".into();
+                    self.message = gw_i18n::tr!(Cancelled).into();
                     self.sync_bar();
                 }
                 _ => self.mode = Mode::Confirm(confirmation),
@@ -131,7 +131,7 @@ impl Screen {
                     KeyCode::PageUp => scroll = scroll.saturating_sub(10),
                     KeyCode::Enter => {
                         if editor.text.trim().is_empty() {
-                            self.message = "请输入提交说明".into()
+                            self.message = gw_i18n::tr!(EnterACommitMessage).into()
                         } else {
                             self.mode = Mode::CommitConfirm {
                                 plan,
@@ -158,7 +158,7 @@ impl Screen {
                 match key.code {
                     KeyCode::Char('y') => {
                         self.start(
-                            "提交暂存内容",
+                            gw_i18n::tr!(CommitStagedContents),
                             Effect::Commit,
                             move |service, cancel, _| {
                                 Ok(Outcome::Committed(
@@ -169,7 +169,7 @@ impl Screen {
                         return Ok(false);
                     }
                     KeyCode::Esc | KeyCode::Char('n') => {
-                        self.message = "已取消".into();
+                        self.message = gw_i18n::tr!(Cancelled).into();
                         self.sync_bar();
                         return Ok(false);
                     }
@@ -185,7 +185,7 @@ impl Screen {
                 match key.code {
                     KeyCode::Char('y') => {
                         self.start(
-                            "推送当前分支",
+                            gw_i18n::tr!(PushCurrentBranch),
                             Effect::Push,
                             move |service, cancel, _| {
                                 Ok(Outcome::Published(service.push(&plan, &cancel)?))
@@ -194,7 +194,7 @@ impl Screen {
                         return Ok(false);
                     }
                     KeyCode::Esc | KeyCode::Char('n') => {
-                        self.message = "已取消".into();
+                        self.message = gw_i18n::tr!(Cancelled).into();
                         self.sync_bar();
                         return Ok(false);
                     }

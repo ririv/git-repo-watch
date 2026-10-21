@@ -1,6 +1,6 @@
 [workspace]
-members = [".", "crates/gw-core", "crates/gw-tui", "crates/gw-test-support"]
-default-members = [".", "crates/gw-core", "crates/gw-tui"]
+members = [".", "crates/gw-core", "crates/gw-tui", "crates/gw-test-support", "crates/gw-i18n"]
+default-members = [".", "crates/gw-core", "crates/gw-tui", "crates/gw-i18n"]
 resolver = "3"
 
 [workspace.package]
@@ -10,6 +10,7 @@ rust-version = "1.88"
 license = "MIT"
 
 [workspace.dependencies]
+gw-i18n = { path = "crates/gw-i18n" }
 gw-core = { path = "crates/gw-core" }
 gw-tui = { path = "crates/gw-tui" }
 gw-test-support = { path = "crates/gw-test-support" }
@@ -36,6 +37,7 @@ license.workspace = true
 description = "多仓库 Git 管理工具的 CLI 和程序入口"
 
 [dependencies]
+gw-i18n.workspace = true
 gw-core.workspace = true
 gw-tui.workspace = true
 anyhow.workspace = true

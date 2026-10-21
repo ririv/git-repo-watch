@@ -66,7 +66,7 @@ fn location(delta: git2::DiffDelta<'_>) -> Result<Location> {
         .new_file()
         .path()
         .or_else(|| delta.old_file().path())
-        .context("变更缺少路径")?
+        .context(gw_i18n::tr!(ChangeHasNoPath))?
         .to_owned();
     utf8_path(&after)?;
     Ok(match delta.status() {
@@ -74,7 +74,7 @@ fn location(delta: git2::DiffDelta<'_>) -> Result<Location> {
             before: delta
                 .old_file()
                 .path()
-                .context("重命名缺少原路径")?
+                .context(gw_i18n::tr!(RenameHasNoOriginalPath))?
                 .to_owned(),
             after,
         },
@@ -82,7 +82,7 @@ fn location(delta: git2::DiffDelta<'_>) -> Result<Location> {
             before: delta
                 .old_file()
                 .path()
-                .context("复制缺少原路径")?
+                .context(gw_i18n::tr!(CopyHasNoOriginalPath))?
                 .to_owned(),
             after,
         },
@@ -102,7 +102,10 @@ fn changes(repo: &Repository) -> Result<Vec<Change>> {
     let mut result = Vec::new();
     for entry in statuses.iter() {
         let s = entry.status();
-        ensure!(!s.contains(Status::CONFLICTED), "仓库存在未解决的冲突");
+        ensure!(
+            !s.contains(Status::CONFLICTED),
+            gw_i18n::tr!(RepositoryHasUnresolvedConflicts)
+        );
         if s.intersects(
             Status::INDEX_NEW
                 | Status::INDEX_MODIFIED
@@ -110,7 +113,9 @@ fn changes(repo: &Repository) -> Result<Vec<Change>> {
                 | Status::INDEX_RENAMED
                 | Status::INDEX_TYPECHANGE,
         ) {
-            let delta = entry.head_to_index().context("缺少暂存差异")?;
+            let delta = entry
+                .head_to_index()
+                .context(gw_i18n::tr!(StagedDiffIsMissing))?;
             let kind = kind(delta.status());
             result.push(Change {
                 area: Area::Staged,
@@ -125,7 +130,9 @@ fn changes(repo: &Repository) -> Result<Vec<Change>> {
                 | Status::WT_RENAMED
                 | Status::WT_TYPECHANGE,
         ) {
-            let delta = entry.index_to_workdir().context("缺少工作区差异")?;
+            let delta = entry
+                .index_to_workdir()
+                .context(gw_i18n::tr!(WorktreeDiffIsMissing))?;
             let area = if s.contains(Status::WT_NEW) {
                 Area::Untracked
             } else {
@@ -189,10 +196,13 @@ pub fn read(path: &Path) -> Result<Files> {
 }
 pub(crate) fn validate(repo: &Repository, f: &Files) -> Result<()> {
     idle(repo)?;
-    ensure!(head(repo)? == f.head, "分支或 HEAD 已变化，请刷新文件列表");
+    ensure!(
+        head(repo)? == f.head,
+        gw_i18n::tr!(BranchOrHeadChangedRefreshTheFile)
+    );
     ensure!(
         repo.index()?.write_tree()? == f.tree,
-        "暂存区已变化，请刷新文件列表"
+        gw_i18n::tr!(IndexChangedRefreshTheFileList)
     );
     Ok(())
 }
@@ -207,7 +217,7 @@ pub fn dirty(repo: &Repository) -> Result<bool> {
 fn submodule_changes(repo: &Repository) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     for sub in repo.submodules()? {
-        let name = sub.name().context("子模块名称不是 UTF-8")?;
+        let name = sub.name().context(gw_i18n::tr!(SubmoduleNameIsNotUtf8))?;
         let status = repo.submodule_status(name, git2::SubmoduleIgnore::None)?;
         if status.intersects(
             git2::SubmoduleStatus::WD_MODIFIED

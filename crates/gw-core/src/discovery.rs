@@ -53,14 +53,18 @@ impl RepositoryScope {
         let mut tracked = Tree::default();
         for entry in repo.index()?.iter() {
             let path = Path::new(
-                std::str::from_utf8(&entry.path).context("扫描遇到非 UTF-8 的已跟踪路径")?,
+                std::str::from_utf8(&entry.path)
+                    .context(gw_i18n::tr!(ScanEncounteredANonUtf8Tracked))?,
             );
             include(&mut tracked, path, entry.mode == 0o160000);
         }
         Ok(Self { repo, tracked })
     }
     fn allows(&self, dir: &Path) -> Result<bool> {
-        let root = self.repo.workdir().context("仓库没有工作区")?;
+        let root = self
+            .repo
+            .workdir()
+            .context(gw_i18n::tr!(RepositoryHasNoWorktree))?;
         let relative = dir.strip_prefix(root)?;
         let mut tracked = &self.tracked;
         let mut included = true;
@@ -104,7 +108,7 @@ fn marker(dir: &Path) -> Result<Marker> {
 }
 pub fn discover(root: &Path, excluded: &[PathBuf], cancel: &Cancel) -> Result<Report> {
     let root = fs::canonicalize(root)?;
-    ensure!(root.is_dir(), "扫描起点不是目录");
+    ensure!(root.is_dir(), gw_i18n::tr!(ScanRootIsNotADirectory));
     let mut report = Report {
         root: root.clone(),
         scanned_at: state::now(),

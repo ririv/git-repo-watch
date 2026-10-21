@@ -54,10 +54,12 @@ impl Git {
         let text = std::str::from_utf8(&data)?;
         let mut heads = BTreeMap::new();
         for row in text.lines() {
-            let (oid, reference) = row.split_once('\t').context("远程分支记录格式错误")?;
+            let (oid, reference) = row
+                .split_once('\t')
+                .context(gw_i18n::tr!(InvalidRemoteBranchRecord))?;
             ensure!(
                 heads.insert(reference.to_owned(), oid.parse()?).is_none(),
-                "服务器返回重复的分支引用"
+                gw_i18n::tr!(ServerReturnedADuplicateBranchReference)
             );
         }
         Ok(heads)
@@ -71,7 +73,7 @@ impl Git {
     ) -> Result<git2::Oid> {
         self.heads(path, remote, cancel)?
             .remove(reference)
-            .context("远程上游分支不存在")
+            .context(gw_i18n::tr!(RemoteUpstreamBranchDoesNotExistAlt))
     }
     pub fn commit(&self, path: &Path, message: &str, cancel: &Cancel) -> Result<()> {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;

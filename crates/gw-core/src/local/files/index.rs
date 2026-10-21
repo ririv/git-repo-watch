@@ -5,7 +5,7 @@ use anyhow::{Context, Result, ensure};
 use git2::{IndexEntry, Repository};
 use std::{collections::HashSet, fs, path::Path};
 pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Result<Files> {
-    ensure!(!selection.is_empty(), "请先选择文件");
+    ensure!(!selection.is_empty(), gw_i18n::tr!(SelectAFileFirst));
     let repo = open(&snapshot.path)?;
     validate(&repo, snapshot)?;
     let mut paths = Vec::new();
@@ -13,14 +13,14 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
     for change in selection {
         ensure!(
             snapshot.changes.contains(change),
-            "文件来自不同的状态快照，请刷新后重新选择"
+            gw_i18n::tr!(FilesBelongToDifferentSnapshotsRefreshAnd)
         );
         ensure!(
             match action {
                 IndexAction::Stage => change.area != Area::Staged,
                 IndexAction::Unstage => change.area == Area::Staged,
             },
-            "文件区域与操作不匹配"
+            gw_i18n::tr!(FileAreaDoesNotMatchTheOperation)
         );
         for path in change.location.paths() {
             if seen.insert(path) {
@@ -36,8 +36,13 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
                 match fs::symlink_metadata(&full) {
                     Ok(info) => {
                         if info.is_dir() {
-                            let sub = open(&full).context("目录只支持暂存子模块提交")?;
-                            let oid = sub.head()?.target().context("子模块没有提交")?;
+                            let sub = open(&full).context(gw_i18n::tr!(
+                                DirectoriesOnlySupportStagingSubmoduleCommits
+                            ))?;
+                            let oid = sub
+                                .head()?
+                                .target()
+                                .context(gw_i18n::tr!(SubmoduleHasNoCommit))?;
                             let entry = IndexEntry {
                                 ctime: git2::IndexTime::new(0, 0),
                                 mtime: git2::IndexTime::new(0, 0),
@@ -92,7 +97,7 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
     // libgit2 在 write 时获取 index.lock；写入前再次检查预览快照。
     validate(&open(&snapshot.path)?, snapshot)?;
     index.write()?;
-    read(&snapshot.path).context("暂存操作已执行，但刷新失败")
+    read(&snapshot.path).context(gw_i18n::tr!(StagingCompletedButRefreshFailed))
 }
 fn require_supported_filters(repo: &Repository, path: &Path) -> Result<()> {
     let flags = git2::AttrCheckFlags::FILE_THEN_INDEX;
@@ -118,7 +123,7 @@ fn require_supported_filters(repo: &Repository, path: &Path) -> Result<()> {
         };
         ensure!(
             !configured && !required,
-            "文件 {path:?} 使用外部 filter {name:?}（例如 Git LFS），当前 libgit2 索引后端未注册该过滤器，已拒绝暂存；请使用 Git 显式处理"
+            gw_i18n::tf!(FilePathUsesExternalFilterNameSuch, name = name, path = path)
         );
     }
     ensure!(
@@ -130,7 +135,7 @@ fn require_supported_filters(repo: &Repository, path: &Path) -> Result<()> {
             )?),
             git2::AttrValue::Unspecified | git2::AttrValue::False
         ),
-        "文件 {path:?} 使用 working-tree-encoding，当前后端不支持该转换，已拒绝暂存"
+        gw_i18n::tf!(FilePathUsesWorkingTreeEncodingWhich, path = path)
     );
     Ok(())
 }

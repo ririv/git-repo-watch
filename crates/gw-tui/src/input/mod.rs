@@ -10,7 +10,10 @@ use std::path::Path;
 fn validate_input(action: Action, value: &str) -> Result<()> {
     match action {
         Action::Add | Action::Exclude | Action::Unexclude | Action::Scan | Action::Import => {
-            ensure!(Path::new(value).is_absolute(), "请输入绝对路径")
+            ensure!(
+                Path::new(value).is_absolute(),
+                gw_i18n::tr!(EnterAnAbsolutePath)
+            )
         }
         Action::Interval => {
             state::interval(value)?;
@@ -20,7 +23,10 @@ fn validate_input(action: Action, value: &str) -> Result<()> {
         }
         Action::Concurrency => {
             let n = value.parse::<usize>()?;
-            ensure!((1..=32).contains(&n), "并发数必须在 1 至 32 之间")
+            ensure!(
+                (1..=32).contains(&n),
+                gw_i18n::tr!(ConcurrencyMustBeBetween1And32)
+            )
         }
         _ => {}
     }

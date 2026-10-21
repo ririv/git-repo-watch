@@ -32,9 +32,13 @@ pub struct Location {
 }
 impl Manager {
     pub fn new() -> Result<Self> {
-        let user_home = std::env::var_os("HOME").context("无法读取用户目录")?;
+        let user_home =
+            std::env::var_os("HOME").context(gw_i18n::tr!(CannotReadUserHomeDirectory))?;
         let user_home = PathBuf::from(user_home);
-        ensure!(user_home.is_absolute(), "用户目录不是绝对路径");
+        ensure!(
+            user_home.is_absolute(),
+            gw_i18n::tr!(UserHomeDirectoryIsNotAnAbsolute)
+        );
         Ok(Self {
             user_home,
             uid: unsafe { libc::getuid() },
@@ -57,7 +61,10 @@ impl Manager {
     }
     pub fn read_location(&self) -> Result<Location> {
         let l: Location = state::read_json(&self.location())?;
-        ensure!(l.home.is_absolute(), "安装位置不是绝对路径");
+        ensure!(
+            l.home.is_absolute(),
+            gw_i18n::tr!(InstallationLocationIsNotAnAbsolutePath)
+        );
         Ok(l)
     }
     pub fn registration(&self, cancel: &Cancel) -> Result<Registration> {
@@ -66,7 +73,7 @@ impl Manager {
             0 => Ok(Registration::Loaded),
             113 => Ok(Registration::NotLoaded),
             _ => {
-                out.success("查询系统任务")?;
+                out.success(gw_i18n::tr!(QuerySystemSchedule))?;
                 unreachable!()
             }
         }
@@ -84,13 +91,13 @@ impl Manager {
                 "raw",
                 "-o",
                 "-",
-                path.to_str().context("调度路径不是 UTF-8")?,
+                path.to_str().context(gw_i18n::tr!(SchedulePathIsNotUtf8))?,
             ],
             cancel,
         )?
-        .success("读取系统任务间隔")?;
+        .success(gw_i18n::tr!(ReadScheduledInterval))?;
         let interval = std::str::from_utf8(&out)?.trim().parse::<u64>()?;
-        ensure!(interval >= 60, "系统任务间隔无效");
+        ensure!(interval >= 60, gw_i18n::tr!(InvalidScheduledInterval));
         Ok(Schedule::Saved {
             interval_seconds: interval,
         })
@@ -102,14 +109,17 @@ impl Manager {
         interval: u64,
         cancel: &Cancel,
     ) -> Result<()> {
-        ensure!(root.is_absolute() && interval >= 60, "安装参数无效");
+        ensure!(
+            root.is_absolute() && interval >= 60,
+            gw_i18n::tr!(InvalidInstallationArguments)
+        );
         let data = fs::read(source)?;
         match fs::read(self.binary()) {
             Ok(old) => {
                 let l = self.read_location()?;
                 ensure!(
                     digest(&old) == l.binary_sha256,
-                    "现有 gw 命令与安装清单不匹配，无法确认归属"
+                    gw_i18n::tr!(ExistingGwDoesNotMatchTheInstallation)
                 );
             }
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
@@ -122,23 +132,30 @@ impl Manager {
             self.plist(),
             root.join("var/placeholder"),
         ] {
-            let parent = path.parent().context("安装路径缺少父目录")?;
+            let parent = path
+                .parent()
+                .context(gw_i18n::tr!(InstallationPathHasNoParentDirectory))?;
             fs::create_dir_all(parent)?;
         }
         let plist = plist(root, &self.binary(), interval)?;
-        let staged = tempfile::Builder::new()
-            .prefix(".gw-")
-            .tempfile_in(self.plist().parent().context("调度路径缺少父目录")?)?;
+        let staged = tempfile::Builder::new().prefix(".gw-").tempfile_in(
+            self.plist()
+                .parent()
+                .context(gw_i18n::tr!(SchedulePathHasNoParentDirectory))?,
+        )?;
         fs::write(staged.path(), &plist)?;
         process::system(
             "/usr/bin/plutil",
             &[
                 "-lint",
-                staged.path().to_str().context("临时路径不是 UTF-8")?,
+                staged
+                    .path()
+                    .to_str()
+                    .context(gw_i18n::tr!(TemporaryPathIsNotUtf8))?,
             ],
             cancel,
         )?
-        .success("验证系统任务配置")?;
+        .success(gw_i18n::tr!(ValidateSystemSchedule))?;
         state::atomic(&self.binary(), &data, 0o755)?;
         state::write_json(
             &self.location(),
@@ -150,24 +167,26 @@ impl Manager {
         state::atomic(&self.plist(), plist.as_bytes(), 0o600)?;
         if previous == Registration::Loaded {
             process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
-                .success("卸载旧系统任务")?;
+                .success(gw_i18n::tr!(UnloadOldSystemSchedule))?;
         }
         process::system(
             "/bin/launchctl",
             &[
                 "bootstrap",
                 &format!("gui/{}", self.uid),
-                self.plist().to_str().context("调度路径不是 UTF-8")?,
+                self.plist()
+                    .to_str()
+                    .context(gw_i18n::tr!(SchedulePathIsNotUtf8))?,
             ],
             cancel,
         )?
-        .success("加载系统任务")?;
+        .success(gw_i18n::tr!(LoadSystemSchedule))?;
         Ok(())
     }
     pub fn uninstall(&self, cancel: &Cancel) -> Result<()> {
         if self.registration(cancel)? == Registration::Loaded {
             process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
-                .success("卸载系统任务")?;
+                .success(gw_i18n::tr!(UnloadSystemSchedule))?;
         }
         fs::remove_file(self.plist())?;
         Ok(())
@@ -185,8 +204,10 @@ fn xml(value: &str) -> String {
         .replace('\'', "&apos;")
 }
 pub fn plist(root: &Path, binary: &Path, interval: u64) -> Result<String> {
-    let root = root.to_str().context("安装路径不是 UTF-8")?;
-    let binary = binary.to_str().context("命令路径不是 UTF-8")?;
+    let root = root
+        .to_str()
+        .context(gw_i18n::tr!(InstallationPathNotUtf8))?;
+    let binary = binary.to_str().context(gw_i18n::tr!(CommandPathNotUtf8))?;
     Ok(format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

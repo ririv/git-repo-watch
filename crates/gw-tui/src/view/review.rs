@@ -1,7 +1,7 @@
 use super::*;
 pub(super) fn commit_review(plan: &CommitPlan) -> String {
-    let mut text = format!(
-        "仓库：{}\n分支：{}\n范围：仅已暂存内容\n\n暂存文件\n",
+    let mut text = gw_i18n::tf!(
+        RepositoryBranchScopeStagedContentsOnlyStaged,
         safe(&plan.path.to_string_lossy()),
         safe(plan.branch())
     );

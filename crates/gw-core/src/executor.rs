@@ -19,10 +19,14 @@ pub fn run<T: Send>(
     task: impl Fn(&std::path::Path) -> T + Sync,
     mut emit: impl FnMut(Event<T>),
 ) -> Result<()> {
-    ensure!((1..=32).contains(&limit), "并发数必须在 1 至 32 之间");
+    ensure!(
+        (1..=32).contains(&limit),
+        gw_i18n::tr!(ConcurrencyMustBeBetween1And32)
+    );
     let count = groups.len().min(limit);
     let queue = Mutex::new(VecDeque::from(groups));
     let (tx, rx) = mpsc::channel();
+    let language = gw_i18n::language();
     thread::scope(|scope| -> Result<()> {
         let mut handles = Vec::new();
         for _ in 0..count {
@@ -30,11 +34,12 @@ pub fn run<T: Send>(
             let queue = &queue;
             let task = &task;
             handles.push(scope.spawn(move || -> Result<()> {
+                let _language = gw_i18n::using(language);
                 loop {
                     cancel.check()?;
                     let group = queue
                         .lock()
-                        .map_err(|_| anyhow::anyhow!("任务队列锁异常"))?
+                        .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(TaskQueueLockFailed)))?
                         .pop_front();
                     let Some(group) = group else { break };
                     for (index, path) in group {
@@ -43,10 +48,10 @@ pub fn run<T: Send>(
                             index,
                             path: path.clone(),
                         })
-                        .map_err(|_| anyhow::anyhow!("进度接收端已关闭"))?;
+                        .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(ProgressReceiverClosed)))?;
                         let value = task(&path);
                         tx.send(Event::Finished { index, value })
-                            .map_err(|_| anyhow::anyhow!("结果接收端已关闭"))?;
+                            .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(ResultReceiverClosed)))?;
                     }
                 }
                 Ok(())
@@ -59,7 +64,7 @@ pub fn run<T: Send>(
         for handle in handles {
             handle
                 .join()
-                .map_err(|_| anyhow::anyhow!("检查工作线程异常"))??;
+                .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(CheckWorkerPanicked)))??;
         }
         Ok(())
     })?;

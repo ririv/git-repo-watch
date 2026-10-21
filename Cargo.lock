@@ -538,6 +538,7 @@ dependencies = [
  "chrono",
  "ctrlc",
  "gw-core",
+ "gw-i18n",
  "gw-tui",
  "libc",
  "serde",
@@ -552,6 +553,7 @@ dependencies = [
  "anyhow",
  "chrono",
  "git2",
+ "gw-i18n",
  "gw-test-support",
  "libc",
  "serde",
@@ -559,6 +561,10 @@ dependencies = [
  "sha2",
  "tempfile",
 ]
+
+[[package]]
+name = "gw-i18n"
+version = "0.1.0"
 
 [[package]]
 name = "gw-test-support"
@@ -575,6 +581,7 @@ dependencies = [
  "chrono",
  "crossterm",
  "gw-core",
+ "gw-i18n",
  "gw-test-support",
  "libc",
  "ratatui",

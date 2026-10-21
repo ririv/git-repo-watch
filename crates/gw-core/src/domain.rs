@@ -14,7 +14,7 @@ impl std::str::FromStr for PushPolicy {
         match s {
             "disabled" => Ok(Self::Disabled),
             "fast_forward" => Ok(Self::FastForward),
-            _ => anyhow::bail!("未知自动推送策略：{s}"),
+            _ => anyhow::bail!(gw_i18n::tf!(UnknownAutomaticPushPolicyS, s = s)),
         }
     }
 }
@@ -70,9 +70,9 @@ impl Serialize for Issues {
 impl<'de> Deserialize<'de> for Issues {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let mut values = Vec::<Issue>::deserialize(deserializer)?.into_iter();
-        let first = values
-            .next()
-            .ok_or_else(|| serde::de::Error::custom("需关注仓库缺少有效问题列表"))?;
+        let first = values.next().ok_or_else(|| {
+            serde::de::Error::custom(gw_i18n::tr!(AnAttentionResultRequiresAtLeastOne))
+        })?;
         Ok(Self::new(first, values.collect()))
     }
 }
@@ -186,9 +186,9 @@ impl RepositoryResult {
     }
     pub fn label(&self) -> &str {
         match self {
-            Self::Failed { .. } => "检查失败",
-            Self::Attention { .. } => "需关注",
-            Self::Clean { .. } => "正常",
+            Self::Failed { .. } => gw_i18n::tr!(CheckFailed),
+            Self::Attention { .. } => gw_i18n::tr!(NeedsAttention),
+            Self::Clean { .. } => gw_i18n::tr!(Clean),
         }
     }
 }
@@ -244,8 +244,7 @@ impl Report {
     pub fn validate(&self) -> anyhow::Result<()> {
         anyhow::ensure!(
             self.schema_version == 3,
-            "不支持的报告版本：{}",
-            self.schema_version
+            gw_i18n::tf!(UnsupportedReportVersion, self.schema_version)
         );
         Ok(())
     }
@@ -268,10 +267,10 @@ impl Filter {
     }
     pub fn name(self) -> &'static str {
         match self {
-            Self::All => "全部",
-            Self::Problems => "问题",
-            Self::WithoutUpstream => "无上游",
-            Self::Pushes => "推送",
+            Self::All => gw_i18n::tr!(All),
+            Self::Problems => gw_i18n::tr!(Problems),
+            Self::WithoutUpstream => gw_i18n::tr!(NoUpstream),
+            Self::Pushes => gw_i18n::tr!(Pushes),
         }
     }
 }

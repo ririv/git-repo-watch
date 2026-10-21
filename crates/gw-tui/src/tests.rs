@@ -111,6 +111,7 @@ fn render(s: &mut Screen, width: u16, height: u16) -> String {
 }
 #[test]
 fn command_completion_unknown_commands_and_frozen_scope() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/a".into(), "/path/to/b".into()]);
     key(&mut s, KeyCode::Char('/'));
     s.paste("sta");
@@ -133,6 +134,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
 }
 #[test]
 fn unicode_editor_moves_and_deletes_at_character_boundaries() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let mut editor = Editor::default();
     editor.insert("中文abc");
     editor.key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE));
@@ -147,6 +149,7 @@ fn unicode_editor_moves_and_deletes_at_character_boundaries() {
 }
 #[test]
 fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/a".into()]);
     for size in [(60, 18), (80, 24), (150, 32)] {
         let text = render(&mut s, size.0, size.1);
@@ -166,64 +169,87 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
 }
 #[test]
 fn file_selection_commit_and_push_through_command_bar() {
-    let f = support::Fixture::create();
-    support::write(f.repo.join("one.txt"), "one\n");
-    support::write(f.repo.join("two.txt"), "two\n");
-    let (_temp, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
-    wait(&mut s);
-    assert!(matches!(s.mode, Mode::Files(_)));
-    key(&mut s, KeyCode::Char(' '));
-    key(&mut s, KeyCode::Enter);
-    wait(&mut s);
-    assert!(matches!(&s.mode,Mode::Diff{content,..}if content.contains("+one")));
-    key(&mut s, KeyCode::Esc);
-    key(&mut s, KeyCode::Char('/'));
-    key(&mut s, KeyCode::Esc);
-    assert!(matches!(&s.mode,Mode::Files(session)if session.selected.len()==1));
-    command(&mut s, "stage");
-    wait(&mut s);
-    assert_eq!(
-        support::git(&f.repo, &["diff", "--cached", "--name-only"]),
-        "one.txt"
-    );
-    key(&mut s, KeyCode::Tab);
-    command(&mut s, "unstage");
-    wait(&mut s);
-    assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
-    key(&mut s, KeyCode::Tab);
-    command(&mut s, "stage");
-    wait(&mut s);
-    command(&mut s, "commit");
-    wait(&mut s);
-    assert!(matches!(s.mode, Mode::CommitMessage { .. }));
-    s.paste("通过命令栏提交");
-    key(&mut s, KeyCode::Enter);
-    assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
-    let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
-    for size in [(60, 18), (80, 24), (150, 32)] {
-        let text = render(&mut s, size.0, size.1);
-        assert!(text.contains("确认提交"));
-        assert!(text.contains("y 确认提交"));
+    for language in [gw_i18n::Language::English, gw_i18n::Language::Chinese] {
+        let _language = gw_i18n::using(language);
+        let f = support::Fixture::create();
+        support::write(f.repo.join("one.txt"), "one\n");
+        support::write(f.repo.join("two.txt"), "two\n");
+        let (_temp, mut s) = fixture(vec![f.repo.clone()]);
+        command(&mut s, "stage");
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::Files(_)));
+        key(&mut s, KeyCode::Char(' '));
+        key(&mut s, KeyCode::Enter);
+        wait(&mut s);
+        assert!(matches!(&s.mode,Mode::Diff{content,..}if content.contains("+one")));
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Char('/'));
+        key(&mut s, KeyCode::Esc);
+        assert!(matches!(&s.mode,Mode::Files(session)if session.selected.len()==1));
+        command(&mut s, "stage");
+        wait(&mut s);
+        assert_eq!(
+            support::git(&f.repo, &["diff", "--cached", "--name-only"]),
+            "one.txt"
+        );
+        key(&mut s, KeyCode::Tab);
+        command(&mut s, "unstage");
+        wait(&mut s);
+        assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
+        key(&mut s, KeyCode::Tab);
+        command(&mut s, "stage");
+        wait(&mut s);
+        command(&mut s, "commit");
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::CommitMessage { .. }));
+        s.paste("通过命令栏提交");
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
+        let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+        for size in [(60, 18), (80, 24), (150, 32)] {
+            let text = render(&mut s, size.0, size.1);
+            assert!(text.contains(gw_i18n::tr!(ConfirmCommit)));
+            assert!(text.contains(if language == gw_i18n::Language::English {
+                "y commit"
+            } else {
+                "y 确认提交"
+            }));
+        }
+        assert_eq!(before, support::git(&f.repo, &["rev-parse", "HEAD"]));
+        key(&mut s, KeyCode::Char('y'));
+        wait(&mut s);
+        assert!(
+            s.message
+                .contains(if language == gw_i18n::Language::English {
+                    "Committed"
+                } else {
+                    "已提交"
+                })
+        );
+        assert!(support::git(&f.repo, &["status", "--porcelain"]).contains("two.txt"));
+        command(&mut s, "push");
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::PushConfirm { .. }));
+        key(&mut s, KeyCode::Char('y'));
+        wait(&mut s);
+        assert!(
+            s.message
+                .contains(if language == gw_i18n::Language::English {
+                    "Pushed"
+                } else {
+                    "已推送"
+                })
+        );
+        assert_eq!(
+            support::git(&f.repo, &["rev-parse", "HEAD"]),
+            support::git(&f.remote, &["rev-parse", "main"])
+        );
     }
-    assert_eq!(before, support::git(&f.repo, &["rev-parse", "HEAD"]));
-    key(&mut s, KeyCode::Char('y'));
-    wait(&mut s);
-    assert!(s.message.contains("已提交"));
-    assert!(support::git(&f.repo, &["status", "--porcelain"]).contains("two.txt"));
-    command(&mut s, "push");
-    wait(&mut s);
-    assert!(matches!(s.mode, Mode::PushConfirm { .. }));
-    key(&mut s, KeyCode::Char('y'));
-    wait(&mut s);
-    assert!(s.message.contains("已推送"));
-    assert_eq!(
-        support::git(&f.repo, &["rev-parse", "HEAD"]),
-        support::git(&f.remote, &["rev-parse", "main"])
-    );
 }
+
 #[test]
 fn default_browsing_and_commands_do_not_open_repositories() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/nonexistent/repository".into()]);
     for size in [(60, 18), (150, 32)] {
         assert!(render(&mut s, size.0, size.1).contains("repository"));
@@ -238,6 +264,7 @@ fn default_browsing_and_commands_do_not_open_repositories() {
 
 #[test]
 fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec![
         "/path/to/alpha".into(),
         "/path/to/alpha-two".into(),
@@ -270,6 +297,7 @@ fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
 }
 #[test]
 fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/settings".into()]);
     s.paste("settings");
     assert_eq!(s.query, "settings");
@@ -288,6 +316,7 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
 }
 #[test]
 fn full_width_command_panel_keeps_list_and_input_positions_stable() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/alpha".into()]);
     for (w, h) in [(60, 18), (100, 28), (150, 32)] {
         let before = render(&mut s, w, h);
@@ -331,6 +360,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
 }
 #[test]
 fn filtered_file_selection_uses_snapshot_identity() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = support::Fixture::create();
     support::write(f.repo.join("one.txt"), "one");
     support::write(f.repo.join("two.txt"), "two");
@@ -354,6 +384,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
 
 #[test]
 fn numeric_input_and_control_key_filters_do_not_conflict() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/1234".into()]);
     for c in "1234".chars() {
         key(&mut s, KeyCode::Char(c));
@@ -388,6 +419,7 @@ fn numeric_input_and_control_key_filters_do_not_conflict() {
 
 #[test]
 fn input_border_placeholder_text_and_cursor_are_distinct() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     use ratatui::style::{Color, Modifier};
     let (_temp, mut s) = fixture(vec!["/path/to/alpha".into()]);
     for (width, height) in [(60, 18), (80, 24), (150, 32)] {
@@ -423,6 +455,7 @@ fn input_border_placeholder_text_and_cursor_are_distinct() {
 
 #[test]
 fn input_viewport_keeps_unicode_cursor_inside_box() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let mut editor = Editor::new("很长的中文内容1234567890".into());
     for code in [KeyCode::End, KeyCode::Home, KeyCode::Right, KeyCode::Right] {
         editor.key(KeyEvent::new(code, KeyModifiers::NONE));
@@ -434,6 +467,7 @@ fn input_viewport_keeps_unicode_cursor_inside_box() {
 
 #[test]
 fn wide_detail_title_tracks_selected_repository_name() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
     let first = render(&mut s, 150, 32);
     assert!(first.lines().any(|line| line.contains("┌alpha")));
@@ -448,4 +482,51 @@ fn wide_detail_title_tracks_selected_repository_name() {
     let empty = render(&mut s, 150, 32);
     assert!(empty.contains("无选中仓库"));
     assert!(!empty.contains("路径：/example/beta"));
+}
+
+#[test]
+fn english_views_and_commands_remain_usable_at_supported_sizes() {
+    let _language = gw_i18n::using(gw_i18n::Language::English);
+    let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+    for (width, height) in [(60, 18), (80, 24), (150, 32)] {
+        let text = render(&mut s, width, height);
+        assert!(text.contains("Search repositories"));
+        assert!(text.contains("Type to search"));
+        assert!(text.contains("No up"));
+        assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
+        s.paste("/");
+        let candidates = render(&mut s, width, height);
+        assert!(candidates.contains("Current repo"));
+        assert!(candidates.contains("Tab complete"));
+        assert!(candidates.contains("/stage"));
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "concurrency");
+        let input = render(&mut s, width, height);
+        assert!(input.contains("Configuration input"));
+        key(&mut s, KeyCode::Enter);
+        let confirm = render(&mut s, width, height);
+        assert!(confirm.contains("y confirm"));
+        key(&mut s, KeyCode::Esc);
+    }
+    key(&mut s, KeyCode::Enter);
+    let detail = render(&mut s, 80, 24);
+    assert!(detail.contains("Path: /example/alpha"));
+    assert!(detail.contains("Status: Unchecked"));
+    assert!(
+        !detail
+            .chars()
+            .any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c))
+    );
+}
+
+#[test]
+fn english_worker_errors_follow_the_ui_language() {
+    let _language = gw_i18n::using(gw_i18n::Language::English);
+    let (_temp, mut s) = fixture(vec!["/example/unavailable".into()]);
+    command(&mut s, "stage");
+    wait(&mut s);
+    let text = render(&mut s, 80, 24);
+    assert!(text.contains("Operation result"));
+    assert!(text.contains("Enter/Esc back"));
+    assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
 }

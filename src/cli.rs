@@ -12,58 +12,37 @@ use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
-pub const HELP: &str = r#"gw：Git 仓库状态查询与配置管理
-
-用法：gw [--home 绝对路径] [命令]
-不传命令时进入 TUI；状态查询使用 gw status。
-
-  tui                              打开交互界面，不自动检查
-  status [--json]                   查看任务、配置和上次结果
-  report [--json] [筛选]             读取完整报告
-    --problems                      只看需关注或检查失败
-    --no-upstream                   单独查看无远程上游的分支
-    --pushes                        只看自动推送结果
-  config                            查看配置 JSON
-  list                              查看仓库列表
-  exclusions                        查看排除目录
-  add 路径...                       添加仓库根目录
-  remove 路径                       移除仓库注册项
-  exclude 路径                      排除目录并移除其下注册项
-  unexclude 路径                    取消排除，不自动添加仓库
-  scan 路径                         按 Git 忽略规则扫描，写报告
-  import-tree 路径                  扫描并导入列表
-  interval 6h                       保存频率（支持 s、m、h、d）
-  autopush disabled|fast_forward     保存自动推送策略
-  concurrency 4                     设置检查并发上限（1 至 32）
-  check                             并行检查与配置的自动推送
-  install                           安装命令并应用调度，不立即检查
-  uninstall                         卸载定时任务，保留数据与命令
-"#;
+pub const HELP: gw_i18n::Message = gw_i18n::Message::CliHelp;
 pub fn execute(args: Vec<OsString>) -> i32 {
+    if let Err(error) = gw_i18n::validate_environment() {
+        eprintln!("{error}");
+        return 2;
+    }
     let cancel = Cancel::default();
     let signal = cancel.clone();
     if let Err(e) = ctrlc::set_handler(move || signal.cancel()) {
-        eprintln!("无法注册退出信号：{e}");
+        eprintln!("{}", gw_i18n::tf!(UnableToRegisterExitSignalE, e = e));
         return 2;
     }
     match run(args, &cancel) {
         Ok(code) => code,
         Err(e) if e.downcast_ref::<Cancelled>().is_some() || cancel.is_cancelled() => {
-            eprintln!("操作已取消");
+            eprintln!("{}", gw_i18n::tr!(OperationCancelled));
             130
         }
         Err(e) => {
-            eprintln!("错误：{e:#}");
+            eprintln!("{}", gw_i18n::tf!(ErrorE, e = e));
             2
         }
     }
 }
 pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
+    gw_i18n::validate_environment().map_err(anyhow::Error::msg)?;
     let mut args = args
         .into_iter()
         .map(|s| {
             s.into_string()
-                .map_err(|_| anyhow::anyhow!("参数必须为 UTF-8"))
+                .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(ArgumentsMustBeUtf8)))
         })
         .collect::<Result<Vec<_>>>()?;
     if args
@@ -75,17 +54,17 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
     }
     let manager = Manager::new()?;
     let home = if args.first().is_some_and(|a| a == "--home") {
-        ensure!(args.len() >= 2, "--home 缺少路径");
+        ensure!(args.len() >= 2, gw_i18n::tr!(HomeRequiresAPath));
         let home = PathBuf::from(&args[1]);
         args.drain(..2);
         home
     } else {
         manager
             .read_location()
-            .context("无法读取安装位置，请运行 ./install.sh 或显式传入 --home")?
+            .context(gw_i18n::tr!(CannotReadInstallationLocationRunInstallSh))?
             .home
     };
-    ensure!(home.is_absolute(), "--home 必须是绝对路径");
+    ensure!(home.is_absolute(), gw_i18n::tr!(HomeMustBeAnAbsolutePath));
     let service = Service::new(home, manager);
     let command = if args.is_empty() {
         "tui".to_owned()
@@ -113,7 +92,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "status" => {
             ensure!(
                 args.is_empty() || args == ["--json"],
-                "status 只接受 --json"
+                gw_i18n::tr!(StatusOnlyAcceptsJson)
             );
             let s = service.snapshot(cancel)?;
             if args == ["--json"] {
@@ -126,7 +105,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "report" => {
             let (machine, filter) = report_options(&args)?;
             let Some(mut report) = service.store.report()? else {
-                println!("尚未生成完整报告；等待定时执行或显式运行 check");
+                println!("{}", gw_i18n::tr!(NoCompleteReportYetWaitForThe));
                 return Ok(1);
             };
             if machine {
@@ -156,10 +135,13 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             Ok(0)
         }
         "add" => {
-            ensure!(!args.is_empty(), "add 至少需要一个仓库路径");
+            ensure!(
+                !args.is_empty(),
+                gw_i18n::tr!(AddRequiresAtLeastOneRepositoryPath)
+            );
             let paths = args.iter().map(PathBuf::from).collect::<Vec<_>>();
             let n = service.add(&paths)?;
-            println!("已添加 {n} 个仓库");
+            println!("{}", gw_i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
         "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency" => {
@@ -174,7 +156,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 _ => unreachable!(),
             };
             service.configure(edit)?;
-            println!("配置已保存；间隔修改需运行 gw install 应用调度，不立即检查");
+            println!("{}", gw_i18n::tr!(ConfigurationSavedRunGwInstallToApply));
             Ok(0)
         }
         "scan" | "import-tree" => {
@@ -194,25 +176,34 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 .filter(|r| matches!(r, discovery::Record::Failed { .. }))
                 .count();
             println!(
-                "发现 {} 个仓库，其中 {failed} 个无法读取；详见 var/import-report.json",
-                report.repositories.len()
+                "{}",
+                gw_i18n::tf!(
+                    FoundRepositoriesFailedCouldNotBeRead,
+                    report.repositories.len(),
+                    failed = failed
+                )
             );
             Ok(i32::from(failed > 0))
         }
         "check" => {
             none(&args)?;
             let report = service.run(cancel, |event| match event {
-                Event::Checking(p) => println!("正在检查：{}", p.display()),
+                Event::Checking(p) => println!("{}", gw_i18n::tf!(Checking, p.display())),
                 Event::Checked(r) => match serde_json::to_string_pretty(&r) {
                     Ok(s) => println!("{s}"),
-                    Err(e) => eprintln!("无法输出结果：{e}"),
+                    Err(e) => eprintln!("{}", gw_i18n::tf!(UnableToPrintResultE, e = e)),
                 },
-                Event::NotificationProblem(n) => eprintln!("系统通知发送失败：{n:?}"),
+                Event::NotificationProblem(n) => {
+                    eprintln!("{}", gw_i18n::tf!(SystemNotificationFailedN, n = n))
+                }
             })?;
             println!(
-                "检查完成：{:?}，共 {} 个仓库",
-                report.status,
-                report.repositories.len()
+                "{}",
+                gw_i18n::tf!(
+                    CheckCompleteRepositories,
+                    report.status,
+                    report.repositories.len()
+                )
             );
             Ok(i32::from(report.status != ReportStatus::Clean))
         }
@@ -220,8 +211,11 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             none(&args)?;
             service.install(cancel)?;
             println!(
-                "已安装原生 gw 命令与系统任务，每 {} 小时检查一次；未触发检查",
-                service.store.config()?.interval_seconds as f64 / 3600.0
+                "{}",
+                gw_i18n::tf!(
+                    InstalledNativeGwAndSystemScheduleChecking,
+                    service.store.config()?.interval_seconds as f64 / 3600.0
+                )
             );
             Ok(0)
         }
@@ -229,18 +223,30 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             none(&args)?;
             let _lock = service.store.lock()?;
             service.scheduler.uninstall(cancel)?;
-            println!("已卸载定时任务，保留配置、报告和管理命令");
+            println!(
+                "{}",
+                gw_i18n::tr!(ScheduleRemovedConfigurationReportsAndCommandRetained)
+            );
             Ok(0)
         }
-        _ => bail!("未知命令 {command:?}；运行 gw --help 查看帮助"),
+        _ => bail!(gw_i18n::tf!(
+            UnknownCommandCommandRunGwHelp,
+            command = command
+        )),
     }
 }
 fn none(args: &[String]) -> Result<()> {
-    ensure!(args.is_empty(), "该命令不接受位置参数");
+    ensure!(
+        args.is_empty(),
+        gw_i18n::tr!(ThisCommandDoesNotAcceptPositionalArguments)
+    );
     Ok(())
 }
 fn one(args: &[String]) -> Result<&str> {
-    ensure!(args.len() == 1, "该命令要求一个参数");
+    ensure!(
+        args.len() == 1,
+        gw_i18n::tr!(ThisCommandRequiresOneArgument)
+    );
     Ok(&args[0])
 }
 fn json(value: &impl serde::Serialize) -> Result<()> {
@@ -257,14 +263,17 @@ pub fn report_options(args: &[String]) -> Result<(bool, Filter)> {
                 print!("{HELP}");
             }
             "--problems" | "--no-upstream" | "--pushes" => {
-                ensure!(filter == Filter::All, "报告筛选参数互斥");
+                ensure!(
+                    filter == Filter::All,
+                    gw_i18n::tr!(ReportFiltersAreMutuallyExclusive)
+                );
                 filter = match value.as_str() {
                     "--problems" => Filter::Problems,
                     "--no-upstream" => Filter::WithoutUpstream,
                     _ => Filter::Pushes,
                 }
             }
-            _ => bail!("未知报告参数：{value}"),
+            _ => bail!(gw_i18n::tf!(UnknownReportArgumentValue, value = value)),
         }
     }
     Ok((machine, filter))
@@ -275,21 +284,21 @@ pub fn local_time(value: &str) -> String {
             .with_timezone(&chrono::Local)
             .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
-        Err(_) => format!("报告时间格式无效：{value}"),
+        Err(_) => gw_i18n::tf!(InvalidReportTimestampValue, value = value),
     }
 }
 pub fn render_status(s: &Snapshot) -> String {
-    let mut text = format!(
-        "系统任务：{}\n检查进程：{}\n配置频率：每 {} 小时\n仓库数量：{}\n检查并发：{}\n自动推送：{}\n",
+    let mut text = gw_i18n::tf!(
+        SystemScheduleCheckProcessConfiguredIntervalEvery,
         if s.registration == Registration::Loaded {
-            "已加载"
+            gw_i18n::tr!(Loaded)
         } else {
-            "未加载"
+            gw_i18n::tr!(NotLoaded)
         },
         if matches!(s.activity, Activity::Running) {
-            "运行中"
+            gw_i18n::tr!(Running)
         } else {
-            "空闲"
+            gw_i18n::tr!(Idle)
         },
         s.configured_interval_seconds as f64 / 3600.0,
         s.repository_count,
@@ -297,62 +306,72 @@ pub fn render_status(s: &Snapshot) -> String {
         s.push_policy
     );
     match s.schedule {
-        Schedule::Missing => text.push_str("系统任务配置文件：不存在\n"),
+        Schedule::Missing => text.push_str(gw_i18n::tr!(SystemScheduleFileMissing)),
         Schedule::Saved { interval_seconds } => {
-            text.push_str(&format!(
-                "系统任务频率：每 {} 小时\n",
+            text.push_str(&gw_i18n::tf!(
+                ScheduledIntervalEveryHours,
                 interval_seconds as f64 / 3600.0
             ));
             if interval_seconds != s.configured_interval_seconds {
-                text.push_str("频率尚未应用，请运行 gw install\n")
+                text.push_str(gw_i18n::tr!(IntervalNotAppliedRunGwInstall))
             }
         }
     }
     for excluded in &s.excluded_roots {
-        text.push_str(&format!("排除目录：{}\n", excluded.display()))
+        text.push_str(&gw_i18n::tf!(ExcludedDirectory, excluded.display()))
     }
     match &s.report {
-        CachedReport::Missing => text.push_str("最近报告：尚未生成完整报告\n"),
+        CachedReport::Missing => text.push_str(gw_i18n::tr!(LatestReportNoCompleteReportYet)),
         CachedReport::Available { report, scope } => {
             let stats = Stats::of(report);
-            text.push_str(&format!("最近检查：{}\n最近结果：{} 个正常，{} 个需关注，{} 个检查失败\n最近自动推送：{} 个分支成功，{} 个分支失败\n未配置远程上游（单独统计）：{} 个分支，涉及 {} 个仓库\n",local_time(&report.finished_at),stats.clean,stats.attention,stats.failed,stats.pushed,stats.push_failed,stats.no_upstream,stats.no_upstream_repos));
+            text.push_str(&gw_i18n::tf!(
+                LastCheckLatestResultCleanNeedAttention,
+                local_time(&report.finished_at),
+                stats.clean,
+                stats.attention,
+                stats.failed,
+                stats.pushed,
+                stats.push_failed,
+                stats.no_upstream,
+                stats.no_upstream_repos
+            ));
             if stats.failed > 0 {
-                text.push_str(&format!(
-                    "另有 {} 个仓库检查失败，此项统计不完整\n",
+                text.push_str(&gw_i18n::tf!(
+                    OtherRepositoriesFailedToCheckTheseCounts,
                     stats.failed
                 ))
             }
             if stats.notice_failed > 0 {
-                text.push_str(&format!(
-                    "系统通知发送失败：{} 条，详情见 gw report --pushes\n",
+                text.push_str(&gw_i18n::tf!(
+                    SystemNotificationsFailedSeeGwReportPushes,
                     stats.notice_failed
                 ))
             }
             if report.push_policy == PushPolicy::Disabled
                 && s.push_policy == PushPolicy::FastForward
             {
-                text.push_str("最近报告来自自动推送启用前；将在下次检查时应用\n")
+                text.push_str(gw_i18n::tr!(LatestReportPredatesAutomaticPushTheNext))
             }
             if report.status == ReportStatus::Unconfigured {
-                text.push_str("该轮检查未配置仓库\n")
+                text.push_str(gw_i18n::tr!(NoRepositoriesWereConfiguredForThisCheck))
             }
             if matches!(scope, Scope::Outdated) {
-                text.push_str("报告范围与当前仓库列表不同，等待下一轮检查或显式运行 check\n")
+                text.push_str(gw_i18n::tr!(ReportScopeDiffersFromTheCurrentRepository))
             }
         }
     }
     text
 }
 pub fn render_report(report: &Report, filter: Filter) -> String {
-    let mut text = format!("检查数据时间：{}\n", local_time(&report.finished_at));
+    let mut text = gw_i18n::tf!(CheckedAt, local_time(&report.finished_at));
     if let Some(time) = &report.classification_updated_at {
-        text.push_str(&format!("分类规则更新时间：{}\n", local_time(time)))
+        text.push_str(&gw_i18n::tf!(ClassificationUpdatedAt, local_time(time)))
     }
     for result in report.repositories.iter().filter(|r| filter.matches(r)) {
         text.push_str(&format!(
             "[{}] {}\n",
             if filter == Filter::WithoutUpstream {
-                "未配置远程上游"
+                gw_i18n::tr!(NoRemoteUpstream)
             } else {
                 result.label()
             },
@@ -363,7 +382,7 @@ pub fn render_report(report: &Report, filter: Filter) -> String {
             if let Notice::Failed { path, error, .. } = notice
                 && path == result.path()
             {
-                text.push_str(&format!("  - 系统通知发送失败：{error}\n"))
+                text.push_str(&gw_i18n::tf!(SystemNotificationFailedError, error = error))
             }
         }
     }
@@ -385,17 +404,22 @@ pub fn repository_detail(result: &RepositoryResult, filter: Filter) -> String {
     if filter != Filter::WithoutUpstream {
         for push in result.pushes() {
             match push {
-                Publication::Pushed { target } => text.push_str(&format!(
-                    "  - 已推送 {} → {}/{}，{} 个提交\n",
-                    target.branch, target.remote, target.remote_ref, target.ahead_commits
+                Publication::Pushed { target } => text.push_str(&gw_i18n::tf!(
+                    PushedCommits,
+                    target.branch,
+                    target.remote,
+                    target.remote_ref,
+                    target.ahead_commits
                 )),
                 Publication::Failed {
                     target,
                     phase,
                     error,
-                } => text.push_str(&format!(
-                    "  - 推送失败 {}（{phase:?}）：{error}\n",
-                    target.branch
+                } => text.push_str(&gw_i18n::tf!(
+                    PushFailedPhaseError,
+                    target.branch,
+                    error = error,
+                    phase = phase
                 )),
             }
         }
@@ -404,13 +428,13 @@ pub fn repository_detail(result: &RepositoryResult, filter: Filter) -> String {
         && let Some(branches) = result.branches()
     {
         for branch in branches {
-            text.push_str(&format!(
-                "  - {}：{}（单独统计）\n",
+            text.push_str(&gw_i18n::tf!(
+                CountedSeparately,
                 branch.branch,
                 if branch.reason == UpstreamReason::LocalUpstream {
-                    "上游是本地分支"
+                    gw_i18n::tr!(UpstreamIsALocalBranch)
                 } else {
-                    "未配置上游"
+                    gw_i18n::tr!(UpstreamNotConfigured)
                 }
             ))
         }

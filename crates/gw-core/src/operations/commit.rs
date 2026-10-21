@@ -25,16 +25,16 @@ pub fn execute(
 ) -> Result<CommitResult> {
     ensure!(
         !message.trim().is_empty() && !message.contains('\0'),
-        "提交说明不能为空且不能包含 NUL"
+        gw_i18n::tr!(CommitMessageMustNotBeEmptyOr)
     );
     cancel.check()?;
     local::review::validate(plan)?;
     git.commit(&plan.path, message, cancel)?;
-    let repo =
-        local::open(&plan.path).context("提交命令已完成，但无法重新打开仓库，请核对实际提交")?;
+    let repo = local::open(&plan.path)
+        .context(gw_i18n::tr!(CommitCommandCompletedButTheRepositoryCould))?;
     let oid = repo
         .refname_to_id("HEAD")
-        .context("提交命令已完成，但无法核验 HEAD，请核对实际提交")?;
+        .context(gw_i18n::tr!(CommitCommandCompletedButHeadCouldNot))?;
     let commit = repo.find_commit(oid)?;
     let expected_parent = match plan.head {
         Head::Initial { .. } => commit.parent_count() == 0,

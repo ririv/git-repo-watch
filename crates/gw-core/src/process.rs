@@ -21,12 +21,13 @@ impl Output {
         if self.code == 0 {
             Ok(self.stdout)
         } else {
-            bail!(
-                "{label} 失败（{}）：\n{}\n{}",
+            bail!(gw_i18n::tf!(
+                LabelFailed,
                 self.code,
                 String::from_utf8_lossy(&self.stderr),
-                String::from_utf8_lossy(&self.stdout)
-            )
+                String::from_utf8_lossy(&self.stdout),
+                label = label
+            ))
         }
     }
 }
@@ -57,9 +58,15 @@ pub fn run(
         );
     let mut child = command
         .spawn()
-        .with_context(|| format!("无法启动 {}", program.display()))?;
-    let mut stdout = child.stdout.take().context("无法连接 stdout")?;
-    let mut stderr = child.stderr.take().context("无法连接 stderr")?;
+        .with_context(|| gw_i18n::tf!(UnableToStart, program.display()))?;
+    let mut stdout = child
+        .stdout
+        .take()
+        .context(gw_i18n::tr!(CannotAttachStdout))?;
+    let mut stderr = child
+        .stderr
+        .take()
+        .context(gw_i18n::tr!(CannotAttachStderr))?;
     let out = thread::spawn(move || {
         let mut data = Vec::new();
         stdout.read_to_end(&mut data).map(|_| data)
@@ -79,11 +86,11 @@ pub fn run(
             break Err(crate::cancel::Cancelled.into());
         }
         if started.elapsed() >= timeout {
-            break Err(anyhow::anyhow!(
-                "{} 超时（{} 秒）",
+            break Err(anyhow::anyhow!(gw_i18n::tf!(
+                TimedOutSeconds,
                 program.display(),
                 timeout.as_secs()
-            ));
+            )));
         }
         thread::sleep(Duration::from_millis(20));
     };
@@ -94,10 +101,10 @@ pub fn run(
     let _ = child.wait();
     let stdout = out
         .join()
-        .map_err(|_| anyhow::anyhow!("stdout 读取线程异常"))??;
+        .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(StdoutReaderPanicked)))??;
     let stderr = err
         .join()
-        .map_err(|_| anyhow::anyhow!("stderr 读取线程异常"))??;
+        .map_err(|_| anyhow::anyhow!(gw_i18n::tr!(StderrReaderPanicked)))??;
     let status = result?;
     Ok(Output {
         code: status.code().unwrap_or(128),

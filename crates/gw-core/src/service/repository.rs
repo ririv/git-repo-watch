@@ -6,8 +6,7 @@ impl Service {
         let lock = self.store.lock()?;
         ensure!(
             self.store.config()?.repositories.iter().any(|p| p == path),
-            "仓库不在当前注册列表中：{}",
-            path.display()
+            gw_i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
         );
         local::open(path)?;
         Ok(lock)
@@ -44,7 +43,7 @@ impl Service {
         let result = operations::commit::execute(&self.git, plan, message, cancel)?;
         let record = serde_json::json!({"at":state::now(),"path":plan.path,"branch":plan.head.branch(),"result":result});
         state::write_json(&self.store.state_dir().join("manual-commit.json"), &record)
-            .context("提交已生成，但保存操作记录失败，请核对实际提交")?;
+            .context(gw_i18n::tr!(CommitCreatedButTheOperationRecordCould))?;
         Ok(result)
     }
     pub fn prepare_push(&self, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
@@ -56,7 +55,7 @@ impl Service {
         let result = operations::push::execute(&self.git, plan, cancel);
         let record = serde_json::json!({"at":state::now(),"path":plan.path,"push":result});
         state::write_json(&self.store.state_dir().join("manual-push.json"), &record)
-            .context("推送命令已执行，但保存操作记录失败，请核对远程状态")?;
+            .context(gw_i18n::tr!(PushCommandExecutedButTheOperationRecord))?;
         Ok(result)
     }
     pub fn install(&self, cancel: &Cancel) -> Result<()> {

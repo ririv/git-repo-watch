@@ -73,9 +73,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     let area = frame.area();
     if area.width < 60 || area.height < 18 {
         frame.render_widget(
-            Paragraph::new(
-                "gw：请将终端调整到至少 60 列 × 18 行。\nCtrl+C 退出；进行中的操作可按 Esc 取消。",
-            ),
+            Paragraph::new(gw_i18n::tr!(GwResizeTerminalToAtLeast60)),
             area,
         );
         return;
@@ -115,7 +113,7 @@ fn local_time(value: &str) -> String {
             .with_timezone(&chrono::Local)
             .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
-        Err(_) => format!("报告时间格式无效：{value}"),
+        Err(_) => gw_i18n::tf!(InvalidReportTimestampValue, value = value),
     }
 }
 
@@ -136,23 +134,23 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     let items = matches
         .iter()
         .map(|c| {
+            let scope = match c.scope {
+                command::Scope::Repository => gw_i18n::tr!(CurrentRepo),
+                command::Scope::Global => gw_i18n::tr!(Global),
+                command::Scope::View => gw_i18n::tr!(CurrentView),
+            };
+            let description_width = (body.width as usize)
+                .saturating_sub(4 + 15 + 4 + unicode_width::UnicodeWidthStr::width(scope));
+            let description = truncate(c.description.text(), description_width);
+            let padding = description_width
+                .saturating_sub(unicode_width::UnicodeWidthStr::width(description.as_str()));
             ListItem::new(Line::from(vec![
                 Span::styled(
                     format!("/{:<13} ", c.name),
                     Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
                 ),
-                Span::raw(c.description),
-                Span::styled(
-                    format!(
-                        "  · {}",
-                        match c.scope {
-                            command::Scope::Repository => "当前仓库",
-                            command::Scope::Global => "全局",
-                            command::Scope::View => "当前视图",
-                        }
-                    ),
-                    Style::default().fg(MUTED),
-                ),
+                Span::raw(format!("{description}{}", " ".repeat(padding))),
+                Span::styled(format!("  · {scope}"), Style::default().fg(MUTED)),
             ]))
         })
         .collect::<Vec<_>>();
@@ -163,11 +161,11 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
         body.width,
         height,
     );
-    let title = format!(
-        "命令 · {}",
+    let title = gw_i18n::tf!(
+        Commands,
         path.as_deref()
             .map(name)
-            .unwrap_or_else(|| "未选择仓库".into())
+            .unwrap_or_else(|| gw_i18n::tr!(NoRepositorySelected).into())
     );
     let mut state = ListState::default().with_selected(if items.is_empty() {
         None
@@ -177,7 +175,7 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     frame.render_widget(Clear, area);
     frame.render_stateful_widget(
         List::new(if items.is_empty() {
-            vec![ListItem::new("没有匹配命令")]
+            vec![ListItem::new(gw_i18n::tr!(NoMatchingCommands))]
         } else {
             items
         })
@@ -194,6 +192,7 @@ mod tests {
     use super::local_time;
     #[test]
     fn report_time_uses_system_local_time_without_zone_suffix() {
+        let _language = gw_i18n::using(gw_i18n::Language::Chinese);
         let utc = "2026-10-21T04:31:16Z";
         let expected = chrono::DateTime::parse_from_rfc3339(utc)
             .unwrap()

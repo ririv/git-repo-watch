@@ -27,13 +27,22 @@ pub fn list(repo: &Repository) -> Result<Vec<Branch>> {
         let reference = branch
             .get()
             .name()
-            .context("分支引用不是 UTF-8")?
+            .context(gw_i18n::tr!(BranchReferenceIsNotUtf8))?
             .to_owned();
-        let name = branch.name()?.context("分支名不是 UTF-8")?.to_owned();
-        let oid = branch.get().target().context("分支缺少提交")?;
+        let name = branch
+            .name()?
+            .context(gw_i18n::tr!(BranchNameIsNotUtf8))?
+            .to_owned();
+        let oid = branch
+            .get()
+            .target()
+            .context(gw_i18n::tr!(BranchHasNoCommit))?;
         let tracking = match repo.branch_upstream_remote(&reference) {
             Ok(remote) => {
-                let remote = remote.as_str().context("远程名不是 UTF-8")?.to_owned();
+                let remote = remote
+                    .as_str()
+                    .context(gw_i18n::tr!(RemoteNameIsNotUtf8))?
+                    .to_owned();
                 if remote == "." {
                     Tracking::Local
                 } else {
@@ -42,7 +51,7 @@ pub fn list(repo: &Repository) -> Result<Vec<Branch>> {
                     let upstream = repo
                         .branch_upstream_name(&reference)?
                         .as_str()
-                        .context("上游引用不是 UTF-8")?
+                        .context(gw_i18n::tr!(UpstreamReferenceIsNotUtf8))?
                         .to_owned();
                     Tracking::Remote {
                         remote,
@@ -68,35 +77,43 @@ pub fn resolve(repo: &Repository, reference: &str) -> Result<Oid> {
     repo.find_reference(reference)?
         .resolve()?
         .target()
-        .context("引用缺少对象 ID")
+        .context(gw_i18n::tr!(ReferenceHasNoObjectId))
 }
 pub fn url(repo: &Repository, name: &str) -> Result<String> {
     let config = repo.config()?;
     let mut fetch = Vec::new();
     let mut entries = config.multivar(&format!("remote.{name}.url"), None)?;
     while let Some(e) = entries.next() {
-        fetch.push(e?.value().context("远程地址不是 UTF-8")?.to_owned());
+        fetch.push(
+            e?.value()
+                .context(gw_i18n::tr!(RemoteUrlIsNotUtf8))?
+                .to_owned(),
+        );
     }
-    ensure!(fetch.len() == 1, "远程必须有且仅有一个获取地址");
+    ensure!(
+        fetch.len() == 1,
+        gw_i18n::tr!(RemoteMustHaveExactlyOneFetchUrl)
+    );
     let mut push = Vec::new();
     match config.multivar(&format!("remote.{name}.pushurl"), None) {
         Ok(mut entries) => {
             while let Some(e) = entries.next() {
-                push.push(e?.value().context("推送地址不是 UTF-8")?.to_owned())
+                push.push(
+                    e?.value()
+                        .context(gw_i18n::tr!(PushUrlIsNotUtf8))?
+                        .to_owned(),
+                )
             }
         }
         Err(e) if e.code() == git2::ErrorCode::NotFound => {}
         Err(e) => return Err(e.into()),
     };
-    ensure!(
-        push.len() <= 1,
-        "推送地址与获取地址不同，或存在多个推送地址"
-    );
+    ensure!(push.len() <= 1, gw_i18n::tr!(PushUrlDiffersFromFetchUrlOr));
     let remote = repo.find_remote(name)?;
-    let resolved = remote.url().context("远程地址不是 UTF-8")?;
+    let resolved = remote.url().context(gw_i18n::tr!(RemoteUrlIsNotUtf8))?;
     ensure!(
         remote.pushurl()?.is_none_or(|u| u == resolved),
-        "推送地址与检查地址不同"
+        gw_i18n::tr!(PushUrlDiffersFromTheCheckedUrl)
     );
     Ok(resolved.to_owned())
 }

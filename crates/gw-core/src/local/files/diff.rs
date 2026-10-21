@@ -7,25 +7,25 @@ use std::fs;
 pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
     let repo = open(&snapshot.path)?;
     validate(&repo, snapshot)?;
-    ensure!(snapshot.changes.contains(change), "文件不属于该快照");
+    ensure!(
+        snapshot.changes.contains(change),
+        gw_i18n::tr!(FileDoesNotBelongToThisSnapshot)
+    );
     if change.area == Area::Untracked {
         let path = snapshot.path.join(change.location.name());
         let meta = fs::symlink_metadata(&path)?;
         if meta.file_type().is_symlink() {
-            return Ok(format!(
-                "新符号链接 {:?} → {:?}",
+            return Ok(gw_i18n::tf!(
+                NewSymlink,
                 change.location.name(),
                 fs::read_link(path)?
             ));
         }
         if !meta.is_file() {
-            return Ok("目录或特殊文件，无法显示文本 diff".into());
+            return Ok(gw_i18n::tr!(DirectoryOrSpecialFileTextDiffIs).into());
         }
         if meta.len() > 1024 * 1024 {
-            return Ok(format!(
-                "未跟踪大文件（{} 字节），请使用外部工具查看",
-                meta.len()
-            ));
+            return Ok(gw_i18n::tf!(LargeUntrackedFileBytesViewWithAn, meta.len()));
         }
     }
     let mut options = DiffOptions::new();
@@ -63,12 +63,12 @@ pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
         out.extend_from_slice(line.content());
         true
     })?;
-    let mut text = String::from_utf8(out).context("差异内容不是 UTF-8，请使用外部工具查看")?;
+    let mut text = String::from_utf8(out).context(gw_i18n::tr!(DiffIsNotUtf8ViewWith))?;
     if truncated {
-        text.push_str("\n… diff 超过 128 KiB，仅显示前段。")
+        text.push_str(gw_i18n::tr!(DiffExceeds128KibOnlyTheBeginning))
     }
     if text.is_empty() {
-        text = "当前文件没有可显示的文本差异（可能为二进制或子模块状态变化）".into()
+        text = gw_i18n::tr!(NoTextDiffAvailablePossiblyBinaryOr).into()
     }
     Ok(text)
 }

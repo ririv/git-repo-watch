@@ -9,12 +9,12 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             let parts = Layout::vertical([Constraint::Length(2), Constraint::Min(1)]).split(inner);
             let rows = s.rows();
             frame.render_widget(
-                Paragraph::new(format!(
-                    "{} · {} 个文件 · 已选 {}",
+                Paragraph::new(gw_i18n::tf!(
+                    FilesSelected,
                     if s.area == FileArea::Index {
-                        "暂存区"
+                        gw_i18n::tr!(Index)
                     } else {
-                        "工作区"
+                        gw_i18n::tr!(Worktree)
                     },
                     rows.len(),
                     s.selected.len()
@@ -43,7 +43,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             });
             frame.render_stateful_widget(
                 List::new(if items.is_empty() {
-                    vec![ListItem::new("此区域没有变更")]
+                    vec![ListItem::new(gw_i18n::tr!(NoChangesInThisArea))]
                 } else {
                     items
                 })
@@ -55,10 +55,20 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
         Mode::Diff {
             content, scroll, ..
-        } => text_view(frame, area, &multiline(content), scroll, "文件差异"),
-        Mode::CommitMessage { plan, scroll, .. } => {
-            text_view(frame, area, &commit_review(plan), scroll, "提交预览")
-        }
+        } => text_view(
+            frame,
+            area,
+            &multiline(content),
+            scroll,
+            gw_i18n::tr!(FileDiff),
+        ),
+        Mode::CommitMessage { plan, scroll, .. } => text_view(
+            frame,
+            area,
+            &commit_review(plan),
+            scroll,
+            gw_i18n::tr!(CommitPreview),
+        ),
         Mode::CommitConfirm {
             plan,
             message,
@@ -66,15 +76,15 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         } => text_view(
             frame,
             area,
-            &format!("提交说明：{}\n\n{}", safe(message), commit_review(plan)),
+            &gw_i18n::tf!(CommitMessage, safe(message), commit_review(plan)),
             scroll,
-            "确认提交",
+            gw_i18n::tr!(ConfirmCommit),
         ),
         Mode::PushConfirm { plan, scroll } => text_view(
             frame,
             area,
-            &format!(
-                "仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交\n\n仅发布预览时的提交快照；普通推送，保留 pre-push 钩子。",
+            &gw_i18n::tf!(
+                RepositoryBranchRemoteUpstreamUrlPendingCommits,
                 safe(&plan.path.to_string_lossy()),
                 safe(&plan.target.branch),
                 safe(&plan.target.remote),
@@ -83,30 +93,32 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 plan.target.ahead_commits
             ),
             scroll,
-            "确认推送",
+            gw_i18n::tr!(ConfirmPush),
         ),
-        Mode::Error { detail, scroll, .. } => {
-            text_view(frame, area, &multiline(detail), scroll, "操作结果")
-        }
+        Mode::Error { detail, scroll, .. } => text_view(
+            frame,
+            area,
+            &multiline(detail),
+            scroll,
+            gw_i18n::tr!(OperationResult),
+        ),
         Mode::Input { action, .. } => frame.render_widget(
             Paragraph::new(command::description(*action))
                 .wrap(Wrap { trim: false })
-                .block(block("输入配置")),
+                .block(block(gw_i18n::tr!(ConfigurationInput))),
             area,
         ),
         Mode::Confirm(confirmation) => {
             let text = match confirmation {
-                Confirmation::CheckAll => format!(
-                    "检查全部 {} 个注册仓库\n并发上限：{}\n自动推送策略：{}\n\n共享 Git 存储的工作区串行检查；仅领先且不落后的已提交内容可自动推送。",
+                Confirmation::CheckAll => gw_i18n::tf!(
+                    CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic,
                     screen.config.repositories.len(),
                     screen.config.max_concurrency,
                     screen.config.push_policy
                 ),
-                Confirmation::Apply => {
-                    "应用已保存的检查间隔，重新加载系统任务。不会立即检查或推送。".into()
-                }
-                Confirmation::Remove(path) => format!(
-                    "移除仓库注册项：{}\n\n保留磁盘文件。",
+                Confirmation::Apply => gw_i18n::tr!(ApplySavedIntervalAndReloadTheSystem).into(),
+                Confirmation::Remove(path) => gw_i18n::tf!(
+                    UnregisterRepositoryFilesOnDiskAreRetained,
                     safe(&path.to_string_lossy())
                 ),
                 Confirmation::Configure { action, value } => {
@@ -116,7 +128,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             frame.render_widget(
                 Paragraph::new(text)
                     .wrap(Wrap { trim: false })
-                    .block(block("确认操作")),
+                    .block(block(gw_i18n::tr!(ConfirmOperation))),
                 area,
             );
         }
@@ -127,11 +139,23 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 let text = rows
                     .get(screen.selected)
                     .map(detail_text)
-                    .unwrap_or_else(|| "当前仓库不在筛选结果中；Esc 返回。".into());
-                review::styled_text_view(frame, area, text, &mut screen.scroll, "仓库详情")
+                    .unwrap_or_else(|| gw_i18n::tr!(CurrentRepositoryIsNotInTheFiltered).into());
+                review::styled_text_view(
+                    frame,
+                    area,
+                    text,
+                    &mut screen.scroll,
+                    gw_i18n::tr!(RepositoryDetails),
+                )
             }
             Page::Settings => settings(frame, screen, area),
-            Page::Help => text_view(frame, area, HELP, &mut screen.scroll, "操作说明"),
+            Page::Help => text_view(
+                frame,
+                area,
+                HELP.text(),
+                &mut screen.scroll,
+                gw_i18n::tr!(Instructions),
+            ),
         },
     }
 }

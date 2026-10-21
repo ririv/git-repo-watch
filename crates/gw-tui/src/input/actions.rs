@@ -33,7 +33,7 @@ impl Screen {
                     let area = session.area;
                     self.read_files(path, area);
                 } else if let Err(e) = self.reload(root) {
-                    self.error("刷新失败", e)
+                    self.error(gw_i18n::tr!(RefreshFailed), e)
                 }
             }
             Action::Stage | Action::Unstage | Action::Diff => {
@@ -59,31 +59,35 @@ impl Screen {
                         },
                     )
                 } else {
-                    self.message = "请先选择仓库".into()
+                    self.message = gw_i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
             Action::Commit | Action::Push => {
                 if let Some(path) = path {
                     if action == Action::Commit {
-                        self.start("读取暂存内容", Effect::ReadOnly, move |s, c, _| {
-                            Ok(Outcome::CommitPrepared(s.prepare_commit(&path, &c)?))
-                        })
+                        self.start(
+                            gw_i18n::tr!(ReadStagedContents),
+                            Effect::ReadOnly,
+                            move |s, c, _| {
+                                Ok(Outcome::CommitPrepared(s.prepare_commit(&path, &c)?))
+                            },
+                        )
                     } else {
                         self.start(
-                            "核对当前分支与远程上游",
+                            gw_i18n::tr!(ValidateCurrentBranchAndRemoteUpstream),
                             Effect::ReadOnly,
                             move |s, c, _| Ok(Outcome::PushPrepared(s.prepare_push(&path, &c)?)),
                         )
                     }
                 } else {
-                    self.message = "请先选择仓库".into()
+                    self.message = gw_i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
             Action::Remove => {
                 if let Some(path) = path {
                     self.mode = Mode::Confirm(Confirmation::Remove(path))
                 } else {
-                    self.message = "请先选择仓库".into()
+                    self.message = gw_i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
             Action::CheckAll => self.mode = Mode::Confirm(Confirmation::CheckAll),
@@ -104,25 +108,31 @@ impl Screen {
         Ok(false)
     }
     pub(crate) fn read_files(&mut self, path: PathBuf, area: FileArea) {
-        self.start("读取仓库文件", Effect::ReadOnly, move |s, c, _| {
-            Ok(Outcome::Files(s.files(&path, &c)?, area))
-        })
+        self.start(
+            gw_i18n::tr!(ReadRepositoryFiles),
+            Effect::ReadOnly,
+            move |s, c, _| Ok(Outcome::Files(s.files(&path, &c)?, area)),
+        )
     }
     pub(crate) fn show_diff(&mut self) {
         let Some(session) = self.mode.file_session().cloned() else {
             return;
         };
         let Some(change) = session.rows().get(session.cursor).map(|c| (*c).clone()) else {
-            self.message = "当前区域没有文件".into();
+            self.message = gw_i18n::tr!(NoFilesInThisArea).into();
             return;
         };
-        self.start("读取文件差异", Effect::ReadOnly, move |s, c, _| {
-            let content = s.diff(&session.snapshot, &change, &c)?;
-            Ok(Outcome::Diff(
-                session,
-                format!("{}\n\n{content}", change.location.display()),
-            ))
-        })
+        self.start(
+            gw_i18n::tr!(ReadFileDiff),
+            Effect::ReadOnly,
+            move |s, c, _| {
+                let content = s.diff(&session.snapshot, &change, &c)?;
+                Ok(Outcome::Diff(
+                    session,
+                    format!("{}\n\n{content}", change.location.display()),
+                ))
+            },
+        )
     }
     pub(crate) fn edit_files(&mut self) {
         let Some(session) = self.mode.file_session().cloned() else {
@@ -130,7 +140,7 @@ impl Screen {
         };
         let selected = session.selection();
         if selected.is_empty() {
-            self.message = "当前区域没有可操作文件".into();
+            self.message = gw_i18n::tr!(NoActionableFilesInThisArea).into();
             return;
         }
         let action = if session.area == FileArea::Index {
@@ -140,9 +150,9 @@ impl Screen {
         };
         self.start(
             if action == IndexAction::Stage {
-                "暂存所选文件"
+                gw_i18n::tr!(StageSelectedFiles)
             } else {
-                "取消暂存所选文件"
+                gw_i18n::tr!(UnstageSelectedFiles)
             },
             Effect::IndexWrite,
             move |s, c, _| {
@@ -155,34 +165,44 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
-            Confirmation::CheckAll => {
-                self.start("检查全部仓库", Effect::Check, move |s, c, tx| {
+            Confirmation::CheckAll => self.start(
+                gw_i18n::tr!(CheckAllRepositories),
+                Effect::Check,
+                move |s, c, tx| {
                     let report = s.run(&c, |event| {
                         let _ = tx.send(WorkerEvent::Progress(event));
                     })?;
                     Ok(Outcome::Checked(report))
-                })
-            }
+                },
+            ),
             Confirmation::Apply => self.start(
-                "应用系统调度",
+                gw_i18n::tr!(ApplySystemSchedule),
                 Effect::Configuration,
                 move |s, c, _| {
                     s.install(&c)?;
-                    Ok(Outcome::Text("系统调度已应用；未触发检查".into()))
+                    Ok(Outcome::Text(
+                        gw_i18n::tr!(SystemScheduleAppliedNoCheckStarted).into(),
+                    ))
                 },
             ),
-            Confirmation::Remove(path) => {
-                self.start("移除注册项", Effect::Configuration, move |s, _, _| {
+            Confirmation::Remove(path) => self.start(
+                gw_i18n::tr!(UnregisterRepository),
+                Effect::Configuration,
+                move |s, _, _| {
                     s.configure(ConfigEdit::Remove(path))?;
-                    Ok(Outcome::Text("已移除注册项，保留磁盘文件".into()))
-                })
-            }
+                    Ok(Outcome::Text(
+                        gw_i18n::tr!(RepositoryUnregisteredFilesRetained).into(),
+                    ))
+                },
+            ),
             Confirmation::Configure { action, value } => self.start(
                 command::description(action),
                 Effect::Configuration,
                 move |s, c, _| {
                     let message = match action {
-                        Action::Add => format!("已添加 {} 个仓库", s.add(&[PathBuf::from(value)])?),
+                        Action::Add => {
+                            gw_i18n::tf!(AddedRepositories, s.add(&[PathBuf::from(value)])?)
+                        }
                         Action::Scan | Action::Import => {
                             let report = s.scan(
                                 Path::new(&value),
@@ -193,8 +213,8 @@ impl Screen {
                                 },
                                 &c,
                             )?;
-                            format!(
-                                "发现 {} 个仓库；详见 var/import-report.json",
+                            gw_i18n::tf!(
+                                FoundRepositoriesSeeVarImportReportJson,
                                 report.repositories.len()
                             )
                         }
@@ -205,10 +225,12 @@ impl Screen {
                                 Action::Interval => ConfigEdit::Interval(state::interval(&value)?),
                                 Action::Autopush => ConfigEdit::Policy(value.parse()?),
                                 Action::Concurrency => ConfigEdit::Concurrency(value.parse()?),
-                                _ => bail!("此命令不接受配置输入"),
+                                _ => {
+                                    bail!(gw_i18n::tr!(ThisCommandDoesNotAcceptConfigurationInput))
+                                }
                             };
                             s.configure(edit)?;
-                            "配置已保存；间隔修改后需应用调度".into()
+                            gw_i18n::tr!(ConfigurationSavedApplyScheduleAfterChangingThe).into()
                         }
                     };
                     Ok(Outcome::Text(message))

@@ -25,6 +25,7 @@ fn change(snapshot: &Files, name: &str, area: Area) -> Change {
 }
 #[test]
 fn staged_and_worktree_diff_stay_separate() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("file.txt", "baseline\n");
     write(f.repo.join("file.txt"), "staged\n");
@@ -45,6 +46,7 @@ fn staged_and_worktree_diff_stay_separate() {
 }
 #[test]
 fn literal_selected_files_and_initial_unstage() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let path = fs::canonicalize(temp.path()).unwrap().join("initial");
     init(&path);
@@ -72,6 +74,7 @@ fn literal_selected_files_and_initial_unstage() {
 }
 #[test]
 fn rename_and_stale_index_review() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("old.txt", &"baseline\n".repeat(20));
     git(&f.repo, &["mv", "old.txt", "new.txt"]);
@@ -102,6 +105,7 @@ fn rename_and_stale_index_review() {
 }
 #[test]
 fn untracked_symlink_does_not_read_target() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     let target = f.temp.path().join("private");
     write(&target, "private target content");
@@ -113,6 +117,7 @@ fn untracked_symlink_does_not_read_target() {
 }
 #[test]
 fn commit_preserves_unselected_changes_and_hooks() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     write(f.repo.join("selected"), "staged\n");
     git(&f.repo, &["add", "selected"]);
@@ -139,6 +144,7 @@ fn commit_preserves_unselected_changes_and_hooks() {
 }
 #[test]
 fn commit_requires_fresh_snapshot_and_reports_hook_changes() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     write(f.repo.join("one"), "one");
     git(&f.repo, &["add", "one"]);
@@ -159,6 +165,7 @@ fn commit_requires_fresh_snapshot_and_reports_hook_changes() {
 }
 #[test]
 fn explicit_push_preserves_upstream_policy_and_rejects_stale_review() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     let git_runner = Git::default();
@@ -195,6 +202,7 @@ fn explicit_push_preserves_upstream_policy_and_rejects_stale_review() {
 }
 #[test]
 fn detached_conflict_and_behind_are_explicit() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     git(&f.repo, &["switch", "--detach"]);
     assert!(
@@ -217,6 +225,7 @@ fn detached_conflict_and_behind_are_explicit() {
 
 #[test]
 fn external_filters_are_explicit_and_do_not_silently_stage_raw_data() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     write(f.repo.join(".gitattributes"), "*.bin filter=example\n");
     git(&f.repo, &["config", "filter.example.clean", "cat"]);
@@ -233,6 +242,7 @@ fn external_filters_are_explicit_and_do_not_silently_stage_raw_data() {
 }
 #[test]
 fn submodule_worktree_changes_override_ignore_configuration() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let parent = Fixture::create();
     let sub = Fixture::create();
     git(
@@ -256,6 +266,7 @@ fn submodule_worktree_changes_override_ignore_configuration() {
 }
 #[test]
 fn first_commit_is_supported_with_system_git() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let path = fs::canonicalize(temp.path()).unwrap().join("initial");
     init(&path);
@@ -275,6 +286,7 @@ fn first_commit_is_supported_with_system_git() {
 }
 #[test]
 fn exact_push_ignores_mirror_tag_following_and_remote_push_defaults() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     git(&f.repo, &["branch", "other"]);
@@ -301,6 +313,7 @@ fn exact_push_ignores_mirror_tag_following_and_remote_push_defaults() {
 }
 #[test]
 fn changed_push_url_and_server_rejection_preserve_remote() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     let plan = push::prepare(&Git::default(), &f.repo, &Cancel::default()).unwrap();
@@ -334,6 +347,7 @@ fn changed_push_url_and_server_rejection_preserve_remote() {
 
 #[test]
 fn url_rewrites_compare_effective_fetch_and_push_destinations() {
+    let _language = gw_i18n::using(gw_i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     let real = f.remote.to_str().unwrap();
