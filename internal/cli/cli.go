@@ -21,7 +21,7 @@ import (
 const Help = `gw：Git 仓库状态查询与配置管理
 
 用法：gw [--home 绝对路径] [命令]
-不传命令时只查看状态；实际检查和自动推送需显式 check 或系统定时触发。
+不传命令时进入 TUI；状态查询使用 gw status。检查需在 TUI 中确认、显式 check 或系统定时触发。
 
   tui                              打开交互界面，不自动检查
   status [--json]                  查看任务、配置和上次结果
@@ -114,7 +114,7 @@ func Execute(ctx context.Context, args []string, out, errOut io.Writer) int {
 	return Run(ctx, service, manager, source, global.Args(), out, errOut)
 }
 func Run(ctx context.Context, s *app.Service, installer Installer, source string, args []string, out, errOut io.Writer) int {
-	command := "status"
+	command := "tui"
 	rest := []string{}
 	if len(args) > 0 {
 		command = args[0]

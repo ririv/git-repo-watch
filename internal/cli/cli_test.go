@@ -62,10 +62,10 @@ func writeReport(t *testing.T, s *app.Service) {
 		t.Fatal(e)
 	}
 }
-func TestDefaultStatusNeverChecks(t *testing.T) {
+func TestExplicitStatusNeverChecks(t *testing.T) {
 	s := service(t)
 	i := &installer{}
-	code, out, err := invoke(s, i)
+	code, out, err := invoke(s, i, "status")
 	if code != 0 || !strings.Contains(out, "尚未生成完整报告") || err != "" || i.calls != 0 {
 		t.Fatal(code, out, err)
 	}
@@ -179,5 +179,14 @@ func TestTUIRejectsNonInteractiveOutputWithoutChecking(t *testing.T) {
 	code, _, err = invoke(s, i, "tui", "unexpected")
 	if code != 2 || !strings.Contains(err, "不接受位置参数") {
 		t.Fatal(code, err)
+	}
+}
+
+func TestDefaultOpensTUIWithoutFallbackOrCheck(t *testing.T) {
+	s := service(t)
+	i := &installer{}
+	code, _, err := invoke(s, i)
+	if code != 2 || !strings.Contains(err, "交互式终端") || i.calls != 0 {
+		t.Fatal(code, err, i.calls)
 	}
 }
