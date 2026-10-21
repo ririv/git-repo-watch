@@ -130,7 +130,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm(Confirmation::Remove(p))if p.as_path()==std::path::Path::new("/path/to/a"))
+        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove(p),..}if p.as_path()==std::path::Path::new("/path/to/a"))
     );
 }
 #[test]
@@ -164,7 +164,7 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
         command(&mut s, "remove");
         let text = render(&mut s, size.0, size.1);
         assert!(text.contains("移除"));
-        assert!(text.contains("y 确认执行"));
+        assert!(text.contains("Enter 确认"));
         key(&mut s, KeyCode::Esc);
     }
 }
@@ -207,17 +207,32 @@ fn file_selection_commit_and_push_through_command_bar() {
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
         let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+        key(&mut s, KeyCode::Char('y'));
+        assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
+        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Enter);
+        assert!(
+            matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text == "通过命令栏提交")
+        );
+        key(&mut s, KeyCode::Enter);
+        key(&mut s, KeyCode::Esc);
+        assert!(
+            matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text == "通过命令栏提交")
+        );
+        key(&mut s, KeyCode::Enter);
+        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::Left);
         for size in [(60, 18), (80, 24), (150, 32)] {
             let text = render(&mut s, size.0, size.1);
             assert!(text.contains(i18n::tr!(ConfirmCommit)));
             assert!(text.contains(if language == i18n::Language::English {
-                "y commit"
+                "Enter confirm"
             } else {
-                "y 确认提交"
+                "Enter 确认"
             }));
         }
         assert_eq!(before, support::git(&f.repo, &["rev-parse", "HEAD"]));
-        key(&mut s, KeyCode::Char('y'));
+        key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(s.message.contains(if language == i18n::Language::English {
             "Committed"
@@ -228,7 +243,19 @@ fn file_selection_commit_and_push_through_command_bar() {
         command(&mut s, "push");
         wait(&mut s);
         assert!(matches!(s.mode, Mode::PushConfirm { .. }));
-        key(&mut s, KeyCode::Char('y'));
+        let remote_before = support::git(&f.remote, &["rev-parse", "main"]);
+        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert_eq!(
+            remote_before,
+            support::git(&f.remote, &["rev-parse", "main"])
+        );
+        command(&mut s, "push");
+        wait(&mut s);
+        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::BackTab);
+        key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(s.message.contains(if language == i18n::Language::English {
             "Pushed"
@@ -442,8 +469,9 @@ fn input_border_placeholder_text_and_cursor_are_distinct() {
         command(&mut s, "concurrency");
         key(&mut s, KeyCode::Enter);
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
-        assert!(matches!(s.mode, Mode::Confirm(_)));
+        assert!(matches!(s.mode, Mode::Confirm { .. }));
         assert!(!terminal.backend().cursor_visible());
+        key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Esc);
     }
 }
@@ -500,7 +528,9 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         assert!(input.contains("Configuration input"));
         key(&mut s, KeyCode::Enter);
         let confirm = render(&mut s, width, height);
-        assert!(confirm.contains("y confirm"));
+        assert!(confirm.contains("Enter confirm"));
+        key(&mut s, KeyCode::Esc);
+        assert!(matches!(s.mode, Mode::Input { .. }));
         key(&mut s, KeyCode::Esc);
     }
     key(&mut s, KeyCode::Enter);
@@ -1107,4 +1137,74 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     assert!(!s.message.contains("writes"));
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.service.store.report().unwrap().is_none());
+}
+
+#[test]
+fn configuration_confirmation_returns_to_editing_and_saves_only_on_accept() {
+    let (_home, mut s) = fixture(vec![]);
+    command(&mut s, "concurrency");
+    s.mode = Mode::Input {
+        action: Action::Concurrency,
+        editor: Editor::new("7".into()),
+    };
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(&s.mode, Mode::Input { editor, .. } if editor.text == "7"));
+    assert_eq!(s.service.store.config().unwrap().max_concurrency, 4);
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Esc);
+    assert!(matches!(&s.mode, Mode::Input { editor, .. } if editor.text == "7"));
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Char('y'));
+    key(&mut s, KeyCode::Char('n'));
+    assert!(matches!(s.mode, Mode::Confirm { .. }));
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(s.service.store.config().unwrap().max_concurrency, 7);
+}
+
+#[test]
+fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
+    use ratatui::{
+        Terminal,
+        backend::TestBackend,
+        style::{Color, Modifier},
+    };
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        for (width, height) in [(60, 18), (80, 24), (150, 32)] {
+            let (_home, mut s) = fixture(vec!["/example/repository".into()]);
+            render(&mut s, width, height);
+            command(&mut s, "remove");
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            let body = s.body_area;
+            assert!(!terminal.backend().cursor_visible());
+            let focused_positions = |terminal: &Terminal<TestBackend>| {
+                let buffer = terminal.backend().buffer();
+                (0..width)
+                    .filter(|x| {
+                        let cell = &buffer[(*x, height - 3)];
+                        cell.bg == Color::Rgb(180, 145, 220)
+                            && cell.modifier.contains(Modifier::BOLD)
+                    })
+                    .collect::<Vec<_>>()
+            };
+            let execute = focused_positions(&terminal);
+            assert!(!execute.is_empty());
+            key(&mut s, KeyCode::Right);
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            assert_eq!(s.body_area, body);
+            let back = focused_positions(&terminal);
+            assert!(!back.is_empty());
+            assert!(execute.last().unwrap() < back.first().unwrap());
+            key(&mut s, KeyCode::Enter);
+            assert!(matches!(s.mode, Mode::Browsing));
+            assert_eq!(s.config.repositories.len(), 1);
+            command(&mut s, "apply");
+            key(&mut s, KeyCode::Esc);
+            assert!(matches!(s.mode, Mode::Browsing));
+        }
+    }
 }

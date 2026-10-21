@@ -51,10 +51,13 @@ impl Screen {
                     }
                     KeyCode::Enter => match validate_input(action, &editor.text) {
                         Ok(()) => {
-                            self.mode = Mode::Confirm(Confirmation::Configure {
-                                action,
-                                value: editor.text,
-                            });
+                            self.mode = Mode::Confirm {
+                                operation: Confirmation::Configure {
+                                    action,
+                                    value: editor.text,
+                                },
+                                choice: Default::default(),
+                            };
                             self.message.clear();
                             return Ok(false);
                         }
@@ -64,13 +67,23 @@ impl Screen {
                 }
                 self.mode = Mode::Input { action, editor };
             }
-            Mode::Confirm(confirmation) => match key.code {
-                KeyCode::Char('y') => self.confirm(confirmation),
-                KeyCode::Char('n') | KeyCode::Esc => {
-                    self.message = i18n::tr!(Cancelled).into();
+            Mode::Confirm {
+                operation,
+                mut choice,
+            } => match choice.input(key.code) {
+                confirmation::Input::Execute => self.confirm(operation),
+                confirmation::Input::Return => {
+                    self.mode = match operation {
+                        Confirmation::Configure { action, value } => Mode::Input {
+                            action,
+                            editor: Editor::new(value),
+                        },
+                        Confirmation::Apply | Confirmation::Remove(_) => Mode::Browsing,
+                    };
+                    self.message.clear();
                     self.sync_bar();
                 }
-                _ => self.mode = Mode::Confirm(confirmation),
+                confirmation::Input::Pending => self.mode = Mode::Confirm { operation, choice },
             },
             Mode::Files(mut session) => {
                 let count = session.rows().len();
@@ -148,6 +161,7 @@ impl Screen {
                             self.message = i18n::tr!(EnterACommitMessage).into()
                         } else {
                             self.mode = Mode::CommitConfirm {
+                                choice: Default::default(),
                                 plan,
                                 message: editor.text,
                                 scroll: 0,
@@ -165,12 +179,13 @@ impl Screen {
                 };
             }
             Mode::CommitConfirm {
+                mut choice,
                 plan,
                 message,
                 mut scroll,
             } => {
-                match key.code {
-                    KeyCode::Char('y') => {
+                match choice.input(key.code) {
+                    confirmation::Input::Execute => {
                         self.start(
                             i18n::tr!(CommitStagedContents),
                             Effect::Commit,
@@ -182,22 +197,32 @@ impl Screen {
                         );
                         return Ok(false);
                     }
-                    KeyCode::Esc | KeyCode::Char('n') => {
-                        self.message = i18n::tr!(Cancelled).into();
+                    confirmation::Input::Return => {
+                        self.mode = Mode::CommitMessage {
+                            plan,
+                            editor: Editor::new(message),
+                            scroll,
+                        };
+                        self.message.clear();
                         self.sync_bar();
                         return Ok(false);
                     }
-                    _ => scroll_key(&mut scroll, key),
+                    confirmation::Input::Pending => scroll_key(&mut scroll, key),
                 }
                 self.mode = Mode::CommitConfirm {
+                    choice,
                     plan,
                     message,
                     scroll,
                 };
             }
-            Mode::PushConfirm { plan, mut scroll } => {
-                match key.code {
-                    KeyCode::Char('y') => {
+            Mode::PushConfirm {
+                plan,
+                mut scroll,
+                mut choice,
+            } => {
+                match choice.input(key.code) {
+                    confirmation::Input::Execute => {
                         self.start(
                             i18n::tr!(PushCurrentBranch),
                             Effect::Push,
@@ -207,14 +232,18 @@ impl Screen {
                         );
                         return Ok(false);
                     }
-                    KeyCode::Esc | KeyCode::Char('n') => {
+                    confirmation::Input::Return => {
                         self.message = i18n::tr!(Cancelled).into();
                         self.sync_bar();
                         return Ok(false);
                     }
-                    _ => scroll_key(&mut scroll, key),
+                    confirmation::Input::Pending => scroll_key(&mut scroll, key),
                 }
-                self.mode = Mode::PushConfirm { plan, scroll };
+                self.mode = Mode::PushConfirm {
+                    plan,
+                    scroll,
+                    choice,
+                };
             }
             Mode::Error {
                 origin,

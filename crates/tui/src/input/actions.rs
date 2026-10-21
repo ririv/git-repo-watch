@@ -119,7 +119,10 @@ impl Screen {
             }
             Action::Remove => {
                 if let Some(path) = path {
-                    self.mode = Mode::Confirm(Confirmation::Remove(path))
+                    self.mode = Mode::Confirm {
+                        operation: Confirmation::Remove(path),
+                        choice: Default::default(),
+                    }
                 } else {
                     self.message = i18n::tr!(SelectARepositoryFirst).into()
                 }
@@ -141,7 +144,12 @@ impl Screen {
                 }
             }
             Action::CancelCheck => self.cancel_check(),
-            Action::Apply => self.mode = Mode::Confirm(Confirmation::Apply),
+            Action::Apply => {
+                self.mode = Mode::Confirm {
+                    operation: Confirmation::Apply,
+                    choice: Default::default(),
+                }
+            }
             _ => {
                 let value = match action {
                     Action::Interval => format!("{}s", self.config.interval_seconds),

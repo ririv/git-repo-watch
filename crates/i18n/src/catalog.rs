@@ -2,6 +2,21 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ConfirmSelectHint,
+    ConfirmReviewHint,
+    ActionCommit,
+    ActionPush,
+    ActionApply,
+    ActionUnregister,
+    ActionSave,
+    ActionAdd,
+    ActionExclude,
+    ActionUnexclude,
+    ActionScan,
+    ActionImport,
+    ActionReturnEdit,
+    ActionCancel,
+
     SingleReportSaveFailed,
     CheckAtMostOnePath,
     CheckUpdatedAt,
@@ -384,14 +399,8 @@ pub enum Message {
     DescribeThisCommit,
     EnterConfirmEscCancelPgupPgdnReview,
     ConfirmOperationAlt,
-    AwaitingConfirmation,
-    YConfirmNEscCancel,
     ConfirmCommitAlt,
-    AwaitingCommitConfirmation,
-    YCommitNEscCancelPgupPgdn,
     ConfirmPushAlt,
-    AwaitingPushConfirmation,
-    YPushNEscCancelPgupPgdn,
     OperationIncomplete,
     SeeErrorDetails,
     PgdnFullErrorEnterEscBack,
@@ -1680,13 +1689,13 @@ impl Message {
             (Self::NoMatchingCommands, Language::Chinese) => "没有匹配命令",
             (Self::TuiHelp, Language::English) => {
                 concat!(
-                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check checks the selected repository; /check all checks all repositories. Neither requires confirmation or pushes.\nChecks run in the background; browse, search and view files while they run.\nA spinner marks active checks. Finished rows update; other rows retain previous results.\n/cancel cancels the background check. Writes and configuration changes wait until it stops.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfiguration, commits and pushes require y; n/Esc cancels confirmation.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
+                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check checks the selected repository; /check all checks all repositories. Neither requires confirmation or pushes.\nChecks run in the background; browse, search and view files while they run.\nA spinner marks active checks. Finished rows update; other rows retain previous results.\n/cancel cancels the background check. Writes and configuration changes wait until it stops.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfirmation uses horizontal actions: Left/Right or Tab selects, Enter confirms, Esc returns. Returning from commit or configuration confirmation preserves input.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
                     identity::command!(),
                     " to override.\n"
                 )
             }
             (Self::TuiHelp, Language::Chinese) => {
-                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check 检查当前仓库，/check all 检查全部仓库；直接开始，不确认、不推送。\n检查在后台运行，可继续浏览、搜索和查看文件。\n正在检查的仓库显示旋转标记，完成后逐项更新，未完成的保留上轮状态。\n/cancel 取消后台检查；检查期间暂不能写入仓库或修改配置。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n配置、提交和推送经 y 确认，n/Esc 取消。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
+                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check 检查当前仓库，/check all 检查全部仓库；直接开始，不确认、不推送。\n检查在后台运行，可继续浏览、搜索和查看文件。\n正在检查的仓库显示旋转标记，完成后逐项更新，未完成的保留上轮状态。\n/cancel 取消后台检查；检查期间暂不能写入仓库或修改配置。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n确认操作使用横向选项：左右键或 Tab 切换，Enter 执行，Esc 返回；提交和配置确认返回时保留输入。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
             }
             (Self::Repos, Language::English) => " {} repos",
             (Self::Repos, Language::Chinese) => " {}库",
@@ -1868,32 +1877,46 @@ impl Message {
             (Self::EnterConfirmEscCancelPgupPgdnReview, Language::Chinese) => {
                 "Enter 确认 · Esc 取消 · PgUp/PgDn 查看"
             }
+            (Self::ConfirmSelectHint, Language::English) => {
+                "←→ / Tab select · Enter confirm · Esc back"
+            }
+            (Self::ConfirmSelectHint, Language::Chinese) => "←→ / Tab 切换 · Enter 确认 · Esc 返回",
+            (Self::ConfirmReviewHint, Language::English) => {
+                "←→ / Tab select · Enter confirm · Esc back · PgUp/PgDn review"
+            }
+            (Self::ConfirmReviewHint, Language::Chinese) => {
+                "←→ / Tab 切换 · Enter 确认 · Esc 返回 · PgUp/PgDn 查看"
+            }
+            (Self::ActionCommit, Language::English) => "Commit",
+            (Self::ActionCommit, Language::Chinese) => "提交",
+            (Self::ActionPush, Language::English) => "Push",
+            (Self::ActionPush, Language::Chinese) => "推送",
+            (Self::ActionApply, Language::English) => "Apply schedule",
+            (Self::ActionApply, Language::Chinese) => "应用调度",
+            (Self::ActionUnregister, Language::English) => "Unregister",
+            (Self::ActionUnregister, Language::Chinese) => "移除注册",
+            (Self::ActionSave, Language::English) => "Save",
+            (Self::ActionSave, Language::Chinese) => "保存",
+            (Self::ActionAdd, Language::English) => "Add",
+            (Self::ActionAdd, Language::Chinese) => "添加",
+            (Self::ActionExclude, Language::English) => "Exclude",
+            (Self::ActionExclude, Language::Chinese) => "排除",
+            (Self::ActionUnexclude, Language::English) => "Remove exclusion",
+            (Self::ActionUnexclude, Language::Chinese) => "取消排除",
+            (Self::ActionScan, Language::English) => "Scan",
+            (Self::ActionScan, Language::Chinese) => "扫描",
+            (Self::ActionImport, Language::English) => "Import",
+            (Self::ActionImport, Language::Chinese) => "导入",
+            (Self::ActionReturnEdit, Language::English) => "Back to editing",
+            (Self::ActionReturnEdit, Language::Chinese) => "返回编辑",
+            (Self::ActionCancel, Language::English) => "Cancel",
+            (Self::ActionCancel, Language::Chinese) => "取消",
             (Self::ConfirmOperationAlt, Language::English) => " Confirm operation ",
             (Self::ConfirmOperationAlt, Language::Chinese) => " 确认操作 ",
-            (Self::AwaitingConfirmation, Language::English) => "Awaiting confirmation",
-            (Self::AwaitingConfirmation, Language::Chinese) => "等待确认",
-            (Self::YConfirmNEscCancel, Language::English) => "y confirm · n/Esc cancel",
-            (Self::YConfirmNEscCancel, Language::Chinese) => "y 确认执行 · n/Esc 取消",
             (Self::ConfirmCommitAlt, Language::English) => " Confirm commit ",
             (Self::ConfirmCommitAlt, Language::Chinese) => " 确认提交 ",
-            (Self::AwaitingCommitConfirmation, Language::English) => "Awaiting commit confirmation",
-            (Self::AwaitingCommitConfirmation, Language::Chinese) => "等待确认提交",
-            (Self::YCommitNEscCancelPgupPgdn, Language::English) => {
-                "y commit · n/Esc cancel · PgUp/PgDn review"
-            }
-            (Self::YCommitNEscCancelPgupPgdn, Language::Chinese) => {
-                "y 确认提交 · n/Esc 取消 · PgUp/PgDn 查看"
-            }
             (Self::ConfirmPushAlt, Language::English) => " Confirm push ",
             (Self::ConfirmPushAlt, Language::Chinese) => " 确认推送 ",
-            (Self::AwaitingPushConfirmation, Language::English) => "Awaiting push confirmation",
-            (Self::AwaitingPushConfirmation, Language::Chinese) => "等待确认推送",
-            (Self::YPushNEscCancelPgupPgdn, Language::English) => {
-                "y push · n/Esc cancel · PgUp/PgDn review"
-            }
-            (Self::YPushNEscCancelPgupPgdn, Language::Chinese) => {
-                "y 确认推送 · n/Esc 取消 · PgUp/PgDn 查看"
-            }
             (Self::OperationIncomplete, Language::English) => " Operation incomplete ",
             (Self::OperationIncomplete, Language::Chinese) => " 操作未完成 ",
             (Self::SeeErrorDetails, Language::English) => "See error details",

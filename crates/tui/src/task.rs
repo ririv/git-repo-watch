@@ -109,7 +109,13 @@ impl Screen {
                     scroll: 0,
                 }
             }
-            Outcome::PushPrepared(plan) => self.mode = Mode::PushConfirm { plan, scroll: 0 },
+            Outcome::PushPrepared(plan) => {
+                self.mode = Mode::PushConfirm {
+                    plan,
+                    scroll: 0,
+                    choice: Default::default(),
+                }
+            }
             Outcome::Committed(result) => {
                 self.mode = Mode::Browsing;
                 self.message = i18n::tf!(

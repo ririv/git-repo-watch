@@ -9,6 +9,11 @@ enum Content<'a> {
         placeholder: &'static str,
     },
     Locked(String),
+    Choices {
+        choice: confirmation::Choice,
+        execute: &'static str,
+        back: &'static str,
+    },
 }
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
@@ -60,20 +65,47 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             },
             i18n::tr!(EnterConfirmEscCancelPgupPgdnReview),
         ),
-        Mode::Confirm(_) => (
+        Mode::Confirm { operation, choice } => (
             i18n::tr!(ConfirmOperationAlt),
-            Content::Locked(i18n::tr!(AwaitingConfirmation).into()),
-            i18n::tr!(YConfirmNEscCancel),
+            Content::Choices {
+                choice: *choice,
+                execute: match operation {
+                    Confirmation::Apply => i18n::tr!(ActionApply),
+                    Confirmation::Remove(_) => i18n::tr!(ActionUnregister),
+                    Confirmation::Configure { action, .. } => match action {
+                        Action::Add => i18n::tr!(ActionAdd),
+                        Action::Exclude => i18n::tr!(ActionExclude),
+                        Action::Unexclude => i18n::tr!(ActionUnexclude),
+                        Action::Scan => i18n::tr!(ActionScan),
+                        Action::Import => i18n::tr!(ActionImport),
+                        _ => i18n::tr!(ActionSave),
+                    },
+                },
+                back: if matches!(operation, Confirmation::Configure { .. }) {
+                    i18n::tr!(ActionReturnEdit)
+                } else {
+                    i18n::tr!(ActionCancel)
+                },
+            },
+            i18n::tr!(ConfirmSelectHint),
         ),
-        Mode::CommitConfirm { .. } => (
+        Mode::CommitConfirm { choice, .. } => (
             i18n::tr!(ConfirmCommitAlt),
-            Content::Locked(i18n::tr!(AwaitingCommitConfirmation).into()),
-            i18n::tr!(YCommitNEscCancelPgupPgdn),
+            Content::Choices {
+                choice: *choice,
+                execute: i18n::tr!(ActionCommit),
+                back: i18n::tr!(ActionReturnEdit),
+            },
+            i18n::tr!(ConfirmReviewHint),
         ),
-        Mode::PushConfirm { .. } => (
+        Mode::PushConfirm { choice, .. } => (
             i18n::tr!(ConfirmPushAlt),
-            Content::Locked(i18n::tr!(AwaitingPushConfirmation).into()),
-            i18n::tr!(YPushNEscCancelPgupPgdn),
+            Content::Choices {
+                choice: *choice,
+                execute: i18n::tr!(ActionPush),
+                back: i18n::tr!(ActionCancel),
+            },
+            i18n::tr!(ConfirmReviewHint),
         ),
         Mode::Error { .. } => (
             i18n::tr!(OperationIncomplete),
@@ -101,13 +133,13 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             .style(Style::default().fg(WARN)),
         parts[0],
     );
-    let editable = matches!(content, Content::Editable { .. });
+    let active = matches!(content, Content::Editable { .. } | Content::Choices { .. });
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
     let block = Block::bordered()
         .border_type(ratatui::widgets::BorderType::Rounded)
         .title(title)
-        .title_style(Style::default().fg(if editable { INPUT_ACCENT } else { MUTED }))
-        .border_style(Style::default().fg(if editable { INPUT_ACCENT } else { MUTED }))
+        .title_style(Style::default().fg(if active { INPUT_ACCENT } else { MUTED }))
+        .border_style(Style::default().fg(if active { INPUT_ACCENT } else { MUTED }))
         .style(input_style);
     let inner = block.inner(parts[1]);
     frame.render_widget(block, parts[1]);
@@ -135,6 +167,34 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 inner,
             );
             frame.set_cursor_position((inner.x + 2 + cursor, inner.y));
+        }
+        Content::Choices {
+            choice,
+            execute,
+            back,
+        } => {
+            let button = |label: &str, focused: bool| {
+                Span::styled(
+                    format!(" {label} "),
+                    if focused {
+                        Style::default()
+                            .fg(Color::Black)
+                            .bg(INPUT_ACCENT)
+                            .add_modifier(Modifier::BOLD)
+                    } else {
+                        Style::default().fg(Color::Gray)
+                    },
+                )
+            };
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::raw(" "),
+                    button(execute, choice == confirmation::Choice::Execute),
+                    Span::raw("   "),
+                    button(back, choice == confirmation::Choice::Return),
+                ])),
+                inner,
+            );
         }
         Content::Locked(text) => frame.render_widget(
             Paragraph::new(truncate(&text, inner.width as usize)).style(Style::default().fg(MUTED)),

@@ -73,6 +73,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             plan,
             message,
             scroll,
+            ..
         } => text_view(
             frame,
             area,
@@ -80,7 +81,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             scroll,
             i18n::tr!(ConfirmCommit),
         ),
-        Mode::PushConfirm { plan, scroll } => text_view(
+        Mode::PushConfirm { plan, scroll, .. } => text_view(
             frame,
             area,
             &i18n::tf!(
@@ -108,7 +109,10 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 .block(block(i18n::tr!(ConfigurationInput))),
             area,
         ),
-        Mode::Confirm(confirmation) => {
+        Mode::Confirm {
+            operation: confirmation,
+            ..
+        } => {
             let text = match confirmation {
                 Confirmation::Apply => i18n::tr!(ApplySavedIntervalAndReloadTheSystem).into(),
                 Confirmation::Remove(path) => i18n::tf!(

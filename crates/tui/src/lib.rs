@@ -2,6 +2,7 @@
 mod bar;
 mod checks;
 mod command;
+mod confirmation;
 mod editor;
 mod input;
 mod task;
@@ -109,7 +110,10 @@ enum Mode {
         action: Action,
         editor: Editor,
     },
-    Confirm(Confirmation),
+    Confirm {
+        operation: Confirmation,
+        choice: confirmation::Choice,
+    },
     Files(FileSession),
     Diff {
         session: FileSession,
@@ -122,11 +126,13 @@ enum Mode {
         scroll: usize,
     },
     CommitConfirm {
+        choice: confirmation::Choice,
         plan: CommitPlan,
         message: String,
         scroll: usize,
     },
     PushConfirm {
+        choice: confirmation::Choice,
         plan: PushPlan,
         scroll: usize,
     },
