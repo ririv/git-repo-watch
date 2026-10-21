@@ -9,6 +9,7 @@ import (
 	"charm.land/lipgloss/v2"
 	"github.com/charmbracelet/x/ansi"
 	"gw/internal/app"
+	"gw/internal/model"
 )
 
 func cell(text string, width int) string {
@@ -72,8 +73,22 @@ func (m *screen) table(width, height int) string {
 		}
 		lines = append(lines, ansi.Truncate(text, width, "…"))
 	} else {
-		start := min(max(0, m.selected-capacity+1), max(0, len(rows)-capacity))
-		for i := start; i < min(len(rows), start+capacity); i++ {
+		rowHeight := func(i int) int {
+			if rows[i].Status == model.Failed {
+				return 2
+			}
+			return 1
+		}
+		start, used := m.selected, rowHeight(m.selected)
+		for start > 0 && used+rowHeight(start-1) <= capacity {
+			start--
+			used += rowHeight(start)
+		}
+		used = 0
+		for i := start; i < len(rows); i++ {
+			if used+rowHeight(i) > capacity && used > 0 {
+				break
+			}
 			r := rows[i]
 			b := badges(r)
 			indicator := " "
@@ -82,10 +97,18 @@ func (m *screen) table(width, height int) string {
 			}
 			cols := []string{cell(indicator+b.overall.render(), 2), cell(safe(filepath.Base(r.Path)), nameWidth), cell(b.workspace.render(), 6), cell(b.remote.render(), 8), cell(b.experimental.render(), 6), cell(b.push.render(), 7)}
 			line := strings.Join(cols, " ")
+			if capacity == 1 && r.Status == model.Failed {
+				line = indicator + b.overall.render() + " " + safe(filepath.Base(r.Path)) + " · " + bad.Render(failureSummary(r.Error))
+			}
 			if i == m.selected {
 				line = selectedStyle.Render(line)
 			}
 			lines = append(lines, line)
+			used++
+			if r.Status == model.Failed && used < capacity {
+				lines = append(lines, bad.Render(ansi.Truncate("   ↳ "+failureSummary(r.Error), width, "…")))
+				used++
+			}
 		}
 	}
 	for len(lines) < height-footerHeight {

@@ -163,6 +163,9 @@ func (m *screen) detailContent() string {
 	}
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s\n%s\n状态：%s\n", safe(filepath.Base(r.Path)), safe(r.Path), statusName(r.Status))
+	if r.Status == model.Failed {
+		fmt.Fprintf(&b, "失败原因：%s\n本轮未完成检查，工作区与分支统计未知。\n\n", failureSummary(r.Error))
+	}
 	bgs := badges(r)
 	fmt.Fprintf(&b, "工作区 %s · 远程 %s\n无上游 %s · 推送 %s\n\n", bgs.workspace.render(), bgs.remote.render(), bgs.experimental.render(), bgs.push.render())
 	if saved, ok := m.snapshot.Report.(app.AvailableReport); ok {
@@ -178,7 +181,7 @@ func (m *screen) detailContent() string {
 		fmt.Fprintf(&b, "• %s\n", safe(i.Detail))
 	}
 	if r.Error != "" {
-		fmt.Fprintf(&b, "错误：%s\n", safe(r.Error))
+		fmt.Fprintf(&b, "原始错误：%s\n", safe(r.Error))
 	}
 	b.WriteString("\n未配置远程上游（单独统计）\n")
 	if len(r.Branches) == 0 {
