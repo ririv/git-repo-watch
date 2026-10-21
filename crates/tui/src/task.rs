@@ -35,40 +35,17 @@ impl Screen {
         let mut changed = false;
         let mut result = None;
         if let Mode::Busy(pending) = &mut self.mode {
-            loop {
-                match pending.rx.try_recv() {
-                    Ok(WorkerEvent::Progress(event)) => {
-                        changed = true;
-                        self.message = match event {
-                            service::Event::Checking(path) => {
-                                i18n::tf!(Checking, path.display())
-                            }
-                            service::Event::Checked(result) => {
-                                format!(
-                                    "{}{}",
-                                    i18n::tf!(FieldLabel, label = result.label()),
-                                    result.path().display()
-                                )
-                            }
-                            service::Event::NotificationProblem(notice) => {
-                                i18n::tf!(SystemNotificationFailedNotice, notice = notice)
-                            }
-                        }
-                    }
-                    Ok(WorkerEvent::Done(value)) => {
-                        result = Some(value);
-                        break;
-                    }
-                    Err(mpsc::TryRecvError::Empty) => break,
-                    Err(mpsc::TryRecvError::Disconnected) => {
-                        result = Some(Err(anyhow::anyhow!(i18n::tr!(
-                            BackgroundWorkerTerminatedUnexpectedly
-                        ))));
-                        break;
-                    }
+            match pending.rx.try_recv() {
+                Ok(WorkerEvent::Done(value)) => result = Some(value),
+                Err(mpsc::TryRecvError::Empty) => {}
+                Err(mpsc::TryRecvError::Disconnected) => {
+                    result = Some(Err(anyhow::anyhow!(i18n::tr!(
+                        BackgroundWorkerTerminatedUnexpectedly
+                    ))))
                 }
             }
         }
+
         if let Some(result) = result {
             changed = true;
             let Mode::Busy(pending) = self.take_mode() else {
@@ -171,19 +148,6 @@ impl Screen {
                     self.message.push_str(&i18n::tf!(RefreshFailedE, e = e))
                 }
             }
-            Outcome::Checked(report) => {
-                self.mode = Mode::Browsing;
-                let stats = domain::Stats::of(&report);
-                self.message = i18n::tf!(
-                    CheckCompleteCleanAttentionFailed,
-                    stats.clean,
-                    stats.attention,
-                    stats.failed
-                );
-                if let Err(e) = self.reload(root) {
-                    self.message.push_str(&i18n::tf!(RefreshFailedE, e = e))
-                }
-            }
         }
         self.sync_bar();
     }
@@ -197,6 +161,7 @@ impl Screen {
         };
     }
     pub(super) fn shutdown(&mut self) {
+        self.shutdown_check();
         if let Mode::Busy(pending) = self.take_mode() {
             pending.cancel.cancel();
             let _ = pending.handle.join();

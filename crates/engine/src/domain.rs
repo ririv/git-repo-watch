@@ -287,8 +287,17 @@ pub struct Stats {
 }
 impl Stats {
     pub fn of(r: &Report) -> Self {
+        let mut s = Self::repositories(&r.repositories);
+        s.notice_failed = r
+            .notifications
+            .iter()
+            .filter(|n| matches!(n, Notice::Failed { .. }))
+            .count();
+        s
+    }
+    pub fn repositories<'a>(repositories: impl IntoIterator<Item = &'a RepositoryResult>) -> Self {
         let mut s = Self::default();
-        for repo in &r.repositories {
+        for repo in repositories {
             match repo {
                 RepositoryResult::Clean { .. } => s.clean += 1,
                 RepositoryResult::Attention { .. } => s.attention += 1,
@@ -307,11 +316,6 @@ impl Stats {
                 }
             }
         }
-        s.notice_failed = r
-            .notifications
-            .iter()
-            .filter(|n| matches!(n, Notice::Failed { .. }))
-            .count();
         s
     }
 }

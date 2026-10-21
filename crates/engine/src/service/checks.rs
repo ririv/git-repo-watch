@@ -1,11 +1,75 @@
 //! Parallel checks grouped by shared Git storage.
 use super::*;
+enum CheckInvocation {
+    Manual,
+    Scheduled,
+}
 impl Service {
-    pub fn run(&self, cancel: &Cancel, mut emit: impl FnMut(Event)) -> Result<Report> {
+    /// Check all registered repositories without publishing commits.
+    pub fn run(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
+        self.run_batch(CheckInvocation::Manual, cancel, emit)
+    }
+    /// Apply the saved automatic push policy for a scheduled check.
+    pub fn run_scheduled(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
+        self.run_batch(CheckInvocation::Scheduled, cancel, emit)
+    }
+    fn run_batch(
+        &self,
+        invocation: CheckInvocation,
+        cancel: &Cancel,
+        mut emit: impl FnMut(Event),
+    ) -> Result<Report> {
         let _lock = self.store.lock()?;
-        let config = self.store.config()?;
+        let mut config = self.store.config()?;
+        match invocation {
+            CheckInvocation::Manual => config.push_policy = PushPolicy::Disabled,
+            CheckInvocation::Scheduled => {}
+        }
+        let report = self.execute_checks(&config, cancel, &mut emit)?;
+        cancel.check()?;
+        self.store.save_report(&report)?;
+        Ok(report)
+    }
+    pub fn check_repository(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+        mut emit: impl FnMut(Event),
+    ) -> Result<Report> {
+        let _lock = self.store.lock()?;
+        let mut config = self.store.config()?;
+        ensure!(
+            config
+                .repositories
+                .iter()
+                .any(|registered| registered == path),
+            i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
+        );
+        config.repositories = vec![path.to_owned()];
+        config.max_concurrency = 1;
+        config.push_policy = PushPolicy::Disabled;
+        // 在可能发生 fetch 之前校验已有报告，避免执行成功后才发现缓存损坏。
+        let mut reports = self.store.repository_reports()?;
+        let report = self.execute_checks(&config, cancel, &mut emit)?;
+        cancel.check()?;
+        reports.insert(path.to_owned(), report.clone());
+        state::write_json(
+            &self.store.state_dir().join("repository-checks.json"),
+            &reports,
+        )
+        .context(i18n::tr!(SingleReportSaveFailed))?;
+        Ok(report)
+    }
+    fn execute_checks(
+        &self,
+        config: &state::Config,
+        cancel: &Cancel,
+        emit: &mut impl FnMut(Event),
+    ) -> Result<Report> {
+        cancel.check()?;
         let started_at = state::now();
         let groups = group(&config.repositories);
+        cancel.check()?;
         let mut results = BTreeMap::new();
         let mut timings = BTreeMap::new();
         let mut notices = Vec::new();
@@ -26,6 +90,10 @@ impl Service {
                     index,
                     value: (result, timing),
                 } => {
+                    // 取消中的仓库并未完成检查，不能用取消错误覆盖上一轮有效状态。
+                    if cancel.is_cancelled() {
+                        return;
+                    }
                     for pushed in result.pushes() {
                         if let Publication::Failed { target, error, .. } = pushed {
                             let notice = notify::failure(result.path(), target, error, cancel);
@@ -71,7 +139,6 @@ impl Service {
             }),
         };
         cancel.check()?;
-        self.store.save_report(&report)?;
         Ok(report)
     }
 }

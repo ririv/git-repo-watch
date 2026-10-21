@@ -14,22 +14,27 @@ impl Service {
         crate::terminal::open(path, cancel)
     }
 
-    fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<Lock> {
+    fn validate_repository(&self, path: &Path, cancel: &Cancel) -> Result<()> {
         cancel.check()?;
-        let lock = self.store.lock()?;
         ensure!(
             self.store.config()?.repositories.iter().any(|p| p == path),
             i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
         );
         local::open(path)?;
+        Ok(())
+    }
+    fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<Lock> {
+        cancel.check()?;
+        let lock = self.store.lock()?;
+        self.validate_repository(path, cancel)?;
         Ok(lock)
     }
     pub fn files(&self, path: &Path, cancel: &Cancel) -> Result<Files> {
-        let _lock = self.repository_lock(path, cancel)?;
+        self.validate_repository(path, cancel)?;
         files::read(path)
     }
     pub fn diff(&self, snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<String> {
-        let _lock = self.repository_lock(&snapshot.path, cancel)?;
+        self.validate_repository(&snapshot.path, cancel)?;
         files::diff(snapshot, change)
     }
     pub fn edit_index(

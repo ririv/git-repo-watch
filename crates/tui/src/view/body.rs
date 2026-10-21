@@ -110,12 +110,6 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ),
         Mode::Confirm(confirmation) => {
             let text = match confirmation {
-                Confirmation::CheckAll => i18n::tf!(
-                    CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic,
-                    screen.config.repositories.len(),
-                    screen.config.max_concurrency,
-                    screen.config.push_policy
-                ),
                 Confirmation::Apply => i18n::tr!(ApplySavedIntervalAndReloadTheSystem).into(),
                 Confirmation::Remove(path) => i18n::tf!(
                     UnregisterRepositoryFilesOnDiskAreRetained,
@@ -138,7 +132,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 let rows = screen.rows();
                 let text = rows
                     .get(screen.selected())
-                    .map(detail_text)
+                    .map(|row| repository_detail(screen, row))
                     .unwrap_or_else(|| i18n::tr!(CurrentRepositoryIsNotInTheFiltered).into());
                 review::styled_text_view(
                     frame,

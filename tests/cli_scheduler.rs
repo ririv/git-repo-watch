@@ -133,7 +133,7 @@ fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
     assert_eq!(value["StartInterval"], 21600);
     assert_eq!(value["RunAtLoad"], false);
     assert_eq!(value["ProgramArguments"][2], "/path/中文 & folder");
-    assert_eq!(value["ProgramArguments"][3], "check");
+    assert_eq!(value["ProgramArguments"][3], "scheduled-check");
 }
 #[test]
 fn installation_refuses_unowned_binary_before_mutation() {
@@ -245,4 +245,60 @@ fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rej
         .unwrap();
     assert_eq!(output.status.code(), Some(2));
     assert!(String::from_utf8_lossy(&output.stderr).contains("APP_LANG must be en or zh"));
+}
+
+#[test]
+fn explicit_single_check_creates_a_repository_report_without_creating_a_batch() {
+    let (_temp, store) = fixture();
+    let repo = store.home.join("repository");
+    let output = Command::new("/usr/bin/git")
+        .args(["init", "-b", "main"])
+        .arg(&repo)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let repo = fs::canonicalize(repo).unwrap();
+    let mut config = store.config().unwrap();
+    config.repositories = vec![repo.clone()];
+    store.save_config(&config).unwrap();
+    let output = cli(&store, &["check", repo.to_str().unwrap()]);
+    assert_eq!(
+        output.status.code(),
+        Some(1),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(store.report().unwrap().is_none());
+    let reports = store.repository_reports().unwrap();
+    assert_eq!(reports.len(), 1);
+    assert_eq!(reports[&repo].repositories.len(), 1);
+    assert_eq!(
+        reports[&repo].execution.as_ref().unwrap().max_concurrency,
+        1
+    );
+}
+
+#[test]
+fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_arguments() {
+    let (_temp, store) = fixture();
+    let mut config = store.config().unwrap();
+    config.repositories.clear();
+    config.push_policy = PushPolicy::FastForward;
+    store.save_config(&config).unwrap();
+    assert_eq!(cli(&store, &["check"]).status.code(), Some(1));
+    assert_eq!(
+        store.report().unwrap().unwrap().push_policy,
+        PushPolicy::Disabled
+    );
+    assert_eq!(
+        cli(&store, &["scheduled-check", "/unexpected"])
+            .status
+            .code(),
+        Some(2)
+    );
+    assert_eq!(cli(&store, &["scheduled-check"]).status.code(), Some(1));
+    assert_eq!(
+        store.report().unwrap().unwrap().push_policy,
+        PushPolicy::FastForward
+    );
 }

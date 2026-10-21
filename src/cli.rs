@@ -185,9 +185,13 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(i32::from(failed > 0))
         }
-        "check" => {
-            none(&args)?;
-            let report = service.run(cancel, |event| match event {
+        "check" | "scheduled-check" => {
+            if command == "scheduled-check" {
+                none(&args)?;
+            } else {
+                ensure!(args.len() <= 1, i18n::tr!(CheckAtMostOnePath));
+            }
+            let emit = |event| match event {
                 Event::Checking(p) => println!("{}", i18n::tf!(Checking, p.display())),
                 Event::Checked(r) => match serde_json::to_string_pretty(&r) {
                     Ok(s) => println!("{s}"),
@@ -196,7 +200,14 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 Event::NotificationProblem(n) => {
                     eprintln!("{}", i18n::tf!(SystemNotificationFailedN, n = n))
                 }
-            })?;
+            };
+            let report = if command == "scheduled-check" {
+                service.run_scheduled(cancel, emit)?
+            } else if let Some(path) = args.first() {
+                service.check_repository(&state::canonical(Path::new(path))?, cancel, emit)?
+            } else {
+                service.run(cancel, emit)?
+            };
             println!(
                 "{}",
                 i18n::tf!(
@@ -344,7 +355,7 @@ pub fn render_status(s: &Snapshot) -> String {
             if report.push_policy == PushPolicy::Disabled
                 && s.push_policy == PushPolicy::FastForward
             {
-                text.push_str(i18n::tr!(LatestReportPredatesAutomaticPushTheNext))
+                text.push_str(i18n::tr!(LatestReportDidNotPushScheduledPolicy))
             }
             if report.status == ReportStatus::Unconfigured {
                 text.push_str(i18n::tr!(NoRepositoriesWereConfiguredForThisCheck))

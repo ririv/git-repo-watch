@@ -50,7 +50,7 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .map(|row| name(&row.path))
             .unwrap_or_else(|| i18n::tr!(NoRepositorySelectedAlt).into());
         let text = selected
-            .map(detail_text)
+            .map(|row| repository_detail(screen, row))
             .unwrap_or_else(|| i18n::tr!(NoRepositories).into());
         frame.render_widget(
             Paragraph::new(text)
@@ -182,7 +182,16 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .map(|row| {
             let b = badges(row.result.as_ref());
             TableRow::new(vec![
-                Cell::from(format!("{} {}", b.overall, name(&row.path))),
+                Cell::from(format!(
+                    "{} {}",
+                    screen
+                        .check_task
+                        .as_ref()
+                        .filter(|task| task.checking(&row.path))
+                        .map(|task| task.spinner())
+                        .unwrap_or(b.overall),
+                    name(&row.path)
+                )),
                 Cell::from(b.workspace),
                 Cell::from(b.sync.label()),
             ])
@@ -238,6 +247,20 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
     ])
 }
 
+pub(super) fn repository_detail(screen: &Screen, row: &Row) -> Text<'static> {
+    let mut text = detail_text(row);
+    if let Some(update) = screen.latest_update(&row.path) {
+        text.lines.insert(
+            1,
+            field(
+                i18n::tr!(CheckUpdatedAt),
+                local_time(&update.finished_at.to_rfc3339()),
+                Color::Reset,
+            ),
+        );
+    }
+    text
+}
 pub(super) fn detail_text(row: &Row) -> Text<'static> {
     let mut lines = vec![field(
         i18n::tr!(Path),

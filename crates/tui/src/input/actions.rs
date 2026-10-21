@@ -14,6 +14,26 @@ impl Screen {
         path: Option<PathBuf>,
         root: &Cancel,
     ) -> Result<bool> {
+        if self.check_task.is_some()
+            && matches!(
+                action,
+                Action::Commit
+                    | Action::Push
+                    | Action::Add
+                    | Action::Remove
+                    | Action::Exclude
+                    | Action::Unexclude
+                    | Action::Scan
+                    | Action::Import
+                    | Action::Interval
+                    | Action::Autopush
+                    | Action::Concurrency
+                    | Action::Apply
+            )
+        {
+            self.message = i18n::tr!(CheckWriteConflict).into();
+            return Ok(false);
+        }
         match action {
             Action::Quit => return Ok(true),
             Action::Settings => {
@@ -104,7 +124,23 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
-            Action::CheckAll => self.mode = Mode::Confirm(Confirmation::CheckAll),
+            Action::Check | Action::CheckAll => {
+                if self.check_task.is_some() {
+                    self.message = i18n::tr!(CheckAlreadyRunning).into();
+                } else {
+                    let target = if action == Action::CheckAll {
+                        Some(checks::CheckTarget::All)
+                    } else {
+                        path.map(checks::CheckTarget::Repository)
+                    };
+                    if let Some(target) = target {
+                        self.start_check(target);
+                    } else {
+                        self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    }
+                }
+            }
+            Action::CancelCheck => self.cancel_check(),
             Action::Apply => self.mode = Mode::Confirm(Confirmation::Apply),
             _ => {
                 let value = match action {
@@ -145,6 +181,10 @@ impl Screen {
         })
     }
     pub(crate) fn edit_files(&mut self) {
+        if self.check_task.is_some() {
+            self.message = i18n::tr!(CheckWriteConflict).into();
+            return;
+        }
         let Some(session) = self.mode.file_session().cloned() else {
             return;
         };
@@ -175,16 +215,6 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
-            Confirmation::CheckAll => self.start(
-                i18n::tr!(CheckAllRepositories),
-                Effect::Check,
-                move |s, c, tx| {
-                    let report = s.run(&c, |event| {
-                        let _ = tx.send(WorkerEvent::Progress(event));
-                    })?;
-                    Ok(Outcome::Checked(report))
-                },
-            ),
             Confirmation::Apply => self.start(
                 i18n::tr!(ApplySystemSchedule),
                 Effect::Configuration,

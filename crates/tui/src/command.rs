@@ -7,7 +7,9 @@ pub enum Action {
     Commit,
     Push,
     Terminal,
+    Check,
     CheckAll,
+    CancelCheck,
     Refresh,
     Settings,
     Add,
@@ -76,10 +78,22 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::OpenRepositoryTerminal,
     },
     Command {
+        name: "check",
+        action: Check,
+        scope: Repository,
+        description: i18n::Message::CheckSelectedRepository,
+    },
+    Command {
         name: "check all",
         action: CheckAll,
         scope: Global,
-        description: i18n::Message::CheckAllRepositoriesAndPushAccordingTo,
+        description: i18n::Message::CheckAllRepositoriesInBackground,
+    },
+    Command {
+        name: "cancel",
+        action: CancelCheck,
+        scope: Global,
+        description: i18n::Message::CancelBackgroundCheck,
     },
     Command {
         name: "refresh",

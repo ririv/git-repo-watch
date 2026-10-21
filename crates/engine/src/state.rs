@@ -93,6 +93,31 @@ impl Store {
             Err(e) => Err(e.into()),
         }
     }
+    /// Read independent single-repository reports without replacing a complete batch report.
+    pub fn repository_reports(&self) -> Result<std::collections::BTreeMap<PathBuf, Report>> {
+        let path = self.state_dir().join("repository-checks.json");
+        let data = match fs::read(path) {
+            Ok(data) => data,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                return Ok(std::collections::BTreeMap::new());
+            }
+            Err(error) => return Err(error.into()),
+        };
+        let reports: std::collections::BTreeMap<PathBuf, Report> =
+            serde_json::from_slice(&data).context(i18n::tr!(InvalidRepositoryCheckReport))?;
+        for (path, report) in &reports {
+            report.validate()?;
+            ensure!(
+                path.is_absolute()
+                    && report.repositories.len() == 1
+                    && report.repositories[0].path() == path,
+                i18n::tr!(InvalidRepositoryCheckReport)
+            );
+            chrono::DateTime::parse_from_rfc3339(&report.finished_at)
+                .context(i18n::tr!(InvalidRepositoryCheckReport))?;
+        }
+        Ok(reports)
+    }
     pub fn save_report(&self, r: &Report) -> Result<()> {
         write_json(&self.state_dir().join("latest.json"), r)
     }

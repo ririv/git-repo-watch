@@ -2,6 +2,20 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    SingleReportSaveFailed,
+    CheckAtMostOnePath,
+    CheckUpdatedAt,
+    CheckCancelledRetained,
+    CheckOneComplete,
+    CancelBackgroundCheck,
+    BackgroundCheckCancelling,
+    BackgroundCheckProgress,
+    CheckWriteConflict,
+    NoBackgroundCheck,
+    CheckCancelRequested,
+    CheckAlreadyRunning,
+    CheckSelectedRepository,
+    InvalidRepositoryCheckReport,
     SyncPushFailedCount,
     SyncPushedCount,
     Synced,
@@ -58,7 +72,7 @@ pub enum Message {
     LastCheckLatestResultCleanNeedAttention,
     OtherRepositoriesFailedToCheckTheseCounts,
     SystemNotificationsFailedSeePushReport,
-    LatestReportPredatesAutomaticPushTheNext,
+    LatestReportDidNotPushScheduledPolicy,
     NoRepositoriesWereConfiguredForThisCheck,
     ReportScopeDiffersFromTheCurrentRepository,
     CheckedAt,
@@ -217,7 +231,7 @@ pub enum Message {
     ViewTheCurrentFileDiff,
     ReviewStagedContentsEnterAMessageAnd,
     ReviewCurrentBranchAndRemoteUpstreamThen,
-    CheckAllRepositoriesAndPushAccordingTo,
+    CheckAllRepositoriesInBackground,
     ReloadReportOrFileList,
     OpenSettings,
     AddARepositoryRoot,
@@ -293,7 +307,6 @@ pub enum Message {
     ConfirmPush,
     OperationResult,
     ConfigurationInput,
-    CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic,
     ApplySavedIntervalAndReloadTheSystem,
     UnregisterRepositoryFilesOnDiskAreRetained,
     ConfirmOperation,
@@ -423,6 +436,54 @@ impl Message {
             (Self::SyncPushedCount, Language::Chinese) => "已推送 {}",
             (Self::SyncPushFailedCount, Language::English) => "Push failed · {}",
             (Self::SyncPushFailedCount, Language::Chinese) => "推送失败 · {}",
+            (Self::InvalidRepositoryCheckReport, Language::English) => {
+                "Invalid single-repository check report"
+            }
+            (Self::InvalidRepositoryCheckReport, Language::Chinese) => "单仓库检查报告格式无效",
+            (Self::CheckSelectedRepository, Language::English) => {
+                "Check the selected repository in the background without pushing"
+            }
+            (Self::CheckSelectedRepository, Language::Chinese) => "后台检查当前仓库，不推送",
+            (Self::CheckAlreadyRunning, Language::English) => {
+                "A check is already running; use /cancel to cancel it"
+            }
+            (Self::CheckAlreadyRunning, Language::Chinese) => "已有检查正在进行，可用 /cancel 取消",
+            (Self::CheckCancelRequested, Language::English) => {
+                "Cancelling the background check; navigation remains available"
+            }
+            (Self::CheckCancelRequested, Language::Chinese) => "正在取消后台检查，仍可继续浏览",
+            (Self::NoBackgroundCheck, Language::English) => "No background check is running",
+            (Self::NoBackgroundCheck, Language::Chinese) => "当前没有后台检查",
+            (Self::CheckWriteConflict, Language::English) => {
+                "This write operation is unavailable during a check; wait or use /cancel"
+            }
+            (Self::CheckWriteConflict, Language::Chinese) => {
+                "检查期间暂不能执行写操作，请等待或使用 /cancel"
+            }
+            (Self::BackgroundCheckProgress, Language::English) => " {} Checking {}/{} · /cancel",
+            (Self::BackgroundCheckProgress, Language::Chinese) => " {} 检查中 {}/{} · /cancel",
+            (Self::BackgroundCheckCancelling, Language::English) => " {} Cancelling {}/{}",
+            (Self::BackgroundCheckCancelling, Language::Chinese) => " {} 取消中 {}/{}",
+            (Self::CancelBackgroundCheck, Language::English) => {
+                "Cancel the background check without interrupting navigation"
+            }
+            (Self::CancelBackgroundCheck, Language::Chinese) => "取消后台检查，保持界面可操作",
+            (Self::CheckOneComplete, Language::English) => "Repository checked: {}",
+            (Self::CheckOneComplete, Language::Chinese) => "仓库检查完成：{}",
+            (Self::CheckCancelledRetained, Language::English) => {
+                "Check cancelled; completed results are retained"
+            }
+            (Self::CheckCancelledRetained, Language::Chinese) => "检查已取消，已完成仓库的结果保留",
+            (Self::CheckUpdatedAt, Language::English) => "Result updated",
+            (Self::CheckUpdatedAt, Language::Chinese) => "结果更新",
+            (Self::CheckAtMostOnePath, Language::English) => {
+                "check accepts at most one repository path"
+            }
+            (Self::CheckAtMostOnePath, Language::Chinese) => "check 最多接受一个仓库路径",
+            (Self::SingleReportSaveFailed, Language::English) => {
+                "Repository check completed, but its report could not be saved"
+            }
+            (Self::SingleReportSaveFailed, Language::Chinese) => "单仓库检查已完成，但无法保存报告",
             (Self::LinuxTerminalLauncherRequired, Language::English) => {
                 "Install xdg-terminal-exec and configure your preferred terminal before opening repository terminals"
             }
@@ -464,7 +525,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI without checking\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  check                            Check concurrently and push according to policy\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI without checking\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -474,7 +535,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，不自动检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  check                             并行检查与配置的自动推送\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，不自动检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -669,11 +730,11 @@ impl Message {
                     " report --pushes\n"
                 )
             }
-            (Self::LatestReportPredatesAutomaticPushTheNext, Language::English) => {
-                "Latest report predates automatic push; the next check will use the current policy\n"
+            (Self::LatestReportDidNotPushScheduledPolicy, Language::English) => {
+                "Latest report did not enable automatic push; the next scheduled check will use the saved policy\n"
             }
-            (Self::LatestReportPredatesAutomaticPushTheNext, Language::Chinese) => {
-                "最近报告来自自动推送启用前；将在下次检查时应用\n"
+            (Self::LatestReportDidNotPushScheduledPolicy, Language::Chinese) => {
+                "最近报告未启用自动推送；下次定时检查将应用已保存的推送策略\n"
             }
             (Self::NoRepositoriesWereConfiguredForThisCheck, Language::English) => {
                 "No repositories were configured for this check\n"
@@ -1305,11 +1366,11 @@ impl Message {
             (Self::ReviewCurrentBranchAndRemoteUpstreamThen, Language::Chinese) => {
                 "核对当前分支和远程上游后确认推送"
             }
-            (Self::CheckAllRepositoriesAndPushAccordingTo, Language::English) => {
-                "Check all repositories and push according to policy"
+            (Self::CheckAllRepositoriesInBackground, Language::English) => {
+                "Check all repositories in the background without pushing"
             }
-            (Self::CheckAllRepositoriesAndPushAccordingTo, Language::Chinese) => {
-                "检查全部仓库，按当前配置自动推送"
+            (Self::CheckAllRepositoriesInBackground, Language::Chinese) => {
+                "后台检查全部仓库，不推送"
             }
             (Self::ReloadReportOrFileList, Language::English) => "Reload report or file list",
             (Self::ReloadReportOrFileList, Language::Chinese) => "重新读取报告或文件列表",
@@ -1571,12 +1632,6 @@ impl Message {
             (Self::OperationResult, Language::Chinese) => "操作结果",
             (Self::ConfigurationInput, Language::English) => "Configuration input",
             (Self::ConfigurationInput, Language::Chinese) => "输入配置",
-            (Self::CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic, Language::English) => {
-                "Check all {} registered repositories\nConcurrency limit: {}\nAutomatic push policy: {}\n\nWorktrees sharing Git storage are checked serially. Only committed changes that are ahead and not behind may be pushed automatically."
-            }
-            (Self::CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic, Language::Chinese) => {
-                "检查全部 {} 个注册仓库\n并发上限：{}\n自动推送策略：{}\n\n共享 Git 存储的工作区串行检查；仅领先且不落后的已提交内容可自动推送。"
-            }
             (Self::ApplySavedIntervalAndReloadTheSystem, Language::English) => {
                 "Apply saved interval and reload the system schedule. No check or push starts immediately."
             }
@@ -1625,13 +1680,13 @@ impl Message {
             (Self::NoMatchingCommands, Language::Chinese) => "没有匹配命令",
             (Self::TuiHelp, Language::English) => {
                 concat!(
-                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check all checks all registered repositories after confirmation, with configured automatic push.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfiguration, checks, commits and pushes require y; n/Esc cancels.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
+                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs a complete command.\nEsc clears input; with empty input, Esc returns to the previous page.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab switches repositories and settings.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check checks the selected repository; /check all checks all repositories. Neither requires confirmation or pushes.\nChecks run in the background; browse, search and view files while they run.\nA spinner marks active checks. Finished rows update; other rows retain previous results.\n/cancel cancels the background check. Writes and configuration changes wait until it stops.\n/refresh reloads report or files; /settings opens settings; /help shows help; /quit exits.\n/add, /remove, /exclude, /unexclude manage registration.\n/scan previews discovery; /import scans and imports using Git ignore rules.\n/interval, /autopush, /concurrency, /apply manage configuration and system schedule.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfiguration, commits and pushes require y; n/Esc cancels confirmation.\nCommit messages and configuration use the bottom input; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
                     identity::command!(),
                     " to override.\n"
                 )
             }
             (Self::TuiHelp, Language::Chinese) => {
-                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check all 确认后检查全部注册仓库，按当前策略自动推送。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n配置、检查、提交和推送经 y 确认，n/Esc 取消。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
+                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行完整命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 切换仓库和设置。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check 检查当前仓库，/check all 检查全部仓库；直接开始，不确认、不推送。\n检查在后台运行，可继续浏览、搜索和查看文件。\n正在检查的仓库显示旋转标记，完成后逐项更新，未完成的保留上轮状态。\n/cancel 取消后台检查；检查期间暂不能写入仓库或修改配置。\n/refresh 刷新报告或文件列表，/settings 设置，/help 帮助，/quit 退出。\n/add、/remove、/exclude、/unexclude 管理注册列表。\n/scan 扫描预览，/import 扫描并导入，遵守 Git 忽略规则。\n/interval、/autopush、/concurrency、/apply 管理配置与系统调度。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n配置、提交和推送经 y 确认，n/Esc 取消。\n提交说明和配置输入会使用底部输入框，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
             }
             (Self::Repos, Language::English) => " {} repos",
             (Self::Repos, Language::Chinese) => " {}库",
@@ -1891,6 +1946,24 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (CheckOneComplete $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Repository checked: {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("仓库检查完成：{}" $(, $($args)*)?),
+        }
+    };
+    (BackgroundCheckCancelling $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!(" {} Cancelling {}/{}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!(" {} 取消中 {}/{}" $(, $($args)*)?),
+        }
+    };
+    (BackgroundCheckProgress $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!(" {} Checking {}/{} · /cancel" $(, $($args)*)?),
+            $crate::Language::Chinese => format!(" {} 检查中 {}/{} · /cancel" $(, $($args)*)?),
+        }
+    };
     (SyncPushFailedCount $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Push failed · {}" $(, $($args)*)?),
@@ -2303,12 +2376,6 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("Repository: {}\nBranch: {}\nRemote: {}\nUpstream: {}\nURL: {}\nPending: {} commits\n\nOnly push the reviewed commit snapshot; normal push with pre-push hooks preserved." $(, $($args)*)?),
             $crate::Language::Chinese => format!("仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交\n\n仅发布预览时的提交快照；普通推送，保留 pre-push 钩子。" $(, $($args)*)?),
-        }
-    };
-    (CheckAllRegisteredRepositoriesConcurrencyLimitAutomatic $(, $($args:tt)*)?) => {
-        match $crate::language() {
-            $crate::Language::English => format!("Check all {} registered repositories\nConcurrency limit: {}\nAutomatic push policy: {}\n\nWorktrees sharing Git storage are checked serially. Only committed changes that are ahead and not behind may be pushed automatically." $(, $($args)*)?),
-            $crate::Language::Chinese => format!("检查全部 {} 个注册仓库\n并发上限：{}\n自动推送策略：{}\n\n共享 Git 存储的工作区串行检查；仅领先且不落后的已提交内容可自动推送。" $(, $($args)*)?),
         }
     };
     (UnregisterRepositoryFilesOnDiskAreRetained $(, $($args:tt)*)?) => {

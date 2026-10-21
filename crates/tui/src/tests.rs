@@ -43,6 +43,8 @@ fn screen(service: Service) -> Screen {
         setting_selected: 0,
         scroll: 0,
         message: String::new(),
+        check_task: None,
+        updates: BTreeMap::new(),
     }
 }
 fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
@@ -120,11 +122,8 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     key(&mut s, KeyCode::Tab);
     assert!(matches!(&s.bar,crate::bar::InputBar::Command{editor,..}if editor.text=="/stage"));
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "check");
+    command(&mut s, "check nope");
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
-    key(&mut s, KeyCode::Esc);
-    command(&mut s, "check all");
-    assert!(matches!(s.mode, Mode::Confirm(Confirmation::CheckAll)));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
     s.paste("remove");
@@ -162,9 +161,9 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
         assert!(text.contains("当前仓库"));
         assert!(text.contains("Tab 补全"));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "check all");
+        command(&mut s, "remove");
         let text = render(&mut s, size.0, size.1);
-        assert!(text.contains("并发上限"));
+        assert!(text.contains("移除"));
         assert!(text.contains("y 确认执行"));
         key(&mut s, KeyCode::Esc);
     }
@@ -752,7 +751,7 @@ fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_li
         _ => panic!("command mode expected"),
     }
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "check all");
+    command(&mut s, "remove");
     render(&mut s, 90, 24);
     assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
     assert_eq!(s.selected(), 0);
@@ -879,4 +878,233 @@ fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary(
             .unwrap()
             .contains("repo001")
     );
+}
+
+struct FetchGate {
+    started: PathBuf,
+    release: PathBuf,
+}
+impl FetchGate {
+    fn install(fixture: &support::Fixture) -> Self {
+        use std::os::unix::fs::PermissionsExt;
+        let wrapper = fixture.temp.path().join("delayed-upload-pack");
+        support::write(
+            &wrapper,
+            "#!/bin/sh\ntouch \"$0.started\"\nfor i in $(seq 1 1000); do\n if [ -e \"$0.release\" ]; then exec /usr/bin/git-upload-pack \"$@\"; fi\n sleep 0.01\ndone\nexit 98\n",
+        );
+        std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
+        support::git(
+            &fixture.repo,
+            &[
+                "config",
+                "remote.origin.uploadpack",
+                wrapper.to_str().unwrap(),
+            ],
+        );
+        Self {
+            started: wrapper.with_file_name("delayed-upload-pack.started"),
+            release: wrapper.with_file_name("delayed-upload-pack.release"),
+        }
+    }
+    fn release(&self) {
+        std::fs::write(&self.release, b"release").unwrap();
+    }
+}
+impl Drop for FetchGate {
+    fn drop(&mut self) {
+        let _ = std::fs::write(&self.release, b"release");
+    }
+}
+fn poll_background_until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
+    let start = Instant::now();
+    while !ready(s) {
+        assert!(
+            start.elapsed() < Duration::from_secs(8),
+            "background check did not reach the expected state"
+        );
+        s.poll_check();
+        s.poll(&Cancel::default());
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+#[test]
+fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
+    let _language = i18n::using(i18n::Language::English);
+    let first = support::Fixture::create();
+    let second = support::Fixture::create();
+    support::write(first.repo.join("untracked"), "old");
+    support::write(second.repo.join("untracked"), "old");
+    let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+    s.config.max_concurrency = 2;
+    s.service.store.save_config(&s.config).unwrap();
+    s.service.run(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    let batch = std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap();
+    std::fs::remove_file(first.repo.join("untracked")).unwrap();
+    std::fs::remove_file(second.repo.join("untracked")).unwrap();
+    let gate = FetchGate::install(&second);
+    command(&mut s, "check all");
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(s.check_task.is_some());
+    assert!(matches!(
+        s.result_for(&first.repo),
+        Some(RepositoryResult::Attention { .. })
+    ));
+    poll_background_until(&mut s, |s| {
+        gate.started.exists()
+            && matches!(
+                s.result_for(&first.repo),
+                Some(RepositoryResult::Clean { .. })
+            )
+    });
+    assert!(matches!(
+        s.result_for(&second.repo),
+        Some(RepositoryResult::Attention { .. })
+    ));
+    assert!(s.check_task.as_ref().unwrap().checking(&second.repo));
+    let frame = s.check_task.as_ref().unwrap().spinner();
+    assert!(render(&mut s, 140, 30).contains(frame));
+    thread::sleep(Duration::from_millis(110));
+    assert!(s.animate_check());
+    let animated = s.check_task.as_ref().unwrap().spinner();
+    assert!(render(&mut s, 140, 30).contains(animated));
+    for c in "no-match".chars() {
+        key(&mut s, KeyCode::Char(c));
+    }
+    assert!(s.rows().is_empty());
+    assert!(s.check_task.is_some());
+    key(&mut s, KeyCode::Esc);
+    s.focus(Some(second.repo.clone()));
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Detail);
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "help");
+    assert_eq!(s.page, Page::Help);
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "check");
+    assert!(s.message.contains("already running"));
+    assert!(matches!(s.mode, Mode::Browsing));
+    command(&mut s, "cancel");
+    assert!(s.check_task.is_some());
+    assert!(matches!(s.mode, Mode::Browsing));
+    poll_background_until(&mut s, |s| s.check_task.is_none());
+    assert!(matches!(
+        s.result_for(&first.repo),
+        Some(RepositoryResult::Clean { .. })
+    ));
+    assert!(matches!(
+        s.result_for(&second.repo),
+        Some(RepositoryResult::Attention { .. })
+    ));
+    assert_eq!(
+        std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap(),
+        batch
+    );
+    assert!(s.message.contains("cancelled"));
+}
+#[test]
+fn background_completion_preserves_the_current_detail_page_and_search() {
+    let first = support::Fixture::create();
+    let second = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+    let gate = FetchGate::install(&second);
+    command(&mut s, "check all");
+    poll_background_until(&mut s, |_| gate.started.exists());
+    for c in "repo".chars() {
+        key(&mut s, KeyCode::Char(c));
+    }
+    s.focus(Some(first.repo.clone()));
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Detail);
+    gate.release();
+    poll_background_until(&mut s, |s| s.check_task.is_none());
+    assert_eq!(s.page, Page::Detail);
+    assert_eq!(s.query, "repo");
+    assert_eq!(s.bar.editor().text, "repo");
+    assert_eq!(s.selected_path(), Some(first.repo.clone()));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(matches!(s.snapshot.report, CachedReport::Available { .. }));
+    assert!(s.service.store.report().unwrap().is_some());
+}
+#[test]
+fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_batch() {
+    let first = support::Fixture::create();
+    let second = support::Fixture::create();
+    support::write(first.repo.join("untracked"), "new");
+    let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+    s.focus(Some(first.repo.clone()));
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("check");
+    s.focus(Some(second.repo.clone()));
+    key(&mut s, KeyCode::Enter);
+    assert!(s.check_task.is_some());
+    assert!(matches!(s.mode, Mode::Browsing));
+    poll_background_until(&mut s, |s| s.check_task.is_none());
+    assert!(matches!(
+        s.result_for(&first.repo),
+        Some(RepositoryResult::Attention { .. })
+    ));
+    assert!(s.result_for(&second.repo).is_none());
+    assert!(s.service.store.report().unwrap().is_none());
+    let mut reopened = Screen::new((*s.service).clone(), &Cancel::default()).unwrap();
+    assert!(matches!(
+        reopened.result_for(&first.repo),
+        Some(RepositoryResult::Attention { .. })
+    ));
+    assert!(reopened.result_for(&second.repo).is_none());
+    assert!(render(&mut reopened, 140, 30).contains(i18n::tr!(CheckUpdatedAt)));
+    // 新一轮完整检查应覆盖更早的单仓库缓存，而不是让旧改动一直留在列表中。
+    std::fs::remove_file(first.repo.join("untracked")).unwrap();
+    reopened.service.run(&Cancel::default(), |_| {}).unwrap();
+    reopened.reload(&Cancel::default()).unwrap();
+    assert!(matches!(
+        reopened.result_for(&first.repo),
+        Some(RepositoryResult::Clean { .. })
+    ));
+}
+
+#[test]
+fn checks_started_from_files_restore_the_panel_and_block_only_writes() {
+    let _language = i18n::using(i18n::Language::English);
+    let f = support::Fixture::create();
+    support::write(f.repo.join("new-file"), "contents");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "stage");
+    wait(&mut s);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    let gate = FetchGate::install(&f);
+    command(&mut s, "check");
+    assert!(matches!(s.mode, Mode::Files(_)));
+    poll_background_until(&mut s, |_| gate.started.exists());
+    command(&mut s, "stage");
+    assert!(matches!(s.mode, Mode::Files(_)));
+    assert!(s.message.contains("unavailable during a check"));
+    assert!(support::git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
+    gate.release();
+    poll_background_until(&mut s, |s| s.check_task.is_none());
+    assert!(matches!(s.mode, Mode::Files(_)));
+    command(&mut s, "stage");
+    wait(&mut s);
+    assert_eq!(
+        support::git(&f.repo, &["diff", "--cached", "--name-only"]),
+        "new-file"
+    );
+}
+
+#[test]
+fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning() {
+    let _language = i18n::using(i18n::Language::English);
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.config.push_policy = PushPolicy::FastForward;
+    s.service.store.save_config(&s.config).unwrap();
+    let gate = FetchGate::install(&f);
+    command(&mut s, "check");
+    poll_background_until(&mut s, |_| gate.started.exists());
+    command(&mut s, "cancel");
+    poll_background_until(&mut s, |s| s.check_task.is_none());
+    assert!(s.message.contains("cancelled"));
+    assert!(!s.message.contains("writes"));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(s.service.store.report().unwrap().is_none());
 }

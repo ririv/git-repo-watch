@@ -24,7 +24,7 @@ use ratatui::{
         Wrap,
     },
 };
-use repository::{detail_text, repositories};
+use repository::{repositories, repository_detail};
 use review::{commit_review, text_view};
 use settings::settings;
 use shell::header;

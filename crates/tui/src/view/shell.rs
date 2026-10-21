@@ -21,10 +21,15 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
         ),
         Span::raw(format!(" / {}", safe(title))),
     ])];
+    if let Some(task) = &screen.check_task {
+        lines[0]
+            .spans
+            .push(Span::styled(task.summary(), Style::default().fg(ACCENT)));
+    }
     if matches!(screen.mode, Mode::Browsing)
         && matches!(screen.page, Page::Repositories | Page::Detail)
     {
-        if matches!(screen.snapshot.activity, Activity::Running) {
+        if screen.check_task.is_none() && matches!(screen.snapshot.activity, Activity::Running) {
             lines[0].spans.push(Span::styled(
                 i18n::tr!(CheckingAlt),
                 Style::default().fg(WARN),
@@ -38,28 +43,34 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
                 Style::default().fg(WARN),
             ))
         }
+        if screen.page == Page::Repositories {
+            let known = screen
+                .config
+                .repositories
+                .iter()
+                .filter_map(|path| screen.result_for(path))
+                .collect::<Vec<_>>();
+            if !known.is_empty() {
+                let stats = Stats::repositories(known);
+                lines.push(Line::from(i18n::tf!(
+                    CleanAttentionFailed,
+                    stats.clean,
+                    stats.attention,
+                    stats.failed
+                )));
+            }
+        }
         match &screen.snapshot.report {
             CachedReport::Missing => lines.push(Line::from(i18n::tr!(NoCompleteReportYet))),
-            CachedReport::Available { report, scope } => {
-                if screen.page == Page::Repositories {
-                    let stats = Stats::of(report);
-                    lines.push(Line::from(i18n::tf!(
-                        CleanAttentionFailed,
-                        stats.clean,
-                        stats.attention,
-                        stats.failed
-                    )))
+            CachedReport::Available { report, scope } => lines.push(Line::from(i18n::tf!(
+                LastCheck,
+                local_time(&report.finished_at),
+                if matches!(scope, Scope::Outdated) {
+                    i18n::tr!(ReportScopeChanged)
+                } else {
+                    ""
                 }
-                lines.push(Line::from(i18n::tf!(
-                    LastCheck,
-                    local_time(&report.finished_at),
-                    if matches!(scope, Scope::Outdated) {
-                        i18n::tr!(ReportScopeChanged)
-                    } else {
-                        ""
-                    }
-                )))
-            }
+            ))),
         }
     }
     Text::from(lines)

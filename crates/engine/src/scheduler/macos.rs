@@ -156,7 +156,7 @@ pub fn plist(root: &Path, binary: &Path, interval: u64) -> Result<String> {
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
 <key>Label</key><string>{LABEL}</string>
-<key>ProgramArguments</key><array><string>{binary}</string><string>--home</string><string>{root}</string><string>check</string></array>
+<key>ProgramArguments</key><array><string>{binary}</string><string>--home</string><string>{root}</string><string>scheduled-check</string></array>
 <key>WorkingDirectory</key><string>{root}</string>
 <key>StartInterval</key><integer>{interval}</integer>
 <key>RunAtLoad</key><false/>

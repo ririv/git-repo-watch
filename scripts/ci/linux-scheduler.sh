@@ -19,6 +19,7 @@ trap cleanup EXIT HUP INT TERM
 cp "$ROOT/config.example.json" "$FIXTURE/config.json"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
 systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
+grep -q ' scheduled-check$' "$UNIT.service"
 systemctl --user is-active "$APP_SERVICE_LABEL.timer"
 systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" status --json > "$FIXTURE/status.json"

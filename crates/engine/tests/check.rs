@@ -250,3 +250,155 @@ fn independent_repositories_overlap_real_fetches() {
         report.repositories
     );
 }
+
+#[test]
+fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
+    let first = Fixture::create();
+    let second = Fixture::create();
+    let home = tempfile::tempdir().unwrap();
+    let store = Store {
+        home: home.path().to_owned(),
+    };
+    store
+        .save_config(&Config {
+            interval_seconds: 21600,
+            repositories: vec![first.repo.clone(), second.repo.clone()],
+            excluded_roots: vec![],
+            push_policy: PushPolicy::FastForward,
+            max_concurrency: 4,
+        })
+        .unwrap();
+    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    service.run(&Cancel::default(), |_| {}).unwrap();
+    let baseline = fs::read(store.state_dir().join("latest.json")).unwrap();
+    first.commit("first-ahead", "first");
+    second.commit("second-ahead", "second");
+    let first_before = git(&first.remote, &["rev-parse", "main"]);
+    let untouched = git(&second.remote, &["rev-parse", "main"]);
+    let mut checked = vec![];
+    let report = service
+        .check_repository(&first.repo, &Cancel::default(), |event| {
+            if let engine::service::Event::Checking(path) = event {
+                checked.push(path)
+            }
+        })
+        .unwrap();
+    assert_eq!(checked, vec![first.repo.clone()]);
+    assert_eq!(report.repositories.len(), 1);
+    assert_eq!(report.push_policy, PushPolicy::Disabled);
+    assert!(report.repositories[0].pushes().is_empty());
+    assert_eq!(git(&first.remote, &["rev-parse", "main"]), first_before);
+    assert_eq!(git(&second.remote, &["rev-parse", "main"]), untouched);
+    assert_eq!(
+        fs::read(store.state_dir().join("latest.json")).unwrap(),
+        baseline
+    );
+    assert_eq!(report.execution.unwrap().max_concurrency, 1);
+    let saved = store.repository_reports().unwrap();
+    assert_eq!(saved.len(), 1);
+    assert!(saved.contains_key(&first.repo));
+    let saved_bytes = fs::read(store.state_dir().join("repository-checks.json")).unwrap();
+    let cancel = Cancel::default();
+    cancel.cancel();
+    assert!(
+        service
+            .check_repository(&first.repo, &cancel, |_| {})
+            .is_err()
+    );
+    assert!(
+        service
+            .check_repository(
+                std::path::Path::new("/unregistered/repository"),
+                &Cancel::default(),
+                |_| {}
+            )
+            .is_err()
+    );
+    assert_eq!(
+        fs::read(store.state_dir().join("repository-checks.json")).unwrap(),
+        saved_bytes
+    );
+    let manual = service.run(&Cancel::default(), |_| {}).unwrap();
+    assert_eq!(manual.push_policy, PushPolicy::Disabled);
+    assert!(manual.repositories.iter().all(|r| r.pushes().is_empty()));
+    assert_eq!(git(&first.remote, &["rev-parse", "main"]), first_before);
+    assert_eq!(git(&second.remote, &["rev-parse", "main"]), untouched);
+    assert_eq!(store.config().unwrap().push_policy, PushPolicy::FastForward);
+    let scheduled = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
+    assert_eq!(scheduled.push_policy, PushPolicy::FastForward);
+    assert!(
+        scheduled
+            .repositories
+            .iter()
+            .all(|r| matches!(r.pushes(), [Publication::Pushed { .. }]))
+    );
+    for f in [&first, &second] {
+        assert_eq!(
+            git(&f.remote, &["rev-parse", "main"]),
+            git(&f.repo, &["rev-parse", "main"])
+        );
+    }
+}
+
+#[test]
+fn file_reads_remain_available_while_check_lock_blocks_repository_writes() {
+    let f = Fixture::create();
+    write(f.repo.join("new"), "new");
+    let home = tempfile::tempdir().unwrap();
+    let store = Store {
+        home: home.path().to_owned(),
+    };
+    store
+        .save_config(&Config {
+            interval_seconds: 21600,
+            repositories: vec![f.repo.clone()],
+            excluded_roots: vec![],
+            push_policy: PushPolicy::Disabled,
+            max_concurrency: 4,
+        })
+        .unwrap();
+    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    let _check_lock = store.lock().unwrap();
+    let files = service.files(&f.repo, &Cancel::default()).unwrap();
+    let error = service
+        .edit_index(
+            &files,
+            engine::local::files::IndexAction::Stage,
+            &[],
+            &Cancel::default(),
+        )
+        .unwrap_err();
+    assert!(error.downcast_ref::<engine::state::Busy>().is_some());
+    assert!(git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
+}
+
+#[test]
+fn corrupt_single_repository_cache_is_rejected_before_checking() {
+    let f = Fixture::create();
+    f.commit("ahead", "ahead");
+    let before = git(&f.remote, &["rev-parse", "main"]);
+    let home = tempfile::tempdir().unwrap();
+    let store = Store {
+        home: home.path().to_owned(),
+    };
+    store
+        .save_config(&Config {
+            interval_seconds: 21600,
+            repositories: vec![f.repo.clone()],
+            excluded_roots: vec![],
+            push_policy: PushPolicy::FastForward,
+            max_concurrency: 4,
+        })
+        .unwrap();
+    {
+        let _lock = store.lock().unwrap();
+        write(store.state_dir().join("repository-checks.json"), "broken");
+    }
+    let service = Service::new(store.home, Manager::new().unwrap());
+    assert!(
+        service
+            .check_repository(&f.repo, &Cancel::default(), |_| {})
+            .is_err()
+    );
+    assert_eq!(git(&f.remote, &["rev-parse", "main"]), before);
+}

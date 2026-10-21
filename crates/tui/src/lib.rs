@@ -1,5 +1,6 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
 mod bar;
+mod checks;
 mod command;
 mod editor;
 mod input;
@@ -27,7 +28,7 @@ use engine::{
 };
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::{
-    collections::BTreeSet,
+    collections::{BTreeMap, BTreeSet},
     io::{self, IsTerminal},
     path::PathBuf,
     sync::{Arc, mpsc},
@@ -148,7 +149,6 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
-    CheckAll,
     Apply,
     Remove(PathBuf),
     Configure { action: Action, value: String },
@@ -160,7 +160,6 @@ enum Effect {
     Commit,
     Push,
     Configuration,
-    Check,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum TaskState {
@@ -179,7 +178,6 @@ struct Pending {
 }
 #[derive(Debug)]
 enum WorkerEvent {
-    Progress(service::Event),
     Done(Result<Outcome>),
 }
 #[derive(Debug)]
@@ -192,7 +190,6 @@ enum Outcome {
     Committed(CommitResult),
     Published(Publication),
     Text(String),
-    Checked(domain::Report),
 }
 struct Screen {
     service: Arc<Service>,
@@ -212,6 +209,8 @@ struct Screen {
     setting_selected: usize,
     scroll: usize,
     message: String,
+    check_task: Option<checks::CheckTask>,
+    updates: BTreeMap<PathBuf, checks::Update>,
 }
 #[derive(Debug, Clone)]
 struct Row {
@@ -224,7 +223,7 @@ impl Screen {
         let config = service.store.config()?;
         let repository_viewport = ratatui::widgets::TableState::default()
             .with_selected((!config.repositories.is_empty()).then_some(0));
-        Ok(Self {
+        let mut screen = Self {
             service: Arc::new(service),
             snapshot,
             config,
@@ -242,16 +241,16 @@ impl Screen {
             setting_selected: 0,
             scroll: 0,
             message: String::new(),
-        })
+            check_task: None,
+            updates: BTreeMap::new(),
+        };
+        screen.load_updates()?;
+        Ok(screen)
     }
     fn rows(&self) -> Vec<Row> {
-        let report = match &self.snapshot.report {
-            service::CachedReport::Missing => None,
-            service::CachedReport::Available { report, .. } => Some(report),
-        };
         let mut rows = Vec::new();
         for path in &self.config.repositories {
-            let result = report.and_then(|r| r.repositories.iter().find(|r| r.path() == path));
+            let result = self.result_for(path);
             if self.filter != Filter::All && !result.is_some_and(|r| self.filter.matches(r)) {
                 continue;
             }
@@ -307,6 +306,7 @@ impl Screen {
         let path = self.selected_path();
         self.snapshot = self.service.snapshot(cancel)?;
         self.config = self.service.store.config()?;
+        self.load_updates()?;
         self.focus(path);
         Ok(())
     }
@@ -364,7 +364,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                     break;
                 }
             }
-            let changed = screen.poll(&root);
+            let changed = screen.poll(&root) | screen.poll_check() | screen.animate_check();
             if dirty || changed {
                 terminal.draw(|frame| view::render(frame, &mut screen))?;
                 dirty = false;

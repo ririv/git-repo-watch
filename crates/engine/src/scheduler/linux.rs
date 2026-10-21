@@ -72,7 +72,7 @@ fn quoted(value: &Path, exec: bool) -> Result<String> {
 
 fn service(root: &Path, binary: &Path) -> Result<String> {
     Ok(format!(
-        "[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\nExecStart={} --home {} check\n",
+        "[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\nExecStart={} --home {} scheduled-check\n",
         quoted(root, false)?,
         quoted(binary, true)?,
         quoted(root, true)?
@@ -234,6 +234,11 @@ mod tests {
         .unwrap();
         assert!(payload.contains("WorkingDirectory=\"/example/中文 $USER %%h \\\"\\nfolder\""));
         assert!(payload.contains("ExecStart=\"/example/a b\" --home \"/example/中文 $$USER %%h"));
+        assert!(
+            payload
+                .lines()
+                .any(|line| line.starts_with("ExecStart=") && line.ends_with(" scheduled-check"))
+        );
         assert_eq!(
             payload
                 .lines()
