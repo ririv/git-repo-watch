@@ -151,7 +151,9 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
             ]))
         })
         .collect::<Vec<_>>();
-    let height = (items.len().clamp(1, 5) + 2).min(body.height as usize) as u16;
+    // 留出筛选栏和列表标题，避免矮窗口中的命令面板遮住列表标题。
+    let available_height = body.height.saturating_sub(3) as usize;
+    let height = (items.len().clamp(1, 8) + 2).min(available_height) as u16;
     let area = Rect::new(
         body.x,
         body.bottom().saturating_sub(height),

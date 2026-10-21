@@ -580,3 +580,35 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     assert_eq!(s.bar.editor().text, "filter");
     assert!(!s.service.store.state_dir().join("latest.json").exists());
 }
+
+#[test]
+fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+        for (width, height) in [(60, 24), (100, 28), (150, 32)] {
+            s.paste("/");
+            let text = render(&mut s, width, height);
+            let visible = |text: &str| {
+                text.lines()
+                    .filter(|line| {
+                        command::COMMANDS
+                            .iter()
+                            .any(|item| line.contains(&format!("/{:<13}", item.name)))
+                    })
+                    .count()
+            };
+            assert_eq!(visible(&text), 8, "{text}");
+            for item in command::COMMANDS.iter().take(8) {
+                assert!(text.contains(&format!("/{:<13}", item.name)));
+            }
+            for _ in 0..command::COMMANDS.len() {
+                key(&mut s, KeyCode::Down);
+            }
+            let last = render(&mut s, width, height);
+            assert_eq!(visible(&last), 8);
+            assert!(last.contains("/quit"));
+            key(&mut s, KeyCode::Esc);
+        }
+    }
+}
