@@ -149,3 +149,16 @@ fn installation_refuses_unowned_binary_before_mutation() {
     assert_eq!(fs::read(manager.binary()).unwrap(), b"not gw");
     assert!(!manager.plist().exists());
 }
+
+#[test]
+fn text_time_uses_system_timezone_without_printing_zone() {
+    let utc = "2026-10-21T04:31:16Z";
+    let expected = chrono::DateTime::parse_from_rfc3339(utc)
+        .unwrap()
+        .with_timezone(&chrono::Local)
+        .format("%Y-%m-%d %H:%M:%S")
+        .to_string();
+    assert_eq!(gw::cli::local_time(utc), expected);
+    assert_eq!(gw::cli::local_time("2026-10-21T12:31:16+08:00"), expected);
+    assert_eq!(expected.len(), 19);
+}

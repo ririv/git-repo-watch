@@ -113,7 +113,7 @@ fn local_time(value: &str) -> String {
     match chrono::DateTime::parse_from_rfc3339(value) {
         Ok(time) => time
             .with_timezone(&chrono::Local)
-            .format("%Y-%m-%d %H:%M:%S %Z")
+            .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
         Err(_) => format!("报告时间格式无效：{value}"),
     }
@@ -180,4 +180,21 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
         area,
         &mut state,
     );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::local_time;
+    #[test]
+    fn report_time_uses_system_local_time_without_zone_suffix() {
+        let utc = "2026-10-21T04:31:16Z";
+        let expected = chrono::DateTime::parse_from_rfc3339(utc)
+            .unwrap()
+            .with_timezone(&chrono::Local)
+            .format("%Y-%m-%d %H:%M:%S")
+            .to_string();
+        assert_eq!(local_time(utc), expected);
+        assert_eq!(local_time("2026-10-21T12:31:16+08:00"), expected);
+        assert_eq!(expected.len(), 19);
+    }
 }

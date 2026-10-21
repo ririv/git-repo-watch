@@ -273,7 +273,7 @@ pub fn local_time(value: &str) -> String {
     match chrono::DateTime::parse_from_rfc3339(value) {
         Ok(time) => time
             .with_timezone(&chrono::Local)
-            .format("%Y-%m-%d %H:%M:%S %Z")
+            .format("%Y-%m-%d %H:%M:%S")
             .to_string(),
         Err(_) => format!("报告时间格式无效：{value}"),
     }
