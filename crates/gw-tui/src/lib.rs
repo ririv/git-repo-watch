@@ -1,0 +1,371 @@
+//! Terminal adapter over UI-independent services and typed interaction states.
+mod bar;
+mod command;
+mod editor;
+mod input;
+mod task;
+mod view;
+use anyhow::{Context, Result};
+use command::Action;
+use crossterm::{
+    event::{self, Event as TerminalEvent, KeyEventKind},
+    event::{DisableBracketedPaste, EnableBracketedPaste},
+    execute,
+    terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+};
+use editor::Editor;
+use gw_core::{
+    cancel::Cancel,
+    domain::{self, Filter, Publication, RepositoryResult},
+    local::{
+        files::{Area, Change, Files},
+        review::CommitPlan,
+    },
+    operations::{commit::CommitResult, push::PushPlan},
+    service::{self, Service, Snapshot},
+    state::Config,
+};
+use ratatui::{Terminal, backend::CrosstermBackend};
+use std::{
+    collections::BTreeSet,
+    io::{self, IsTerminal},
+    path::PathBuf,
+    sync::{Arc, mpsc},
+    thread,
+    time::Duration,
+};
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Page {
+    Repositories,
+    Detail,
+    Settings,
+    Help,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Order {
+    Priority,
+    Path,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum FileArea {
+    Worktree,
+    Index,
+}
+#[derive(Debug, Clone)]
+struct FileSession {
+    snapshot: Files,
+    area: FileArea,
+    cursor: usize,
+    selected: BTreeSet<usize>,
+    query: String,
+}
+impl FileSession {
+    fn rows(&self) -> Vec<&Change> {
+        self.snapshot
+            .changes
+            .iter()
+            .filter(|c| match self.area {
+                FileArea::Index => c.area == Area::Staged,
+                FileArea::Worktree => c.area != Area::Staged,
+            })
+            .filter(|c| {
+                c.location
+                    .name()
+                    .to_string_lossy()
+                    .to_lowercase()
+                    .contains(&self.query.to_lowercase())
+            })
+            .collect()
+    }
+    fn change_index(&self, change: &Change) -> usize {
+        self.snapshot
+            .changes
+            .iter()
+            .position(|c| c == change)
+            .expect("visible change belongs to snapshot")
+    }
+    fn selection(&self) -> Vec<Change> {
+        let rows = self.rows();
+        if self.selected.is_empty() {
+            rows.get(self.cursor)
+                .map(|c| vec![(*c).clone()])
+                .unwrap_or_default()
+        } else {
+            self.snapshot
+                .changes
+                .iter()
+                .enumerate()
+                .filter(|(i, _)| self.selected.contains(i))
+                .map(|(_, c)| c.clone())
+                .collect()
+        }
+    }
+}
+#[derive(Debug)]
+enum Mode {
+    Browsing,
+    Input {
+        action: Action,
+        editor: Editor,
+    },
+    Confirm(Confirmation),
+    Files(FileSession),
+    Diff {
+        session: FileSession,
+        content: String,
+        scroll: usize,
+    },
+    CommitMessage {
+        plan: CommitPlan,
+        editor: Editor,
+        scroll: usize,
+    },
+    CommitConfirm {
+        plan: CommitPlan,
+        message: String,
+        scroll: usize,
+    },
+    PushConfirm {
+        plan: PushPlan,
+        scroll: usize,
+    },
+    Busy(Pending),
+    Error {
+        origin: Box<Mode>,
+        title: String,
+        detail: String,
+        scroll: usize,
+    },
+}
+impl Mode {
+    fn file_session(&self) -> Option<&FileSession> {
+        match self {
+            Self::Files(s) | Self::Diff { session: s, .. } => Some(s),
+            Self::Error { origin, .. } => origin.file_session(),
+            _ => None,
+        }
+    }
+}
+#[derive(Debug)]
+enum Confirmation {
+    CheckAll,
+    Apply,
+    Remove(PathBuf),
+    Configure { action: Action, value: String },
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Effect {
+    ReadOnly,
+    IndexWrite,
+    Commit,
+    Push,
+    Configuration,
+    Check,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum TaskState {
+    Running,
+    Cancelling,
+}
+#[derive(Debug)]
+struct Pending {
+    title: String,
+    cancel: Cancel,
+    state: TaskState,
+    effect: Effect,
+    rx: mpsc::Receiver<WorkerEvent>,
+    handle: thread::JoinHandle<()>,
+    origin: Box<Mode>,
+}
+#[derive(Debug)]
+enum WorkerEvent {
+    Progress(service::Event),
+    Done(Result<Outcome>),
+}
+#[derive(Debug)]
+enum Outcome {
+    Files(Files, FileArea),
+    Diff(FileSession, String),
+    CommitPrepared(CommitPlan),
+    PushPrepared(PushPlan),
+    Committed(CommitResult),
+    Published(Publication),
+    Text(String),
+    Checked(domain::Report),
+}
+struct Screen {
+    service: Arc<Service>,
+    snapshot: Snapshot,
+    config: Config,
+    page: Page,
+    history: Vec<Page>,
+    mode: Mode,
+    bar: bar::InputBar,
+    selected: usize,
+    filter: Filter,
+    query: String,
+    order: Order,
+    setting_selected: usize,
+    scroll: usize,
+    message: String,
+}
+#[derive(Debug, Clone)]
+struct Row {
+    path: PathBuf,
+    result: Option<RepositoryResult>,
+}
+impl Screen {
+    fn new(service: Service, cancel: &Cancel) -> Result<Self> {
+        let snapshot = service.snapshot(cancel)?;
+        let config = service.store.config()?;
+        Ok(Self {
+            service: Arc::new(service),
+            snapshot,
+            config,
+            page: Page::Repositories,
+            history: Vec::new(),
+            mode: Mode::Browsing,
+            bar: bar::InputBar::default(),
+            selected: 0,
+            filter: Filter::All,
+            query: String::new(),
+            order: Order::Priority,
+            setting_selected: 0,
+            scroll: 0,
+            message: String::new(),
+        })
+    }
+    fn rows(&self) -> Vec<Row> {
+        let report = match &self.snapshot.report {
+            service::CachedReport::Missing => None,
+            service::CachedReport::Available { report, .. } => Some(report),
+        };
+        let mut rows = Vec::new();
+        for path in &self.config.repositories {
+            let result = report.and_then(|r| r.repositories.iter().find(|r| r.path() == path));
+            if self.filter != Filter::All && !result.is_some_and(|r| self.filter.matches(r)) {
+                continue;
+            }
+            if !path
+                .to_string_lossy()
+                .to_lowercase()
+                .contains(&self.query.to_lowercase())
+            {
+                continue;
+            }
+            rows.push(Row {
+                path: path.clone(),
+                result: result.cloned(),
+            })
+        }
+        rows.sort_by(|a, b| {
+            let priority = |r: &Row| r.result.as_ref().map(|r| r.priority()).unwrap_or(2);
+            if self.order == Order::Priority {
+                priority(a).cmp(&priority(b)).then(a.path.cmp(&b.path))
+            } else {
+                a.path.cmp(&b.path)
+            }
+        });
+        rows
+    }
+    fn selected_path(&self) -> Option<PathBuf> {
+        self.rows().get(self.selected).map(|r| r.path.clone())
+    }
+    fn scope_path(&self) -> Option<PathBuf> {
+        self.mode
+            .file_session()
+            .map(|s| s.snapshot.path.clone())
+            .or_else(|| self.selected_path())
+    }
+    fn focus(&mut self, path: Option<PathBuf>) {
+        let rows = self.rows();
+        self.selected = path
+            .and_then(|p| rows.iter().position(|r| r.path == p))
+            .unwrap_or(0);
+    }
+    fn reload(&mut self, cancel: &Cancel) -> Result<()> {
+        let path = self.selected_path();
+        self.snapshot = self.service.snapshot(cancel)?;
+        self.config = self.service.store.config()?;
+        self.focus(path);
+        Ok(())
+    }
+    fn take_mode(&mut self) -> Mode {
+        std::mem::replace(&mut self.mode, Mode::Browsing)
+    }
+}
+
+struct TerminalGuard;
+impl TerminalGuard {
+    fn enter() -> Result<Self> {
+        enable_raw_mode()?;
+        let guard = Self;
+        execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+        Ok(guard)
+    }
+}
+impl Drop for TerminalGuard {
+    fn drop(&mut self) {
+        let _ = disable_raw_mode();
+        let _ = execute!(
+            io::stdout(),
+            DisableBracketedPaste,
+            LeaveAlternateScreen,
+            crossterm::cursor::Show
+        );
+    }
+}
+pub fn run(service: Service, root: Cancel) -> Result<()> {
+    anyhow::ensure!(
+        io::stdin().is_terminal() && io::stdout().is_terminal(),
+        "gw tui 需要交互式终端；请使用 gw status 或 gw report 查询"
+    );
+    let mut screen = Screen::new(service, &root)?;
+    let _guard = TerminalGuard::enter()?;
+    let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
+    terminal.clear()?;
+    let result = (|| -> Result<()> {
+        let mut dirty = true;
+        loop {
+            if root.is_cancelled() {
+                if let Mode::Busy(p) = &mut screen.mode {
+                    p.cancel.cancel();
+                    if p.state == TaskState::Running {
+                        p.state = TaskState::Cancelling;
+                        dirty = true;
+                    }
+                } else {
+                    break;
+                }
+            }
+            let changed = screen.poll(&root);
+            if dirty || changed {
+                terminal.draw(|frame| view::render(frame, &mut screen))?;
+                dirty = false;
+            }
+            if event::poll(Duration::from_millis(80))? {
+                match event::read()? {
+                    TerminalEvent::Key(key) if key.kind != KeyEventKind::Release => {
+                        dirty = true;
+                        if screen.key(key, &root)? {
+                            break;
+                        }
+                    }
+                    TerminalEvent::Paste(text) => {
+                        screen.paste(&text);
+                        dirty = true;
+                    }
+                    TerminalEvent::Resize(..) => dirty = true,
+                    _ => {}
+                }
+            }
+        }
+        Ok(())
+    })();
+    screen.shutdown();
+    terminal.show_cursor().context("无法恢复终端光标")?;
+    result
+}
+
+#[cfg(test)]
+mod tests;

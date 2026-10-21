@@ -1,12 +1,13 @@
-.PHONY: build test vet install
+.PHONY: build test check install
 build:
-	CGO_ENABLED=0 GOTOOLCHAIN=local GOWORK=off go build -trimpath -buildvcs=false -o dist/gw ./cmd/gw
+	./build.sh
 
 test:
-	GOTOOLCHAIN=local GOWORK=off go test ./...
+	cargo test --workspace --locked
 
-vet:
-	GOTOOLCHAIN=local GOWORK=off go vet ./...
+check:
+	cargo fmt --all --check
+	cargo clippy --workspace --locked --all-targets -- -D warnings
 
-install: build
-	./gw install
+install:
+	./install.sh

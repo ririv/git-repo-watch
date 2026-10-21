@@ -2,5 +2,6 @@
   "interval_seconds": 21600,
   "repositories": [],
   "excluded_roots": [],
-  "push_policy": "disabled"
+  "push_policy": "disabled",
+  "max_concurrency": 4
 }
