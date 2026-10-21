@@ -287,7 +287,7 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     assert_eq!(s.page, Page::Repositories);
 }
 #[test]
-fn command_popup_keeps_list_and_input_positions_stable() {
+fn full_width_command_panel_keeps_list_and_input_positions_stable() {
     let (_temp, mut s) = fixture(vec!["/path/to/alpha".into()]);
     for (w, h) in [(60, 18), (100, 28), (150, 32)] {
         let before = render(&mut s, w, h);
@@ -306,6 +306,26 @@ fn command_popup_keeps_list_and_input_positions_stable() {
         assert!(during_lines[list_line].contains("列表 ·"));
         assert!(during_lines[input_line].contains("› /"));
         assert!(during.contains("当前仓库"));
+        let top = during_lines
+            .iter()
+            .position(|line| line.contains("命令 · alpha"))
+            .unwrap();
+        assert!(during_lines[top].starts_with('┌'));
+        assert!(during_lines[top].ends_with('┐'));
+        assert_eq!(
+            unicode_width::UnicodeWidthStr::width(during_lines[top]),
+            w as usize
+        );
+        assert!(during_lines[top + 1].starts_with('│'));
+        assert!(during_lines[top + 1].ends_with('│'));
+        for _ in 0..command::COMMANDS.len() {
+            key(&mut s, KeyCode::Down);
+        }
+        let scrolled = render(&mut s, w, h);
+        assert!(scrolled.contains("/quit"));
+        s.paste("nonexistent");
+        assert!(render(&mut s, w, h).contains("没有匹配命令"));
+
         key(&mut s, KeyCode::Esc);
     }
 }
@@ -410,4 +430,22 @@ fn input_viewport_keeps_unicode_cursor_inside_box() {
         assert!(cursor < 8);
         assert!(unicode_width::UnicodeWidthStr::width(text.as_str()) <= 8);
     }
+}
+
+#[test]
+fn wide_detail_title_tracks_selected_repository_name() {
+    let (_temp, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let first = render(&mut s, 150, 32);
+    assert!(first.lines().any(|line| line.contains("┌alpha")));
+    assert!(first.contains("路径：/example/alpha"));
+    assert!(first.contains("状态：未检查"));
+    assert!(!first.contains("选中仓库"));
+    key(&mut s, KeyCode::Down);
+    let second = render(&mut s, 150, 32);
+    assert!(second.lines().any(|line| line.contains("┌beta")));
+    assert!(second.contains("路径：/example/beta"));
+    s.paste("nonexistent");
+    let empty = render(&mut s, 150, 32);
+    assert!(empty.contains("无选中仓库"));
+    assert!(!empty.contains("路径：/example/beta"));
 }

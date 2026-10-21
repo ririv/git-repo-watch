@@ -18,9 +18,19 @@ pub(super) fn text_view(
     scroll: &mut usize,
     title: &str,
 ) {
+    styled_text_view(frame, area, Text::from(text.to_owned()), scroll, title);
+}
+
+pub(super) fn styled_text_view(
+    frame: &mut Frame,
+    area: Rect,
+    text: Text<'static>,
+    scroll: &mut usize,
+    title: &str,
+) {
     let block = block(title.to_owned());
     let inner = block.inner(area);
-    let paragraph = Paragraph::new(text.to_owned()).wrap(Wrap { trim: false });
+    let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
     let lines = paragraph.line_count(inner.width);
     *scroll = (*scroll).min(lines.saturating_sub(inner.height as usize));
     frame.render_widget(

@@ -128,7 +128,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     .get(screen.selected)
                     .map(detail_text)
                     .unwrap_or_else(|| "当前仓库不在筛选结果中；Esc 返回。".into());
-                text_view(frame, area, &text, &mut screen.scroll, "仓库详情")
+                review::styled_text_view(frame, area, text, &mut screen.scroll, "仓库详情")
             }
             Page::Settings => settings(frame, screen, area),
             Page::Help => text_view(frame, area, HELP, &mut screen.scroll, "操作说明"),

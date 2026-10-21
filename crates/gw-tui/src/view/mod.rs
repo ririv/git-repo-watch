@@ -136,24 +136,31 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     let items = matches
         .iter()
         .map(|c| {
-            ListItem::new(format!(
-                "/{:<12} {} · {}",
-                c.name,
-                match c.scope {
-                    command::Scope::Repository => "当前仓库",
-                    command::Scope::Global => "全局",
-                    command::Scope::View => "当前视图",
-                },
-                c.description
-            ))
+            ListItem::new(Line::from(vec![
+                Span::styled(
+                    format!("/{:<13} ", c.name),
+                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+                ),
+                Span::raw(c.description),
+                Span::styled(
+                    format!(
+                        "  · {}",
+                        match c.scope {
+                            command::Scope::Repository => "当前仓库",
+                            command::Scope::Global => "全局",
+                            command::Scope::View => "当前视图",
+                        }
+                    ),
+                    Style::default().fg(MUTED),
+                ),
+            ]))
         })
         .collect::<Vec<_>>();
     let height = (items.len().clamp(1, 5) + 2).min(body.height as usize) as u16;
-    let width = body.width.saturating_sub(4).min(94);
     let area = Rect::new(
-        body.x + 2,
+        body.x,
         body.bottom().saturating_sub(height),
-        width,
+        body.width,
         height,
     );
     let title = format!(
