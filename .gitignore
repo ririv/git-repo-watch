@@ -1,0 +1,13 @@
+# 本机配置与运行数据
+config.json
+var/
+work/
+
+# 构建产物与缓存
+__pycache__/
+*.py[cod]
+dist/
+bin/
+coverage.out
+*.test
+.DS_Store

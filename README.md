@@ -1,0 +1,189 @@
+# gw
+
+macOS 上的 Git 仓库管理与系统定时检查工具，使用 Go 标准库实现。原生可执行文件不依赖 Python 或目标机器上的 Go 环境。Git、SSH、通知中心和 launchd 使用系统能力。
+
+默认 `gw` 查询上次完整报告；显式 `gw check` 或系统定时任务执行检查与配置的自动推送。每次检查完成后进程退出，不常驻。
+
+## 安装
+
+从源码构建需要 Go 1.23 或更新版本，以及 macOS 提供的 Git、SSH、osascript、launchctl 和 plutil。运行已经构建的程序不需要 Go 编译器。
+
+```sh
+cd /path/to/gw
+cp config.example.json config.json
+./install.sh
+```
+
+`config.example.json` 不含个人路径，默认每 6 小时检查，自动推送关闭。先显式添加仓库，再按需要开启自动推送：
+
+```sh
+gw add /path/to/repository
+gw autopush fast_forward
+```
+
+安装会：
+
+- 使用 `-trimpath -buildvcs=false` 构建原生文件，避免把源码所在的本机绝对路径写入程序。
+- 将原生 `gw` 安装到 `~/.local/bin/gw`，该目录需要在 PATH 中。
+- 在用户配置目录下的 `gw/location.json` 保存本机安装位置与文件摘要。macOS 用户配置目录是 `~/Library/Application Support`。
+- 保留项目内的 `config.json`、`var/latest.json` 及其他本机数据。
+- 创建或更新 `~/Library/LaunchAgents/local.git-repo-watch.plist`，由同一标签的系统任务调度。
+
+安装与重新加载不会立即启动检查。重复安装可应用频率变更，也会验证现有命令的归属，避免覆盖其他程序。项目移动后，应从新位置重新安装。
+
+## 日常命令
+
+```sh
+gw                              # 默认状态查询
+gw status --json                # 机器可读状态
+gw report                       # 最近完整报告
+gw report --problems            # 需关注或检查失败
+gw report --no-upstream         # 单独统计无远程上游分支
+gw report --pushes              # 自动推送成功与失败
+gw report --json                # 第 3 版 JSON 报告
+
+gw config                       # 本机配置
+gw list                         # 仓库列表
+gw exclusions                   # 排除目录
+gw add /path/to/repository
+gw remove /path/to/repository
+gw exclude /path/to/excluded    # 同时移除其下已添加仓库
+gw unexclude /path/to/excluded  # 不自动重新添加仓库
+
+gw scan /path/to/projects       # 只扫描并生成导入报告
+gw import-tree /path/to/projects
+
+gw interval 6h                  # 保存频率，支持 s、m、h、d 或整数秒
+gw install                      # 应用系统调度，不立即检查
+gw autopush disabled            # 下次检查关闭自动推送
+gw autopush fast_forward        # 下次检查开启普通推送
+gw check                        # 显式执行检查与配置的自动推送
+gw --help
+```
+
+项目目录中的 `./gw` 使用本地 `dist/gw`，显式传入项目根目录。直接运行构建文件时，也可以指定配置与报告的根目录：
+
+```sh
+./dist/gw --home /path/to/gw status
+```
+
+不传 `--home` 时，程序只使用安装时保存的定位文件，不猜测当前目录。查询命令不会调用 Git、扫描仓库、访问远程或自动生成新报告。缺少报告会明确提示；损坏的报告会报错。
+
+## 仓库发现
+
+`internal/discovery` 是独立模块，只使用本地文件系统和 Git，不修改注册列表或访问远程。应用层决定扫描结果是否导入。
+
+仓库外递归查找目录；发现仓库后，通过以下命令构建允许访问的目录树：
+
+```sh
+git ls-files --cached --stage -z
+git ls-files --others --exclude-standard -z
+```
+
+由 Git 处理嵌套 `.gitignore`、反向规则、`.git/info/exclude` 和全局 `core.excludesFile`。被忽略的目录不会继续遍历。已跟踪内容遵循 Git 语义，不因后加的忽略规则消失。
+
+支持普通工作区、未被忽略的嵌套仓库、已初始化子模块和 `.git` 指针形式的 worktree。不进入 `.git` 内部，不跟随目录符号链接。扫描起点位于仓库子目录时，继承最近一层父仓库的规则；显式以一个被忽略的仓库本身为起点时，会检查该仓库自身。
+
+`excluded_roots` 对扫描和注册始终生效。被忽略目录内的仓库不会自动导入，需要用户显式选择；排除目录则必须先取消排除。空 `.git` 文件等非仓库标记会单独记录。
+
+元数据损坏或仓库枚举失败时，记录失败并停止该仓库的子树，不退回无规则遍历。仓库外的目录读取失败直接中止，不写入不完整的注册结果。裸仓库没有工作区，不属于本工具的发现对象。
+
+扫描与导入报告为 `var/import-report.json`。导入会保留已添加项并去重，不自动删除旧项。定时检查只读取显式列表，不重新扫描目录。
+
+## 检查与分类
+
+正常表示：工作区干净、HEAD 关联分支且已有提交，并且所有配置远程上游的本地分支通过同步检查。Git 忽略的文件不影响工作区结果。
+
+所有本地分支都纳入分类：
+
+- 未配置上游或仅跟踪本地分支：单独统计分支数、涉及仓库数和名单，不单独导致需关注，也不会自动发布。
+- 已配置的远程上游被删除：需关注。
+- 本地落后或分叉：需关注，不自动合并或强推。
+- 本地仅领先：自动推送开启时尝试普通推送；关闭时报告需关注。
+- 未提交改动、未跟踪文件、子模块改动、游离 HEAD 或空仓库：需关注。
+- 路径失效、认证、网络、命令超时或比较过程发生变化：检查失败，不使用旧远程引用判定正常。
+
+检查先执行 `git fetch --all --no-recurse-submodules`，再对每个远程查询一次服务器分支列表，核对引用后计算本地与上游的领先、落后提交数。
+
+“正常”不代表无上游的实验分支已经推送。检查失败的仓库没有完整分支统计，状态摘要会提示统计覆盖不完整。其他 worktree 的工作区改动，只有该工作区也被添加时才检查。
+
+## 自动推送和系统通知
+
+`push_policy` 只有 `disabled` 和 `fast_forward` 两种策略。配置操作不会立即推送。
+
+自动推送只处理明确配置远程上游、领先大于零且落后为零的分支：
+
+- 确认唯一推送地址与获取地址相同。
+- 确认本地、远程提交没有在检查后改变，并验证祖先关系。
+- 存在未完成合并、变基、拣选、回退、冲突或游离 HEAD 时停止推送。
+- 显式指定检查时的不可变提交 ID 与上游目标；禁用强制、镜像、标签跟随和递归子模块推送，保留正常 pre-push 钩子。
+- 推送后查询服务器，确认远程等于目标提交才记为成功。
+
+未提交内容不会被提交或推送。工作区有普通改动时，已提交内容仍可发布，工作区问题继续单独报告。并发产生的新提交不包含在选定的快照中。
+
+推送失败、拒绝、超时或核验失败会请求 macOS 系统通知，标题为“GW 自动推送失败”，包括仓库、分支和错误摘要。完整错误保留在报告。通知发送本身失败也会记录到报告与错误日志。系统勿扰与通知设置控制展示方式，`accepted` 表示系统接受了通知请求。
+
+## 定时任务与进程
+
+系统任务为当前用户的 LaunchAgent，标签保持 `local.git-repo-watch`。默认每 6 小时执行，安装或登录加载时不会额外执行一次。关闭、登出或睡眠期间不检查，也不唤醒电脑，恢复后按 launchd 间隔继续调度。
+
+单条 Git 命令超时为 120 秒，SSH 连接超时为 15 秒，禁用交互认证。超时、取消或终止时回收 Git 进程组及子进程。文件锁防止手动与定时检查重叠。用户可以取消 CLI 操作，未来 TUI 也可通过同一 context 取消。
+
+macOS 首次允许后台原生 `gw` 访问移动硬盘时，可能弹出可移动宗卷权限请求，需要用户在系统提示中允许。权限与终端或旧 Python 解释器的授权分开。
+
+```sh
+gw uninstall
+# 或在项目目录中运行
+./uninstall.sh
+```
+
+卸载只移除系统任务，保留原生命令、定位文件、配置和报告，之后仍可查询状态。
+
+## 数据与退出码
+
+- `config.json`：本机仓库、排除目录、频率、自动推送策略。
+- `var/latest.json`：最近一次完整检查，第 3 版格式，兼容迁移前的报告。
+- `var/import-report.json`：最近扫描或导入报告。
+- `var/launchd.stdout.log`：系统任务执行记录。
+- `var/launchd.stderr.log`：配置、通知或执行错误。
+
+完整检查结束后原子替换报告；进行中保留旧报告，请结合时间和进程状态查看。取消或中断不生成伪完整报告。日志保存在本机，按需清理。
+
+检查退出码：`0` 全部通过；`1` 完成但有问题或没有仓库；`2` 配置、执行、参数错误或已有检查运行；`130` 用户取消。查询旧报告不会因为其中有问题而返回检查失败退出码；尚无报告时返回 `1`。
+
+## 模块与 TUI 接口
+
+| 模块 | 职责 |
+|---|---|
+| `cmd/gw` | 原生程序启动与取消信号 |
+| `internal/model` | 封闭结果接口、互斥结果类型与 JSON 边界 |
+| `internal/gitcmd` | 带超时、进程组回收的二进制 Git 执行 |
+| `internal/discovery` | 遵守 Git 忽略规则的目录发现 |
+| `internal/check` | 工作区检查与分支分类 |
+| `internal/publish` | 固定提交快照的普通推送与远程核验 |
+| `internal/notify` | macOS 通知适配器 |
+| `internal/state` | 私有配置、原子写入、报告、锁 |
+| `internal/scheduler` | 原生安装、定位文件与 launchd |
+| `internal/app` | UI 无关的应用用例、统计、筛选和事件 |
+| `internal/cli` | 参数解析、文本与 JSON 展示 |
+
+未来 TUI 直接复用 `app.Service` 的 `Snapshot`、`Report`、`Scan`、`Add`、`Exclude`、`Interval`、`Policy` 和 `Run`。`Run` 接收 context，并输出 `Checking`、`Checked`、`NotificationProblem` 类型化事件。核心层不依赖终端、按键或视图框架。
+
+领域状态采用封闭接口与不同具体类型，需关注结果构造时必须提供首个问题。可选 JSON 字段只用于兼容既有序列化边界，不参与领域状态机建模。
+
+## 构建与验证
+
+```sh
+make build
+make test
+make vet
+go test -race ./...
+```
+
+测试仅使用临时目录和本地裸远程，隔离用户 Git 配置，不访问网络或修改已添加仓库。覆盖工作区、实验分支、忽略规则、worktree、子模块、快进推送、远程拒绝、并发变化、配置查询、进程取消与系统任务配置。
+
+## 开源与私有数据
+
+采用 MIT 许可证，详见 `LICENSE`。只有通用的 `config.example.json` 纳入版本控制。本机 `config.json`、报告、日志、定位信息、缓存与构建产物均不提交。
+
+公开文件不包含个人仓库列表、机器用户名或真实挂载目录。源码路径通过构建参数裁剪；提交前应检查暂存内容，避免加入个人路径或凭据。
