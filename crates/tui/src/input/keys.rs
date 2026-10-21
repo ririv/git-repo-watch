@@ -71,7 +71,7 @@ impl Screen {
             Mode::Files(mut session) => {
                 let count = session.rows().len();
                 match key.code {
-                    KeyCode::Esc => {
+                    KeyCode::Esc | KeyCode::Left => {
                         self.message.clear();
                         self.sync_bar();
                         return Ok(false);
@@ -99,7 +99,7 @@ impl Screen {
                             session.selected.insert(index);
                         }
                     }
-                    KeyCode::Enter => {
+                    KeyCode::Enter | KeyCode::Right => {
                         self.mode = Mode::Files(session);
                         self.show_diff();
                         return Ok(false);
@@ -114,7 +114,7 @@ impl Screen {
                 mut scroll,
             } => {
                 match key.code {
-                    KeyCode::Esc => {
+                    KeyCode::Esc | KeyCode::Left => {
                         self.mode = Mode::Files(session);
                         self.sync_bar();
                         return Ok(false);

@@ -41,6 +41,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     Some((argument, _)) => argument.hint(),
                     None => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
                 }
+            } else if !screen.bar.editor().text.is_empty() {
+                i18n::tr!(SearchEditingHint)
             } else {
                 match screen.mode {
                     Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),

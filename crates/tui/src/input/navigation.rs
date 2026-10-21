@@ -11,7 +11,7 @@ impl Screen {
                 self.scroll = 0;
                 return Ok(false);
             }
-            KeyCode::Esc => {
+            KeyCode::Esc | KeyCode::Left => {
                 if let Some(page) = self.history.pop() {
                     self.page = page
                 } else {
@@ -49,7 +49,7 @@ impl Screen {
                     KeyCode::PageUp => self.select(self.selected().saturating_sub(10)),
                     KeyCode::Home => self.select(0),
                     KeyCode::End => self.select(count.saturating_sub(1)),
-                    KeyCode::Enter if count > 0 => {
+                    KeyCode::Enter | KeyCode::Right if count > 0 => {
                         self.history.push(self.page);
                         self.page = Page::Detail;
                         self.scroll = 0
@@ -63,7 +63,7 @@ impl Screen {
                     self.setting_selected = (self.setting_selected + 1)
                         .min(section.actions(self.snapshot.registration).len() - 1)
                 }
-                KeyCode::Enter => {
+                KeyCode::Enter | KeyCode::Right => {
                     return self.activate(
                         section.actions(self.snapshot.registration)[self.setting_selected],
                         self.selected_path(),

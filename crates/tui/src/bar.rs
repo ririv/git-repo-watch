@@ -297,6 +297,13 @@ impl Screen {
         {
             return Ok(BarEvent::Pass);
         }
+        // 空搜索栏把无修饰的左右键交给页面导航；有文字时仍移动输入光标。
+        if matches!(&self.bar, InputBar::Search(editor) if editor.text.is_empty())
+            && key.modifiers.is_empty()
+            && matches!(key.code, KeyCode::Left | KeyCode::Right)
+        {
+            return Ok(BarEvent::Pass);
+        }
         let editing = matches!(
             key.code,
             KeyCode::Char(_)

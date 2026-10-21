@@ -1,4 +1,5 @@
 mod completion;
+mod navigation;
 use super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{
