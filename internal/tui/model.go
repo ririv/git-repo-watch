@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 	"sync"
 
@@ -39,6 +40,13 @@ const (
 	detail
 	settings
 	help
+)
+
+type sortOrder uint8
+
+const (
+	priorityOrder sortOrder = iota
+	pathOrder
 )
 
 type action uint8
@@ -92,21 +100,24 @@ type completed struct {
 type progress struct{ event app.Event }
 
 type screen struct {
-	ctx           context.Context
-	backend       Backend
-	apply         func(context.Context) error
-	dispatch      func(tea.Msg)
-	workers       *sync.WaitGroup
-	snapshot      app.Snapshot
-	config        state.Config
-	page          page
-	mode          interaction
-	filter        app.Filter
-	query         string
-	selected      int
-	width, height int
-	viewport      viewport.Model
-	message       string
+	ctx             context.Context
+	backend         Backend
+	apply           func(context.Context) error
+	dispatch        func(tea.Msg)
+	workers         *sync.WaitGroup
+	snapshot        app.Snapshot
+	config          state.Config
+	page            page
+	mode            interaction
+	filter          app.Filter
+	query           string
+	selected        int
+	width, height   int
+	viewport        viewport.Model
+	message         string
+	order           sortOrder
+	history         []page
+	settingSelected int
 }
 
 func newScreen(ctx context.Context, b Backend, apply func(context.Context) error) *screen {
@@ -141,10 +152,16 @@ func (m *screen) rows() []model.Repository {
 		if !ok {
 			r = model.Repository{Path: path}
 		}
-		if strings.Contains(strings.ToLower(path), strings.ToLower(m.query)) {
+		if strings.Contains(strings.ToLower(path), strings.ToLower(m.searchQuery())) {
 			rows = append(rows, r)
 		}
 	}
+	sort.SliceStable(rows, func(i, j int) bool {
+		if m.order == priorityOrder && priority(rows[i].Status) != priority(rows[j].Status) {
+			return priority(rows[i].Status) < priority(rows[j].Status)
+		}
+		return strings.ToLower(rows[i].Path) < strings.ToLower(rows[j].Path)
+	})
 	return rows
 }
 func (m *screen) selection() (model.Repository, bool) {
@@ -155,6 +172,29 @@ func (m *screen) selection() (model.Repository, bool) {
 	return rows[m.selected], true
 }
 func (m *screen) clamp() { m.selected = max(0, min(m.selected, len(m.rows())-1)) }
+func (m *screen) searchQuery() string {
+	if mode, ok := m.mode.(editing); ok && mode.action == search {
+		return mode.input.Value()
+	}
+	return m.query
+}
+func (m *screen) focusPath(path string) {
+	m.selected = 0
+	for i, r := range m.rows() {
+		if r.Path == path {
+			m.selected = i
+			return
+		}
+	}
+}
+func (m *screen) replaceData(snapshot app.Snapshot, config state.Config) {
+	path := ""
+	if r, ok := m.selection(); ok {
+		path = r.Path
+	}
+	m.snapshot, m.config = snapshot, config
+	m.focusPath(path)
+}
 func (m *screen) prompt(a action, value string) tea.Cmd {
 	input := textinput.New()
 	input.Prompt = "› "
@@ -186,7 +226,7 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = "读取失败：" + msg.err.Error() + "；当前内容未更新"
 			return m, nil
 		}
-		m.snapshot, m.config = msg.snapshot, msg.config
+		m.replaceData(msg.snapshot, msg.config)
 		m.message = "已读取本机配置与已有报告"
 		m.clamp()
 		m.updateContent()
@@ -205,7 +245,7 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.data.err != nil {
 			m.message = msg.result + "；刷新失败：" + msg.data.err.Error()
 		} else {
-			m.snapshot, m.config = msg.data.snapshot, msg.data.config
+			m.replaceData(msg.data.snapshot, msg.data.config)
 			m.message = msg.result
 			m.clamp()
 			m.updateContent()
@@ -232,6 +272,29 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyPressMsg:
 		key := msg.String()
 		switch mode := m.mode.(type) {
+		case choosing:
+			items := m.menuItems()
+			switch key {
+			case "up", "k":
+				mode.selected = max(0, mode.selected-1)
+			case "down", "j":
+				mode.selected = min(len(items)-1, mode.selected+1)
+			case "esc", "space":
+				m.mode = browsing{}
+				return m, nil
+			case "ctrl+c":
+				return m, tea.Quit
+			case "enter":
+				return m, m.activate(items[mode.selected].action)
+			default:
+				for _, item := range items {
+					if key == item.key {
+						return m, m.activate(item.action)
+					}
+				}
+			}
+			m.mode = mode
+			return m, nil
 		case working:
 			if key == "esc" || key == "ctrl+c" {
 				mode.cancel()
@@ -267,6 +330,9 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			var cmd tea.Cmd
 			mode.input, cmd = mode.input.Update(msg)
 			m.mode = mode
+			if mode.action == search {
+				m.selected = 0
+			}
 			return m, cmd
 		case confirming:
 			if key == "y" {
@@ -278,92 +344,9 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
-		switch key {
-		case "q", "ctrl+c":
-			return m, tea.Quit
-		case "?":
-			m.page = help
-			m.updateContent()
-			return m, nil
-		case "esc":
-			m.page = repositories
-			m.query = ""
-			m.selected = 0
-			m.updateContent()
-			return m, nil
-		case "tab":
-			if m.page == settings {
-				m.page = repositories
-			} else {
-				m.page = settings
-			}
-			m.updateContent()
-			return m, nil
-		case "r":
-			return m, m.load()
-		case "c":
-			m.mode = confirming{check, ""}
-			return m, nil
-		}
-		if m.page == repositories {
-			switch key {
-			case "1", "2", "3", "4":
-				m.filter = map[string]app.Filter{"1": app.All, "2": app.Problems, "3": app.WithoutUpstream, "4": app.Pushes}[key]
-				m.selected = 0
-			case "/":
-				return m, m.prompt(search, m.query)
-			case "up", "k":
-				m.selected--
-				m.clamp()
-			case "down", "j":
-				m.selected++
-				m.clamp()
-			case "pgdown":
-				m.selected += max(1, m.height-12)
-				m.clamp()
-			case "pgup":
-				m.selected -= max(1, m.height-12)
-				m.clamp()
-			case "home", "g":
-				m.selected = 0
-			case "end", "G":
-				m.selected = max(0, len(m.rows())-1)
-			case "enter":
-				if _, ok := m.selection(); ok {
-					m.page = detail
-					m.updateContent()
-				}
-			case "a":
-				return m, m.prompt(add, "")
-			case "d":
-				if r, ok := m.selection(); ok {
-					m.mode = confirming{remove, r.Path}
-				}
-			}
-			return m, nil
-		}
-		if m.page == settings {
-			switch key {
-			case "a":
-				return m, m.prompt(add, "")
-			case "x":
-				return m, m.prompt(exclude, "")
-			case "u":
-				return m, m.prompt(unexclude, "")
-			case "s":
-				return m, m.prompt(scan, "")
-			case "i":
-				return m, m.prompt(importTree, "")
-			case "t":
-				return m, m.prompt(interval, fmt.Sprintf("%ds", m.config.Interval))
-			case "p":
-				return m, m.prompt(policy, string(m.config.PushPolicy))
-			case "l":
-				m.mode = confirming{applySchedule, ""}
-				return m, nil
-			}
-		}
+		return m.navigate(msg)
 	}
+
 	if mode, ok := m.mode.(editing); ok {
 		var cmd tea.Cmd
 		mode.input, cmd = mode.input.Update(msg)

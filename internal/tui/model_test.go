@@ -98,7 +98,7 @@ func settle(m *screen, cmd tea.Cmd) {
 }
 func TestBrowseUsesCachedReportAndExplicitRegistry(t *testing.T) {
 	m, _ := fixture(t)
-	if len(m.rows()) != 3 || m.rows()[2].Status != "" {
+	if len(m.rows()) != 3 || m.rows()[0].Status != model.Attention || m.rows()[1].Status != "" {
 		t.Fatal(m.rows())
 	}
 	press(m, "2")
@@ -122,6 +122,10 @@ func TestBrowseUsesCachedReportAndExplicitRegistry(t *testing.T) {
 	press(m, "enter")
 	if m.page != detail || !strings.Contains(m.View().Content, "存在未提交文件") {
 		t.Fatal(m.View().Content)
+	}
+	press(m, "esc")
+	if m.query != "dirty" {
+		t.Fatal("从详情返回应保留搜索", m.query)
 	}
 	press(m, "esc")
 	settle(m, press(m, "r"))

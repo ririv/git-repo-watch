@@ -94,6 +94,21 @@ func (m *screen) header() string {
 		}
 	}
 	lines := []string{first, second, third}
+	if m.width < 90 || m.height < 24 {
+		summary := fmt.Sprintf(" %d 个仓库 · 每 %gh · 尚无报告", len(m.config.Repositories), float64(m.config.Interval)/3600)
+		if r, ok := m.snapshot.Report.(app.AvailableReport); ok {
+			stats := app.Stats(r.Report)
+			summary = fmt.Sprintf(" ✓%d 正常 !%d 关注 ×%d 失败 · 每 %gh", stats.Counts[model.Clean], stats.Counts[model.Attention], stats.Counts[model.Failed], float64(m.config.Interval)/3600)
+		}
+		lines = []string{first, summary}
+		if r, ok := m.snapshot.Report.(app.AvailableReport); ok {
+			lines = append(lines, " 报告："+reportTime(r.Report.FinishedAt)+" · r 刷新")
+		}
+		for i := range lines {
+			lines[i] = ansi.Truncate(lines[i], max(1, m.width-2), "…")
+		}
+		return strings.Join(lines, "\n")
+	}
 	if r, ok := m.snapshot.Report.(app.AvailableReport); ok {
 		line := " 报告：" + reportTime(r.Report.FinishedAt)
 		if app.Stats(r.Report).Branches.Unavailable > 0 {
@@ -120,6 +135,8 @@ func (m *screen) footer() string {
 			text += "；当前推送策略：" + string(m.config.PushPolicy)
 		}
 		actionLine = warning.Render(text) + "\n[y] 确认 · [n/Esc] 取消"
+	case choosing:
+		actionLine = "↑↓/jk 选择操作 · Enter 下一步 · Esc 关闭菜单"
 	case working:
 		actionLine = warning.Render("操作进行中 · Esc/Ctrl+C 取消并等待退出")
 	case stopping:
@@ -127,11 +144,11 @@ func (m *screen) footer() string {
 	default:
 		switch m.page {
 		case repositories:
-			actionLine = "↑↓/jk 选择 · Enter 详情 · / 搜索 · 1–4 筛选 · a 添加 · d 移除\nr 刷新已有报告 · c 手动检查 · Esc 清除搜索"
+			actionLine = "↑↓选择 Enter详情 /搜索 Space操作 Tab设置 ?帮助 q退出"
 		case settings:
-			actionLine = "a 添加 · x 排除 · u 取消排除 · s 扫描 · i 导入\nt 频率 · p 推送策略 · l 应用调度 · r 刷新 · c 手动检查"
+			actionLine = "↑↓选择 Enter修改 PgDn滚动 Space操作 Tab仓库 ?帮助"
 		default:
-			actionLine = "↑↓/jk / PgUp/PgDn 滚动 · Esc 返回仓库 · r 刷新 · c 手动检查"
+			actionLine = "↑↓/PgDn滚动 Esc返回 Space操作 ?帮助 q退出"
 		}
 	}
 	return muted.Render(ansi.Truncate(safe(m.message), max(1, m.width-2), "…")) + "\n" + actionLine
@@ -139,48 +156,23 @@ func (m *screen) footer() string {
 func (m *screen) bodyHeight() int {
 	return max(1, m.height-lipgloss.Height(m.header())-lipgloss.Height(lipgloss.NewStyle().Width(max(1, m.width-2)).Render(m.footer()))-4)
 }
-func (m *screen) listView() string {
-	var b strings.Builder
-	title := " 1 全部   2 问题   3 无上游   4 推送   当前：" + filterName(m.filter)
-	if m.query != "" {
-		title += " · 搜索：" + safe(m.query)
-	}
-	b.WriteString(ansi.Truncate(title, m.width-2, "…") + "\n\n")
-	rows := m.rows()
-	h := max(1, m.bodyHeight()-3)
-	if len(rows) == 0 {
-		return b.String() + " 暂无匹配仓库；可按 a 添加，或 Tab 进入设置。"
-	}
-	start := min(max(0, m.selected-h+1), max(0, len(rows)-h))
-	for i := start; i < min(len(rows), start+h); i++ {
-		r := rows[i]
-		marker := "  "
-		if i == m.selected {
-			marker = "› "
-		}
-		prefix := marker + lipgloss.NewStyle().Width(10).Render(statusName(r.Status)) + " " + safe(filepath.Base(r.Path))
-		line := prefix + "  " + muted.Render(safe(r.Path))
-		line = ansi.Truncate(line, max(1, m.width-2), "…")
-		if i == m.selected {
-			line = selectedStyle.Width(max(1, m.width-2)).Render(line)
-		}
-		b.WriteString(line + "\n")
-	}
-	b.WriteString(muted.Render(fmt.Sprintf(" %d / %d", m.selected+1, len(rows))))
-	return b.String()
-}
 func (m *screen) detailContent() string {
 	r, ok := m.selection()
 	if !ok {
 		return "当前仓库不在筛选结果中；Esc 返回。"
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "%s\n%s\n状态：%s\n\n", safe(filepath.Base(r.Path)), safe(r.Path), statusName(r.Status))
+	fmt.Fprintf(&b, "%s\n%s\n状态：%s\n", safe(filepath.Base(r.Path)), safe(r.Path), statusName(r.Status))
+	bgs := badges(r)
+	fmt.Fprintf(&b, "工作区 %s · 远程 %s\n无上游 %s · 推送 %s\n\n", bgs.workspace.render(), bgs.remote.render(), bgs.experimental.render(), bgs.push.render())
 	if saved, ok := m.snapshot.Report.(app.AvailableReport); ok {
 		fmt.Fprintf(&b, "报告时间：%s\n\n", reportTime(saved.Report.FinishedAt))
 	}
 	if r.Status == "" {
 		b.WriteString("上次报告未包含此仓库，等待定时或显式检查。\n")
+	}
+	if r.Status == model.Clean || r.Status == model.Attention {
+		b.WriteString("远程列仅统计已配置远程上游的分支。\n\n")
 	}
 	for _, i := range r.Issues {
 		fmt.Fprintf(&b, "• %s\n", safe(i.Detail))
@@ -226,31 +218,20 @@ func (m *screen) detailContent() string {
 	}
 	return b.String()
 }
-func (m *screen) settingsContent() string {
-	var b strings.Builder
-	fmt.Fprintf(&b, "检查频率\n  每 %g 小时（%d 秒）\n  修改后按 l 应用系统调度，不会立即检查。\n\n自动推送\n  %s\n  disabled：关闭；fast_forward：仅领先且不落后时普通推送。\n\n排除目录\n", float64(m.config.Interval)/3600, m.config.Interval, safe(string(m.config.PushPolicy)))
-	if saved, ok := m.snapshot.Schedule.(scheduler.Saved); ok && saved.Interval != m.config.Interval {
-		b.WriteString("  注意：配置频率与已安装的系统任务不同。\n")
-	}
-	if len(m.config.Excluded) == 0 {
-		b.WriteString("  无\n")
-	}
-	for _, path := range m.config.Excluded {
-		b.WriteString("  " + safe(path) + "\n")
-	}
-	b.WriteString("\n扫描遵守 Git 忽略规则；导入只更新显式仓库列表。\n排除目录会移除其下注册项，不删除磁盘文件。\n设置修改不会触发检查或推送。\n")
-	return b.String()
-}
 
 const helpText = `操作说明
 
 仓库页
   ↑↓ / j k：选择仓库；Enter：详情；PgUp/PgDn：翻页
   1：全部；2：需关注和失败；3：无远程上游；4：推送记录
-  /：按路径搜索；Esc：清除搜索并返回仓库页
+  /：即时按路径搜索；Enter 保留条件，Esc 放弃本次输入
+  o：问题优先 / 路径顺序；切换排序和刷新保留选中仓库
+  120 列以上且高度足够时，右侧自动预览选中仓库
+  Esc：从详情返回时保留列表条件；在列表中清除搜索
   a：添加仓库根目录；d：移除选中的注册项
 
 设置页（Tab 切换）
+  ↑↓ / j k：选择设置；Enter：修改；PgUp/PgDn：滚动
   a：添加；x：排除目录；u：取消排除
   s：扫描预览；i：扫描并导入；输入绝对路径
   t：保存频率，例如 6h、30m、1d
@@ -258,6 +239,7 @@ const helpText = `操作说明
   l：应用系统调度，不立即检查
 
 全局
+  Space：操作菜单，↑↓选择、Enter 下一步，Esc 关闭
   r：重新读取已有报告，不访问远程
   c：显式检查；按当前策略自动推送；确认后才执行
   耗时操作期间 Esc/Ctrl+C：取消并等待 Git 子进程退出
@@ -269,6 +251,15 @@ const helpText = `操作说明
 无上游分支单独统计，不作为问题，也不会自动发布。
 检查失败的仓库，其分支统计不完整。
 定时任务可在界面运行期间执行；按 r 查看最新结果。
+
+状态图例
+  ✓ 正常；! 需关注；× 检查失败；· 未检查
+  工作区 *改动：有未提交、未跟踪或子模块改动
+  现有报告未区分暂存和未暂存，界面不推测这些细节
+  远程：仅展示已配置远程上游的分支检查结果
+  无上游：实验分支数，单独统计，不单独构成问题
+  推送 ↑n !m：上次报告成功 / 失败的分支数，不是提交数
+  ?：检查未完成或没有报告，此项未知；—：没有推送记录
 `
 
 func (m *screen) updateContent() {
@@ -278,11 +269,14 @@ func (m *screen) updateContent() {
 	case detail:
 		m.viewport.SetContent(m.detailContent())
 	case settings:
-		m.viewport.SetContent(m.settingsContent())
+		m.viewport.SetContent(m.settingsMenuView())
 	case help:
 		m.viewport.SetContent(helpText)
 	}
 	m.viewport.GotoTop()
+	if m.page == settings {
+		m.viewport.EnsureVisible(m.settingSelected+2, 0, 1)
+	}
 }
 func (m *screen) View() tea.View {
 	if m.width < 60 || m.height < 18 {
@@ -294,6 +288,9 @@ func (m *screen) View() tea.View {
 	body := m.viewport.View()
 	if m.page == repositories {
 		body = m.listView()
+	}
+	if mode, ok := m.mode.(choosing); ok {
+		body = m.menuView(mode.selected)
 	}
 	content := m.header() + "\n" + muted.Render(strings.Repeat("─", m.width-2)) + "\n" + lipgloss.NewStyle().Height(m.bodyHeight()).Render(body) + "\n" + muted.Render(strings.Repeat("─", m.width-2)) + "\n" + lipgloss.NewStyle().Width(m.width-2).Render(m.footer())
 	v := tea.NewView(content)
