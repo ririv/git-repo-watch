@@ -28,6 +28,23 @@ func (m *screen) header() string {
 		title = "帮助"
 	}
 	first := accent.Render(" gw ") + " / " + title
+	if _, ok := fileContext(m.mode); ok {
+		return accent.Render(" gw ") + " / 文件 · 当前状态"
+	}
+	if _, ok := m.mode.(commandEditing); ok {
+		return accent.Render(" gw ") + " / 命令"
+	}
+	if _, ok := m.repositoryReview(); ok {
+		switch m.mode.(type) {
+		case commitEditing, commitConfirming:
+			title = "提交暂存内容"
+		case pushConfirming:
+			title = "推送当前分支"
+		case repositoryError:
+			title = "操作结果"
+		}
+		return accent.Render(" gw ") + " / " + title
+	}
 	if m.snapshot.Activity == state.Running {
 		first += " · 正在检查"
 	}

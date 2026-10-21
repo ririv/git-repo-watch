@@ -73,6 +73,8 @@ func fixture(t *testing.T) (*screen, *app.Service) {
 func press(m *screen, key string) tea.Cmd {
 	code := []rune(key)[0]
 	switch key {
+	case "space":
+		code = ' '
 	case "enter":
 		code = tea.KeyEnter
 	case "esc":

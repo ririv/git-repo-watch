@@ -65,6 +65,24 @@ func filterName(f app.Filter) string {
 func (m *screen) footer() string {
 	var actionLine string
 	switch mode := m.mode.(type) {
+	case commandEditing:
+		actionLine = mode.input.View() + "\nTab 补全 · ↑↓ 选择 · Enter 执行 · Esc 关闭"
+	case filesBrowsing:
+		op := "stage 暂存"
+		if mode.session.area == indexFiles {
+			op = "unstage 取消暂存"
+		}
+		actionLine = ": " + op + " · commit · push\nSpace 勾选 · a 全选 · Enter diff · Tab 切换区域 · Esc 返回"
+	case fileDiff, fileError:
+		actionLine = "↑↓/PgDn 滚动 · Esc 返回文件 · : 命令"
+	case commitEditing:
+		actionLine = "提交说明\n" + mode.input.View() + "\nEnter 确认 · Esc 取消 · PgUp/PgDn 查看暂存内容"
+	case commitConfirming:
+		actionLine = "y 确认提交 · n/Esc 取消 · PgUp/PgDn 查看"
+	case pushConfirming:
+		actionLine = "y 确认推送 · n/Esc 取消 · PgUp/PgDn 查看"
+	case repositoryError:
+		actionLine = "↑↓/PgDn 查看完整错误 · Enter/Esc 返回"
 	case editing:
 		actionLine = actionTitle(mode.action) + "\n" + mode.input.View() + "\nEnter 下一步 · Esc 取消"
 	case confirming:
@@ -85,11 +103,14 @@ func (m *screen) footer() string {
 	default:
 		switch m.page {
 		case repositories:
-			actionLine = "↑↓选择 Enter详情 /搜索 Space操作 Tab设置 ?帮助 q退出"
+			actionLine = ": 输入命令 · ↑↓ 选择 · Enter 详情 · ? 帮助 · q 退出"
+			if m.width >= 100 {
+				actionLine = ": 输入命令 · ↑↓选择 · Enter详情 · /搜索 · Tab设置 · ?帮助 · q退出"
+			}
 		case settings:
-			actionLine = "↑↓选择 Enter修改 PgDn滚动 Space操作 Tab仓库 ?帮助"
+			actionLine = ": 输入命令 · ↑↓选择 · Enter修改 · Tab仓库 · ?帮助"
 		default:
-			actionLine = "↑↓/PgDn滚动 Esc返回 Space操作 ?帮助 q退出"
+			actionLine = ": 输入命令 · ↑↓/PgDn滚动 · Esc返回 · ?帮助 · q退出"
 		}
 	}
 	if m.message == "" {
@@ -169,6 +190,17 @@ const helpText = `操作说明
   120 列以上且高度足够时，右侧自动预览选中仓库
   Esc：从详情返回时保留列表条件；在列表中清除搜索
   a：添加仓库根目录；d：移除选中的注册项
+  C：提交当前选中仓库的已暂存内容，先预览文件并输入说明
+  P：推送当前选中仓库的当前分支，先核对远程上游
+  : 打开底部命令栏，Tab 补全，Enter 执行完整命令，Esc 关闭
+  stage：工作区；unstage：暂存区；Space 勾选，a 全选，Tab 切换区域
+  Enter 查看所选文件 diff；Esc 返回文件列表；r 刷新文件
+  在文件面板输入 stage / unstage，操作勾选项；未勾选时操作光标项
+  commit：预览暂存内容，输入说明并确认；push：核对上游并确认
+  提交不会自动添加文件或自动推送
+  手动推送独立于自动推送开关，只做已配置上游的普通推送
+  预览后分支、暂存内容或远程变化，需要重新确认
+  操作不改写历史检查报告；手动推送失败在结果页展示完整错误
 
 设置页（Tab 切换）
   ↑↓ / j k：选择设置；Enter：修改；PgUp/PgDn：滚动
@@ -179,7 +211,11 @@ const helpText = `操作说明
   l：应用系统调度，不立即检查
 
 全局
-  Space：操作菜单，↑↓选择、Enter 下一步，Esc 关闭
+  :：命令栏，↑↓选择候选、Tab 补全，Enter 执行，Esc 关闭
+  check all：检查全部注册仓库；settings：设置；help：帮助
+  add/remove/exclude/unexclude/scan/import/interval/autopush/apply：配置操作
+  refresh：刷新当前视图；quit：退出
+  Space：保留原操作菜单入口
   r：重新读取已有报告，不访问远程
   c：显式检查；按当前策略自动推送；确认后才执行
   耗时操作期间 Esc/Ctrl+C：取消并等待 Git 子进程退出
@@ -205,6 +241,21 @@ const helpText = `操作说明
 func (m *screen) updateContent() {
 	m.viewport.SetWidth(max(1, m.width-2))
 	m.viewport.SetHeight(m.bodyHeight())
+	if mode, ok := m.mode.(fileDiff); ok {
+		m.viewport.SetContent(mode.content)
+		m.viewport.GotoTop()
+		return
+	}
+	if mode, ok := m.mode.(fileError); ok {
+		m.viewport.SetContent(safeMultiline(mode.detail))
+		m.viewport.GotoTop()
+		return
+	}
+	if content, ok := m.repositoryReview(); ok {
+		m.viewport.SetContent(content)
+		m.viewport.GotoTop()
+		return
+	}
 	switch m.page {
 	case detail:
 		m.viewport.SetContent(m.detailContent())
@@ -226,11 +277,19 @@ func (m *screen) View() tea.View {
 	}
 	m.viewport.SetHeight(m.bodyHeight())
 	body := m.viewport.View()
-	if m.page == repositories {
+	if _, review := m.repositoryReview(); !review && m.page == repositories {
 		body = m.listView()
 	}
 	if mode, ok := m.mode.(choosing); ok {
 		body = m.menuView(mode.selected)
+	}
+	switch mode := m.mode.(type) {
+	case commandEditing:
+		body = m.commandView(mode)
+	case filesBrowsing:
+		body = m.filesView(mode.session)
+	case fileDiff, fileError:
+		body = m.viewport.View()
 	}
 	content := m.header() + "\n" + muted.Render(strings.Repeat("─", m.width-2)) + "\n" + lipgloss.NewStyle().Height(m.bodyHeight()).Render(body) + "\n" + muted.Render(strings.Repeat("─", m.width-2)) + "\n" + lipgloss.NewStyle().Width(m.width-2).Render(m.footer())
 	v := tea.NewView(content)

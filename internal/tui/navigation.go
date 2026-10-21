@@ -14,6 +14,16 @@ func (m *screen) selectedPath() string {
 func (m *screen) navigate(msg tea.KeyPressMsg) (tea.Model, tea.Cmd) {
 	key := msg.String()
 	switch key {
+	case ":":
+		return m, m.openCommand()
+	case "C", "P":
+		if m.page == repositories || m.page == detail {
+			a := commitSelected
+			if key == "P" {
+				a = pushSelected
+			}
+			return m, m.activate(a)
+		}
 	case "q", "ctrl+c":
 		return m, tea.Quit
 	case "?":

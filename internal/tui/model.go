@@ -17,6 +17,7 @@ import (
 	"gw/internal/app"
 	"gw/internal/discovery"
 	"gw/internal/model"
+	"gw/internal/repoaction"
 	"gw/internal/state"
 )
 
@@ -31,6 +32,13 @@ type Backend interface {
 	Interval(int) error
 	Policy(model.PushPolicy) error
 	Scan(context.Context, string, app.ScanMode) (discovery.Report, error)
+	PrepareCommit(context.Context, string) (repoaction.CommitPlan, error)
+	CommitRepository(context.Context, repoaction.CommitPlan, string) (repoaction.CommitResult, error)
+	PreparePush(context.Context, string) (repoaction.PushPlan, error)
+	PushRepository(context.Context, repoaction.PushPlan) (model.Push, error)
+	ReadFiles(context.Context, string) (repoaction.Files, error)
+	FileDiff(context.Context, repoaction.Files, repoaction.Change) (string, error)
+	EditIndex(context.Context, repoaction.Files, repoaction.IndexAction, []repoaction.Change) (repoaction.Files, error)
 }
 
 type page uint8
@@ -63,6 +71,11 @@ const (
 	policy
 	check
 	applySchedule
+	commitSelected
+	pushSelected
+	stageSelected
+	unstageSelected
+	diffSelected
 )
 
 // Interaction is a closed union; a modal cannot be editing and executing at once.
@@ -205,21 +218,31 @@ func (m *screen) prompt(a action, value string) tea.Cmd {
 	m.mode = editing{a, input}
 	return cmd
 }
-func (m *screen) execute(a action, value string) tea.Cmd {
+func (m *screen) startTask(a action, task func(context.Context) tea.Msg) tea.Cmd {
 	ctx, cancel := context.WithCancel(m.ctx)
 	m.mode = working{a, cancel}
 	m.message = actionTitle(a) + "…"
-	result := make(chan completed, 1)
+	result := make(chan tea.Msg, 1)
 	m.workers.Add(1)
-	go func() {
-		defer m.workers.Done()
-		defer cancel()
-		message, e := perform(ctx, m.backend, m.apply, a, value, func(e app.Event) { m.dispatch(progress{e}) })
-		result <- completed{message, e}
-	}()
+	go func() { defer m.workers.Done(); defer cancel(); result <- task(ctx) }()
 	return func() tea.Msg { return <-result }
 }
+func (m *screen) execute(a action, value string) tea.Cmd {
+	return m.startTask(a, func(ctx context.Context) tea.Msg {
+		message, e := perform(ctx, m.backend, m.apply, a, value, func(e app.Event) { m.dispatch(progress{e}) })
+		return completed{message, e}
+	})
+}
 func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if cmd, handled := m.updateCommand(msg); handled {
+		return m, cmd
+	}
+	if cmd, handled := m.updateFiles(msg); handled {
+		return m, cmd
+	}
+	if cmd, handled := m.updateRepository(msg); handled {
+		return m, cmd
+	}
 	switch msg := msg.(type) {
 	case loaded:
 		if msg.err != nil {
@@ -263,7 +286,14 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	case tea.WindowSizeMsg:
 		m.width, m.height = msg.Width, msg.Height
-		if mode, ok := m.mode.(editing); ok {
+		switch mode := m.mode.(type) {
+		case editing:
+			mode.input.SetWidth(max(1, m.width-6))
+			m.mode = mode
+		case commitEditing:
+			mode.input.SetWidth(max(1, m.width-6))
+			m.mode = mode
+		case commandEditing:
 			mode.input.SetWidth(max(1, m.width-6))
 			m.mode = mode
 		}
@@ -345,6 +375,13 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		return m.navigate(msg)
+	}
+
+	if mode, ok := m.mode.(commitEditing); ok {
+		var cmd tea.Cmd
+		mode.input, cmd = mode.input.Update(msg)
+		m.mode = mode
+		return m, cmd
 	}
 
 	if mode, ok := m.mode.(editing); ok {

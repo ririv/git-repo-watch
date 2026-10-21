@@ -37,14 +37,13 @@ func TestOperationMenuRequiresExplicitActionAndConfirmation(t *testing.T) {
 	if _, ok := m.mode.(choosing); !ok {
 		t.Fatal(m.mode)
 	}
-	press(m, "enter")
+	press(m, "c")
 	if mode, ok := m.mode.(confirming); !ok || mode.action != check {
 		t.Fatal(m.mode)
 	}
 	press(m, "n")
 	press(m, " ")
-	press(m, "down")
-	press(m, "enter")
+	press(m, "t")
 	mode, ok := m.mode.(editing)
 	if !ok || mode.action != interval || mode.input.Value() != "21600s" {
 		t.Fatal(m.mode)

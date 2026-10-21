@@ -40,7 +40,7 @@ func (r OSRunner) Run(ctx context.Context, dir string, args ...string) ([]byte, 
 		if ctx.Err() != nil {
 			return nil, fmt.Errorf("git 命令未完成：%w", ctx.Err())
 		}
-		return nil, fmt.Errorf("git %s 失败：%w\n%s\n%s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()), strings.TrimSpace(stdout.String()))
+		return stdout.Bytes(), fmt.Errorf("git %s 失败：%w\n%s\n%s", strings.Join(args, " "), err, strings.TrimSpace(stderr.String()), strings.TrimSpace(stdout.String()))
 	}
 	return stdout.Bytes(), nil
 }

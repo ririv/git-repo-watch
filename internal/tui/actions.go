@@ -11,6 +11,16 @@ import (
 
 func actionTitle(a action) string {
 	switch a {
+	case stageSelected:
+		return "读取或暂存文件"
+	case unstageSelected:
+		return "读取或取消暂存文件"
+	case diffSelected:
+		return "查看文件 diff"
+	case commitSelected:
+		return "提交选中仓库的暂存内容"
+	case pushSelected:
+		return "推送选中仓库的当前分支"
 	case search:
 		return "搜索仓库路径"
 	case add:

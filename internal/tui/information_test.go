@@ -22,7 +22,7 @@ func TestRepositoryScreenSeparatesCountsFromPositionAndSchedule(t *testing.T) {
 			t.Fatal(header)
 		}
 		view := m.View().Content
-		if !strings.Contains(view, "全部 3") || !strings.Contains(view, "第 3 项") || strings.Contains(view, "已注册") || strings.Contains(view, "3 / 3") {
+		if !strings.Contains(view, "全部 3") || strings.Contains(view, "第 3 项") || strings.Contains(view, "已注册") || strings.Contains(view, "3 / 3") {
 			t.Fatal(size, view)
 		}
 		if strings.Count(view, "上次检查：") != 1 || strings.Contains(m.footer(), "已读取") {

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"gw/internal/gitcmd"
 	"gw/internal/model"
-	"os"
 	"strings"
 )
 
@@ -33,18 +32,8 @@ func Forward(ctx context.Context, g gitcmd.Runner, path string, target model.Pus
 	if !strings.HasPrefix(target.LocalRef, "refs/heads/") || !strings.HasPrefix(target.RemoteRef, "refs/heads/") || target.Ahead <= 0 {
 		return fail(fmt.Errorf("无效的自动推送目标"))
 	}
-	for _, operation := range []string{"MERGE_HEAD", "CHERRY_PICK_HEAD", "REVERT_HEAD", "rebase-merge", "rebase-apply", "sequencer"} {
-		location, e := gitcmd.Text(ctx, g, path, "rev-parse", "--path-format=absolute", "--git-path", operation)
-		if e != nil {
-			return fail(e)
-		}
-		_, e = os.Stat(location)
-		if e == nil {
-			return fail(fmt.Errorf("仓库存在未完成的 Git 操作：%s，取消自动推送", operation))
-		}
-		if !os.IsNotExist(e) {
-			return fail(e)
-		}
+	if e := gitcmd.RequireIdle(ctx, g, path); e != nil {
+		return fail(e)
 	}
 	headers, e := gitcmd.Text(ctx, g, path, "status", "--porcelain=v2", "--branch", "--untracked-files=no")
 	if e != nil {
@@ -52,13 +41,6 @@ func Forward(ctx context.Context, g gitcmd.Runner, path string, target model.Pus
 	}
 	if strings.Contains("\n"+headers+"\n", "\n# branch.head (detached)\n") {
 		return fail(fmt.Errorf("HEAD 处于游离状态，取消自动推送"))
-	}
-	conflicts, e := gitcmd.Text(ctx, g, path, "ls-files", "--unmerged", "-z")
-	if e != nil {
-		return fail(e)
-	}
-	if conflicts != "" {
-		return fail(fmt.Errorf("仓库存在未解决的冲突，取消自动推送"))
 	}
 	fetch, e := gitcmd.Text(ctx, g, path, "remote", "get-url", "--all", target.Remote)
 	if e != nil {

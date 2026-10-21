@@ -62,9 +62,9 @@ func (m *screen) table(width, height int) string {
 	if height >= 7 {
 		lines = append(lines, muted.Render(strings.Repeat("─", width)))
 	}
-	footerHeight := 1
+	footerHeight := 0
 	if height >= 8 && !m.splitView() {
-		footerHeight = 2
+		footerHeight = 1
 	}
 	rows := m.rows()
 	capacity := max(1, height-len(lines)-footerHeight)
@@ -94,16 +94,7 @@ func (m *screen) table(width, height int) string {
 	for len(lines) < height-footerHeight {
 		lines = append(lines, "")
 	}
-	position := 0
-	if len(rows) > 0 {
-		position = m.selected + 1
-	}
-	positionText := ""
-	if position > 0 {
-		positionText = fmt.Sprintf("第 %d 项", position)
-	}
-	lines = append(lines, muted.Render(positionText))
-	if footerHeight == 2 && !m.splitView() {
+	if footerHeight == 1 {
 		if r, ok := m.selection(); ok {
 			lines = append(lines, muted.Render(ansi.Truncate(safe(r.Path), width, "…")))
 		}

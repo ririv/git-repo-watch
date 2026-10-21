@@ -31,7 +31,11 @@ var settingsItems = []menuItem{
 }
 
 func (m *screen) menuItems() []menuItem {
-	items := []menuItem{{check, "c", "立即检查", "检查所有注册仓库，按当前策略自动推送。"}}
+	items := []menuItem{}
+	if _, ok := m.selection(); ok {
+		items = append(items, menuItem{commitSelected, "C", "提交选中仓库", "仅提交已暂存内容；先查看文件并输入说明。"}, menuItem{pushSelected, "P", "推送选中仓库", "仅推送当前分支；先核对已配置的远程上游。"})
+	}
+	items = append(items, menuItem{check, "c", "检查所有仓库", "检查所有注册仓库，按当前策略自动推送。"})
 	items = append(items, settingsItems...)
 	if _, ok := m.selection(); ok {
 		items = append(items, menuItem{remove, "d", "移除选中仓库", "仅移除注册项，保留磁盘文件。"})
@@ -40,6 +44,8 @@ func (m *screen) menuItems() []menuItem {
 }
 func (m *screen) activate(a action) tea.Cmd {
 	switch a {
+	case commitSelected, pushSelected:
+		return m.prepareRepository(a)
 	case check, applySchedule:
 		m.mode = confirming{a, ""}
 		return nil
@@ -78,7 +84,7 @@ func (m *screen) menuView(selected int) string {
 		}
 		lines = append(lines, line)
 	}
-	lines = append(lines, "", muted.Render(fmt.Sprintf("第 %d 项", selected+1)))
+
 	return frame("操作菜单", strings.Join(lines, "\n"), m.width-2, height)
 }
 func (m *screen) settingsMenuView() string {
