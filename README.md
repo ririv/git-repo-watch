@@ -1,12 +1,12 @@
 # gw
 
-macOS 上的 Git 仓库管理与系统定时检查工具，使用 Go 标准库实现。原生可执行文件不依赖 Python 或目标机器上的 Go 环境。Git、SSH、通知中心和 launchd 使用系统能力。
+macOS 上的 Git 仓库管理与系统定时检查工具，使用 Go 实现，TUI 采用 Bubble Tea，业务模块使用标准库。原生可执行文件不依赖 Python 或目标机器上的 Go 环境。Git、SSH、通知中心和 launchd 使用系统能力。
 
 默认 `gw` 查询上次完整报告；显式 `gw check` 或系统定时任务执行检查与配置的自动推送。每次检查完成后进程退出，不常驻。
 
 ## 安装
 
-从源码构建需要 Go 1.23 或更新版本，以及 macOS 提供的 Git、SSH、osascript、launchctl 和 plutil。运行已经构建的程序不需要 Go 编译器。
+从源码构建需要 Go 1.26 或更新版本，以及 macOS 提供的 Git、SSH、osascript、launchctl 和 plutil。运行已经构建的程序不需要 Go 编译器。
 
 ```sh
 cd /path/to/gw
@@ -34,6 +34,7 @@ gw autopush fast_forward
 ## 日常命令
 
 ```sh
+gw tui                          # 打开交互界面，不自动检查
 gw                              # 默认状态查询
 gw status --json                # 机器可读状态
 gw report                       # 最近完整报告
@@ -68,6 +69,20 @@ gw --help
 ```
 
 不传 `--home` 时，程序只使用安装时保存的定位文件，不猜测当前目录。查询命令不会调用 Git、扫描仓库、访问远程或自动生成新报告。缺少报告会明确提示；损坏的报告会报错。
+
+## 交互界面
+
+运行 `gw tui` 打开全屏界面；默认 `gw` 仍是普通状态查询。需要至少 60 列 × 18 行的交互式终端，退出时恢复终端。重定向输入输出时会明确报错，可使用现有 JSON 查询命令。
+
+- 仓库页：方向键或 `j/k` 选择，`Enter` 查看问题、无上游分支、推送与通知详情；`PgUp/PgDn` 翻页，`/` 按路径搜索。
+- `1` 全部、`2` 问题、`3` 无上游、`4` 推送记录。列表只展示当前注册仓库，未出现在上次报告中的仓库标为“未检查”。
+- `Tab` 切换设置页，查看频率、自动推送策略和排除目录；`?` 打开可滚动帮助，`Esc` 返回仓库页。
+- 设置页 `a` 添加、`x` 排除、`u` 取消排除、`s` 扫描预览、`i` 扫描并导入；路径需显式输入绝对路径。
+- `t` 修改频率，`p` 修改推送策略，`l` 应用系统调度。所有写入操作先显示操作内容，按 `y` 执行，`n/Esc` 取消。
+- `r` 只刷新本机配置和已有报告。`c` 显式执行检查，确认页展示当前自动推送策略。运行时显示逐仓库进度，`Esc/Ctrl+C` 取消并等待子进程退出。
+- 空闲时 `q/Ctrl+C` 退出。耗时操作期间等待完成或取消后再退出。
+
+进入界面不会访问远程、扫描或推送；定时任务独立运行，按 `r` 读取最新结果。操作失败会保留错误信息；取消检查保留上次完整报告。未来扩展交互继续复用应用层接口，TUI 不自行调用 Git。
 
 ## 仓库发现
 
@@ -166,8 +181,9 @@ gw uninstall
 | `internal/scheduler` | 原生安装、定位文件与 launchd |
 | `internal/app` | UI 无关的应用用例、统计、筛选和事件 |
 | `internal/cli` | 参数解析、文本与 JSON 展示 |
+| `internal/tui` | 终端交互状态、操作适配、列表与详情视图 |
 
-未来 TUI 直接复用 `app.Service` 的 `Snapshot`、`Report`、`Scan`、`Add`、`Exclude`、`Interval`、`Policy` 和 `Run`。`Run` 接收 context，并输出 `Checking`、`Checked`、`NotificationProblem` 类型化事件。核心层不依赖终端、按键或视图框架。
+TUI 通过可替换的 `Backend` 接口直接复用 `app.Service` 的 `Snapshot`、`Report`、`Scan`、`Add`、`Exclude`、`Interval`、`Policy` 和 `Run`。`Run` 接收 context，并输出 `Checking`、`Checked`、`NotificationProblem` 类型化事件。核心层不依赖终端、按键或视图框架。输入、确认、执行、取消通过互斥交互类型建模。
 
 领域状态采用封闭接口与不同具体类型，需关注结果构造时必须提供首个问题。可选 JSON 字段只用于兼容既有序列化边界，不参与领域状态机建模。
 

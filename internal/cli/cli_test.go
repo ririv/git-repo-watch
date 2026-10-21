@@ -168,3 +168,16 @@ func TestHelpWithoutInstallation(t *testing.T) {
 		t.Fatal(code, out.String(), err.String())
 	}
 }
+
+func TestTUIRejectsNonInteractiveOutputWithoutChecking(t *testing.T) {
+	s := service(t)
+	i := &installer{}
+	code, _, err := invoke(s, i, "tui")
+	if code != 2 || !strings.Contains(err, "交互式终端") || i.calls != 0 {
+		t.Fatal(code, err, i.calls)
+	}
+	code, _, err = invoke(s, i, "tui", "unexpected")
+	if code != 2 || !strings.Contains(err, "不接受位置参数") {
+		t.Fatal(code, err)
+	}
+}

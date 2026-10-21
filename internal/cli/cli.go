@@ -12,11 +12,10 @@ import (
 	"gw/internal/model"
 	"gw/internal/scheduler"
 	"gw/internal/state"
+	"gw/internal/tui"
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 )
 
 const Help = `gw：Git 仓库状态查询与配置管理
@@ -24,6 +23,7 @@ const Help = `gw：Git 仓库状态查询与配置管理
 用法：gw [--home 绝对路径] [命令]
 不传命令时只查看状态；实际检查和自动推送需显式 check 或系统定时触发。
 
+  tui                              打开交互界面，不自动检查
   status [--json]                  查看任务、配置和上次结果
   report [--json] [筛选]            读取完整报告
     --problems                     只看需关注或检查失败
@@ -52,28 +52,7 @@ func encode(w io.Writer, value any) error {
 	return encoder.Encode(value)
 }
 
-var durationPattern = regexp.MustCompile(`^([1-9][0-9]*)([smhd]?)$`)
-
-func ParseInterval(value string) (int, error) {
-	match := durationPattern.FindStringSubmatch(value)
-	if match == nil {
-		return 0, fmt.Errorf("频率格式应为 6h、30m、1d 或整数秒")
-	}
-	n, e := strconv.ParseInt(match[1], 10, 64)
-	if e != nil {
-		return 0, e
-	}
-	scale := map[string]int64{"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}[match[2]]
-	limit := int64(^uint(0) >> 1)
-	if n > limit/scale {
-		return 0, fmt.Errorf("检查间隔过大")
-	}
-	seconds := int(n * scale)
-	if seconds < 60 {
-		return 0, fmt.Errorf("检查间隔至少为 60 秒")
-	}
-	return seconds, nil
-}
+func ParseInterval(value string) (int, error) { return app.ParseInterval(value) }
 
 type filterFlag struct {
 	selected *app.Filter
@@ -170,6 +149,18 @@ func run(ctx context.Context, s *app.Service, installer Installer, source, comma
 		return nil
 	}
 	switch command {
+	case "tui":
+		if e := none(); e != nil {
+			return 2, e
+		}
+		apply := func(ctx context.Context) error {
+			c, e := s.Config()
+			if e != nil {
+				return e
+			}
+			return installer.Install(ctx, s.Store.Home, source, c.Interval)
+		}
+		return 0, tui.Run(ctx, s, apply, os.Stdin, out)
 	case "status", "report":
 		flags := flag.NewFlagSet(command, flag.ContinueOnError)
 		flags.SetOutput(errOut)

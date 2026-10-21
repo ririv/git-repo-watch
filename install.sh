@@ -3,7 +3,7 @@ set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 cd "$ROOT"
 if ! command -v go >/dev/null 2>&1; then
-    echo '请先安装 Go 1.23 或更高版本。' >&2
+    echo '请先安装 Go 1.26 或更高版本。' >&2
     exit 2
 fi
 if [ ! -f config.json ]; then

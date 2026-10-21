@@ -2,6 +2,7 @@
 config.json
 var/
 work/
+.gw-*
 
 # 构建产物与缓存
 __pycache__/
