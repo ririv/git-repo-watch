@@ -33,7 +33,13 @@ func frame(title, content string, width, height int) string {
 func (m *screen) filtersView() string {
 	parts := []string{}
 	for i, f := range []app.Filter{app.All, app.Problems, app.WithoutUpstream, app.Pushes} {
-		title := fmt.Sprintf(" %d %s ", i+1, filterName(f))
+		label := filterName(f)
+		if f == app.All {
+			label += fmt.Sprintf(" %d", len(m.config.Repositories))
+		} else if f == m.filter {
+			label += fmt.Sprintf(" %d库", len(m.rows()))
+		}
+		title := fmt.Sprintf(" %d %s ", i+1, label)
 		if m.filter == f {
 			title = selectedStyle.Bold(true).Render(title)
 		} else {
@@ -41,14 +47,11 @@ func (m *screen) filtersView() string {
 		}
 		parts = append(parts, title)
 	}
-	order := "问题优先"
-	if m.order == pathOrder {
-		order = "路径顺序"
-	}
-	text := strings.Join(parts, " ") + "  " + muted.Render("o "+order)
+	text := strings.Join(parts, " ")
 	if query := m.searchQuery(); query != "" {
-		text += "  / " + safe(query)
+		text += fmt.Sprintf("  / %s · 匹配 %d", safe(query), len(m.rows()))
 	}
+
 	return ansi.Truncate(text, m.width-2, "…")
 }
 func (m *screen) table(width, height int) string {
@@ -60,7 +63,7 @@ func (m *screen) table(width, height int) string {
 		lines = append(lines, muted.Render(strings.Repeat("─", width)))
 	}
 	footerHeight := 1
-	if height >= 8 {
+	if height >= 8 && !m.splitView() {
 		footerHeight = 2
 	}
 	rows := m.rows()
@@ -95,8 +98,12 @@ func (m *screen) table(width, height int) string {
 	if len(rows) > 0 {
 		position = m.selected + 1
 	}
-	lines = append(lines, muted.Render(fmt.Sprintf("%d / %d · 已注册 %d", position, len(rows), len(m.config.Repositories))))
-	if footerHeight == 2 {
+	positionText := ""
+	if position > 0 {
+		positionText = fmt.Sprintf("第 %d 项", position)
+	}
+	lines = append(lines, muted.Render(positionText))
+	if footerHeight == 2 && !m.splitView() {
 		if r, ok := m.selection(); ok {
 			lines = append(lines, muted.Render(ansi.Truncate(safe(r.Path), width, "…")))
 		}
@@ -109,14 +116,14 @@ func (m *screen) listView() string {
 	width := m.width - 2
 	legend := muted.Render(ansi.Truncate("* 工作区改动 · ? 未知 · ↑/! 推送成功/失败分支数", width, "…"))
 	if !m.splitView() {
-		return m.filtersView() + "\n" + legend + "\n" + frame("仓库 · Enter 详情", m.table(width-2, height-2), width, height)
+		return m.filtersView() + "\n" + legend + "\n" + frame("列表 · "+m.orderName(), m.table(width-2, height-2), width, height)
 	}
 	leftWidth := (width - 1) * 55 / 100
 	rightWidth := width - leftWidth - 1
-	left := frame("仓库", m.table(leftWidth-2, height-2), leftWidth, height)
+	left := frame("列表 · "+m.orderName(), m.table(leftWidth-2, height-2), leftWidth, height)
 	preview := viewport.New(viewport.WithWidth(max(1, rightWidth-4)), viewport.WithHeight(max(1, height-4)))
 	preview.SoftWrap = true
 	preview.SetContent(m.detailContent())
-	right := frame("选中仓库 · Enter 展开", preview.View(), rightWidth, height)
+	right := frame("选中仓库", preview.View(), rightWidth, height)
 	return m.filtersView() + "\n" + legend + "\n" + lipgloss.JoinHorizontal(lipgloss.Top, left, " ", right)
 }

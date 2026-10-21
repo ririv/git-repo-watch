@@ -6,6 +6,8 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/charmbracelet/x/ansi"
+	"gw/internal/scheduler"
+	"gw/internal/state"
 )
 
 type choosing struct{ selected int }
@@ -76,8 +78,8 @@ func (m *screen) menuView(selected int) string {
 		}
 		lines = append(lines, line)
 	}
-	lines = append(lines, "", muted.Render(fmt.Sprintf("%d / %d · %s", selected+1, len(items), items[selected].description)))
-	return frame("操作菜单 · 仅包含 gw 的检查与配置操作", strings.Join(lines, "\n"), m.width-2, height)
+	lines = append(lines, "", muted.Render(fmt.Sprintf("第 %d 项", selected+1)))
+	return frame("操作菜单", strings.Join(lines, "\n"), m.width-2, height)
 }
 func (m *screen) settingsMenuView() string {
 	lines := []string{accent.Render("检查与推送"), ""}
@@ -99,13 +101,24 @@ func (m *screen) settingsMenuView() string {
 		}
 		lines = append(lines, line)
 	}
-	lines = append(lines, "", accent.Render(settingsItems[m.settingSelected].title), settingsItems[m.settingSelected].description, "", accent.Render("排除目录"))
+	registration := "未加载"
+	if m.snapshot.Registration == scheduler.Loaded {
+		registration = "已加载"
+	}
+	activity := "空闲"
+	if m.snapshot.Activity == state.Running {
+		activity = "检查运行中"
+	}
+	lines = append(lines, "", settingsItems[m.settingSelected].description, "", accent.Render("系统任务"), "调度"+registration+" · "+activity)
+	if saved, ok := m.snapshot.Schedule.(scheduler.Saved); ok && saved.Interval != m.config.Interval {
+		lines = append(lines, fmt.Sprintf("已应用间隔 %g 小时，配置尚未应用", float64(saved.Interval)/3600))
+	}
+	lines = append(lines, "", accent.Render("排除目录"))
 	if len(m.config.Excluded) == 0 {
 		lines = append(lines, "无")
 	}
 	for _, path := range m.config.Excluded {
 		lines = append(lines, safe(path))
 	}
-	lines = append(lines, "", "设置修改不会触发检查或推送；l 应用调度后生效。")
 	return strings.Join(lines, "\n")
 }

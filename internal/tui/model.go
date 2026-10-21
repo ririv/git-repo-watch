@@ -227,7 +227,7 @@ func (m *screen) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		m.replaceData(msg.snapshot, msg.config)
-		m.message = "已读取本机配置与已有报告"
+		m.message = ""
 		m.clamp()
 		m.updateContent()
 		return m, nil
