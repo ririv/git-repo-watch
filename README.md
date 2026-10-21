@@ -72,7 +72,8 @@ APP_LANG=en gw status   # 本次以英文查询
   "repositories": [],
   "excluded_roots": [],
   "push_policy": "disabled",
-  "max_concurrency": 4
+  "max_concurrency": 4,
+  "check_on_startup": true
 }
 ```
 
@@ -97,9 +98,11 @@ gw install
 
 除应用调度外，配置命令不会触发检查或推送；取消排除也不会自动导入仓库。
 
+`check_on_startup` 控制每次启动 TUI 后是否后台检查全部注册仓库，默认 `true`，旧配置缺少该字段时也默认开启。通用设置中可编辑，或运行 `gw startup-check false` 关闭；修改只对下次进入 TUI 生效，不要求重新应用系统调度，也不立即检查。没有注册仓库或已有检查正在运行时不会重复发起。启动检查只执行 fetch 和状态比较，不应用定时任务的自动推送策略；`status`、`report` 和配置命令仍只读取或修改配置，不触发启动检查。
+
 ## 终端界面
 
-直接运行 `gw`，或显式运行 `gw tui`。至少需要 60 列 × 18 行的交互式终端；重定向输入输出时明确报错。进入界面只读取配置和已有报告，退出时恢复终端。
+直接运行 `gw`，或显式运行 `gw tui`。至少需要 60 列 × 18 行的交互式终端；重定向输入输出时明确报错。进入界面先显示已有结果，再按“启动时检查全部仓库”设置发起一次后台检查，默认开启；退出时取消本界面发起的检查并恢复终端。
 
 仓库列表每项固定一行，展示工作区和同步状态；同步列合并远程检查与推送结果，失败及待同步优先于成功记录。无上游分支保留在详情与筛选中，不单独占用列表列。默认按失败、需关注、未检查、正常排序；`Alt+O` 切换为路径顺序。宽屏显示选中仓库预览，完整失败原因可在详情中滚动查看。
 
@@ -112,6 +115,7 @@ gw install
 - 鼠标滚轮或触控板在主列表区域滚动，每次移动三项；方向键和翻页保留当前视口；键盘接管后忽略当前滚动序列剩余的同向惯性事件，避免选中项被拉回。
 - `PgUp/PgDn` 翻页，`Tab` 循环切换仓库、通用设置和定时任务，`F1` 帮助，`Ctrl+R` 刷新，`Ctrl+C` 退出。
 - 普通字母、数字和空格用于输入，不再触发单字母快捷操作。
+- `F1` 或 `/help` 打开分组速查页，标题、快捷键、命令和说明使用不同样式；右侧滚动条显示当前位置，可用方向键和 PgUp/PgDn 浏览。
 - 确认时底部显示横向操作选项，左右键或 Tab 切换、Enter 执行、Esc 返回；提交说明与完整参数命令返回编辑时保留。前台操作执行期间输入框显示当前阶段，禁止普通输入；后台检查不锁定输入框；提交说明复用底部输入区域，配置参数直接在命令栏填写。
 
 顶部集中展示当前已知结果摘要和最近整轮检查时间，仓库总数只在“全部”筛选中显示，调度与并发配置分别放在任务管理页和通用设置页。手动文件操作显示当前状态，仓库列表合并历史报告与已完成的检查结果。
@@ -136,7 +140,7 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 | `/check all` | 立即在后台检查全部注册仓库，不推送 |
 | `/refresh` | 重新读取已有报告；文件面板中刷新本地状态 |
 | `/repo` | 仓库管理页；子命令 `add`、`remove`、`exclude`、`unexclude`、`scan`、`import` |
-| `/settings` | 通用设置页；子命令 `concurrency` 配置检查并发数 |
+| `/settings` | 通用设置页；子命令 `concurrency` 配置检查并发数、`startup-check` 配置启动检查 |
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
@@ -148,6 +152,7 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 - `/schedule interval <duration>`，例如 `/schedule interval 6h`。
 - `/schedule autopush <policy>`，取值 `disabled` 或 `fast_forward`。
 - `/settings concurrency <count>`，范围 1 至 32。
+- `/settings startup-check <true|false>`，控制启动时检查全部仓库，默认 `true`。
 
 候选中的参数占位符使用亮青色斜体，与命令名称区分。选中命令按 Enter 或 Tab，只补全名称并追加空格；继续输入参数，Enter 校验并预览确认。参数缺失或错误时保留原输入。确认返回时保留整条命令和光标位置；管理页中的编辑操作也会在原页面下方填入完整命令及当前值。路径使用命令之后的整段文本，可包含空格；可整段使用匹配的单引号或双引号包裹，不执行 Shell、变量展开、通配展开或反斜线转义。`/repo remove` 仍作用于当前选中仓库，不需要路径参数。
 

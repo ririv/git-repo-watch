@@ -23,6 +23,11 @@ pub struct Config {
         skip_serializing_if = "is_default_concurrency"
     )]
     pub max_concurrency: usize,
+    #[serde(default = "default_startup_check")]
+    pub check_on_startup: bool,
+}
+fn default_startup_check() -> bool {
+    true
 }
 fn default_concurrency() -> usize {
     4

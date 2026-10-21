@@ -21,6 +21,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
+            check_on_startup: true,
         })
         .unwrap();
     (temp, store)
@@ -35,7 +36,7 @@ fn cli(store: &Store, args: &[&str]) -> Output {
         .unwrap()
 }
 #[test]
-fn status_and_default_tui_never_check_or_fallback() {
+fn status_and_noninteractive_tui_never_start_checks() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, store) = fixture();
     let out = cli(&store, &["status", "--json"]);
@@ -314,4 +315,30 @@ fn schedule_control_arguments_are_explicit_and_invalid_requests_do_not_write() {
         assert_eq!(cli(&store, args).status.code(), Some(2));
     }
     assert!(store.report().unwrap().is_none());
+}
+
+#[test]
+fn startup_check_preference_is_explicit_persistent_and_does_not_trigger_checks() {
+    let (_home, store) = fixture();
+    for value in ["false", "true"] {
+        let out = cli(&store, &["startup-check", value]);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+        assert_eq!(store.config().unwrap().check_on_startup, value == "true");
+        let status: serde_json::Value =
+            serde_json::from_slice(&cli(&store, &["status", "--json"]).stdout).unwrap();
+        assert_eq!(status["check_on_startup"], value == "true");
+        assert!(store.report().unwrap().is_none());
+    }
+    let before = fs::read(store.home.join("config.json")).unwrap();
+    for value in ["yes", "0", "TRUE"] {
+        assert_eq!(
+            cli(&store, &["startup-check", value]).status.code(),
+            Some(2)
+        );
+        assert_eq!(fs::read(store.home.join("config.json")).unwrap(), before);
+    }
 }

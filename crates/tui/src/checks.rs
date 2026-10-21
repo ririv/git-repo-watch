@@ -133,6 +133,17 @@ impl Screen {
         }
         Ok(())
     }
+    pub(crate) fn check_on_startup(&mut self) {
+        if !self.config.check_on_startup || self.config.repositories.is_empty() {
+            return;
+        }
+        if self.check_task.is_some() || matches!(self.snapshot.activity, service::Activity::Running)
+        {
+            self.message = i18n::tr!(StartupCheckAlreadyRunning).into();
+            return;
+        }
+        self.start_check(CheckTarget::All);
+    }
     pub(crate) fn start_check(&mut self, target: CheckTarget) {
         if self.check_task.is_some() {
             self.message = i18n::tr!(CheckAlreadyRunning).into();

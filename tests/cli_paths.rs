@@ -39,6 +39,7 @@ impl Fixture {
                 excluded_roots: vec![],
                 push_policy: PushPolicy::Disabled,
                 max_concurrency: 4,
+                check_on_startup: true,
             })
             .unwrap();
         Self {

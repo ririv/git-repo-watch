@@ -61,6 +61,7 @@ pub struct Snapshot {
     pub schedule: Schedule,
     pub report: CachedReport,
     pub max_concurrency: usize,
+    pub check_on_startup: bool,
 }
 mod checks;
 mod snapshot;
@@ -90,4 +91,5 @@ pub enum ConfigEdit {
     Interval(u64),
     Policy(PushPolicy),
     Concurrency(usize),
+    StartupCheck(bool),
 }

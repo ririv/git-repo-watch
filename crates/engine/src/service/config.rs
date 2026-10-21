@@ -53,6 +53,7 @@ impl Service {
             ConfigEdit::Interval(value) => config.interval_seconds = value,
             ConfigEdit::Policy(value) => config.push_policy = value,
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
+            ConfigEdit::StartupCheck(value) => config.check_on_startup = value,
         }
         self.store.save_config(&config)
     }

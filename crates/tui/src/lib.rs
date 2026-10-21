@@ -358,6 +358,9 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let result = (|| -> Result<()> {
+        // 先显示上轮结果，再仅在本次启动时发起一次后台检查。
+        terminal.draw(|frame| view::render(frame, &mut screen))?;
+        screen.check_on_startup();
         let mut dirty = true;
         loop {
             if root.is_cancelled() {

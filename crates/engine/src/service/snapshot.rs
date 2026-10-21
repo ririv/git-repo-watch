@@ -36,6 +36,7 @@ impl Service {
             schedule: self.scheduler.schedule(cancel)?,
             report,
             max_concurrency: c.max_concurrency,
+            check_on_startup: c.check_on_startup,
         })
     }
 }

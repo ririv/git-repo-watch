@@ -1,5 +1,7 @@
 mod completion;
+mod help;
 mod navigation;
+mod startup;
 use super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{
@@ -28,6 +30,7 @@ fn screen(service: Service) -> Screen {
             },
             report: CachedReport::Missing,
             max_concurrency: config.max_concurrency,
+            check_on_startup: config.check_on_startup,
         },
         service: Arc::new(service),
         config,
@@ -61,6 +64,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
+            check_on_startup: false,
         })
         .unwrap();
     let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
@@ -1250,7 +1254,7 @@ fn root_commands_hide_children_and_each_group_completes_only_its_own_children() 
             .iter()
             .map(|c| c.name)
             .collect::<Vec<_>>(),
-        ["settings concurrency"]
+        ["settings concurrency", "settings startup-check"]
     );
     assert_eq!(
         command::matches("check ")

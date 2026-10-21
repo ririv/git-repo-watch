@@ -26,6 +26,7 @@ pub enum Action {
     Interval,
     Autopush,
     Concurrency,
+    StartupCheck,
     Apply,
     EnableSchedule,
     DisableSchedule,
@@ -181,6 +182,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::SetCheckConcurrencyLimit132,
     },
     Command {
+        name: "settings startup-check",
+        action: StartupCheck,
+        scope: Global,
+        description: i18n::Message::CheckAllOnStartup,
+    },
+    Command {
         name: "schedule apply",
         action: Apply,
         scope: Global,
@@ -231,7 +238,7 @@ pub enum Configuration {
 impl Configuration {
     pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
         match self {
-            Self::General => &[Concurrency],
+            Self::General => &[Concurrency, StartupCheck],
             Self::Repositories => &[Add, Remove, Exclude, Unexclude, Scan, Import],
             Self::Schedule => match registration {
                 engine::scheduler::Registration::Loaded => {

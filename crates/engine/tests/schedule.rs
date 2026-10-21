@@ -22,6 +22,7 @@ fn fixture() -> (tempfile::TempDir, Service) {
             excluded_roots: vec![],
             push_policy: engine::domain::PushPolicy::Disabled,
             max_concurrency: 4,
+            check_on_startup: true,
         })
         .unwrap();
     (temp, service)

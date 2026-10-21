@@ -27,6 +27,7 @@ impl Screen {
                     | Action::Interval
                     | Action::Autopush
                     | Action::Concurrency
+                    | Action::StartupCheck
                     | Action::Apply
                     | Action::EnableSchedule
                     | Action::DisableSchedule
@@ -162,6 +163,7 @@ impl Screen {
                     Action::Interval => format!("{}s", self.config.interval_seconds),
                     Action::Autopush => self.config.push_policy.to_string(),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
+                    Action::StartupCheck => self.config.check_on_startup.to_string(),
                     _ => String::new(),
                 };
                 let argument = action.argument().expect("parameter action");
@@ -341,6 +343,10 @@ impl Screen {
                             Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
                             Parameter::Concurrency => {
                                 save(ConfigEdit::Concurrency(value.parse()?))?
+                            }
+                            Parameter::StartupCheck => {
+                                s.configure(ConfigEdit::StartupCheck(value.parse()?))?;
+                                i18n::tr!(StartupCheckSavedNextLaunch).into()
                             }
                         };
                         Ok(Outcome::Text(message))

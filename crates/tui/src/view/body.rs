@@ -152,13 +152,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             }
             Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),
             Page::Configuration(section) => settings(frame, screen, area, section),
-            Page::Help => text_view(
-                frame,
-                area,
-                HELP.text(),
-                &mut screen.scroll,
-                i18n::tr!(Instructions),
-            ),
+            Page::Help => help::render(frame, area, &mut screen.scroll),
         },
     }
 }

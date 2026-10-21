@@ -2,6 +2,12 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    CheckAllOnStartup,
+    StartupCheckArgumentHint,
+    BooleanArgumentRequired,
+    StartupCheckSavedNextLaunch,
+    StartupCheckAlreadyRunning,
+    StartupCheckStatus,
     PathArgumentHint,
     UnsupportedNamedHome,
     ExpandedPathNotUtf8,
@@ -589,7 +595,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI without checking\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -599,7 +605,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，不自动检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -1766,6 +1772,30 @@ impl Message {
             }
             (Self::ExpandedPathNotUtf8, Language::English) => "Expanded path is not UTF-8 text",
             (Self::ExpandedPathNotUtf8, Language::Chinese) => "展开后的路径不是 UTF-8 文本",
+            (Self::CheckAllOnStartup, Language::English) => "Check all repositories on startup",
+            (Self::CheckAllOnStartup, Language::Chinese) => "启动时检查全部仓库",
+            (Self::StartupCheckArgumentHint, Language::English) => {
+                "true / false · Next launch · Enter review · Esc clear"
+            }
+            (Self::StartupCheckArgumentHint, Language::Chinese) => {
+                "true / false · 下次启动生效 · Enter 预览 · Esc 清空"
+            }
+            (Self::BooleanArgumentRequired, Language::English) => "Expected true or false",
+            (Self::BooleanArgumentRequired, Language::Chinese) => "请输入 true 或 false",
+            (Self::StartupCheckSavedNextLaunch, Language::English) => {
+                "Startup check preference saved; takes effect on the next TUI launch"
+            }
+            (Self::StartupCheckSavedNextLaunch, Language::Chinese) => {
+                "启动检查设置已保存，下次进入 TUI 时生效"
+            }
+            (Self::StartupCheckAlreadyRunning, Language::English) => {
+                "A check is already running; startup check was not duplicated"
+            }
+            (Self::StartupCheckAlreadyRunning, Language::Chinese) => {
+                "已有检查正在运行，未重复启动检查"
+            }
+            (Self::StartupCheckStatus, Language::English) => "Check all on TUI startup: {}\n",
+            (Self::StartupCheckStatus, Language::Chinese) => "TUI 启动时检查全部：{}\n",
             (Self::PathArgumentHint, Language::English) => {
                 "Tab directories · Enter review · Esc clear"
             }
@@ -1884,16 +1914,8 @@ impl Message {
             (Self::NoRepositorySelected, Language::Chinese) => "未选择仓库",
             (Self::NoMatchingCommands, Language::English) => "No matching commands",
             (Self::NoMatchingCommands, Language::Chinese) => "没有匹配命令",
-            (Self::TuiHelp, Language::English) => {
-                concat!(
-                    "Persistent input\nType to search repositories, or files in the file panel.\nType / to show command candidates; input is always active.\nCandidates span the full width above input; list and input positions stay fixed.\nWhen searching: ↑↓ selects, Enter opens repository details or file diff.\nIn commands: ↑↓ selects a candidate, Tab completes, Enter runs the selected command.\nEsc clears input; with empty input, Esc returns to the previous page.\nWith empty input, → opens the selected item and ← goes back. With text, ←→ moves the cursor.\nCtrl+U clears text before the cursor; Ctrl+A/E moves to the start/end.\nIn the file panel, Ctrl+A selects all visible files.\n\nNavigation\n↑↓ selects; PgUp/PgDn pages; wheel scrolls three rows in the repository list.\nTab cycles repositories, general settings and the scheduled task.\nCtrl+F cycles All, Problems, No upstream and Pushes.\nAlt+O switches priority/path order; F1 opens help.\nCtrl+R refreshes the view; Ctrl+C exits.\nLetters, numbers and spaces are input, not single-letter shortcuts.\n\nCommands\n/stage opens worktree files; /unstage opens the index.\nFiles: Space marks with empty input; Insert always marks; Ctrl+A marks visible files.\nTab switches areas; Enter shows diff. Filtering retains hidden selections.\nIn files, /stage and /unstage act on marked files, or the cursor file if none are marked.\nUnstaging retains worktree contents; Git-ignored files are not listed.\n/commit reviews staged contents, takes a message and confirms; hooks and signing are preserved.\n/push fetches and validates upstream; confirmation pushes only the reviewed branch snapshot.\n/check checks the selected repository; /check all checks all repositories. Neither requires confirmation or pushes.\nChecks run in the background; browse, search and view files while they run.\nA spinner marks active checks. Finished rows update; other rows retain previous results.\n/cancel cancels the background check. Writes and configuration changes wait until it stops.\n/refresh reloads report or files; /help shows help; /quit exits.\n/repo opens repository management; subcommands: add, remove, exclude, unexclude, scan, import.\n/settings opens general settings; /settings concurrency changes concurrency.\n/schedule opens task management: status, pending interval, configuration and enable/disable. Subcommands: interval, autopush, apply, enable, disable.\nThe root menu shows only top-level commands. Select a command and press Enter to open it. Type a space after a command to complete its children.\n/check all is a child of /check. Scanning follows Git ignore rules.\n/terminal opens the system default terminal in the selected repository. Type /te then Tab to complete.\nParameter syntax: /repo add|exclude|unexclude|scan|import <path>, /schedule interval <duration>, /schedule autopush <policy>, /settings concurrency <count>.\nSelect a parameter command to complete its name and keep typing its value; no separate form opens.\nA path is the entire remaining text, optionally enclosed in matching single/double quotes. No shell expansion or escape processing occurs.\nCommand scope is fixed when / is entered. The bar does not execute a shell.\n\nConfirmation\nConfirmation uses horizontal actions: Left/Right or Tab selects, Enter confirms, Esc returns. Returning from commit or configuration confirmation preserves input.\nCommit messages use the bottom input. Parameter commands stay in the command bar; confirmation/running states lock input.\nEsc/Ctrl+C cancels operations and waits for workers and Git processes to stop.\nOpening the TUI does not check, scan or push. Exiting restores the terminal.\n\nStatus legend\n✓ clean, ! attention, × check failed, · unchecked.\n*Changes includes uncommitted/untracked files and submodule changes.\nThe repository list uses the last report; the file panel reads current state explicitly.\nNo-upstream branches are counted separately, are not problems and are never published automatically.\nSync combines remote checks and push results; failures and pending changes take priority. Push counts refer to branches. ? means unknown.\nFull errors appear in preview/details. Manual operations do not overwrite historical reports.\n\nLanguage\nSystem Chinese uses Chinese; all other languages use English.\nSet APP_LANG=en or APP_LANG=zh before starting ",
-                    identity::command!(),
-                    " to override.\n"
-                )
-            }
-            (Self::TuiHelp, Language::Chinese) => {
-                "常驻输入框\n直接打字搜索仓库；文件面板中搜索文件。\n输入 / 显示命令候选，不需要先激活输入框。\n命令候选在输入框上方以全宽面板显示，仓库列表与输入框位置保持稳定。\n搜索时 ↑↓ 操作列表，Enter 查看选中仓库或文件差异。\n命令时 ↑↓ 选择候选，Tab 补全，Enter 执行选中命令。\nEsc 清空输入；输入为空时 Esc 返回上一页。\n输入为空时 → 进入选中项，← 返回；有文字时 ←→ 移动光标。\nCtrl+U 清空光标前的文字，Ctrl+A/E 跳到开头或末尾。\n文件面板中 Ctrl+A 用于全选当前可见文件。\n\n仓库导航\n↑↓ 选择，PgUp/PgDn 翻页；主列表内滚轮每次滚动三项。\nTab 循环切换仓库、通用设置和定时任务。\nCtrl+F 循环切换全部、问题、无上游、推送。\nAlt+O 切换问题优先和路径顺序；F1 打开帮助。\nCtrl+R 刷新当前视图；Ctrl+C 退出。\n普通字母、数字和空格用于输入，不触发单字母快捷操作。\n\n命令\n/stage 打开工作区，/unstage 打开暂存区。\n文件面板：空输入时 Space 勾选，Insert 始终勾选，Ctrl+A 全选可见项。\nTab 切换区域，Enter 查看 diff；筛选隐藏文件时保留已勾选项。\n在文件面板执行 /stage 或 /unstage 操作勾选项；未勾选时操作光标项。\n取消暂存保留工作区内容；Git 忽略的文件不列出。\n/commit 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。\n/push 获取当前远程并核验上游，确认后仅推送当前分支快照。\n/check 检查当前仓库，/check all 检查全部仓库；直接开始，不确认、不推送。\n检查在后台运行，可继续浏览、搜索和查看文件。\n正在检查的仓库显示旋转标记，完成后逐项更新，未完成的保留上轮状态。\n/cancel 取消后台检查；检查期间暂不能写入仓库或修改配置。\n/refresh 刷新报告或文件列表，/help 帮助，/quit 退出。\n/repo 打开仓库管理，子命令为 add、remove、exclude、unexclude、scan、import。\n/settings 打开通用设置，/settings concurrency 修改并发数。\n/schedule 打开独立任务管理页，查看状态和待应用间隔、修改配置并启停任务；保留 interval、autopush、apply、enable、disable 子命令。\n根菜单只显示顶层命令；选中后 Enter 直接进入。命令后输入空格，再补全其子命令。\n/check all 是 /check 的子命令；扫描遵守 Git 忽略规则。\n/terminal 在当前仓库打开系统默认终端，输入 /te 后按 Tab 补全。\n参数语法：/repo add|exclude|unexclude|scan|import <path>、/schedule interval <duration>、/schedule autopush <policy>、/settings concurrency <count>。\n选中带参数命令后补全名称，继续填写参数，不打开单独表单。\n路径使用命令之后的整段文本，可包含空格，也可整段加匹配的单／双引号；不做 Shell 展开或转义处理。\n命令范围在输入前缀 / 时固定，命令栏不执行 Shell。\n\n操作确认\n确认操作使用横向选项：左右键或 Tab 切换，Enter 执行，Esc 返回；提交和配置确认返回时保留输入。\n提交说明使用底部输入框；带参数命令始终在命令栏填写，确认或执行期间禁止普通输入。\n耗时操作 Esc/Ctrl+C 取消，等待线程与 Git 子进程收尾。\n进入界面不会检查、扫描或推送；退出恢复终端。\n\n状态图例\n✓ 正常，! 需关注，× 检查失败，· 未检查。\n工作区 *改动 包括未提交、未跟踪和子模块改动。\n列表来自上次报告；文件面板为显式读取的当前状态。\n无上游分支单独统计，不作为问题，也不会自动发布。\n同步列合并远程检查与推送结果，优先显示失败和待同步；推送数量为分支数，? 表示未知。\n完整失败原因在预览和详情中查看，手动操作不改写历史检查报告。\n"
-            }
+            (Self::TuiHelp, Language::English) => include_str!("help/en.txt"),
+            (Self::TuiHelp, Language::Chinese) => include_str!("help/zh.txt"),
             (Self::Repos, Language::English) => " {} repos",
             (Self::Repos, Language::Chinese) => " {}库",
             (Self::Search, Language::English) => " Search: {}",
@@ -2218,6 +2240,10 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (StartupCheckStatus $(, $($args:tt)*)?) => { match $crate::language() {
+        $crate::Language::English => format!("Check all on TUI startup: {}\n" $(, $($args)*)?),
+        $crate::Language::Chinese => format!("TUI 启动时检查全部：{}\n" $(, $($args)*)?),
+    } };
     (ReadCompletionDirectory $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Cannot read directory: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("无法读取目录：{}" $(, $($args)*)?), } };
     (MissingCommandArgument $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Required argument: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("请填写参数：{}" $(, $($args)*)?), } };
     (IntervalPending $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Pending · system: {}h" $(, $($args)*)?), $crate::Language::Chinese => format!("待应用 · 系统仍为 {} 小时" $(, $($args)*)?), } };

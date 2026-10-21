@@ -12,6 +12,12 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
             }
             Action::Autopush => screen.config.push_policy.to_string(),
             Action::Concurrency => screen.config.max_concurrency.to_string(),
+            Action::StartupCheck => if screen.config.check_on_startup {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
             Action::Remove => screen
                 .selected_path()
                 .map(|path| name(&path))

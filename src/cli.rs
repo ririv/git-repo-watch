@@ -145,7 +145,8 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
-        "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency" => {
+        "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency"
+        | "startup-check" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
                 "remove" => {
@@ -160,10 +161,24 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 "interval" => ConfigEdit::Interval(state::interval(value)?),
                 "autopush" => ConfigEdit::Policy(value.parse()?),
                 "concurrency" => ConfigEdit::Concurrency(value.parse()?),
+                "startup-check" => {
+                    ensure!(
+                        matches!(value, "true" | "false"),
+                        i18n::tr!(BooleanArgumentRequired)
+                    );
+                    ConfigEdit::StartupCheck(value.parse()?)
+                }
                 _ => unreachable!(),
             };
             service.configure(edit)?;
-            println!("{}", i18n::tr!(ConfigurationSavedApplySchedule));
+            println!(
+                "{}",
+                if command == "startup-check" {
+                    i18n::tr!(StartupCheckSavedNextLaunch)
+                } else {
+                    i18n::tr!(ConfigurationSavedApplySchedule)
+                }
+            );
             Ok(0)
         }
         "scan" | "import-tree" => {
@@ -339,6 +354,14 @@ pub fn render_status(s: &Snapshot) -> String {
         s.max_concurrency,
         s.push_policy
     );
+    text.push_str(&i18n::tf!(
+        StartupCheckStatus,
+        if s.check_on_startup {
+            i18n::tr!(TaskEnabled)
+        } else {
+            i18n::tr!(TaskDisabled)
+        }
+    ));
     match s.schedule {
         Schedule::Missing => text.push_str(i18n::tr!(SystemScheduleFileMissing)),
         Schedule::Saved { interval_seconds } => {

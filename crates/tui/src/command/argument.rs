@@ -11,6 +11,7 @@ pub enum ArgumentAction {
     Interval,
     Autopush,
     Concurrency,
+    StartupCheck,
 }
 impl ArgumentAction {
     pub fn is_path(self) -> bool {
@@ -29,6 +30,7 @@ impl ArgumentAction {
             Self::Interval => Action::Interval,
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
+            Self::StartupCheck => Action::StartupCheck,
         }
     }
     pub fn command(self) -> &'static Command {
@@ -43,6 +45,7 @@ impl ArgumentAction {
             Self::Interval => "<duration>",
             Self::Autopush => "<policy>",
             Self::Concurrency => "<count>",
+            Self::StartupCheck => "<true|false>",
         }
     }
     pub fn hint(self) -> &'static str {
@@ -53,6 +56,7 @@ impl ArgumentAction {
             Self::Interval => i18n::tr!(DurationArgumentHint),
             Self::Autopush => i18n::tr!(PolicyArgumentHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
+            Self::StartupCheck => i18n::tr!(StartupCheckArgumentHint),
         }
     }
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
@@ -88,6 +92,13 @@ impl ArgumentAction {
                 value.parse::<engine::domain::PushPolicy>()?;
                 Ok(value.into())
             }
+            Self::StartupCheck => {
+                ensure!(
+                    matches!(value, "true" | "false"),
+                    i18n::tr!(BooleanArgumentRequired)
+                );
+                Ok(value.into())
+            }
             Self::Concurrency => {
                 let count = value.parse::<usize>()?;
                 ensure!(
@@ -110,6 +121,7 @@ impl Action {
             Self::Interval => Some(ArgumentAction::Interval),
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
+            Self::StartupCheck => Some(ArgumentAction::StartupCheck),
             _ => None,
         }
     }

@@ -136,6 +136,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
             max_concurrency: 2,
+            check_on_startup: true,
         })
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
@@ -237,6 +238,7 @@ fn independent_repositories_overlap_real_fetches() {
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
             max_concurrency: 2,
+            check_on_startup: true,
         })
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
@@ -266,6 +268,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             excluded_roots: vec![],
             push_policy: PushPolicy::FastForward,
             max_concurrency: 4,
+            check_on_startup: true,
         })
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
@@ -355,6 +358,7 @@ fn file_reads_remain_available_while_check_lock_blocks_repository_writes() {
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
+            check_on_startup: true,
         })
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
@@ -388,6 +392,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
             excluded_roots: vec![],
             push_policy: PushPolicy::FastForward,
             max_concurrency: 4,
+            check_on_startup: true,
         })
         .unwrap();
     {

@@ -13,7 +13,7 @@ use std::{
     time::{Duration, Instant},
 };
 #[test]
-fn legacy_config_keeps_its_shape_and_explicit_concurrency_validates() {
+fn legacy_config_defaults_and_explicit_preferences_survive_roundtrips() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let store = Store {
@@ -23,11 +23,14 @@ fn legacy_config_keeps_its_shape_and_explicit_concurrency_validates() {
     fs::write(store.home.join("config.json"), old).unwrap();
     let mut config = store.config().unwrap();
     assert_eq!(config.max_concurrency, 4);
+    assert!(config.check_on_startup);
     let serialized = serde_json::to_value(&config).unwrap();
     assert!(serialized.get("max_concurrency").is_none());
     config.max_concurrency = 2;
+    config.check_on_startup = false;
     store.save_config(&config).unwrap();
     assert_eq!(store.config().unwrap().max_concurrency, 2);
+    assert!(!store.config().unwrap().check_on_startup);
     let permissions = fs::metadata(store.home.join("config.json"))
         .unwrap()
         .permissions()
@@ -106,6 +109,7 @@ fn intervals_and_schema_boundaries() {
         excluded_roots: vec![],
         push_policy: PushPolicy::Disabled,
         max_concurrency: 32,
+        check_on_startup: true,
     };
     assert!(c.validate().is_ok());
 }

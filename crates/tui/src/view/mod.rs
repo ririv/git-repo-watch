@@ -15,7 +15,6 @@ use engine::{
     scheduler::{Registration, Schedule},
     service::{Activity, CachedReport, Scope},
 };
-use help::HELP;
 use ratatui::{
     Frame,
     layout::{Constraint, Direction, Layout, Rect},
