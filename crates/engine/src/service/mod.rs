@@ -67,6 +67,7 @@ mod snapshot;
 pub use checks::{Groups, group};
 mod config;
 mod repository;
+mod schedule;
 impl Service {
     pub fn new(home: PathBuf, scheduler: Manager) -> Self {
         Self {

@@ -4,36 +4,7 @@ mod keys;
 mod mouse;
 mod navigation;
 pub(crate) mod scroll;
-use super::*;
-use anyhow::{Result, ensure};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use engine::state;
-use std::path::Path;
-fn validate_input(action: Action, value: &str) -> Result<()> {
-    match action {
-        Action::Add | Action::Exclude | Action::Unexclude | Action::Scan | Action::Import => {
-            ensure!(
-                Path::new(value).is_absolute(),
-                i18n::tr!(EnterAnAbsolutePath)
-            )
-        }
-        Action::Interval => {
-            state::interval(value)?;
-        }
-        Action::Autopush => {
-            value.parse::<domain::PushPolicy>()?;
-        }
-        Action::Concurrency => {
-            let n = value.parse::<usize>()?;
-            ensure!(
-                (1..=32).contains(&n),
-                i18n::tr!(ConcurrencyMustBeBetween1And32)
-            )
-        }
-        _ => {}
-    }
-    Ok(())
-}
 fn ctrl_c(key: KeyEvent) -> bool {
     key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL)
 }

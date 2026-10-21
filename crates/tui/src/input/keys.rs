@@ -1,11 +1,11 @@
 //! Interaction state transitions.
 use super::super::*;
-use super::{ctrl_c, scroll_key, validate_input};
+use super::{ctrl_c, scroll_key};
 use crossterm::event::{KeyCode, KeyEvent};
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         match &mut self.mode {
-            Mode::Input { editor, .. } | Mode::CommitMessage { editor, .. } => editor.insert(text),
+            Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } => self.bar_paste(text),
             _ => {}
         }
@@ -43,30 +43,6 @@ impl Screen {
         let mode = self.take_mode();
         match mode {
             Mode::Browsing => return self.navigate(key, root),
-            Mode::Input { action, mut editor } => {
-                match key.code {
-                    KeyCode::Esc => {
-                        self.sync_bar();
-                        return Ok(false);
-                    }
-                    KeyCode::Enter => match validate_input(action, &editor.text) {
-                        Ok(()) => {
-                            self.mode = Mode::Confirm {
-                                operation: Confirmation::Configure {
-                                    action,
-                                    value: editor.text,
-                                },
-                                choice: Default::default(),
-                            };
-                            self.message.clear();
-                            return Ok(false);
-                        }
-                        Err(e) => self.message = format!("{e:#}"),
-                    },
-                    _ => editor.key(key),
-                }
-                self.mode = Mode::Input { action, editor };
-            }
             Mode::Confirm {
                 operation,
                 mut choice,
@@ -74,11 +50,18 @@ impl Screen {
                 confirmation::Input::Execute => self.confirm(operation),
                 confirmation::Input::Return => {
                     self.mode = match operation {
-                        Confirmation::Configure { action, value } => Mode::Input {
-                            action,
-                            editor: Editor::new(value),
-                        },
-                        Confirmation::Apply | Confirmation::Remove(_) => Mode::Browsing,
+                        Confirmation::Configure { origin, draft, .. } => {
+                            self.mode = *origin;
+                            self.bar = crate::bar::InputBar::Command {
+                                editor: draft.editor,
+                                path: draft.path,
+                                selected: 0,
+                                menu: Default::default(),
+                            };
+                            self.message.clear();
+                            return Ok(false);
+                        }
+                        Confirmation::Schedule(_) | Confirmation::Remove(_) => Mode::Browsing,
                     };
                     self.message.clear();
                     self.sync_bar();

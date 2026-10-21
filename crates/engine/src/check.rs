@@ -30,10 +30,38 @@ pub fn repository(
     let attempt = (|| -> Result<RepositoryResult> {
         cancel.check()?;
         let t = Instant::now();
-        let _ = local::open(path)?;
+        let repo = local::open(path)?;
+        let remotes = repo
+            .remotes()?
+            .iter()
+            .map(|name| {
+                let name = name?.context(i18n::tr!(RemoteNameIsNotUtf8))?;
+                branches::fetch::Remote::read(&repo, name)
+            })
+            .collect::<Result<Vec<_>>>()?;
+        branches::fetch::validate_destinations(&remotes)?;
+        for branch in branches::list(&repo)? {
+            if let Tracking::Remote { remote, .. } = branch.tracking {
+                let plan = remotes
+                    .iter()
+                    .find(|plan| plan.name == remote)
+                    .context(i18n::tr!(RemoteQueryStateIsMissing))?;
+                ensure!(
+                    !plan.skipped(&repo)?,
+                    i18n::tf!(UpstreamRemoteFetchSkipped, remote)
+                );
+            }
+        }
         timing.local_ms += t.elapsed().as_millis();
         let t = Instant::now();
-        let fetched = git.fetch_all(path, cancel);
+        let fetched = (|| -> Result<()> {
+            for remote in &remotes {
+                if !remote.skipped(&repo)? {
+                    git.fetch_tracking(path, remote, cancel)?;
+                }
+            }
+            Ok(())
+        })();
         timing.fetch_ms = t.elapsed().as_millis();
         fetched?;
         let t = Instant::now();
@@ -60,7 +88,39 @@ pub fn repository(
             })
         }
         timing.local_ms += t.elapsed().as_millis();
+        // 固定 fetch 后的本地快照。普通检查不再发起 ls-remote；推送另行核验服务器。
+        let snapshot_started = Instant::now();
         let mut heads = BTreeMap::new();
+        for branch in &branches {
+            if let Tracking::Remote {
+                remote,
+                remote_ref,
+                upstream,
+            } = &branch.tracking
+            {
+                let plan = remotes
+                    .iter()
+                    .find(|plan| &plan.name == remote)
+                    .context(i18n::tr!(RemoteQueryStateIsMissing))?;
+                ensure!(
+                    !plan.skipped(&repo)? && plan.upstream(remote_ref)? == *upstream,
+                    i18n::tr!(RemoteUpstreamReferenceIsInconsistentCheckFetch)
+                );
+                let oid = match branches::resolve(&repo, upstream) {
+                    Ok(oid) => Some(oid),
+                    Err(error)
+                        if error
+                            .downcast_ref::<git2::Error>()
+                            .is_some_and(|error| error.code() == git2::ErrorCode::NotFound) =>
+                    {
+                        None
+                    }
+                    Err(error) => return Err(error),
+                };
+                heads.insert(upstream.clone(), oid);
+            }
+        }
+        timing.local_ms += snapshot_started.elapsed().as_millis();
         for branch in branches {
             cancel.check()?;
             match branch.tracking {
@@ -77,18 +137,7 @@ pub fn repository(
                     remote_ref,
                     upstream,
                 } => {
-                    if !heads.contains_key(&remote) {
-                        let t = Instant::now();
-                        let advertised = git.heads(path, &remote, cancel);
-                        timing.verify_ms += t.elapsed().as_millis();
-                        heads.insert(remote.clone(), advertised?);
-                    }
-                    let Some(server) = heads
-                        .get(&remote)
-                        .context(i18n::tr!(RemoteQueryStateIsMissing))?
-                        .get(&remote_ref)
-                        .copied()
-                    else {
+                    let Some(server) = heads.get(&upstream).copied().flatten() else {
                         issues.push(Issue {
                             kind: IssueKind::MissingUpstream,
                             detail: i18n::tf!(RemoteUpstreamBranchDoesNotExist, branch.name),
@@ -96,12 +145,7 @@ pub fn repository(
                         continue;
                     };
                     let t = Instant::now();
-                    let tracked = branches::resolve(&repo, &upstream)?;
-                    ensure!(
-                        tracked == server,
-                        i18n::tf!(RemoteChangedAfterFetchOrFetchRefspec, branch.name)
-                    );
-                    let (ahead, behind) = repo.graph_ahead_behind(branch.oid, tracked)?;
+                    let (ahead, behind) = repo.graph_ahead_behind(branch.oid, server)?;
                     timing.local_ms += t.elapsed().as_millis();
                     if ahead > 0 && behind == 0 && policy == PushPolicy::FastForward {
                         let target = PushTarget {
@@ -120,10 +164,7 @@ pub fn repository(
                         let error = result.error().map(str::to_owned);
                         pushes.push(result);
                         if succeeded {
-                            heads
-                                .get_mut(&remote)
-                                .context(i18n::tr!(RemoteQueryStateIsMissing))?
-                                .insert(remote_ref, branch.oid);
+                            heads.insert(upstream, Some(branch.oid));
                             if branches::resolve(&repo, &branch.reference)? != branch.oid {
                                 issues.push(Issue {
                                     kind: IssueKind::OutOfSync,

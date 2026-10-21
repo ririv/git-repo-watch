@@ -23,11 +23,16 @@ impl Screen {
             }
             KeyCode::Tab => {
                 self.history.clear();
-                self.page = if self.page == Page::Settings {
-                    Page::Repositories
-                } else {
-                    Page::Settings
+                self.page = match self.page {
+                    Page::Configuration(Configuration::General) => {
+                        Page::Configuration(Configuration::Schedule)
+                    }
+                    Page::Configuration(Configuration::Schedule | Configuration::Repositories) => {
+                        Page::Repositories
+                    }
+                    _ => Page::Configuration(Configuration::General),
                 };
+                self.setting_selected = 0;
                 self.scroll = 0;
                 self.sync_bar();
                 return Ok(false);
@@ -52,15 +57,15 @@ impl Screen {
                     _ => {}
                 }
             }
-            Page::Settings => match key.code {
+            Page::Configuration(section) => match key.code {
                 KeyCode::Up => self.setting_selected = self.setting_selected.saturating_sub(1),
                 KeyCode::Down => {
-                    self.setting_selected =
-                        (self.setting_selected + 1).min(command::SETTINGS.len() - 1)
+                    self.setting_selected = (self.setting_selected + 1)
+                        .min(section.actions(self.snapshot.registration).len() - 1)
                 }
                 KeyCode::Enter => {
                     return self.activate(
-                        command::SETTINGS[self.setting_selected],
+                        section.actions(self.snapshot.registration)[self.setting_selected],
                         self.selected_path(),
                         root,
                     );

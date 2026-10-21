@@ -302,3 +302,16 @@ fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_argument
         PushPolicy::FastForward
     );
 }
+
+#[test]
+fn schedule_control_arguments_are_explicit_and_invalid_requests_do_not_write() {
+    let (_temp, store) = fixture();
+    for args in [
+        &["schedule"][..],
+        &["schedule", "unknown"][..],
+        &["schedule", "enable", "extra"][..],
+    ] {
+        assert_eq!(cli(&store, args).status.code(), Some(2));
+    }
+    assert!(store.report().unwrap().is_none());
+}

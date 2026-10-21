@@ -21,15 +21,34 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } => {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
-            let hint = if command {
-                i18n::tr!(TabCompleteCandidatesEnterRunEscClear)
+            let hint = if matches!(
+                &screen.bar,
+                crate::bar::InputBar::Command {
+                    menu: command::path::Menu::Directories(_),
+                    ..
+                }
+            ) {
+                i18n::tr!(DirectoryCompletionHint)
+            } else if command {
+                match command::argument_input(
+                    screen
+                        .bar
+                        .editor()
+                        .text
+                        .strip_prefix('/')
+                        .expect("command prefix"),
+                ) {
+                    Some((argument, _)) => argument.hint(),
+                    None => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+                }
             } else {
                 match screen.mode {
                     Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
                     Mode::Diff { .. } => i18n::tr!(ScrollEscFilesCommands),
                     _ => match screen.page {
                         Page::Repositories => i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
-                        Page::Settings => i18n::tr!(SelectEnterEditTabReposCommands),
+                        Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
+                        Page::Configuration(_) => i18n::tr!(SelectEnterEditTabReposCommands),
                         _ => i18n::tr!(PgdnScrollEscBackCommands),
                     },
                 }
@@ -49,14 +68,6 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 hint,
             )
         }
-        Mode::Input { editor, .. } => (
-            i18n::tr!(ConfigurationInputAlt),
-            Content::Editable {
-                editor,
-                placeholder: i18n::tr!(EnterAConfigurationValue),
-            },
-            i18n::tr!(EnterNextEscCancel),
-        ),
         Mode::CommitMessage { editor, .. } => (
             i18n::tr!(CommitMessageAlt),
             Content::Editable {
@@ -70,14 +81,18 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             Content::Choices {
                 choice: *choice,
                 execute: match operation {
-                    Confirmation::Apply => i18n::tr!(ActionApply),
+                    Confirmation::Schedule(operation) => match operation {
+                        engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
+                        engine::scheduler::Control::Disable => i18n::tr!(DisableScheduledTask),
+                        engine::scheduler::Control::Apply => i18n::tr!(ActionApply),
+                    },
                     Confirmation::Remove(_) => i18n::tr!(ActionUnregister),
-                    Confirmation::Configure { action, .. } => match action {
-                        Action::Add => i18n::tr!(ActionAdd),
-                        Action::Exclude => i18n::tr!(ActionExclude),
-                        Action::Unexclude => i18n::tr!(ActionUnexclude),
-                        Action::Scan => i18n::tr!(ActionScan),
-                        Action::Import => i18n::tr!(ActionImport),
+                    Confirmation::Configure { command, .. } => match command {
+                        command::ArgumentAction::Add => i18n::tr!(ActionAdd),
+                        command::ArgumentAction::Exclude => i18n::tr!(ActionExclude),
+                        command::ArgumentAction::Unexclude => i18n::tr!(ActionUnexclude),
+                        command::ArgumentAction::Scan => i18n::tr!(ActionScan),
+                        command::ArgumentAction::Import => i18n::tr!(ActionImport),
                         _ => i18n::tr!(ActionSave),
                     },
                 },

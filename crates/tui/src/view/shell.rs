@@ -10,7 +10,7 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
         _ => match screen.page {
             Page::Repositories => i18n::tr!(Repositories),
             Page::Detail => i18n::tr!(RepositoryDetails),
-            Page::Settings => i18n::tr!(Settings),
+            Page::Configuration(section) => section.title(),
             Page::Help => i18n::tr!(Help),
         },
     };

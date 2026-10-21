@@ -1,13 +1,21 @@
 use super::*;
-pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let mut lines = vec![Line::from(i18n::tr!(ChecksAndPushes)), Line::from("")];
-    for (i, action) in command::SETTINGS.iter().enumerate() {
+pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
+    let mut lines = Vec::new();
+    for (i, action) in section
+        .actions(screen.snapshot.registration)
+        .iter()
+        .enumerate()
+    {
         let value = match action {
             Action::Interval => {
                 i18n::tf!(EveryHours, screen.config.interval_seconds as f64 / 3600.0)
             }
             Action::Autopush => screen.config.push_policy.to_string(),
             Action::Concurrency => screen.config.max_concurrency.to_string(),
+            Action::Remove => screen
+                .selected_path()
+                .map(|path| name(&path))
+                .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into()),
             _ => String::new(),
         };
         lines.push(Line::styled(
@@ -27,42 +35,22 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             },
         ));
     }
-    lines.push(Line::from(""));
-    lines.push(Line::from(i18n::tf!(
-        SystemSchedule,
-        if screen.snapshot.registration == Registration::Loaded {
-            i18n::tr!(Loaded)
-        } else {
-            i18n::tr!(NotLoaded)
-        },
-        if matches!(screen.snapshot.activity, Activity::Running) {
-            i18n::tr!(CheckingAltAlt)
-        } else {
-            i18n::tr!(Idle)
+    if section == Configuration::Repositories {
+        lines.push(Line::from(""));
+        lines.push(Line::from(i18n::tr!(ExcludedDirectories)));
+        for path in &screen.config.excluded_roots {
+            lines.push(Line::from(safe(&path.to_string_lossy())))
         }
-    )));
-    if let Schedule::Saved { interval_seconds } = screen.snapshot.schedule
-        && interval_seconds != screen.config.interval_seconds
-    {
-        lines.push(Line::from(i18n::tf!(
-            AppliedIntervalHoursConfigurationNotYetApplied,
-            interval_seconds as f64 / 3600.0
-        )))
     }
-    lines.push(Line::from(""));
-    lines.push(Line::from(i18n::tr!(ExcludedDirectories)));
-    for path in &screen.config.excluded_roots {
-        lines.push(Line::from(safe(&path.to_string_lossy())))
-    }
-    let start = if screen.setting_selected + 3 >= area.height.saturating_sub(2) as usize {
-        screen.setting_selected + 4 - area.height.saturating_sub(2) as usize
+    let start = if screen.setting_selected + 1 >= area.height.saturating_sub(2) as usize {
+        screen.setting_selected + 2 - area.height.saturating_sub(2) as usize
     } else {
         screen.scroll
     };
     let text = Text::from(lines);
     let paragraph = Paragraph::new(text)
         .wrap(Wrap { trim: false })
-        .block(block(i18n::tr!(Settings)));
+        .block(block(section.title()));
     frame.render_widget(
         paragraph.scroll((start.min(u16::MAX as usize) as u16, 0)),
         area,

@@ -1,9 +1,11 @@
 //! Terminal layout and shared text-safe widgets.
 mod body;
+mod completion;
 mod help;
 mod input;
 mod repository;
 mod review;
+mod schedule;
 mod settings;
 mod shell;
 use super::*;
@@ -127,10 +129,24 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     ) {
         return;
     }
+    if let crate::bar::InputBar::Command {
+        menu: command::path::Menu::Directories(directories),
+        ..
+    } = &screen.bar
+    {
+        completion::render(frame, directories, body);
+        return;
+    }
     let matches = screen
         .bar
         .commands()
         .expect("command bar provides candidates");
+    let name_width = matches
+        .iter()
+        .map(|command| command.usage().len())
+        .max()
+        .unwrap_or(0)
+        .max(13);
     let items = matches
         .iter()
         .map(|c| {
@@ -139,19 +155,29 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
                 command::Scope::Global => i18n::tr!(Global),
                 command::Scope::View => i18n::tr!(CurrentView),
             };
-            let description_width = (body.width as usize)
-                .saturating_sub(4 + 15 + 4 + unicode_width::UnicodeWidthStr::width(scope));
+            let description_width = (body.width as usize).saturating_sub(
+                4 + name_width + 2 + 4 + unicode_width::UnicodeWidthStr::width(scope),
+            );
             let description = truncate(c.description.text(), description_width);
             let padding = description_width
                 .saturating_sub(unicode_width::UnicodeWidthStr::width(description.as_str()));
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    format!("/{:<13} ", c.name),
-                    Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-                ),
-                Span::raw(format!("{description}{}", " ".repeat(padding))),
-                Span::styled(format!("  · {scope}"), Style::default().fg(MUTED)),
-            ]))
+            let mut spans = vec![Span::styled(
+                format!("/{}", c.name),
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            )];
+            if let Some(argument) = c.action.argument() {
+                spans.push(Span::styled(
+                    format!(" {}", argument.placeholder()),
+                    Style::default().fg(MUTED).add_modifier(Modifier::ITALIC),
+                ));
+            }
+            spans.push(Span::raw(" ".repeat(name_width - c.usage().len() + 1)));
+            spans.push(Span::raw(format!("{description}{}", " ".repeat(padding))));
+            spans.push(Span::styled(
+                format!("  · {scope}"),
+                Style::default().fg(MUTED),
+            ));
+            ListItem::new(Line::from(spans))
         })
         .collect::<Vec<_>>();
     // 留出筛选栏和列表标题，避免矮窗口中的命令面板遮住列表标题。

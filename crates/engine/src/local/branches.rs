@@ -1,4 +1,5 @@
 //! Typed branch tracking and local graph queries.
+pub mod fetch;
 use super::utf8_path;
 use anyhow::{Context, Result, ensure};
 use git2::{BranchType, Oid, Repository};
@@ -37,31 +38,30 @@ pub fn list(repo: &Repository) -> Result<Vec<Branch>> {
             .get()
             .target()
             .context(i18n::tr!(BranchHasNoCommit))?;
-        let tracking = match repo.branch_upstream_remote(&reference) {
-            Ok(remote) => {
-                let remote = remote
-                    .as_str()
-                    .context(i18n::tr!(RemoteNameIsNotUtf8))?
-                    .to_owned();
-                if remote == "." {
-                    Tracking::Local
-                } else {
-                    let config = repo.config()?;
-                    let remote_ref = config.get_string(&format!("branch.{name}.merge"))?;
-                    let upstream = repo
-                        .branch_upstream_name(&reference)?
-                        .as_str()
-                        .context(i18n::tr!(UpstreamReferenceIsNotUtf8))?
-                        .to_owned();
-                    Tracking::Remote {
-                        remote,
-                        remote_ref,
-                        upstream,
-                    }
+        let config = repo.config()?;
+        let configured = |key: &str| -> Result<Option<String>> {
+            match config.get_string(key) {
+                Ok(value) => Ok(Some(value)),
+                Err(error) if error.code() == git2::ErrorCode::NotFound => Ok(None),
+                Err(error) => Err(error.into()),
+            }
+        };
+        let tracking = match (
+            configured(&format!("branch.{name}.remote"))?,
+            configured(&format!("branch.{name}.merge"))?,
+        ) {
+            (None, None) => Tracking::Absent,
+            (Some(remote), Some(_)) if remote == "." => Tracking::Local,
+            (Some(remote), Some(remote_ref)) => {
+                let mapping = fetch::Remote::read(repo, &remote)?;
+                let upstream = mapping.upstream(&remote_ref)?;
+                Tracking::Remote {
+                    remote,
+                    remote_ref,
+                    upstream,
                 }
             }
-            Err(e) if e.code() == git2::ErrorCode::NotFound => Tracking::Absent,
-            Err(e) => return Err(e.into()),
+            _ => anyhow::bail!(i18n::tf!(IncompleteBranchUpstream, name)),
         };
         result.push(Branch {
             name,

@@ -218,6 +218,24 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(i32::from(report.status != ReportStatus::Clean))
         }
+        "schedule" => {
+            let operation = match one(&args)? {
+                "enable" => engine::scheduler::Control::Enable,
+                "disable" => engine::scheduler::Control::Disable,
+                "apply" => engine::scheduler::Control::Apply,
+                _ => bail!(i18n::tr!(InvalidScheduleOperation)),
+            };
+            service.control_schedule(operation, cancel)?;
+            println!(
+                "{}",
+                match operation {
+                    engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnabledNoCheck),
+                    engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisabledPreserved),
+                    engine::scheduler::Control::Apply => i18n::tr!(ScheduleAppliedPreserved),
+                }
+            );
+            Ok(0)
+        }
         "install" => {
             none(&args)?;
             service.install(cancel)?;

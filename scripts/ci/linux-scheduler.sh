@@ -28,6 +28,23 @@ systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 grep -q '21600' "$FIXTURE/status.json"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
 [ ! -e "$FIXTURE/var/latest.json" ]
+# 停用保留任务定义；在停用状态应用间隔不得重新启用或触发检查。
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule disable
+[ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
+[ "$(systemctl --user is-active "$APP_SERVICE_LABEL.timer" || true)" = inactive ]
+[ -f "$UNIT.timer" ]
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 12h
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply
+grep -q 'OnActiveSec=43200s' "$UNIT.timer"
+[ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
+[ "$(systemctl --user is-active "$APP_SERVICE_LABEL.timer" || true)" = inactive ]
+[ ! -e "$FIXTURE/var/latest.json" ]
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule enable
+systemctl --user is-active "$APP_SERVICE_LABEL.timer"
+systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 6h
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply
+[ ! -e "$FIXTURE/var/latest.json" ]
 # 显式启动一次，仅操作临时本地仓库，自动推送保持关闭。
 git init --bare "$FIXTURE/remote.git"
 git init "$FIXTURE/repository"

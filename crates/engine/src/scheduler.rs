@@ -14,6 +14,12 @@ use std::{
     fs,
     path::{Path, PathBuf},
 };
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Control {
+    Enable,
+    Disable,
+    Apply,
+}
 #[derive(Debug, Clone)]
 pub struct Manager {
     user_home: PathBuf,
@@ -81,6 +87,18 @@ impl Manager {
         {
             self.timer()
         }
+    }
+    pub fn verify_owner(&self, root: &Path) -> Result<()> {
+        let location = self.read_location()?;
+        ensure!(
+            location.home == root,
+            i18n::tr!(ScheduleOwnedByAnotherInstallation)
+        );
+        ensure!(
+            digest(&fs::read(self.binary())?) == location.binary_sha256,
+            i18n::tr!(InstalledCommandOwnershipMismatch)
+        );
+        Ok(())
     }
     pub fn read_location(&self) -> Result<Location> {
         let l: Location = state::read_json(&self.location())?;

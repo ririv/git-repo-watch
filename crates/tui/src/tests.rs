@@ -1,3 +1,4 @@
+mod completion;
 use super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{
@@ -126,7 +127,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("remove");
+    s.paste("repo remove");
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
@@ -161,7 +162,7 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
         assert!(text.contains("当前仓库"));
         assert!(text.contains("Tab 补全"));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "remove");
+        command(&mut s, "repo remove");
         let text = render(&mut s, size.0, size.1);
         assert!(text.contains("移除"));
         assert!(text.contains("Enter 确认"));
@@ -328,7 +329,7 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     s.paste("/settings");
     assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.page, Page::Settings);
+    assert_eq!(s.page, Page::Configuration(Configuration::General));
     s.paste("/push");
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Delete);
@@ -466,8 +467,7 @@ fn input_border_placeholder_text_and_cursor_are_distinct() {
         assert_eq!(text.fg, Color::Reset);
         assert!(!text.modifier.contains(Modifier::ITALIC));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "concurrency");
-        key(&mut s, KeyCode::Enter);
+        command(&mut s, "settings concurrency 4");
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
         assert!(matches!(s.mode, Mode::Confirm { .. }));
         assert!(!terminal.backend().cursor_visible());
@@ -523,14 +523,16 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         assert!(candidates.contains("Tab complete"));
         assert!(candidates.contains("/stage"));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "concurrency");
+        command(&mut s, "settings concurrency");
         let input = render(&mut s, width, height);
-        assert!(input.contains("Configuration input"));
+        assert!(input.contains("<count>"));
+        s.paste("4");
         key(&mut s, KeyCode::Enter);
         let confirm = render(&mut s, width, height);
         assert!(confirm.contains("Enter confirm"));
         key(&mut s, KeyCode::Esc);
-        assert!(matches!(s.mode, Mode::Input { .. }));
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert_eq!(s.bar.editor().text, "/settings concurrency 4");
         key(&mut s, KeyCode::Esc);
     }
     key(&mut s, KeyCode::Enter);
@@ -567,7 +569,12 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         s.paste("/te");
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.editor().text, "/terminal");
-        assert_eq!(command::exact("terminal"), Some(Action::Terminal));
+        assert_eq!(
+            command::matches("terminal")
+                .first()
+                .map(|command| command.action),
+            Some(Action::Terminal)
+        );
         assert!(matches!(s.mode, Mode::Browsing));
         s.select(1);
         assert!(
@@ -630,7 +637,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
                     .count()
             };
             assert_eq!(visible(&text), 8, "{text}");
-            for item in command::COMMANDS.iter().take(8) {
+            for item in command::matches("").into_iter().take(8) {
                 assert!(text.contains(&format!("/{:<13}", item.name)));
             }
             for _ in 0..command::COMMANDS.len() {
@@ -781,7 +788,7 @@ fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_li
         _ => panic!("command mode expected"),
     }
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "remove");
+    command(&mut s, "repo remove");
     render(&mut s, 90, 24);
     assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
     assert_eq!(s.selected(), 0);
@@ -1142,19 +1149,16 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
 #[test]
 fn configuration_confirmation_returns_to_editing_and_saves_only_on_accept() {
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "concurrency");
-    s.mode = Mode::Input {
-        action: Action::Concurrency,
-        editor: Editor::new("7".into()),
-    };
-    key(&mut s, KeyCode::Enter);
+    command(&mut s, "settings concurrency 7");
     key(&mut s, KeyCode::Right);
     key(&mut s, KeyCode::Enter);
-    assert!(matches!(&s.mode, Mode::Input { editor, .. } if editor.text == "7"));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.bar.editor().text, "/settings concurrency 7");
     assert_eq!(s.service.store.config().unwrap().max_concurrency, 4);
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Esc);
-    assert!(matches!(&s.mode, Mode::Input { editor, .. } if editor.text == "7"));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.bar.editor().text, "/settings concurrency 7");
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Char('y'));
     key(&mut s, KeyCode::Char('n'));
@@ -1176,7 +1180,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
         for (width, height) in [(60, 18), (80, 24), (150, 32)] {
             let (_home, mut s) = fixture(vec!["/example/repository".into()]);
             render(&mut s, width, height);
-            command(&mut s, "remove");
+            command(&mut s, "repo remove");
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let body = s.body_area;
@@ -1202,9 +1206,371 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
             key(&mut s, KeyCode::Enter);
             assert!(matches!(s.mode, Mode::Browsing));
             assert_eq!(s.config.repositories.len(), 1);
-            command(&mut s, "apply");
+            command(&mut s, "schedule apply");
             key(&mut s, KeyCode::Esc);
             assert!(matches!(s.mode, Mode::Browsing));
         }
     }
+}
+
+#[test]
+fn root_commands_hide_children_and_each_group_completes_only_its_own_children() {
+    let root = command::matches("");
+    assert!(root.iter().all(|command| !command.name.contains(' ')));
+    assert_eq!(root.len(), 14);
+    for removed in [
+        "interval",
+        "autopush",
+        "concurrency",
+        "apply",
+        "add",
+        "remove",
+        "exclude",
+        "scan",
+        "import",
+    ] {
+        assert!(command::matches(removed).is_empty());
+    }
+    assert_eq!(
+        command::matches("schedule ")
+            .iter()
+            .map(|c| c.name)
+            .collect::<Vec<_>>(),
+        [
+            "schedule interval",
+            "schedule autopush",
+            "schedule apply",
+            "schedule enable",
+            "schedule disable"
+        ]
+    );
+    assert_eq!(
+        command::matches("settings ")
+            .iter()
+            .map(|c| c.name)
+            .collect::<Vec<_>>(),
+        ["settings concurrency"]
+    );
+    assert_eq!(
+        command::matches("check ")
+            .iter()
+            .map(|c| c.name)
+            .collect::<Vec<_>>(),
+        ["check all"]
+    );
+    assert_eq!(command::matches("repo ").len(), 6);
+    assert!(command::matches("schedule unknown").is_empty());
+    assert_eq!(
+        command::matches("check")
+            .first()
+            .map(|command| command.action),
+        Some(Action::Check)
+    );
+    assert_eq!(
+        command::matches("check all")
+            .first()
+            .map(|command| command.action),
+        Some(Action::CheckAll)
+    );
+}
+
+#[test]
+fn schedule_settings_are_separate_from_general_and_repository_management() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        s.config.excluded_roots = vec!["/example/excluded".into()];
+        command(&mut s, "schedule");
+        assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+        for (width, height) in [(60, 18), (100, 28), (150, 32)] {
+            let text = render(&mut s, width, height);
+            assert!(text.contains(i18n::tr!(ScheduleSettings)));
+            assert!(text.contains("fast_forward") || text.contains("disabled"));
+            assert!(!text.contains("/example/excluded"));
+            assert!(!text.contains(command::description(Action::Concurrency)));
+        }
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(s.bar.editor().text.starts_with("/schedule autopush "));
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "settings");
+        assert_eq!(s.page, Page::Configuration(Configuration::General));
+        let text = render(&mut s, 100, 28);
+        assert!(text.contains(command::description(Action::Concurrency)));
+        assert!(!text.contains(command::description(Action::Interval)));
+        assert!(!text.contains(i18n::tr!(SystemSchedule).split('{').next().unwrap()));
+        assert_eq!(s.setting_selected, 0);
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(s.bar.editor().text.starts_with("/settings concurrency "));
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "repo");
+        assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
+        let text = render(&mut s, 100, 28);
+        assert!(text.contains("/example/excluded"));
+        assert!(!text.contains(command::description(Action::Interval)));
+    }
+}
+
+#[test]
+fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu() {
+    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("repo");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/repo");
+    s.select(1);
+    s.paste(" rem");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/repo remove");
+    key(&mut s, KeyCode::Enter);
+    assert!(
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == &PathBuf::from("/example/alpha"))
+    );
+    key(&mut s, KeyCode::Esc);
+    s.paste("/schedule ");
+    s.paste("int");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/schedule interval ");
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(s.bar.editor().text.starts_with("/schedule interval "));
+}
+
+#[test]
+fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_tasks() {
+    let (_home, mut s) = fixture(vec![]);
+    let before = s.service.store.config().unwrap();
+    s.paste("/sche");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/schedule");
+    assert_eq!(s.bar.commands().unwrap().len(), 1);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    assert_eq!(s.setting_selected, 0);
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(s.bar.editor().text.starts_with("/schedule interval "));
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.page, Page::Repositories);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.page, Page::Configuration(Configuration::General));
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    assert_eq!(
+        s.service.store.config().unwrap().interval_seconds,
+        before.interval_seconds
+    );
+    assert_eq!(
+        s.service.store.config().unwrap().push_policy,
+        before.push_policy
+    );
+    assert!(s.service.store.report().unwrap().is_none());
+}
+
+#[test]
+fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
+    let (_home, mut s) = fixture(vec![]);
+    s.paste("/");
+    let index = s
+        .bar
+        .commands()
+        .unwrap()
+        .iter()
+        .position(|command| command.action == Action::Schedule)
+        .unwrap();
+    for _ in 0..index {
+        key(&mut s, KeyCode::Down);
+    }
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(s.bar.editor().text.is_empty());
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Repositories);
+    s.paste("/sche");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    assert!(s.service.store.report().unwrap().is_none());
+}
+
+#[test]
+fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action() {
+    use engine::scheduler::Control;
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        for (registration, schedule, expected_status, expected_control) in [
+            (
+                Registration::Loaded,
+                Schedule::Saved {
+                    interval_seconds: 21600,
+                },
+                i18n::tr!(TaskEnabled),
+                Control::Disable,
+            ),
+            (
+                Registration::NotLoaded,
+                Schedule::Saved {
+                    interval_seconds: 21600,
+                },
+                i18n::tr!(TaskDisabled),
+                Control::Enable,
+            ),
+            (
+                Registration::NotLoaded,
+                Schedule::Missing,
+                i18n::tr!(TaskMissing),
+                Control::Enable,
+            ),
+        ] {
+            let (_home, mut s) = fixture(vec![]);
+            s.snapshot.registration = registration;
+            s.snapshot.schedule = schedule;
+            command(&mut s, "schedule");
+            s.config.interval_seconds = 43200;
+            for (width, height) in [(60, 18), (100, 28), (150, 32)] {
+                let text = render(&mut s, width, height);
+                assert!(text.contains(expected_status), "{text}");
+                assert!(text.contains(i18n::tr!(IntervalLabel)));
+                let application = if matches!(s.snapshot.schedule, Schedule::Missing) {
+                    i18n::tr!(IntervalUninstalled).to_owned()
+                } else {
+                    i18n::tf!(IntervalPending, 6)
+                };
+                assert!(text.contains(&application));
+            }
+            for _ in 0..3 {
+                key(&mut s, KeyCode::Down);
+            }
+            let text = render(&mut s, 60, 18);
+            assert!(text.contains(match expected_control {
+                Control::Enable => i18n::tr!(EnableScheduledTask),
+                Control::Disable => i18n::tr!(DisableScheduledTask),
+                _ => unreachable!(),
+            }));
+            key(&mut s, KeyCode::Enter);
+            assert!(
+                matches!(&s.mode, Mode::Confirm { operation: Confirmation::Schedule(control), .. } if *control == expected_control)
+            );
+            key(&mut s, KeyCode::Esc);
+            assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+            assert!(!s.service.scheduler.location().exists());
+        }
+    }
+}
+
+#[test]
+fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        command(&mut s, "repo");
+        s.paste("/repo a");
+        for (width, height) in [(60, 18), (100, 28), (150, 32)] {
+            assert!(render(&mut s, width, height).contains("/repo add <path>"));
+        }
+        key(&mut s, KeyCode::Enter);
+        assert_eq!(s.bar.editor().text, "/repo add ");
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
+        key(&mut s, KeyCode::Enter);
+        assert!(!s.message.is_empty());
+        assert!(matches!(s.mode, Mode::Browsing));
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
+        assert!(s.bar.editor().text.is_empty());
+    }
+}
+
+#[test]
+fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_path() {
+    let mut f = support::Fixture::create();
+    let renamed = f.temp.path().join("仓库 [x] $(literal) with spaces");
+    std::fs::rename(&f.repo, &renamed).unwrap();
+    f.repo = std::fs::canonicalize(renamed).unwrap();
+    let (_home, mut s) = fixture(vec![]);
+    command(&mut s, "repo");
+    let input = format!("repo add \"{}\"", f.repo.display());
+    command(&mut s, &input);
+    assert!(
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Configure { command: command::ArgumentAction::Add, value, .. }, .. } if value == &f.repo.to_string_lossy())
+    );
+    assert!(s.config.repositories.is_empty());
+    key(&mut s, KeyCode::Esc);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.bar.editor().text, format!("/{input}"));
+    assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(s.service.store.config().unwrap().repositories, vec![f.repo]);
+    assert!(s.service.store.report().unwrap().is_none());
+}
+
+#[test]
+fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchanged() {
+    let (_home, mut s) = fixture(vec![]);
+    for input in [
+        "repo add ",
+        "repo add relative",
+        "repo add \"/unterminated",
+        "schedule interval zero",
+        "schedule interval 0s",
+        "schedule autopush invalid",
+        "settings concurrency 0",
+        "settings concurrency 33",
+    ] {
+        command(&mut s, input);
+        assert!(matches!(s.mode, Mode::Browsing), "{input}");
+        assert_eq!(s.bar.editor().text, format!("/{input}"));
+        assert!(!s.message.is_empty(), "{input}");
+    }
+    let config = s.service.store.config().unwrap();
+    assert_eq!(config.interval_seconds, 21600);
+    assert_eq!(config.max_concurrency, 4);
+    assert_eq!(config.push_policy, PushPolicy::Disabled);
+    assert!(config.repositories.is_empty());
+}
+
+#[test]
+fn dashboard_editing_and_confirmation_share_the_inline_command_draft() {
+    let (_home, mut s) = fixture(vec![]);
+    command(&mut s, "schedule");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.bar.editor().text, "/schedule interval 21600s");
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    command(&mut s, "schedule interval 12h");
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.editor().text, "/schedule interval 12h");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.editor().text, "/schedule interval 12h");
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(s.service.store.config().unwrap().interval_seconds, 43200);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    assert!(s.service.store.report().unwrap().is_none());
+}
+
+#[test]
+fn cancelling_an_inline_parameter_confirmation_restores_the_file_panel_and_command() {
+    let f = support::Fixture::create();
+    support::write(f.repo.join("new"), "content");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "stage");
+    wait(&mut s);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    command(&mut s, "settings concurrency 8");
+    assert!(matches!(s.mode, Mode::Confirm { .. }));
+    key(&mut s, KeyCode::Esc);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    assert_eq!(s.bar.editor().text, "/settings concurrency 8");
+    key(&mut s, KeyCode::Esc);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    assert!(s.bar.editor().text.is_empty());
+    assert_eq!(s.service.store.config().unwrap().max_concurrency, 4);
 }

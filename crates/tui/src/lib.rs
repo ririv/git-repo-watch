@@ -8,7 +8,7 @@ mod input;
 mod task;
 mod view;
 use anyhow::{Context, Result};
-use command::Action;
+use command::{Action, Configuration};
 use crossterm::{
     event::{self, Event as TerminalEvent, KeyEventKind},
     event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture},
@@ -40,7 +40,7 @@ use std::{
 enum Page {
     Repositories,
     Detail,
-    Settings,
+    Configuration(Configuration),
     Help,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -106,10 +106,6 @@ impl FileSession {
 #[derive(Debug)]
 enum Mode {
     Browsing,
-    Input {
-        action: Action,
-        editor: Editor,
-    },
     Confirm {
         operation: Confirmation,
         choice: confirmation::Choice,
@@ -155,9 +151,14 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
-    Apply,
+    Schedule(engine::scheduler::Control),
     Remove(PathBuf),
-    Configure { action: Action, value: String },
+    Configure {
+        command: command::ArgumentAction,
+        value: String,
+        origin: Box<Mode>,
+        draft: bar::CommandDraft,
+    },
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Effect {

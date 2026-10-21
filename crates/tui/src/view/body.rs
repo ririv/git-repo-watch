@@ -103,24 +103,28 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             scroll,
             i18n::tr!(OperationResult),
         ),
-        Mode::Input { action, .. } => frame.render_widget(
-            Paragraph::new(command::description(*action))
-                .wrap(Wrap { trim: false })
-                .block(block(i18n::tr!(ConfigurationInput))),
-            area,
-        ),
         Mode::Confirm {
             operation: confirmation,
             ..
         } => {
             let text = match confirmation {
-                Confirmation::Apply => i18n::tr!(ApplySavedIntervalAndReloadTheSystem).into(),
+                Confirmation::Schedule(operation) => match operation {
+                    engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnableConfirmation),
+                    engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisableConfirmation),
+                    engine::scheduler::Control::Apply => i18n::tr!(ScheduleApplyConfirmation),
+                }
+                .into(),
                 Confirmation::Remove(path) => i18n::tf!(
                     UnregisterRepositoryFilesOnDiskAreRetained,
                     safe(&path.to_string_lossy())
                 ),
-                Confirmation::Configure { action, value } => {
-                    format!("{}\n\n{}", command::description(*action), safe(value))
+                Confirmation::Configure { command, value, .. } => {
+                    format!(
+                        "/{} {}\n\n{}",
+                        command.command().name,
+                        safe(value),
+                        command::description(command.action())
+                    )
                 }
             };
             frame.render_widget(
@@ -146,7 +150,8 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     i18n::tr!(RepositoryDetails),
                 )
             }
-            Page::Settings => settings(frame, screen, area),
+            Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),
+            Page::Configuration(section) => settings(frame, screen, area, section),
             Page::Help => text_view(
                 frame,
                 area,

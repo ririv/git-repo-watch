@@ -117,6 +117,8 @@ impl Manager {
             process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
                 .success(i18n::tr!(UnloadOldSystemSchedule))?;
         }
+        process::system("/bin/launchctl", &["enable", &self.target()], cancel)?
+            .success(i18n::tr!(EnableScheduledTask))?;
         process::system(
             "/bin/launchctl",
             &[
@@ -129,6 +131,67 @@ impl Manager {
             cancel,
         )?
         .success(i18n::tr!(LoadSystemSchedule))?;
+        Ok(())
+    }
+    pub fn disable(&self, root: &Path, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(root)?;
+        ensure!(
+            self.plist().try_exists()?,
+            i18n::tr!(ScheduleDefinitionMissing)
+        );
+        if self.registration(cancel)? == Registration::Loaded {
+            process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
+                .success(i18n::tr!(UnloadSystemSchedule))?;
+        }
+        // 仅 bootout 会在下次登录时重新加载；同时保存 launchd 的禁用覆盖项。
+        process::system("/bin/launchctl", &["disable", &self.target()], cancel)?
+            .success(i18n::tr!(DisableScheduledTask))?;
+        Ok(())
+    }
+    pub fn apply(&self, root: &Path, interval: u64, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(root)?;
+        ensure!(interval >= 60, i18n::tr!(InvalidInstallationArguments));
+        ensure!(
+            self.plist().try_exists()?,
+            i18n::tr!(ScheduleDefinitionMissing)
+        );
+        let previous = self.registration(cancel)?;
+        let payload = plist(root, &self.binary(), interval)?;
+        let staged = tempfile::NamedTempFile::new_in(
+            self.plist()
+                .parent()
+                .context(i18n::tr!(SchedulePathHasNoParentDirectory))?,
+        )?;
+        fs::write(staged.path(), &payload)?;
+        process::system(
+            "/usr/bin/plutil",
+            &[
+                "-lint",
+                staged
+                    .path()
+                    .to_str()
+                    .context(i18n::tr!(TemporaryPathIsNotUtf8))?,
+            ],
+            cancel,
+        )?
+        .success(i18n::tr!(ValidateSystemSchedule))?;
+        state::atomic(&self.plist(), payload.as_bytes(), 0o600)?;
+        if previous == Registration::Loaded {
+            process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
+                .success(i18n::tr!(UnloadOldSystemSchedule))?;
+            process::system(
+                "/bin/launchctl",
+                &[
+                    "bootstrap",
+                    &format!("gui/{}", self.uid),
+                    self.plist()
+                        .to_str()
+                        .context(i18n::tr!(SchedulePathIsNotUtf8))?,
+                ],
+                cancel,
+            )?
+            .success(i18n::tr!(LoadSystemSchedule))?;
+        }
         Ok(())
     }
     pub fn uninstall(&self, cancel: &Cancel) -> Result<()> {

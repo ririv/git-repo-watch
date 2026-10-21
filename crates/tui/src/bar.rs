@@ -5,11 +5,17 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{cancel::Cancel, domain::Filter};
 use std::path::PathBuf;
 #[derive(Debug)]
+pub(crate) struct CommandDraft {
+    pub editor: Editor,
+    pub path: Option<PathBuf>,
+}
+#[derive(Debug)]
 pub(crate) enum InputBar {
     Search(Editor),
     Command {
         editor: Editor,
         selected: usize,
+        menu: command::path::Menu,
         path: Option<PathBuf>,
     },
 }
@@ -67,6 +73,7 @@ impl Screen {
                 self.bar = InputBar::Command {
                     editor,
                     selected: 0,
+                    menu: Default::default(),
                     path,
                 };
             }
@@ -105,7 +112,8 @@ impl Screen {
         let path = self.scope_path();
         self.bar.editor_mut().insert(text);
         self.normalize_bar(path);
-        if let InputBar::Command { selected, .. } = &mut self.bar {
+        if let InputBar::Command { selected, menu, .. } = &mut self.bar {
+            *menu = Default::default();
             *selected = 0
         }
         self.message.clear();
@@ -120,9 +128,33 @@ impl Screen {
         if let InputBar::Command {
             editor,
             selected,
+            menu,
             path,
         } = &mut self.bar
         {
+            if let command::path::Menu::Directories(directories) = menu {
+                match key.code {
+                    KeyCode::Esc => {
+                        *menu = Default::default();
+                        self.message.clear();
+                    }
+                    KeyCode::Up | KeyCode::BackTab => directories.advance(true),
+                    KeyCode::Down | KeyCode::Tab => directories.advance(false),
+                    KeyCode::Enter => {
+                        *editor = directories.choose();
+                        *menu = Default::default();
+                        self.message.clear();
+                    }
+                    _ => {
+                        *menu = Default::default();
+                        editor.key(key);
+                        let path = path.clone();
+                        self.normalize_bar(path);
+                        self.message.clear();
+                    }
+                }
+                return Ok(BarEvent::Handled);
+            }
             let matches = command::matches(
                 editor
                     .text
@@ -135,26 +167,55 @@ impl Screen {
                 KeyCode::Down => *selected = (*selected + 1).min(matches.len().saturating_sub(1)),
                 KeyCode::Tab => {
                     if let Some(c) = matches.get(*selected) {
-                        *editor = Editor::new(format!("/{}", c.name));
+                        if command::argument_input(
+                            editor.text.strip_prefix('/').expect("command prefix"),
+                        )
+                        .is_some()
+                        {
+                            match command::path::complete(editor) {
+                                Ok(completion) => {
+                                    *menu = completion;
+                                    self.message.clear();
+                                }
+                                Err(error) => self.message = format!("{error:#}"),
+                            }
+                        } else {
+                            *editor = Editor::new(c.completion());
+                            self.message.clear();
+                        }
                         *selected = 0
                     }
                 }
                 KeyCode::Enter => {
-                    let action = command::exact(
-                        editor
-                            .text
-                            .strip_prefix('/')
-                            .expect("command input starts with slash"),
-                    );
-                    let path = path.clone();
-                    if let Some(action) = action {
-                        self.sync_bar();
-                        self.message.clear();
-                        if self.activate(action, path, root)? {
-                            return Ok(BarEvent::Quit);
+                    if let Some((argument, value)) = command::argument_input(
+                        editor.text.strip_prefix('/').expect("command prefix"),
+                    ) {
+                        match argument.parse(value) {
+                            Ok(value) => {
+                                let draft = CommandDraft {
+                                    editor: editor.clone(),
+                                    path: path.clone(),
+                                };
+                                self.prepare_configuration(argument, value, draft);
+                            }
+                            Err(error) => self.message = format!("{error:#}"),
+                        }
+                    } else if let Some(command) = matches.get(*selected) {
+                        if command.action.argument().is_some() {
+                            *editor = Editor::new(command.completion());
+                            *selected = 0;
+                            self.message.clear();
+                        } else {
+                            let action = command.action;
+                            let path = path.clone();
+                            self.sync_bar();
+                            self.message.clear();
+                            if self.activate(action, path, root)? {
+                                return Ok(BarEvent::Quit);
+                            }
                         }
                     } else {
-                        self.message = i18n::tr!(UnknownCommandUseTabToCompleteBefore).into();
+                        self.message = i18n::tr!(NoMatchingCommands).into();
                     }
                 }
                 _ => {
@@ -253,6 +314,11 @@ impl Screen {
         Ok(BarEvent::Pass)
     }
     fn clear_bar(&mut self) {
+        if matches!(self.bar, InputBar::Command { .. }) {
+            self.sync_bar();
+            self.message.clear();
+            return;
+        }
         let path = self.selected_path();
         self.bar = InputBar::default();
         match &mut self.mode {

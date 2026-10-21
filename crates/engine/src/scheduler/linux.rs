@@ -191,6 +191,32 @@ impl Manager {
         self.control(&["enable", &name], cancel)?;
         self.control(&["restart", &name], cancel)
     }
+    pub fn disable(&self, root: &Path, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(root)?;
+        ensure!(
+            self.timer().try_exists()? && self.service().try_exists()?,
+            i18n::tr!(ScheduleDefinitionMissing)
+        );
+        self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)
+    }
+    pub fn apply(&self, root: &Path, seconds: u64, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(root)?;
+        ensure!(seconds >= 60, i18n::tr!(InvalidInstallationArguments));
+        ensure!(
+            self.timer().try_exists()? && self.service().try_exists()?,
+            i18n::tr!(ScheduleDefinitionMissing)
+        );
+        let previous = self.registration(cancel)?;
+        let payload = service(root, &self.binary())?;
+        self.control(&["show-environment"], cancel)?;
+        state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
+        state::atomic(&self.timer(), timer(seconds).as_bytes(), 0o600)?;
+        self.control(&["daemon-reload"], cancel)?;
+        if previous == Registration::Loaded {
+            self.control(&["restart", &format!("{LABEL}.timer")], cancel)?;
+        }
+        Ok(())
+    }
     pub fn uninstall(&self, cancel: &Cancel) -> Result<()> {
         self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)?;
         self.control(&["stop", &format!("{LABEL}.service")], cancel)?;

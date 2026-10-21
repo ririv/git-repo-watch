@@ -24,12 +24,33 @@ impl Git {
         )?
         .success("git")
     }
-    pub fn fetch_all(&self, path: &Path, cancel: &Cancel) -> Result<()> {
-        self.run(
-            path,
-            strings(&["fetch", "--all", "--no-recurse-submodules"]),
-            cancel,
-        )?;
+    pub fn fetch_tracking(
+        &self,
+        path: &Path,
+        remote: &crate::local::branches::fetch::Remote,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let mappings = remote.arguments();
+        if mappings.is_empty() {
+            return Ok(());
+        }
+        let mut args = strings(&[
+            "fetch",
+            "--prune",
+            "--no-prune-tags",
+            "--no-tags",
+            "--no-recurse-submodules",
+            "--refmap=",
+            "--",
+            &remote.name,
+        ]);
+        args.extend(mappings.into_iter().map(OsString::from));
+        args.extend(
+            remote
+                .exclusions()
+                .map(|source| OsString::from(format!("^{source}"))),
+        );
+        self.run(path, args, cancel)?;
         Ok(())
     }
     pub fn fetch(&self, path: &Path, remote: &str, cancel: &Cancel) -> Result<()> {

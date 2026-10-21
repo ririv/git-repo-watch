@@ -1,6 +1,5 @@
 //! Explicit command workflows over application services.
 use super::super::*;
-use anyhow::bail;
 use engine::{
     local::files::IndexAction,
     service::{ConfigEdit, ScanMode},
@@ -29,6 +28,8 @@ impl Screen {
                     | Action::Autopush
                     | Action::Concurrency
                     | Action::Apply
+                    | Action::EnableSchedule
+                    | Action::DisableSchedule
             )
         {
             self.message = i18n::tr!(CheckWriteConflict).into();
@@ -36,11 +37,12 @@ impl Screen {
         }
         match action {
             Action::Quit => return Ok(true),
-            Action::Settings => {
-                self.page = Page::Settings;
-                self.mode = Mode::Browsing;
-                self.scroll = 0
+            Action::Repositories => {
+                self.focus(path);
+                self.open_configuration(Configuration::Repositories);
             }
+            Action::Settings => self.open_configuration(Configuration::General),
+            Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => {
                 self.history.push(self.page);
                 self.page = Page::Help;
@@ -144,9 +146,14 @@ impl Screen {
                 }
             }
             Action::CancelCheck => self.cancel_check(),
-            Action::Apply => {
+            Action::Apply | Action::EnableSchedule | Action::DisableSchedule => {
                 self.mode = Mode::Confirm {
-                    operation: Confirmation::Apply,
+                    operation: Confirmation::Schedule(match action {
+                        Action::EnableSchedule => engine::scheduler::Control::Enable,
+                        Action::DisableSchedule => engine::scheduler::Control::Disable,
+                        Action::Apply => engine::scheduler::Control::Apply,
+                        _ => unreachable!(),
+                    }),
                     choice: Default::default(),
                 }
             }
@@ -157,13 +164,47 @@ impl Screen {
                     Action::Concurrency => self.config.max_concurrency.to_string(),
                     _ => String::new(),
                 };
-                self.mode = Mode::Input {
-                    action,
-                    editor: Editor::new(value),
-                }
+                let argument = action.argument().expect("parameter action");
+                self.bar = crate::bar::InputBar::Command {
+                    editor: Editor::new(format!("{}{value}", argument.command().completion())),
+                    selected: 0,
+                    menu: Default::default(),
+                    path,
+                };
             }
         }
         Ok(false)
+    }
+    pub(crate) fn prepare_configuration(
+        &mut self,
+        command: command::ArgumentAction,
+        value: String,
+        draft: crate::bar::CommandDraft,
+    ) {
+        if self.check_task.is_some() {
+            self.message = i18n::tr!(CheckWriteConflict).into();
+            return;
+        }
+        let origin = Box::new(self.take_mode());
+        self.mode = Mode::Confirm {
+            operation: Confirmation::Configure {
+                command,
+                value,
+                origin,
+                draft,
+            },
+            choice: Default::default(),
+        };
+        self.message.clear();
+    }
+    fn open_configuration(&mut self, section: Configuration) {
+        if self.page != Page::Configuration(section) {
+            self.history.push(self.page);
+        }
+        self.page = Page::Configuration(section);
+        self.setting_selected = 0;
+        self.mode = Mode::Browsing;
+        self.scroll = 0;
     }
     pub(crate) fn read_files(&mut self, path: PathBuf, area: FileArea) {
         self.start(
@@ -223,13 +264,26 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
-            Confirmation::Apply => self.start(
-                i18n::tr!(ApplySystemSchedule),
+            Confirmation::Schedule(operation) => self.start(
+                match operation {
+                    engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
+                    engine::scheduler::Control::Disable => i18n::tr!(DisableScheduledTask),
+                    engine::scheduler::Control::Apply => i18n::tr!(ApplySystemSchedule),
+                },
                 Effect::Configuration,
                 move |s, c, _| {
-                    s.install(&c)?;
+                    s.control_schedule(operation, &c)?;
                     Ok(Outcome::Text(
-                        i18n::tr!(SystemScheduleAppliedNoCheckStarted).into(),
+                        match operation {
+                            engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnabledNoCheck),
+                            engine::scheduler::Control::Disable => {
+                                i18n::tr!(ScheduleDisabledPreserved)
+                            }
+                            engine::scheduler::Control::Apply => {
+                                i18n::tr!(ScheduleAppliedPreserved)
+                            }
+                        }
+                        .into(),
                     ))
                 },
             ),
@@ -243,47 +297,56 @@ impl Screen {
                     ))
                 },
             ),
-            Confirmation::Configure { action, value } => self.start(
-                command::description(action),
-                Effect::Configuration,
-                move |s, c, _| {
-                    let message = match action {
-                        Action::Add => {
-                            i18n::tf!(AddedRepositories, s.add(&[PathBuf::from(value)])?)
-                        }
-                        Action::Scan | Action::Import => {
-                            let report = s.scan(
-                                Path::new(&value),
-                                if action == Action::Scan {
-                                    ScanMode::Preview
-                                } else {
-                                    ScanMode::Import
-                                },
-                                &c,
-                            )?;
-                            i18n::tf!(
-                                FoundRepositoriesSeeVarImportReportJson,
-                                report.repositories.len()
-                            )
-                        }
-                        _ => {
-                            let edit = match action {
-                                Action::Exclude => ConfigEdit::Exclude(value.into()),
-                                Action::Unexclude => ConfigEdit::Unexclude(value.into()),
-                                Action::Interval => ConfigEdit::Interval(state::interval(&value)?),
-                                Action::Autopush => ConfigEdit::Policy(value.parse()?),
-                                Action::Concurrency => ConfigEdit::Concurrency(value.parse()?),
-                                _ => {
-                                    bail!(i18n::tr!(ThisCommandDoesNotAcceptConfigurationInput))
-                                }
-                            };
+            Confirmation::Configure {
+                command,
+                value,
+                origin,
+                ..
+            } => {
+                self.mode = *origin;
+                self.sync_bar();
+                self.start(
+                    command::description(command.action()),
+                    Effect::Configuration,
+                    move |s, c, _| {
+                        use command::ArgumentAction as Parameter;
+                        let save = |edit| -> Result<String> {
                             s.configure(edit)?;
-                            i18n::tr!(ConfigurationSavedApplyScheduleAfterChangingThe).into()
-                        }
-                    };
-                    Ok(Outcome::Text(message))
-                },
-            ),
+                            Ok(i18n::tr!(ConfigurationSavedApplyScheduleAfterChangingThe).into())
+                        };
+                        let message = match command {
+                            Parameter::Add => {
+                                i18n::tf!(AddedRepositories, s.add(&[PathBuf::from(value)])?)
+                            }
+                            Parameter::Scan | Parameter::Import => {
+                                let report = s.scan(
+                                    Path::new(&value),
+                                    if command == Parameter::Scan {
+                                        ScanMode::Preview
+                                    } else {
+                                        ScanMode::Import
+                                    },
+                                    &c,
+                                )?;
+                                i18n::tf!(
+                                    FoundRepositoriesSeeVarImportReportJson,
+                                    report.repositories.len()
+                                )
+                            }
+                            Parameter::Exclude => save(ConfigEdit::Exclude(value.into()))?,
+                            Parameter::Unexclude => save(ConfigEdit::Unexclude(value.into()))?,
+                            Parameter::Interval => {
+                                save(ConfigEdit::Interval(state::interval(&value)?))?
+                            }
+                            Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
+                            Parameter::Concurrency => {
+                                save(ConfigEdit::Concurrency(value.parse()?))?
+                            }
+                        };
+                        Ok(Outcome::Text(message))
+                    },
+                );
+            }
         }
     }
 }
