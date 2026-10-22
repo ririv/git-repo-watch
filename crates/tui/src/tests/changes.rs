@@ -79,10 +79,14 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
         assert_eq!(s.message, i18n::tr!(ChangesSelectionRequired));
         assert!(s.repository_tasks.is_empty());
         command(&mut s, "diff layout");
-        assert_eq!(s.bar.editor().text, "/diff layout ");
-        key(&mut s, KeyCode::Down);
-        key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/diff layout split");
+        assert!(matches!(
+            s.bar,
+            crate::bar::InputBar::Layout {
+                selected: crate::diff::Preference::Auto,
+                ..
+            }
+        ));
+        key(&mut s, KeyCode::Right);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, crate::diff::Preference::Split);
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);

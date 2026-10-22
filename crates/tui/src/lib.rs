@@ -12,6 +12,7 @@ mod files;
 mod graphics;
 mod history;
 mod input;
+mod layout_picker;
 mod overview;
 mod preview;
 mod repository_tasks;
@@ -175,6 +176,7 @@ struct Screen {
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
     body_area: Option<ratatui::layout::Rect>,
+    command_items: Vec<(ratatui::layout::Rect, usize)>,
     filter: Filter,
     query: String,
     order: Order,
@@ -217,6 +219,7 @@ impl Screen {
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
             body_area: None,
+            command_items: Vec::new(),
             filter: Filter::All,
             query: String::new(),
             order: Order::Priority,

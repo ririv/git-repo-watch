@@ -36,6 +36,8 @@
 - Wide windows show files beside the preview; narrow windows stack them. `Tab` / `Ctrl+S` / `Ctrl+D` switches focus; `Enter` / `→` focuses the preview, and `Ctrl+F` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Both sides scroll together and align wrapped lines.
+- `/diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
+- Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
 - `/diff layout auto`, `/diff layout split`, `/diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
 - `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
 - `/diff stage` / `Alt+S` stages marked files or the cursor file; `/diff unstage` / `Alt+U` unstages them. These actions require an explicit file selection and never open a page.

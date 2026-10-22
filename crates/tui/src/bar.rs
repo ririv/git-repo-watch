@@ -12,6 +12,11 @@ pub(crate) struct CommandDraft {
 #[derive(Debug)]
 pub(crate) enum InputBar {
     Search(Editor),
+    Layout {
+        selected: crate::diff::Preference,
+        command_cursor: usize,
+        draft: CommandDraft,
+    },
     Command {
         editor: Editor,
         selected: usize,
@@ -28,11 +33,13 @@ impl InputBar {
     pub fn editor(&self) -> &Editor {
         match self {
             Self::Search(editor) | Self::Command { editor, .. } => editor,
+            Self::Layout { draft, .. } => &draft.editor,
         }
     }
     pub fn editor_mut(&mut self) -> &mut Editor {
         match self {
             Self::Search(editor) | Self::Command { editor, .. } => editor,
+            Self::Layout { draft, .. } => &mut draft.editor,
         }
     }
     pub fn commands(&self) -> Option<Vec<&'static command::Command>> {
@@ -43,7 +50,7 @@ impl InputBar {
                     .strip_prefix('/')
                     .expect("command input starts with slash"),
             )),
-            Self::Search(_) => None,
+            Self::Search(_) | Self::Layout { .. } => None,
         }
     }
 }
@@ -116,6 +123,9 @@ impl Screen {
         }
     }
     pub(crate) fn bar_paste(&mut self, text: &str) {
+        if matches!(self.bar, InputBar::Layout { .. }) {
+            return;
+        }
         let path = self.scope_path();
         self.bar.editor_mut().insert(text);
         self.normalize_bar(path);
@@ -136,6 +146,9 @@ impl Screen {
                 | Mode::History(_)
         ) {
             return Ok(BarEvent::Pass);
+        }
+        if self.layout_picker_key(key) {
+            return Ok(BarEvent::Handled);
         }
         if let InputBar::Command {
             editor,
@@ -216,9 +229,14 @@ impl Screen {
                             Err(error) => self.message = format!("{error:#}"),
                         }
                     } else if let Some(command) = matches.get(*selected) {
-                        if command.action.argument().is_some()
-                            || command.action == Action::DiffLayoutMenu
-                        {
+                        if command.action == Action::DiffLayoutMenu {
+                            let draft = CommandDraft {
+                                editor: editor.clone(),
+                                path: path.clone(),
+                            };
+                            let cursor = *selected;
+                            self.open_layout_picker(draft, cursor);
+                        } else if command.action.argument().is_some() {
                             *editor = Editor::new(command.completion());
                             *selected = 0;
                             self.message.clear();

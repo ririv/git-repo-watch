@@ -2,6 +2,11 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    LayoutPickerTitle,
+    LayoutPickerHint,
+    LayoutVisible,
+    LayoutCurrent,
+
     ChangesOpen,
     ChangesLayout,
     ChangesTitle,
@@ -634,6 +639,17 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::LayoutPickerTitle, Language::English) => "Diff layout",
+            (Self::LayoutPickerTitle, Language::Chinese) => "差异布局",
+            (Self::LayoutPickerHint, Language::English) => {
+                "←→ / Tab choose · Enter apply · Esc back"
+            }
+            (Self::LayoutPickerHint, Language::Chinese) => "←→ / Tab 选择 · Enter 应用 · Esc 返回",
+            (Self::LayoutVisible, Language::English) => "showing",
+            (Self::LayoutVisible, Language::Chinese) => "当前",
+            (Self::LayoutCurrent, Language::English) => "Current",
+            (Self::LayoutCurrent, Language::Chinese) => "当前",
+
             (Self::ChangesOpen, Language::English) => "Open file changes with a live diff preview",
             (Self::ChangesOpen, Language::Chinese) => "打开文件变更与差异预览",
             (Self::ChangesLayout, Language::English) => {

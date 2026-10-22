@@ -6,6 +6,7 @@ mod diff;
 mod help;
 mod history;
 mod images;
+mod layout_picker;
 mod navigation;
 mod overview;
 mod startup;
@@ -52,6 +53,7 @@ fn screen(service: Service) -> Screen {
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
         body_area: None,
+        command_items: Vec::new(),
         filter: Filter::All,
         query: String::new(),
         order: Order::Priority,

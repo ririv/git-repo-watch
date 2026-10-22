@@ -5,6 +5,41 @@ use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
         self.view_revision += 1;
+        if matches!(self.bar, bar::InputBar::Layout { .. }) {
+            if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+                && let Some(body) = self.body_area
+            {
+                let inner = ratatui::layout::Rect::new(
+                    body.x + 1,
+                    body.bottom() + 2,
+                    body.width.saturating_sub(2),
+                    1,
+                );
+                let choice = crate::view::layout_picker::options(inner, self.diff_preference)
+                    .into_iter()
+                    .find(|(area, _, _)| area.contains(Position::new(event.column, event.row)))
+                    .map(|(_, preference, _)| preference);
+                if let Some(choice) = choice
+                    && let bar::InputBar::Layout { selected, .. } = &mut self.bar
+                {
+                    *selected = choice;
+                    return Ok(true);
+                }
+            }
+            return Ok(false);
+        }
+        if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            && let Some(index) = self
+                .command_items
+                .iter()
+                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                .map(|(_, index)| *index)
+            && let bar::InputBar::Command { selected, .. } = &mut self.bar
+        {
+            *selected = index;
+            self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
+            return Ok(true);
+        }
         if let Mode::Changes(session) = &mut self.mode
             && matches!(self.bar, bar::InputBar::Search(_))
         {

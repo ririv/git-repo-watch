@@ -9,6 +9,7 @@ mod files;
 mod help;
 mod history;
 mod input;
+pub(super) mod layout_picker;
 mod overview;
 mod repository;
 mod review;
@@ -83,6 +84,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.body_area = None;
     screen.repository_area = None;
     screen.workspace_areas.clear();
+    screen.command_items.clear();
     let area = frame.area();
     if area.width < 60 || area.height < 18 {
         frame.render_widget(Paragraph::new(i18n::tr!(TerminalSizeTooSmall)), area);
@@ -98,9 +100,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
         ])
         .split(area);
     frame.render_widget(Paragraph::new(header), layout[0]);
-    input::render(frame, screen, layout[2]);
     let body = layout[1];
     screen.body_area = Some(body);
+    input::render(frame, screen, layout[2]);
     render_body(frame, screen, body);
     render_commands(frame, screen, body);
 }
@@ -129,7 +131,7 @@ fn local_time(value: &str) -> String {
     }
 }
 
-fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
+fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     let crate::bar::InputBar::Command { selected, path, .. } = &screen.bar else {
         return;
     };
@@ -170,8 +172,16 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
                 command::Scope::Global => i18n::tr!(Global),
                 command::Scope::View => i18n::tr!(CurrentView),
             };
+            let annotation = layout_picker::annotation(c.action, screen, body);
+            let annotation_width = annotation
+                .as_deref()
+                .map_or(0, |text| unicode_width::UnicodeWidthStr::width(text) + 3);
             let description_width = (body.width as usize).saturating_sub(
-                4 + name_width + 2 + 4 + unicode_width::UnicodeWidthStr::width(scope),
+                4 + name_width
+                    + 2
+                    + 4
+                    + unicode_width::UnicodeWidthStr::width(scope)
+                    + annotation_width,
             );
             let description = truncate(c.description.text(), description_width);
             let padding = description_width
@@ -189,6 +199,12 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
                 ));
             }
             spans.push(Span::raw(" ".repeat(name_width - c.usage().len() + 1)));
+            if let Some(annotation) = annotation {
+                spans.push(Span::styled(
+                    format!("[{annotation}] "),
+                    Style::default().fg(GOOD),
+                ));
+            }
             spans.push(Span::raw(format!("{description}{}", " ".repeat(padding))));
             spans.push(Span::styled(
                 format!("  · {scope}"),
@@ -217,6 +233,7 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     } else {
         Some(*selected)
     });
+    let count = items.len();
     frame.render_widget(Clear, area);
     frame.render_stateful_widget(
         List::new(if items.is_empty() {
@@ -230,6 +247,21 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
         area,
         &mut state,
     );
+    screen.command_items = (state.offset()..count)
+        .take(area.height.saturating_sub(2) as usize)
+        .enumerate()
+        .map(|(row, index)| {
+            (
+                Rect::new(
+                    area.x + 1,
+                    area.y + 1 + row as u16,
+                    area.width.saturating_sub(2),
+                    1,
+                ),
+                index,
+            )
+        })
+        .collect();
 }
 
 #[cfg(test)]

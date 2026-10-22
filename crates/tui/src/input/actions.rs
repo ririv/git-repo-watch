@@ -78,12 +78,13 @@ impl Screen {
             }
             Action::LogMore => self.more_history(),
             Action::DiffLayoutMenu => {
-                self.bar = crate::bar::InputBar::Command {
-                    editor: Editor::new("/diff layout ".into()),
-                    selected: 0,
-                    menu: Default::default(),
-                    path,
-                };
+                self.open_layout_picker(
+                    crate::bar::CommandDraft {
+                        editor: Editor::new("/diff layout".into()),
+                        path,
+                    },
+                    0,
+                );
             }
             Action::Stage | Action::Unstage => {
                 self.edit_files(if action == Action::Stage {
