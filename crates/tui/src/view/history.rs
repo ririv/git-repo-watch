@@ -13,7 +13,13 @@ pub(super) fn render(
     graphics: &mut crate::graphics::Display,
 ) {
     match view {
-        View::Graph(session) => graph(frame, area, session, graphics),
+        View::Graph(session) => graph(
+            frame,
+            area,
+            session,
+            graphics,
+            name(&session.references.path),
+        ),
         View::Commit(commit) => detail::render(frame, area, commit),
         View::Diff {
             content, scroll, ..
@@ -70,18 +76,34 @@ fn labels(references: &References, entry: &Entry) -> Vec<Span<'static>> {
     spans
 }
 
+pub(super) fn panel(
+    frame: &mut Frame,
+    area: Rect,
+    session: &mut Session,
+    graphics: &mut crate::graphics::Display,
+) {
+    graph(
+        frame,
+        area,
+        session,
+        graphics,
+        i18n::tr!(WorkspaceHistory).into(),
+    );
+}
+
 fn graph(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
     graphics: &mut crate::graphics::Display,
+    title: String,
 ) {
     let parts = if area.width >= 120 && !session.records.is_empty() {
         Layout::horizontal([Constraint::Min(65), Constraint::Length(42)]).split(area)
     } else {
         Layout::horizontal([Constraint::Percentage(100), Constraint::Length(0)]).split(area)
     };
-    let panel = block(name(&session.references.path));
+    let panel = block(title);
     let inner = panel.inner(parts[0]);
     frame.render_widget(panel, parts[0]);
     let query_missing = !session.query.is_empty() && session.state.selected().is_none();

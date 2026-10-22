@@ -18,7 +18,7 @@ enum Content<'a> {
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     let (title, content, hint) = match &screen.mode {
-        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
+        Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
             let hint = if matches!(
@@ -54,6 +54,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     Mode::Diff { .. } => i18n::tr!(ScrollEscFilesCommands),
                     _ => match screen.page {
                         Page::Repositories => i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
+                        Page::Detail => i18n::tr!(OverviewInputHint),
                         Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
                         Page::Configuration(_) => i18n::tr!(SelectEnterEditTabReposCommands),
                         _ => i18n::tr!(PgdnScrollEscBackCommands),

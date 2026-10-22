@@ -3,7 +3,9 @@ mod diff;
 mod help;
 mod history;
 mod navigation;
+mod overview;
 mod startup;
+mod workspace;
 use super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{
@@ -54,6 +56,9 @@ fn screen(service: Service) -> Screen {
         message: String::new(),
         check_task: None,
         updates: BTreeMap::new(),
+        overview: Default::default(),
+        workspace: Default::default(),
+        workspace_areas: Vec::new(),
     }
 }
 fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
@@ -88,12 +93,27 @@ fn command(s: &mut Screen, text: &str) {
 }
 fn wait(s: &mut Screen) {
     let started = Instant::now();
-    while matches!(s.mode, Mode::Busy(_)) {
+    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_)) {
         assert!(
             started.elapsed() < Duration::from_secs(8),
             "工作线程没有结束"
         );
         s.poll(&Cancel::default());
+        s.poll_workspace();
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+fn wait_workspace(s: &mut Screen) {
+    let started = Instant::now();
+    loop {
+        s.poll_workspace();
+        if !s.workspace.pending() {
+            break;
+        }
+        assert!(
+            started.elapsed() < Duration::from_secs(8),
+            "仓库面板读取没有结束"
+        );
         thread::sleep(Duration::from_millis(5));
     }
 }
@@ -551,7 +571,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
     key(&mut s, KeyCode::Enter);
     let detail = render(&mut s, 80, 24);
     assert!(detail.contains("Path: /example/alpha"));
-    assert!(detail.contains("Status: Unchecked"));
+    assert!(detail.contains(i18n::tr!(OverviewLoading)));
     assert!(
         !detail
             .chars()

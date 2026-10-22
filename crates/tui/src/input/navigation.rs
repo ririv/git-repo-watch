@@ -52,7 +52,10 @@ impl Screen {
                     KeyCode::Enter | KeyCode::Right if count > 0 => {
                         self.history.push(self.page);
                         self.page = Page::Detail;
-                        self.scroll = 0
+                        self.scroll = 0;
+                        if let Some(path) = self.selected_path() {
+                            self.enter_repository(path);
+                        }
                     }
                     _ => {}
                 }
@@ -72,7 +75,25 @@ impl Screen {
                 }
                 _ => scroll_key(&mut self.scroll, key),
             },
-            Page::Detail | Page::Help => scroll_key(&mut self.scroll, key),
+            Page::Detail => match key.code {
+                KeyCode::End => self.scroll = usize::MAX,
+                KeyCode::PageUp | KeyCode::PageDown => {
+                    if let Some((area, _)) = self
+                        .workspace_areas
+                        .iter()
+                        .find(|(_, section)| *section == crate::workspace::Section::Overview)
+                    {
+                        let height = usize::from(area.height.saturating_sub(2));
+                        self.scroll = if key.code == KeyCode::PageUp {
+                            self.scroll.saturating_sub(height)
+                        } else {
+                            self.scroll.saturating_add(height)
+                        };
+                    }
+                }
+                _ => scroll_key(&mut self.scroll, key),
+            },
+            Page::Help => scroll_key(&mut self.scroll, key),
         }
         Ok(false)
     }

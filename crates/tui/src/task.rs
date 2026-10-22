@@ -89,19 +89,17 @@ impl Screen {
         self.message.clear();
         self.scroll = 0;
         match outcome {
-            Outcome::History(view) => self.mode = Mode::History(view),
+            Outcome::History(view) => {
+                self.workspace.save(origin);
+                self.mode = Mode::History(view);
+            }
             Outcome::TerminalOpened(path) => {
                 self.mode = origin;
                 self.message = i18n::tf!(RepositoryTerminalOpened, path.display());
             }
             Outcome::Files(snapshot, area) => {
-                self.mode = Mode::Files(FileSession {
-                    snapshot,
-                    area,
-                    cursor: 0,
-                    selected: BTreeSet::new(),
-                    query: String::new(),
-                })
+                self.workspace.save(origin);
+                self.mode = Mode::Files(FileSession::new(snapshot, area))
             }
             Outcome::Diff(session, content) => {
                 self.mode = Mode::Diff {
@@ -111,6 +109,7 @@ impl Screen {
                 }
             }
             Outcome::CommitPrepared(plan) => {
+                self.workspace.save(origin);
                 self.mode = Mode::CommitMessage {
                     plan,
                     editor: Editor::default(),
@@ -118,6 +117,7 @@ impl Screen {
                 }
             }
             Outcome::PushPrepared(plan) => {
+                self.workspace.save(origin);
                 self.mode = Mode::PushConfirm {
                     plan,
                     scroll: 0,
@@ -125,6 +125,8 @@ impl Screen {
                 }
             }
             Outcome::Committed(result) => {
+                self.workspace.invalidate();
+                self.refresh_workspace();
                 self.mode = Mode::Browsing;
                 self.message = i18n::tf!(
                     CommittedTheListStillShowsTheLast,
@@ -138,6 +140,8 @@ impl Screen {
             }
             Outcome::Published(result) => match result {
                 Publication::Pushed { target } => {
+                    self.workspace.invalidate();
+                    self.refresh_workspace();
                     self.mode = Mode::Browsing;
                     self.message = i18n::tf!(
                         PushedTheListStillShowsTheLast,
@@ -156,12 +160,16 @@ impl Screen {
                 }
             },
             Outcome::Text(message) => {
+                self.workspace.save(origin);
                 self.mode = Mode::Browsing;
                 self.message = message;
                 if let Err(e) = self.reload(root) {
                     self.message.push_str(&i18n::tf!(RefreshFailedE, e = e))
                 }
             }
+        }
+        if matches!(self.mode, Mode::Browsing) {
+            self.refresh_overview();
         }
         self.sync_bar();
     }
@@ -176,6 +184,8 @@ impl Screen {
     }
     pub(super) fn shutdown(&mut self) {
         self.shutdown_check();
+        self.overview.shutdown();
+        self.workspace.shutdown();
         if let Mode::Busy(pending) = self.take_mode() {
             pending.cancel.cancel();
             let _ = pending.handle.join();

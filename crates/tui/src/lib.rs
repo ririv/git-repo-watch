@@ -8,9 +8,11 @@ mod editor;
 mod graphics;
 mod history;
 mod input;
+mod overview;
 mod spinner;
 mod task;
 mod view;
+mod workspace;
 use anyhow::{Context, Result};
 use command::{Action, Configuration};
 use crossterm::{
@@ -66,6 +68,15 @@ struct FileSession {
     query: String,
 }
 impl FileSession {
+    fn new(snapshot: Files, area: FileArea) -> Self {
+        Self {
+            snapshot,
+            area,
+            cursor: 0,
+            selected: BTreeSet::new(),
+            query: String::new(),
+        }
+    }
     fn rows(&self) -> Vec<&Change> {
         self.snapshot
             .changes
@@ -110,6 +121,7 @@ impl FileSession {
 #[derive(Debug)]
 enum Mode {
     Browsing,
+    Panel(workspace::Section),
     Confirm {
         operation: Confirmation,
         choice: confirmation::Choice,
@@ -227,6 +239,9 @@ struct Screen {
     message: String,
     check_task: Option<checks::CheckTask>,
     updates: BTreeMap<PathBuf, checks::Update>,
+    overview: overview::Overview,
+    workspace: workspace::Workspace,
+    workspace_areas: Vec<(ratatui::layout::Rect, workspace::Section)>,
 }
 #[derive(Debug, Clone)]
 struct Row {
@@ -263,6 +278,9 @@ impl Screen {
             message: String::new(),
             check_task: None,
             updates: BTreeMap::new(),
+            overview: Default::default(),
+            workspace: Default::default(),
+            workspace_areas: Vec::new(),
         };
         screen.load_updates()?;
         Ok(screen)
@@ -316,6 +334,11 @@ impl Screen {
         self.mode
             .file_session()
             .map(|s| s.snapshot.path.clone())
+            .or_else(|| {
+                (self.page == Page::Detail)
+                    .then(|| self.workspace.path().map(std::path::Path::to_owned))
+                    .flatten()
+            })
             .or_else(|| self.selected_path())
     }
     fn focus(&mut self, path: Option<PathBuf>) {
@@ -394,9 +417,13 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
             }
             let changed = screen.poll(&root)
                 | screen.poll_check()
+                | screen.poll_workspace()
+                | screen.workspace.animate()
                 | screen.animate_check()
                 | screen.animate_task()
                 | screen.graphics.poll();
+            let changed =
+                changed | screen.overview.poll(&screen.service) | screen.overview.animate();
             if dirty || changed {
                 terminal.draw(|frame| view::render(frame, &mut screen))?;
                 screen.graphics.finish_frame(&mut io::stdout())?;

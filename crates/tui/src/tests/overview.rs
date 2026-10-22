@@ -1,0 +1,196 @@
+use super::*;
+
+pub(super) fn wait_overview(s: &mut Screen) {
+    let start = Instant::now();
+    while matches!(
+        s.overview.content,
+        crate::overview::Content::Loading(_) | crate::overview::Content::Refreshing(_)
+    ) {
+        assert!(
+            start.elapsed() < Duration::from_secs(8),
+            "仓库概览读取没有结束"
+        );
+        s.overview.poll(&s.service);
+        thread::sleep(Duration::from_millis(3));
+    }
+}
+
+#[test]
+fn overview_is_live_localized_and_distinct_from_cached_preview() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        f.commit("overview.ts", "export const overview = true;\n");
+        support::write(
+            f.repo.join("中文 pending.ts"),
+            "export const pending = true;\n",
+        );
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        let config = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+        let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+        key(&mut s, KeyCode::Enter);
+        assert_eq!(s.page, Page::Detail);
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(matches!(
+            s.overview.content,
+            crate::overview::Content::Loading(_)
+        ));
+        assert!(render(&mut s, 120, 32).contains(i18n::tr!(OverviewLoading)));
+        wait_overview(&mut s);
+        wait_workspace(&mut s);
+        assert!(matches!(
+            s.overview.content,
+            crate::overview::Content::Ready(_)
+        ));
+        let text = render(&mut s, 160, 65);
+        for value in [
+            i18n::tr!(OverviewUntracked),
+            i18n::tr!(WorkspaceOverview),
+            i18n::tr!(WorkspaceHistory),
+            i18n::tr!(OverviewCheck),
+            "origin/main",
+        ] {
+            assert!(text.contains(value), "{value}: {text}");
+        }
+        assert!(!text.contains(i18n::tr!(NoCompleteReportYet)));
+        assert!(text.contains("中文 pending.ts"), "{text}");
+        let area = s
+            .workspace_areas
+            .iter()
+            .find(|(_, section)| *section == crate::workspace::Section::Overview)
+            .unwrap()
+            .0;
+        let overview = text
+            .lines()
+            .skip(area.y.into())
+            .take(area.height.into())
+            .map(|line| line.chars().take(area.width.into()).collect::<String>())
+            .collect::<String>();
+        assert!(!overview.contains("中文 pending.ts"));
+        assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+        assert_eq!(
+            std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+            config
+        );
+        assert!(s.service.store.report().unwrap().is_none());
+        assert!(s.service.store.repository_reports().unwrap().is_empty());
+    }
+}
+
+#[test]
+fn compact_overview_keeps_navigation_visible_while_scrolling_and_resizing() {
+    let f = support::Fixture::create();
+    for n in 0..12 {
+        support::git(&f.repo, &["branch", &format!("feature-{n}")]);
+    }
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Right);
+    wait_overview(&mut s);
+    let text = render(&mut s, 60, 18);
+    assert!(text.contains("repo"));
+    assert!(text.contains(i18n::tr!(Branch)));
+    let mut seen = String::new();
+    for _ in 0..20 {
+        seen.push_str(&render(&mut s, 60, 18));
+        key(&mut s, KeyCode::PageDown);
+    }
+    for label in [
+        i18n::tr!(WorkspaceOverview),
+        i18n::tr!(WorkspaceHistory),
+        i18n::tr!(OverviewCheck),
+    ] {
+        assert!(seen.contains(label), "{label}: {seen}");
+    }
+    key(&mut s, KeyCode::End);
+    render(&mut s, 160, 65);
+    assert!(s.scroll < 100);
+    key(&mut s, KeyCode::Home);
+    assert_eq!(s.scroll, 0);
+    assert!(render(&mut s, 110, 32).contains(i18n::tr!(CleanAlt)));
+}
+
+#[test]
+fn refreshing_keeps_old_content_and_commands_return_to_updated_overview() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_overview(&mut s);
+    support::write(f.repo.join("new-file"), "new\n");
+    s.key(
+        KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert!(matches!(
+        s.overview.content,
+        crate::overview::Content::Refreshing(_)
+    ));
+    assert!(render(&mut s, 140, 40).contains(i18n::tr!(CleanAlt)));
+    wait_overview(&mut s);
+    assert_eq!(
+        s.overview
+            .content
+            .snapshot()
+            .unwrap()
+            .changes
+            .as_ref()
+            .unwrap()
+            .untracked,
+        1
+    );
+    command(&mut s, "stage");
+    wait(&mut s);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    key(&mut s, KeyCode::Left);
+    wait_overview(&mut s);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.page, Page::Detail);
+    key(&mut s, KeyCode::Left);
+    assert_eq!(s.page, Page::Repositories);
+    assert_eq!(s.selected_path(), Some(f.repo));
+}
+
+#[test]
+fn replacing_a_request_never_displays_the_previous_repository_result() {
+    let first = support::Fixture::create();
+    let second = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+    s.overview.open(first.repo.clone(), &s.service);
+    s.overview.open(second.repo.clone(), &s.service);
+    wait_overview(&mut s);
+    assert_eq!(s.overview.content.snapshot().unwrap().path, second.repo);
+    s.overview.open("/missing-repository".into(), &s.service);
+    wait_overview(&mut s);
+    assert!(matches!(
+        s.overview.content,
+        crate::overview::Content::Failed { .. }
+    ));
+}
+
+#[test]
+fn full_check_errors_are_reachable_after_scrolling_and_resizing() {
+    let _language = i18n::using(i18n::Language::English);
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.updates.insert(
+        f.repo.clone(),
+        crate::checks::Update {
+            result: RepositoryResult::Failed {
+                path: f.repo.clone(),
+                error: format!("{}last error detail", "remote error\n".repeat(500)),
+                pushes: vec![],
+            },
+            finished_at: chrono::Utc::now().fixed_offset(),
+        },
+    );
+    key(&mut s, KeyCode::Enter);
+    wait_overview(&mut s);
+    for (width, height) in [(60, 18), (160, 32), (110, 18)] {
+        key(&mut s, KeyCode::End);
+        let text = render(&mut s, width, height);
+        assert!(text.contains("last error detail"), "{text}");
+        assert!(s.scroll < 600);
+    }
+    key(&mut s, KeyCode::Home);
+    assert!(render(&mut s, 60, 18).contains("Branch:"));
+}

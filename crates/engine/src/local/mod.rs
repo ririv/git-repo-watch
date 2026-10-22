@@ -2,6 +2,7 @@
 pub mod branches;
 pub mod files;
 pub mod history;
+pub mod overview;
 pub mod review;
 use anyhow::{Context, Result, ensure};
 use git2::{Repository, RepositoryOpenFlags, RepositoryState};

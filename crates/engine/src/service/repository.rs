@@ -1,6 +1,10 @@
 //! Locked single-repository operations and manual journals.
 use super::*;
 impl Service {
+    pub fn overview(&self, path: &Path, cancel: &Cancel) -> Result<local::overview::Snapshot> {
+        self.validate_repository(path, cancel)?;
+        local::overview::read(path, cancel)
+    }
     pub fn history(
         &self,
         path: &Path,

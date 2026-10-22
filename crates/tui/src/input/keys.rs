@@ -6,9 +6,11 @@ impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         match &mut self.mode {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
-            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
-                self.bar_paste(text)
-            }
+            Mode::Browsing
+            | Mode::Panel(_)
+            | Mode::Files(_)
+            | Mode::Diff { .. }
+            | Mode::History(_) => self.bar_paste(text),
             _ => {}
         }
     }
@@ -37,6 +39,9 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
+        if self.repository_pane_key(key) {
+            return Ok(false);
+        }
         if let Mode::History(view) = &mut self.mode
             && matches!(self.bar, crate::bar::InputBar::Search(_))
             && key.modifiers.contains(KeyModifiers::ALT)
@@ -62,10 +67,24 @@ impl Screen {
         let mode = self.take_mode();
         match mode {
             Mode::Browsing => return self.navigate(key, root),
+            Mode::Panel(_) => match key.code {
+                KeyCode::Esc | KeyCode::Left => {
+                    self.mode = Mode::Browsing;
+                    self.sync_bar();
+                }
+                KeyCode::Enter => {
+                    self.mode = mode;
+                    self.refresh_workspace();
+                }
+                _ => self.mode = mode,
+            },
             Mode::History(mut view) => {
                 match view.as_mut() {
                     history::View::Graph(session) => match key.code {
                         KeyCode::Esc | KeyCode::Left => {
+                            if self.page == Page::Detail {
+                                self.workspace.save(Mode::History(view));
+                            }
                             self.sync_bar();
                             return Ok(false);
                         }
@@ -159,6 +178,10 @@ impl Screen {
                 match key.code {
                     KeyCode::Esc | KeyCode::Left => {
                         self.message.clear();
+                        if self.page == Page::Detail {
+                            self.workspace.save(Mode::Files(session));
+                        }
+                        self.refresh_overview();
                         self.sync_bar();
                         return Ok(false);
                     }

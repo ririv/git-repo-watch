@@ -2,6 +2,39 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    WorkspaceOverview,
+    WorkspaceHistory,
+    WorkspaceFocusHint,
+    WorkspaceMaximizeHint,
+    WorkspaceRestoreHint,
+
+    OverviewUpstream,
+    OverviewMailboxOrRebase,
+
+    OverviewTitle,
+    OverviewLoading,
+    OverviewSnapshot,
+    OverviewCheckout,
+    OverviewUnborn,
+    OverviewDetached,
+    OverviewOperation,
+    OverviewStaged,
+    OverviewUnstaged,
+    OverviewUntracked,
+    OverviewConflicts,
+    OverviewShallow,
+    OverviewGone,
+    OverviewAhead,
+    OverviewBehind,
+    OverviewCheck,
+    OverviewInputHint,
+    OverviewMerging,
+    OverviewRebasing,
+    OverviewReverting,
+    OverviewCherryPicking,
+    OverviewBisecting,
+    OverviewApplyingMail,
+
     GraphicsUnsupported,
     GraphicsMetricsUnavailable,
     GraphicsTooLarge,
@@ -550,6 +583,77 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::WorkspaceOverview, Language::English) => "Overview",
+            (Self::WorkspaceOverview, Language::Chinese) => "概览",
+            (Self::WorkspaceHistory, Language::English) => "History",
+            (Self::WorkspaceHistory, Language::Chinese) => "提交历史",
+            (Self::WorkspaceFocusHint, Language::English) => "Ctrl+S/D Focus",
+            (Self::WorkspaceFocusHint, Language::Chinese) => "Ctrl+S/D 聚焦",
+            (Self::WorkspaceMaximizeHint, Language::English) => "Ctrl+F Fullscreen",
+            (Self::WorkspaceMaximizeHint, Language::Chinese) => "Ctrl+F 放大",
+            (Self::WorkspaceRestoreHint, Language::English) => "Ctrl+F Restore",
+            (Self::WorkspaceRestoreHint, Language::Chinese) => "Ctrl+F 恢复",
+
+            (Self::OverviewUpstream, Language::English) => "Upstream (local refs)",
+            (Self::OverviewUpstream, Language::Chinese) => "上游（本地引用）",
+            (Self::OverviewMailboxOrRebase, Language::English) => {
+                "Applying mailbox patches or rebasing"
+            }
+            (Self::OverviewMailboxOrRebase, Language::Chinese) => "正在应用邮件补丁或变基",
+
+            (Self::OverviewTitle, Language::English) => "Repository overview",
+            (Self::OverviewTitle, Language::Chinese) => "仓库概览",
+            (Self::OverviewLoading, Language::English) => "Reading local repository…",
+            (Self::OverviewLoading, Language::Chinese) => "正在读取本地仓库…",
+            (Self::OverviewSnapshot, Language::English) => "Local snapshot",
+            (Self::OverviewSnapshot, Language::Chinese) => "本地快照",
+            (Self::OverviewCheckout, Language::English) => "Current checkout",
+            (Self::OverviewCheckout, Language::Chinese) => "当前检出",
+            (Self::OverviewUnborn, Language::English) => "No commits yet",
+            (Self::OverviewUnborn, Language::Chinese) => "尚无提交",
+            (Self::OverviewDetached, Language::English) => "Detached HEAD",
+            (Self::OverviewDetached, Language::Chinese) => "游离 HEAD",
+            (Self::OverviewOperation, Language::English) => "Git operation",
+            (Self::OverviewOperation, Language::Chinese) => "Git 操作",
+            (Self::OverviewStaged, Language::English) => "Staged",
+            (Self::OverviewStaged, Language::Chinese) => "已暂存",
+            (Self::OverviewUnstaged, Language::English) => "Unstaged",
+            (Self::OverviewUnstaged, Language::Chinese) => "未暂存",
+            (Self::OverviewUntracked, Language::English) => "Untracked",
+            (Self::OverviewUntracked, Language::Chinese) => "未跟踪",
+            (Self::OverviewConflicts, Language::English) => "Conflicts",
+            (Self::OverviewConflicts, Language::Chinese) => "冲突",
+            (Self::OverviewShallow, Language::English) => {
+                "Shallow history; ahead/behind may be incomplete"
+            }
+            (Self::OverviewShallow, Language::Chinese) => "浅克隆；领先与落后数量可能不完整",
+            (Self::OverviewGone, Language::English) => "Upstream ref missing locally",
+            (Self::OverviewGone, Language::Chinese) => "本地缺少上游引用",
+            (Self::OverviewAhead, Language::English) => "Ahead",
+            (Self::OverviewAhead, Language::Chinese) => "领先",
+            (Self::OverviewBehind, Language::English) => "Behind",
+            (Self::OverviewBehind, Language::Chinese) => "落后",
+            (Self::OverviewCheck, Language::English) => "Last remote check",
+            (Self::OverviewCheck, Language::Chinese) => "上轮远程检查",
+            (Self::OverviewInputHint, Language::English) => {
+                "↑↓ Scroll · ←/Esc Back · Ctrl+R Refresh · / Commands"
+            }
+            (Self::OverviewInputHint, Language::Chinese) => {
+                "↑↓滚动 · ←/Esc 返回 · Ctrl+R 刷新 · / 命令"
+            }
+            (Self::OverviewMerging, Language::English) => "Merging",
+            (Self::OverviewMerging, Language::Chinese) => "正在合并",
+            (Self::OverviewRebasing, Language::English) => "Rebasing",
+            (Self::OverviewRebasing, Language::Chinese) => "正在变基",
+            (Self::OverviewReverting, Language::English) => "Reverting",
+            (Self::OverviewReverting, Language::Chinese) => "正在还原提交",
+            (Self::OverviewCherryPicking, Language::English) => "Cherry-picking",
+            (Self::OverviewCherryPicking, Language::Chinese) => "正在拣选提交",
+            (Self::OverviewBisecting, Language::English) => "Bisecting",
+            (Self::OverviewBisecting, Language::Chinese) => "正在二分查找",
+            (Self::OverviewApplyingMail, Language::English) => "Applying mailbox patches",
+            (Self::OverviewApplyingMail, Language::Chinese) => "正在应用邮件补丁",
+
             (Self::GraphicsWorkerStopped, Language::English) => {
                 "Pixel preparation worker stopped unexpectedly"
             }

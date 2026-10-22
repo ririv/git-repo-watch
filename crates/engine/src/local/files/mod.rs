@@ -218,7 +218,7 @@ pub fn dirty(repo: &Repository) -> Result<bool> {
         .exclude_submodules(false);
     Ok(!repo.statuses(Some(&mut opts))?.is_empty() || !submodule_changes(repo)?.is_empty())
 }
-fn submodule_changes(repo: &Repository) -> Result<Vec<PathBuf>> {
+pub(super) fn submodule_changes(repo: &Repository) -> Result<Vec<PathBuf>> {
     let mut paths = Vec::new();
     for sub in repo.submodules()? {
         let name = sub.name().context(i18n::tr!(SubmoduleNameIsNotUtf8))?;

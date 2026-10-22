@@ -214,6 +214,11 @@ impl Screen {
                         changed = true;
                     }
                     Ok(Event::Progress(service::Event::Checked(result))) => {
+                        if self.page == Page::Detail
+                            && self.overview.content.path() == Some(result.path())
+                        {
+                            self.overview.open(result.path().to_owned(), &self.service);
+                        }
                         task.progress.insert(
                             result.path().to_owned(),
                             Progress::Finished(Update {

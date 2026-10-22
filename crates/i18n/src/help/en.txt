@@ -5,13 +5,20 @@
 - `Tab` cycles repositories, general settings and the scheduled task.
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
+## Repository panes
+- Entering a repository shows overview, worktree files and the commit graph together.
+- `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it.
+- `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
+- Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
+- In a maximized pane, `Esc` clears input first, then restores the layout. Diff and commit details keep their existing back navigation.
+
 ## Search and commands
 - Type to search repositories, or files in the file panel. Input is always active.
 - `/` opens a full-width command menu above the input. `↑↓` selects, `Tab` completes, `Enter` opens the selection.
 - Root commands show only top-level entries. Type a space after a command to see its subcommands.
 - Parameter commands stay in the input: `/repo add <path>`, `/settings concurrency <count>`.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
-- `Ctrl+F` cycles All, Problems, No upstream and Pushes; `Alt+O` switches priority / path order.
+- In the repository list, `Ctrl+F` cycles All, Problems, No upstream and Pushes; `Alt+O` switches priority / path order.
 - `Ctrl+R` reloads the report or refreshes the file panel. The mouse wheel scrolls three rows in the repository list.
 
 ## Paths and completion

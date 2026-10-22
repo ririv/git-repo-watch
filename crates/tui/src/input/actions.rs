@@ -45,12 +45,29 @@ impl Screen {
             Action::Settings => self.open_configuration(Configuration::General),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => {
+                if self.page == Page::Detail {
+                    self.park_workspace();
+                }
                 self.history.push(self.page);
                 self.page = Page::Help;
                 self.mode = Mode::Browsing;
                 self.scroll = 0
             }
             Action::Refresh => {
+                if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {
+                    if let Err(error) = self.reload(root) {
+                        self.error(i18n::tr!(RefreshFailed), error);
+                        return Ok(false);
+                    }
+                    self.refresh_workspace();
+                    if let Mode::History(view) = &self.mode {
+                        self.open_history(view.session().references.path.clone());
+                    } else if let Some(session) = self.mode.file_session() {
+                        self.read_files(session.snapshot.path.clone(), session.area);
+                    }
+                    return Ok(false);
+                }
+                self.refresh_overview();
                 if let Mode::History(view) = &self.mode {
                     self.open_history(view.session().references.path.clone());
                 } else if let Some(session) = self.mode.file_session() {
@@ -218,6 +235,9 @@ impl Screen {
         self.message.clear();
     }
     fn open_configuration(&mut self, section: Configuration) {
+        if self.page == Page::Detail {
+            self.park_workspace();
+        }
         if self.page != Page::Configuration(section) {
             self.history.push(self.page);
         }

@@ -4,6 +4,19 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            && matches!(self.bar, bar::InputBar::Search(_))
+        {
+            let section = self
+                .workspace_areas
+                .iter()
+                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                .map(|(_, section)| *section);
+            if let Some(section) = section {
+                self.switch_repository_section(section);
+                return Ok(true);
+            }
+        }
         let code = match event.kind {
             MouseEventKind::ScrollUp => KeyCode::Up,
             MouseEventKind::ScrollDown => KeyCode::Down,
@@ -11,7 +24,7 @@ impl Screen {
         };
         if !matches!(
             self.mode,
-            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
+            Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
         ) {
             return Ok(false);
         }
@@ -37,6 +50,19 @@ impl Screen {
             .wheel(direction, std::time::Instant::now())
         {
             return Ok(false);
+        }
+        if self.page == Page::Detail
+            && crate::workspace::Workspace::is_root(&self.mode)
+            && matches!(self.bar, bar::InputBar::Search(_))
+        {
+            let section = self
+                .workspace_areas
+                .iter()
+                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                .map(|(_, section)| *section);
+            if let Some(section) = section {
+                self.switch_repository_section(section);
+            }
         }
         for _ in 0..3 {
             self.dispatch_key(KeyEvent::new(code, KeyModifiers::NONE), root)?;

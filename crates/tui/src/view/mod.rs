@@ -2,14 +2,17 @@
 mod body;
 mod completion;
 mod diff;
+mod files;
 mod help;
 mod history;
 mod input;
+mod overview;
 mod repository;
 mod review;
 mod schedule;
 mod settings;
 mod shell;
+mod workspace;
 use super::*;
 use body::render_body;
 use engine::{
@@ -27,7 +30,7 @@ use ratatui::{
         Wrap,
     },
 };
-use repository::{repositories, repository_detail};
+use repository::repositories;
 use review::{commit_review, text_view};
 use settings::settings;
 use shell::header;
@@ -76,6 +79,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.graphics.begin_frame();
     screen.body_area = None;
     screen.repository_area = None;
+    screen.workspace_areas.clear();
     let area = frame.area();
     if area.width < 60 || area.height < 18 {
         frame.render_widget(Paragraph::new(i18n::tr!(TerminalSizeTooSmall)), area);
@@ -92,9 +96,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
         .split(area);
     frame.render_widget(Paragraph::new(header), layout[0]);
     input::render(frame, screen, layout[2]);
-    screen.body_area = Some(layout[1]);
-    render_body(frame, screen, layout[1]);
-    render_commands(frame, screen, layout[1]);
+    let body = layout[1];
+    screen.body_area = Some(body);
+    render_body(frame, screen, body);
+    render_commands(frame, screen, body);
 }
 fn truncate(text: &str, width: usize) -> String {
     let mut out = String::new();
@@ -127,7 +132,7 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     };
     if !matches!(
         screen.mode,
-        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
+        Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
     ) {
         return;
     }
