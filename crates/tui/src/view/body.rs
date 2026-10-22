@@ -1,6 +1,25 @@
 use super::*;
 pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     match &mut screen.mode {
+        Mode::History(view) => history::render(
+            frame,
+            area,
+            view,
+            screen.diff_preference,
+            &mut screen.graphics,
+        ),
+        Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
+            let Mode::History(view) = pending.origin.as_mut() else {
+                unreachable!()
+            };
+            history::render(
+                frame,
+                area,
+                view,
+                screen.diff_preference,
+                &mut screen.graphics,
+            );
+        }
         Mode::Files(s) => {
             let title = format!("{} · {}", name(&s.snapshot.path), safe(s.snapshot.branch()));
             let frame_block = block(title);

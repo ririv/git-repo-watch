@@ -11,7 +11,7 @@ impl Screen {
         };
         if !matches!(
             self.mode,
-            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. }
+            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
         ) {
             return Ok(false);
         }

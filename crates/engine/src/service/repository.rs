@@ -1,6 +1,34 @@
 //! Locked single-repository operations and manual journals.
 use super::*;
 impl Service {
+    pub fn history(
+        &self,
+        path: &Path,
+        request: local::history::Request,
+        cancel: &Cancel,
+    ) -> Result<local::history::Page> {
+        self.validate_repository(path, cancel)?;
+        local::history::read(path, request, cancel)
+    }
+    pub fn history_commit(
+        &self,
+        path: &Path,
+        oid: git2::Oid,
+        parent: local::history::Parent,
+        cancel: &Cancel,
+    ) -> Result<local::history::Detail> {
+        self.validate_repository(path, cancel)?;
+        local::history::detail(path, oid, parent, cancel)
+    }
+    pub fn history_diff(
+        &self,
+        detail: &local::history::Detail,
+        change: &local::history::Change,
+        cancel: &Cancel,
+    ) -> Result<files::patch::Document> {
+        self.validate_repository(&detail.path, cancel)?;
+        local::history::document(detail, change, cancel)
+    }
     pub fn open_terminal(&self, path: &Path, cancel: &Cancel) -> Result<()> {
         cancel.check()?;
         ensure!(

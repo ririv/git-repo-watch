@@ -1,0 +1,11 @@
+[package]
+name = "graph"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "独立于 Git 与终端组件的有向无环图布局及像素绘制"
+
+[dependencies]
+tiny-skia.workspace = true

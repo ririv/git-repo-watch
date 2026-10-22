@@ -28,8 +28,15 @@ impl Screen {
             rx,
             handle,
             origin,
+            animation: spinner::Spinner::new(std::time::Instant::now()),
         });
         self.message.clear();
+    }
+    pub(super) fn animate_task(&mut self) -> bool {
+        match &mut self.mode {
+            Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
+            _ => false,
+        }
     }
     pub(super) fn poll(&mut self, root: &Cancel) -> bool {
         let mut changed = false;
@@ -82,6 +89,7 @@ impl Screen {
         self.message.clear();
         self.scroll = 0;
         match outcome {
+            Outcome::History(view) => self.mode = Mode::History(view),
             Outcome::TerminalOpened(path) => {
                 self.mode = origin;
                 self.message = i18n::tf!(RepositoryTerminalOpened, path.display());

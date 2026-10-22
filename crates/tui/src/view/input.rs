@@ -18,7 +18,7 @@ enum Content<'a> {
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     let (title, content, hint) = match &screen.mode {
-        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } => {
+        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
             let hint = if matches!(
@@ -45,6 +45,11 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 i18n::tr!(SearchEditingHint)
             } else {
                 match screen.mode {
+                    Mode::History(ref view) => match view.as_ref() {
+                        crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
+                        crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
+                        crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
+                    },
                     Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
                     Mode::Diff { .. } => i18n::tr!(ScrollEscFilesCommands),
                     _ => match screen.page {
@@ -58,14 +63,22 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             (
                 if command {
                     i18n::tr!(CommandsAlt)
-                } else if files {
+                } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+                {
+                    i18n::tr!(HistorySearch)
+                } else if files || matches!(screen.mode, Mode::History(_)) {
                     i18n::tr!(SearchFiles)
                 } else {
                     i18n::tr!(SearchRepositories)
                 },
                 Content::Editable {
                     editor: screen.bar.editor(),
-                    placeholder: i18n::tr!(TypeToSearchOrForCommands),
+                    placeholder: if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+                    {
+                        i18n::tr!(HistorySearchHint)
+                    } else {
+                        i18n::tr!(TypeToSearchOrForCommands)
+                    },
                 },
                 hint,
             )
@@ -134,7 +147,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             Content::Locked(if p.state == TaskState::Cancelling {
                 i18n::tr!(Cancelling).into()
             } else {
-                safe(&p.title)
+                format!("{} {}", p.animation.symbol(), safe(&p.title))
             }),
             i18n::tr!(EscCtrlCCancelAndWaitFor),
         ),

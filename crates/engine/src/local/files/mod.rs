@@ -5,9 +5,11 @@ pub mod patch;
 mod source;
 use super::{Head, head, idle, open, utf8_path};
 use anyhow::{Context, Result, ensure};
+pub(crate) use diff::collect;
 pub use diff::{diff, document};
 use git2::{Delta, Oid, Repository, Status, StatusOptions};
 pub use index::edit;
+pub(crate) use source::Storage;
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -63,7 +65,7 @@ pub enum IndexAction {
     Stage,
     Unstage,
 }
-fn location(delta: git2::DiffDelta<'_>) -> Result<Location> {
+pub(crate) fn location(delta: git2::DiffDelta<'_>) -> Result<Location> {
     let after = delta
         .new_file()
         .path()
@@ -166,7 +168,7 @@ fn changes(repo: &Repository) -> Result<Vec<Change>> {
     }
     Ok(result)
 }
-fn kind(delta: Delta) -> char {
+pub(crate) fn kind(delta: Delta) -> char {
     match delta {
         Delta::Added => 'A',
         Delta::Deleted => 'D',

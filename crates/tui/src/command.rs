@@ -7,6 +7,8 @@ pub enum Action {
     Stage,
     Unstage,
     Diff,
+    Log,
+    LogMore,
     DiffLayout(crate::diff::Preference),
     Commit,
     Push,
@@ -50,6 +52,18 @@ pub struct Command {
 use Action::*;
 use Scope::*;
 pub const COMMANDS: &[Command] = &[
+    Command {
+        name: "log",
+        action: Log,
+        scope: Repository,
+        description: i18n::Message::HistoryCommand,
+    },
+    Command {
+        name: "log more",
+        action: LogMore,
+        scope: View,
+        description: i18n::Message::HistoryMoreCommand,
+    },
     Command {
         name: "stage",
         action: Stage,

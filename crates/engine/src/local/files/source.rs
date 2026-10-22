@@ -12,7 +12,7 @@ pub(super) struct FileInfo {
     pub exists: bool,
 }
 #[derive(Clone, Copy)]
-pub(super) enum Storage {
+pub(crate) enum Storage {
     Object,
     Worktree,
 }

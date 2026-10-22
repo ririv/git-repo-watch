@@ -12,15 +12,18 @@ identity.workspace = true
 i18n.workspace = true
 engine.workspace = true
 highlight.workspace = true
+graph.workspace = true
 anyhow.workspace = true
 chrono.workspace = true
 crossterm.workspace = true
 ratatui.workspace = true
+ratatui-image.workspace = true
+image.workspace = true
+libc.workspace = true
 strip-ansi-escapes.workspace = true
 unicode-width.workspace = true
 vte.workspace = true
 
 [dev-dependencies]
 test-support.workspace = true
-libc.workspace = true
 tempfile.workspace = true

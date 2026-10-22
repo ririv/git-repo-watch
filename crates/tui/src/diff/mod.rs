@@ -79,12 +79,23 @@ impl Layout {
 enum Comparison {
     Staged,
     Working,
+    History {
+        before: engine::local::history::Base,
+        after: engine::local::history::Oid,
+    },
 }
 impl Comparison {
-    fn labels(self) -> (&'static str, &'static str) {
+    fn labels(self) -> (String, String) {
         match self {
-            Self::Staged => ("HEAD", i18n::tr!(Index)),
-            Self::Working => (i18n::tr!(Index), i18n::tr!(Worktree)),
+            Self::Staged => ("HEAD".into(), i18n::tr!(Index).into()),
+            Self::Working => (i18n::tr!(Index).into(), i18n::tr!(Worktree).into()),
+            Self::History { before, after } => (
+                match before {
+                    engine::local::history::Base::Empty => i18n::tr!(HistoryRoot).into(),
+                    engine::local::history::Base::Commit(oid) => oid.to_string()[..12].into(),
+                },
+                after.to_string()[..12].into(),
+            ),
         }
     }
 }
@@ -151,7 +162,7 @@ impl View {
         }
         self.cache.as_mut().expect("diff layout prepared")
     }
-    pub fn labels(&self) -> (&'static str, &'static str) {
+    pub fn labels(&self) -> (String, String) {
         self.comparison.labels()
     }
 }
@@ -160,6 +171,38 @@ pub(super) fn prepare(
     title: &str,
     document: Document,
     area: Area,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_comparison(
+        title,
+        document,
+        match area {
+            Area::Staged => Comparison::Staged,
+            Area::Unstaged | Area::Untracked => Comparison::Working,
+        },
+        cancel,
+    )
+}
+
+pub(super) fn prepare_history(
+    title: &str,
+    document: Document,
+    before: engine::local::history::Base,
+    after: engine::local::history::Oid,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_comparison(
+        title,
+        document,
+        Comparison::History { before, after },
+        cancel,
+    )
+}
+
+fn prepare_comparison(
+    title: &str,
+    document: Document,
+    comparison: Comparison,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
     let rows = build::rows(title, document, cancel)?;
@@ -173,10 +216,7 @@ pub(super) fn prepare(
     Ok(Box::new(View {
         rows,
         digits,
-        comparison: match area {
-            Area::Staged => Comparison::Staged,
-            Area::Unstaged | Area::Untracked => Comparison::Working,
-        },
+        comparison,
         cache: None,
     }))
 }

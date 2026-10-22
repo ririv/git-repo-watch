@@ -1,6 +1,10 @@
 use super::*;
 pub(super) fn header(screen: &Screen) -> Text<'static> {
     let title = match &screen.mode {
+        Mode::History(_) => i18n::tr!(HistoryTitle),
+        Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
+            i18n::tr!(HistoryTitle)
+        }
         Mode::Files(_) | Mode::Diff { .. } => i18n::tr!(FilesCurrentState),
         Mode::CommitMessage { .. } | Mode::CommitConfirm { .. } => {
             i18n::tr!(CommitStagedContents)

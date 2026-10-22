@@ -33,6 +33,16 @@
 - `/push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
 - `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
+## Commit graph
+- `/log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
+- `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `←` goes back.
+- Each page contains up to 100 commits; `↓` at the bottom or `/log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
+- Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `Tab` / `Shift+Tab` selects the next / previous match.
+- `Alt+←→` pans a wide graph. Wide terminals show a metadata preview.
+- In commit details, type to filter files, `Tab` switches merge parents and `PgUp` / `PgDn` scrolls metadata and message.
+- Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/diff` layout commands also apply.
+> Graph and historical diff reads do not stage, commit, fetch, push or change reports.
+
 ## Checks and configuration
 - `/check` checks the selected repository; `/check all` checks every registered repository. Both start directly without pushing.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.

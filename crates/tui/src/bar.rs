@@ -55,12 +55,14 @@ pub(crate) enum BarEvent {
 }
 impl Screen {
     pub(crate) fn sync_bar(&mut self) {
-        self.bar = InputBar::Search(Editor::new(
+        self.bar = InputBar::Search(Editor::new(if let Mode::History(view) = &self.mode {
+            view.query().to_owned()
+        } else {
             self.mode
                 .file_session()
                 .map(|s| s.query.clone())
-                .unwrap_or_else(|| self.query.clone()),
-        ))
+                .unwrap_or_else(|| self.query.clone())
+        }))
     }
     fn normalize_bar(&mut self, path: Option<PathBuf>) {
         let command = self.bar.editor().text.starts_with('/');
@@ -89,6 +91,7 @@ impl Screen {
         if let InputBar::Search(editor) = &self.bar {
             let query = editor.text.clone();
             match &mut self.mode {
+                Mode::History(view) => view.search(query),
                 Mode::Files(s) if s.query != query => {
                     s.query = query;
                     s.cursor = 0
@@ -121,7 +124,7 @@ impl Screen {
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
         if !matches!(
             self.mode,
-            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. }
+            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
         ) {
             return Ok(BarEvent::Pass);
         }
@@ -298,6 +301,12 @@ impl Screen {
             return Ok(BarEvent::Pass);
         }
         // 空搜索栏把无修饰的左右键交给页面导航；有文字时仍移动输入光标。
+        if self.bar.editor().text.is_empty()
+            && matches!(self.mode, Mode::History(_))
+            && matches!(key.code, KeyCode::Home | KeyCode::End)
+        {
+            return Ok(BarEvent::Pass);
+        }
         if matches!(&self.bar, InputBar::Search(editor) if editor.text.is_empty())
             && key.modifiers.is_empty()
             && matches!(key.code, KeyCode::Left | KeyCode::Right)
@@ -332,6 +341,7 @@ impl Screen {
         let path = self.selected_path();
         self.bar = InputBar::default();
         match &mut self.mode {
+            Mode::History(view) => view.clear_search(),
             Mode::Files(s) | Mode::Diff { session: s, .. } => {
                 s.query.clear();
                 s.cursor = 0;

@@ -66,6 +66,27 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
     } else {
         repo.diff_index_to_workdir(None, Some(&mut options))?
     };
+    let document = collect(
+        &repo,
+        &diff,
+        if change.area == Area::Staged {
+            Storage::Object
+        } else {
+            Storage::Worktree
+        },
+        cancel,
+    )?;
+    validate(&repo, snapshot)?;
+    cancel.check()?;
+    Ok(document)
+}
+
+pub(crate) fn collect(
+    repo: &git2::Repository,
+    diff: &git2::Diff<'_>,
+    after_storage: Storage,
+    cancel: &Cancel,
+) -> Result<Document> {
     struct Pending {
         before: FileInfo,
         after: FileInfo,
@@ -126,19 +147,11 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
     for file in files {
         cancel.check()?;
         result.push(FilePatch {
-            before: file.before.read(&repo, Storage::Object)?,
-            after: file.after.read(
-                &repo,
-                if change.area == Area::Staged {
-                    Storage::Object
-                } else {
-                    Storage::Worktree
-                },
-            )?,
+            before: file.before.read(repo, Storage::Object)?,
+            after: file.after.read(repo, after_storage)?,
             lines: file.lines,
         });
     }
-    validate(&repo, snapshot)?;
     cancel.check()?;
     Ok(Document::Patch {
         files: result,

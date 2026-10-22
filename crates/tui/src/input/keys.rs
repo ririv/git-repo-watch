@@ -1,12 +1,14 @@
 //! Interaction state transitions.
 use super::super::*;
 use super::{ctrl_c, scroll_key};
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         match &mut self.mode {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
-            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } => self.bar_paste(text),
+            Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
+                self.bar_paste(text)
+            }
             _ => {}
         }
     }
@@ -35,6 +37,23 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
+        if let Mode::History(view) = &mut self.mode
+            && matches!(self.bar, crate::bar::InputBar::Search(_))
+            && key.modifiers.contains(KeyModifiers::ALT)
+            && let history::View::Graph(session) = view.as_mut()
+        {
+            match key.code {
+                KeyCode::Left => {
+                    session.pan = session.pan.saturating_sub(2);
+                    return Ok(false);
+                }
+                KeyCode::Right => {
+                    session.pan = (session.pan + 2).min(session.width.saturating_sub(1));
+                    return Ok(false);
+                }
+                _ => {}
+            }
+        }
         match self.bar_key(key, root)? {
             crate::bar::BarEvent::Handled => return Ok(false),
             crate::bar::BarEvent::Quit => return Ok(true),
@@ -43,6 +62,73 @@ impl Screen {
         let mode = self.take_mode();
         match mode {
             Mode::Browsing => return self.navigate(key, root),
+            Mode::History(mut view) => {
+                match view.as_mut() {
+                    history::View::Graph(session) => match key.code {
+                        KeyCode::Esc | KeyCode::Left => {
+                            self.sync_bar();
+                            return Ok(false);
+                        }
+                        KeyCode::Up => session.advance(-1),
+                        KeyCode::Down
+                            if session.state.selected() == session.records.len().checked_sub(1)
+                                && session.cursor().is_some() =>
+                        {
+                            self.mode = Mode::History(view);
+                            self.more_history();
+                            return Ok(false);
+                        }
+                        KeyCode::Down => session.advance(1),
+                        KeyCode::PageUp => session.advance(-10),
+                        KeyCode::PageDown => session.advance(10),
+                        KeyCode::Home => session
+                            .state
+                            .select((!session.records.is_empty()).then_some(0)),
+                        KeyCode::End => session.state.select(session.records.len().checked_sub(1)),
+                        KeyCode::Tab => session.next_match(false),
+                        KeyCode::BackTab => session.next_match(true),
+                        KeyCode::Enter | KeyCode::Right => {
+                            self.mode = Mode::History(view);
+                            self.open_history_commit();
+                            return Ok(false);
+                        }
+                        _ => {}
+                    },
+                    history::View::Commit(commit) => match key.code {
+                        KeyCode::Esc | KeyCode::Left => {
+                            self.mode =
+                                Mode::History(Box::new(history::View::Graph(commit.graph.clone())));
+                            self.sync_bar();
+                            return Ok(false);
+                        }
+                        KeyCode::Up => commit.advance(-1),
+                        KeyCode::Down => commit.advance(1),
+                        KeyCode::PageUp => commit.scroll = commit.scroll.saturating_sub(10),
+                        KeyCode::PageDown => commit.scroll = commit.scroll.saturating_add(10),
+                        KeyCode::Tab => {
+                            self.mode = Mode::History(view);
+                            self.cycle_history_parent();
+                            return Ok(false);
+                        }
+                        KeyCode::Enter | KeyCode::Right => {
+                            self.mode = Mode::History(view);
+                            self.show_history_diff();
+                            return Ok(false);
+                        }
+                        _ => {}
+                    },
+                    history::View::Diff { commit, scroll, .. } => match key.code {
+                        KeyCode::Esc | KeyCode::Left => {
+                            self.mode =
+                                Mode::History(Box::new(history::View::Commit((**commit).clone())));
+                            self.sync_bar();
+                            return Ok(false);
+                        }
+                        _ => scroll_key(scroll, key),
+                    },
+                }
+                self.mode = Mode::History(view);
+            }
             Mode::Confirm {
                 operation,
                 mut choice,

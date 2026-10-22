@@ -1,12 +1,12 @@
 [workspace]
-members = [".", "crates/engine", "crates/tui", "crates/highlight", "crates/test-support", "crates/i18n", "crates/identity"]
-default-members = [".", "crates/engine", "crates/tui", "crates/highlight", "crates/i18n", "crates/identity"]
+members = [".", "crates/engine", "crates/tui", "crates/graph", "crates/highlight", "crates/test-support", "crates/i18n", "crates/identity"]
+default-members = [".", "crates/engine", "crates/tui", "crates/graph", "crates/highlight", "crates/i18n", "crates/identity"]
 resolver = "3"
 
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.88"
+rust-version = "1.90"
 license = "MIT"
 
 [workspace.dependencies]
@@ -15,6 +15,7 @@ i18n = { path = "crates/i18n" }
 engine = { path = "crates/engine" }
 tui = { path = "crates/tui" }
 highlight = { path = "crates/highlight" }
+graph = { path = "crates/graph" }
 test-support = { path = "crates/test-support" }
 anyhow = "1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -23,6 +24,9 @@ ctrlc = "3"
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
 libc = "0.2"
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
+ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 sha2 = "0.10"

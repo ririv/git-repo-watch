@@ -51,7 +51,9 @@ impl Screen {
                 self.scroll = 0
             }
             Action::Refresh => {
-                if let Some(session) = self.mode.file_session() {
+                if let Mode::History(view) = &self.mode {
+                    self.open_history(view.session().references.path.clone());
+                } else if let Some(session) = self.mode.file_session() {
                     let path = session.snapshot.path.clone();
                     let area = session.area;
                     self.read_files(path, area);
@@ -63,7 +65,19 @@ impl Screen {
                 self.diff_preference = preference;
                 self.message = i18n::tf!(DiffLayoutSelected, preference.label());
             }
+            Action::Log => {
+                if let Some(path) = path {
+                    self.open_history(path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
+            Action::LogMore => self.more_history(),
             Action::Stage | Action::Unstage | Action::Diff => {
+                if action == Action::Diff && matches!(self.mode, Mode::History(_)) {
+                    self.show_history_diff();
+                    return Ok(false);
+                }
                 if let Some(session) = self.mode.file_session() {
                     if action == Action::Diff {
                         self.show_diff();

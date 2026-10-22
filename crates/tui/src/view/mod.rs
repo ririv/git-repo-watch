@@ -3,6 +3,7 @@ mod body;
 mod completion;
 mod diff;
 mod help;
+mod history;
 mod input;
 mod repository;
 mod review;
@@ -72,6 +73,7 @@ fn block(title: impl Into<String>) -> Block<'static> {
         .title_style(Style::default().fg(ACCENT))
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
+    screen.graphics.begin_frame();
     screen.body_area = None;
     screen.repository_area = None;
     let area = frame.area();
@@ -125,7 +127,7 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
     };
     if !matches!(
         screen.mode,
-        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. }
+        Mode::Browsing | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
     ) {
         return;
     }

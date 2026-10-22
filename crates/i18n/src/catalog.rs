@@ -2,6 +2,57 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    GraphicsUnsupported,
+    GraphicsMetricsUnavailable,
+    GraphicsTooLarge,
+    GraphicsPreparing,
+    GraphicsWorkerStopped,
+    HistoryGraftedParents,
+    HistoryNoFilesMatch,
+    HistoryShallow,
+    HistoryParentUnavailable,
+    HistoryGraphTooWide,
+    HistoryOpenCommitFirst,
+    HistoryTitle,
+    HistoryCommand,
+    HistoryMoreCommand,
+    HistoryRead,
+    HistoryReadCommit,
+    HistoryReadDiff,
+    HistoryEmpty,
+    HistoryEnd,
+    HistoryMore,
+    HistoryLoaded,
+    HistoryScope,
+    HistoryNoMore,
+    HistoryRequiresOpen,
+    HistorySearch,
+    HistorySearchHint,
+    HistoryInputHint,
+    HistoryCommitInputHint,
+    HistoryDiffHint,
+    HistoryNoMatch,
+    HistoryHash,
+    HistoryParents,
+    HistoryAuthor,
+    HistoryCommitter,
+    HistoryTime,
+    HistoryMessage,
+    HistoryRefs,
+    HistoryChanges,
+    HistoryNoChanges,
+    HistoryRoot,
+    HistoryCompare,
+    HistoryTruncated,
+    HistoryUnborn,
+    HistoryInvalidTime,
+    HistoryReferenceNotUtf8,
+    HistoryReferenceNotCommit,
+    HistoryCursorRepositoryChanged,
+    HistorySnapshotUnavailable,
+    HistoryTextNotUtf8,
+    HistoryParentNotInCommit,
+    HistoryUnsupportedChange,
     DiffAuto,
     DiffSplit,
     DiffUnified,
@@ -499,6 +550,184 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::GraphicsWorkerStopped, Language::English) => {
+                "Pixel preparation worker stopped unexpectedly"
+            }
+            (Self::GraphicsWorkerStopped, Language::Chinese) => "像素绘制工作线程异常终止",
+            (Self::GraphicsUnsupported, Language::English) => {
+                "Pixel graphics unavailable: this terminal has no supported image protocol"
+            }
+            (Self::GraphicsUnsupported, Language::Chinese) => {
+                "像素图不可用：当前终端不支持可用的图形协议"
+            }
+            (Self::GraphicsMetricsUnavailable, Language::English) => {
+                "Pixel graphics unavailable: terminal cell size could not be measured"
+            }
+            (Self::GraphicsMetricsUnavailable, Language::Chinese) => {
+                "像素图不可用：无法取得终端字符格的实际像素尺寸"
+            }
+            (Self::GraphicsTooLarge, Language::English) => {
+                "Pixel graph exceeds the bounded image cache; reduce the window or font size"
+            }
+            (Self::GraphicsTooLarge, Language::Chinese) => {
+                "像素图超过图像缓存上限，请缩小窗口或字体"
+            }
+            (Self::GraphicsPreparing, Language::English) => "Preparing graph",
+            (Self::GraphicsPreparing, Language::Chinese) => "正在绘制提交图",
+            (Self::HistoryGraftedParents, Language::English) => {
+                "Git grafts changed parent relationships; this graph requires original commit ancestry"
+            }
+            (Self::HistoryGraftedParents, Language::Chinese) => {
+                "Git grafts 改写了父提交关系，当前图要求使用提交的原始祖先关系"
+            }
+            (Self::HistoryNoFilesMatch, Language::English) => {
+                "No historical files match the search"
+            }
+            (Self::HistoryNoFilesMatch, Language::Chinese) => "没有匹配的历史文件",
+            (Self::HistoryShallow, Language::English) => {
+                "Shallow repository · available local history only"
+            }
+            (Self::HistoryShallow, Language::Chinese) => "浅克隆仓库 · 仅显示本地可用历史",
+            (Self::HistoryParentUnavailable, Language::English) => {
+                "Parent commit object is unavailable; the comparison cannot be read"
+            }
+            (Self::HistoryParentUnavailable, Language::Chinese) => {
+                "父提交对象不可用，无法读取此比较"
+            }
+            (Self::HistoryGraphTooWide, Language::English) => {
+                "The commit graph exceeds 64 active lanes; this layout cannot display it"
+            }
+            (Self::HistoryGraphTooWide, Language::Chinese) => {
+                "提交图超过 64 条活跃轨道，当前布局无法显示"
+            }
+            (Self::HistoryOpenCommitFirst, Language::English) => {
+                "Open a commit before selecting a historical file diff"
+            }
+            (Self::HistoryOpenCommitFirst, Language::Chinese) => {
+                "请先进入提交详情，再选择历史文件差异"
+            }
+            (Self::HistoryTitle, Language::English) => "Commit graph",
+            (Self::HistoryTitle, Language::Chinese) => "提交历史图",
+            (Self::HistoryCommand, Language::English) => {
+                "Browse the commit graph of local branches, remote-tracking branches and tags"
+            }
+            (Self::HistoryCommand, Language::Chinese) => "浏览本地分支、远程跟踪分支和标签的提交图",
+            (Self::HistoryMoreCommand, Language::English) => {
+                "Load the next page of the current history snapshot"
+            }
+            (Self::HistoryMoreCommand, Language::Chinese) => "加载当前历史快照的下一页",
+            (Self::HistoryRead, Language::English) => "Read commit history",
+            (Self::HistoryRead, Language::Chinese) => "读取提交历史",
+            (Self::HistoryReadCommit, Language::English) => "Read commit details",
+            (Self::HistoryReadCommit, Language::Chinese) => "读取提交详情",
+            (Self::HistoryReadDiff, Language::English) => "Read historical file diff",
+            (Self::HistoryReadDiff, Language::Chinese) => "读取历史文件差异",
+            (Self::HistoryEmpty, Language::English) => {
+                "No commits in the captured branches or tags"
+            }
+            (Self::HistoryEmpty, Language::Chinese) => "当前分支和标签中没有提交",
+            (Self::HistoryEnd, Language::English) => "End of history",
+            (Self::HistoryEnd, Language::Chinese) => "已到历史末尾",
+            (Self::HistoryMore, Language::English) => {
+                "More commits · Down at the bottom or /log more"
+            }
+            (Self::HistoryMore, Language::Chinese) => "还有提交 · 在末尾按 ↓ 或执行 /log more",
+            (Self::HistoryLoaded, Language::English) => "Loaded",
+            (Self::HistoryLoaded, Language::Chinese) => "已加载",
+            (Self::HistoryScope, Language::English) => {
+                "Local branches · Remote-tracking branches · Tags"
+            }
+            (Self::HistoryScope, Language::Chinese) => "本地分支 · 远程跟踪分支 · 标签",
+            (Self::HistoryNoMore, Language::English) => "All commits in this snapshot are loaded",
+            (Self::HistoryNoMore, Language::Chinese) => "当前快照的提交已全部加载",
+            (Self::HistoryRequiresOpen, Language::English) => "Open /log first",
+            (Self::HistoryRequiresOpen, Language::Chinese) => "请先打开 /log",
+            (Self::HistorySearch, Language::English) => "Locate commits",
+            (Self::HistorySearch, Language::Chinese) => "定位提交",
+            (Self::HistorySearchHint, Language::English) => {
+                "Type to locate loaded commits, or / for commands"
+            }
+            (Self::HistorySearchHint, Language::Chinese) => {
+                "输入关键词定位已加载提交，或输入 / 查看命令"
+            }
+            (Self::HistoryInputHint, Language::English) => {
+                "↑↓ select · Enter details · Tab next match · Alt+←→ pan graph · Esc back"
+            }
+            (Self::HistoryInputHint, Language::Chinese) => {
+                "↑↓选择 · Enter 详情 · Tab 下个匹配 · Alt+←→ 平移图 · Esc 返回"
+            }
+            (Self::HistoryCommitInputHint, Language::English) => {
+                "↑↓ files · Enter diff · Tab parent · PgUp/PgDn message · ← back"
+            }
+            (Self::HistoryCommitInputHint, Language::Chinese) => {
+                "↑↓文件 · Enter 差异 · Tab 父提交 · PgUp/PgDn说明 · ←返回"
+            }
+            (Self::HistoryDiffHint, Language::English) => "↑↓ scroll · ←/Esc commit · /diff layout",
+            (Self::HistoryDiffHint, Language::Chinese) => "↑↓滚动 · ←/Esc 提交详情 · /diff 布局",
+            (Self::HistoryNoMatch, Language::English) => {
+                "No match in loaded commits; /log more loads older history"
+            }
+            (Self::HistoryNoMatch, Language::Chinese) => {
+                "已加载提交中无匹配；/log more 可加载更早历史"
+            }
+            (Self::HistoryHash, Language::English) => "Commit",
+            (Self::HistoryHash, Language::Chinese) => "提交",
+            (Self::HistoryParents, Language::English) => "Parents",
+            (Self::HistoryParents, Language::Chinese) => "父提交",
+            (Self::HistoryAuthor, Language::English) => "Author",
+            (Self::HistoryAuthor, Language::Chinese) => "作者",
+            (Self::HistoryCommitter, Language::English) => "Committer",
+            (Self::HistoryCommitter, Language::Chinese) => "提交者",
+            (Self::HistoryTime, Language::English) => "Time",
+            (Self::HistoryTime, Language::Chinese) => "时间",
+            (Self::HistoryMessage, Language::English) => "Message",
+            (Self::HistoryMessage, Language::Chinese) => "提交说明",
+            (Self::HistoryRefs, Language::English) => "References",
+            (Self::HistoryRefs, Language::Chinese) => "引用",
+            (Self::HistoryChanges, Language::English) => "Changed files",
+            (Self::HistoryChanges, Language::Chinese) => "变更文件",
+            (Self::HistoryNoChanges, Language::English) => {
+                "No file changes relative to this parent"
+            }
+            (Self::HistoryNoChanges, Language::Chinese) => "相对此父提交没有文件变更",
+            (Self::HistoryRoot, Language::English) => "Empty tree (root commit)",
+            (Self::HistoryRoot, Language::Chinese) => "空树（根提交）",
+            (Self::HistoryCompare, Language::English) => "Comparison",
+            (Self::HistoryCompare, Language::Chinese) => "比较",
+            (Self::HistoryTruncated, Language::English) => {
+                "Message exceeds 64 KiB; showing the beginning"
+            }
+            (Self::HistoryTruncated, Language::Chinese) => "提交说明超过 64 KiB，仅显示开头",
+            (Self::HistoryUnborn, Language::English) => "Unborn branch",
+            (Self::HistoryUnborn, Language::Chinese) => "尚无提交的分支",
+            (Self::HistoryInvalidTime, Language::English) => "Invalid Git timestamp",
+            (Self::HistoryInvalidTime, Language::Chinese) => "无效的 Git 时间",
+            (Self::HistoryReferenceNotUtf8, Language::English) => "Git reference name is not UTF-8",
+            (Self::HistoryReferenceNotUtf8, Language::Chinese) => "Git 引用名称不是 UTF-8",
+            (Self::HistoryReferenceNotCommit, Language::English) => {
+                "Branch does not point to a commit"
+            }
+            (Self::HistoryReferenceNotCommit, Language::Chinese) => "分支没有指向提交",
+            (Self::HistoryCursorRepositoryChanged, Language::English) => {
+                "History cursor belongs to a different repository"
+            }
+            (Self::HistoryCursorRepositoryChanged, Language::Chinese) => "历史游标属于另一个仓库",
+            (Self::HistorySnapshotUnavailable, Language::English) => {
+                "Captured history is no longer available; refresh the graph"
+            }
+            (Self::HistorySnapshotUnavailable, Language::Chinese) => {
+                "历史快照已不可用，请刷新提交图"
+            }
+            (Self::HistoryTextNotUtf8, Language::English) => "Historical commit text is not UTF-8",
+            (Self::HistoryTextNotUtf8, Language::Chinese) => "历史提交文本不是 UTF-8",
+            (Self::HistoryParentNotInCommit, Language::English) => {
+                "Comparison must use an actual parent of this commit"
+            }
+            (Self::HistoryParentNotInCommit, Language::Chinese) => "比较必须使用此提交的真实父提交",
+            (Self::HistoryUnsupportedChange, Language::English) => {
+                "Unsupported historical change kind"
+            }
+            (Self::HistoryUnsupportedChange, Language::Chinese) => "不支持的历史变更类型",
             (Self::DiffAuto, Language::English) => "Auto",
             (Self::DiffAuto, Language::Chinese) => "自动",
             (Self::DiffSplit, Language::English) => "Split",

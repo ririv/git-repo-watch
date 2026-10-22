@@ -1,9 +1,8 @@
 //! Background repository checks independent of the current interaction mode.
 use super::*;
+use crate::spinner::Spinner;
 use chrono::{DateTime, FixedOffset, Utc};
 use std::{collections::BTreeMap, time::Instant};
-mod spinner;
-use spinner::Spinner;
 #[derive(Debug, Clone)]
 pub(crate) enum CheckTarget {
     All,

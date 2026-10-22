@@ -6,7 +6,7 @@
 
 ## 安装
 
-需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2，不要求用户安装 Go、Python 或独立 libgit2 运行库。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
+需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，最低 Rust 版本为 1.90，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2，不要求用户安装 Go、Python 或独立 libgit2 运行库。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
 
 ```sh
 cp config.example.json config.json
@@ -130,6 +130,7 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 
 | 命令 | 行为 |
 | --- | --- |
+| `/log` | 打开当前仓库的提交历史图；`/log more` 加载下一页 |
 | `/stage` | 打开工作区文件面板；在工作区中暂存所选文件 |
 | `/unstage` | 打开暂存区文件面板；在暂存区中取消暂存所选文件 |
 | `/diff` | 查看文件面板光标项的差异；子命令 `auto`、`split`、`unified` 切换布局 |
@@ -278,15 +279,42 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 
 配置、报告和日志含本机私有路径。JSON 数据原子写入，文件权限 0600，运行目录 0700。报告缺失与报告损坏分开处理，损坏数据明确报错。
 
+## 提交历史图
+
+选中仓库后运行 `/log`，以彩色轨道展示本地分支、远程跟踪分支、标签及 HEAD 可达的提交和合并关系。全部读取通过 libgit2 完成，只读取本地引用与提交对象；不执行 fetch，也不使用当前暂存区或工作区内容代替历史版本。
+
+- 每页加载 100 个提交，按拓扑和提交时间排序，子提交始终先于父提交。到当前页末尾按 `↓`，或执行 `/log more` 加载下一页；不会为“加载更多”插入虚假的提交行。
+- 打开时捕获引用和 HEAD；后续分页沿用该快照，保持图的顺序、轨道和颜色。`Ctrl+R` 或 `/refresh` 重新读取本地引用，并回到最新一页。
+- `↑↓`、`PgUp/PgDn`、`Home/End` 选择提交，`Enter`／空输入时的 `→` 打开详情，`←`／`Esc` 返回。宽屏额外显示所选提交的作者、时间和父提交。
+- 图页面的输入框按哈希、提交标题、作者或引用名称定位已加载提交；保留所有节点及连接。`Tab`／`Shift+Tab` 跳到下一个／上一个匹配，不把未加载历史当作搜索结果。过宽的图用 `Alt+←→` 平移。
+- 提交详情展示作者、提交者、系统本地时间、提交说明和变更文件；`↑↓` 选择文件，输入文字筛选文件，`Enter` 查看带语法高亮的历史 diff。`PgUp/PgDn` 滚动提交信息。
+- 根提交与空树比较；合并提交默认与第一个父提交比较，详情中的 `Tab` 显式切换其他父提交。比较栏和 diff 栏头始终标出两侧提交。
+- 历史 diff 复用统一／双栏布局、源码高亮缓存和 `/diff` 布局命令。返回时保留所选提交及文件位置。空输入时返回上一级，有搜索文字时 `Esc` 先清空文字。
+
+读取、布局计算和高亮都在可取消的工作线程进行；加载时保留当前图并显示旋转标记。打开图、查看提交和历史 diff 不修改仓库、配置或检查报告，也不需要操作确认。
+
+图只遍历所捕获分支、标签和 HEAD 可达的对象，不遍历 reflog 或悬空提交；指向树／blob 的标签不会被当成提交。浅克隆会明确标注，历史截断点使用像素绘制的空心节点，不会被当成根提交。缺失父提交对象时不能进行该父提交的比较。提交说明显示上限为 64 KiB，超出时注明；当前布局最多支持 64 条同时活跃的轨道，超出会明确报错。未知编码的历史文本明确报错，不改用其他 Git 后端。
+
+### 像素图与终端支持
+
+提交图使用 tiny-skia 将连线、圆角与节点绘制成抗锯齿 RGBA 像素，每个提交占一行。上下行使用同一条曲线的相邻片段，直线穿过节点，不依赖字体中的线条字符。显示层接受通用 RGBA 图块，未来的图片预览可复用同一接口；`image` 仅启用 PNG、JPEG、WebP 格式。
+
+终端显示通过 ratatui-image 适配 Kitty、iTerm2 和 Sixel 协议，关闭默认格式全集及 Chafa 功能。Ghostty、Kitty 使用原始 RGBA 传输和 Unicode 图像占位机制，占位符只用于定位真实像素，不是字符画；支持压缩时使用 zlib，不生成图片文件。iTerm2 协议在内存中编码 PNG，Sixel 在内存中编码像素指令。
+
+启动时在读取键盘事件前限时探测图形能力和字符格的实际像素尺寸，改变窗口或字体时更新尺寸。当前 macOS、Linux 支持能力探测；其它平台会明确提示像素图不可用。终端不支持协议或无法提供像素尺寸时明确显示原因，提交文本与详情仍可浏览，不改用字符图模拟像素效果。tmux 的 Kitty 图形透传需要启用 `allow-passthrough`。
+
+图块绘制和协议编码由单个后台线程执行，优先加载可见行并预取上下各 12 行。缓存最多 256 块、按未压缩像素计算最多 32 MiB，单块绘制上限 4 MiB；水平平移和尺寸变化使用独立缓存键。淘汰、返回或退出时取消未完成任务，删除本程序已上传的 Kitty 图像，避免长期保留终端图形资源。
+
 ## Workspace 与模块结构
 
-项目使用 Cargo workspace，六个生产 crate 和一个仅供测试的辅助 crate：
+项目使用 Cargo workspace，七个生产 crate 和一个仅供测试的辅助 crate：
 
 | Crate | 职责 | 项目内运行时依赖 |
 | --- | --- | --- |
 | `app`（根目录） | CLI 命令解析、文本与 JSON 输出、程序入口 | `engine`、`tui`、`i18n`、`identity` |
 | `engine` | 领域模型、本地 Git 能力、传输、应用服务、持久化和系统集成 | `i18n`、`identity` |
-| `tui` | Ratatui 交互状态、命令栏、文件面板和视图 | `engine`、`highlight`、`i18n`、`identity` |
+| `tui` | Ratatui 交互状态、命令栏、文件面板、提交图和视图 | `engine`、`graph`、`highlight`、`i18n`、`identity` |
+| `graph` | 增量分配 DAG 轨道、连接与颜色，并输出抗锯齿 RGBA 图块，不依赖 Git 或终端库 | 无 |
 | `highlight` | 有界源码语法解析、语言识别及与界面无关的颜色区间 | 无 |
 | `i18n` | 类型化中英文文案、系统语言检测与线程语言作用域 | `identity` |
 | `identity` | 从 `application.env` 编译产品标识，供界面、通知和安装共用 | 无 |
@@ -307,6 +335,10 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 | `crates/engine/src/check.rs` | 单仓库检查流程 |
 | `crates/engine/src/executor.rs` | 有界任务池、同组串行、进度汇聚 |
 | `crates/engine/src/discovery.rs` | 忽略规则感知的仓库发现 |
+| `crates/engine/src/local/history/` | 捕获本地引用、分页读取历史和按父提交比较历史文件 |
+| `crates/graph/src/` | UI 无关的增量 DAG 轨道布局与像素绘制 |
+| `crates/tui/src/graphics/` | 通用 RGBA 终端显示、能力探测、有界缓存与后台编码 |
+| `crates/tui/src/history/`、`view/history/` | 图会话、后台读取工作流、历史详情与差异导航 |
 | `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
 | `crates/engine/src/state.rs` | 原子持久化与进程锁 |
 | `crates/engine/src/scheduler/`、`notify/`、`terminal/` | 各平台调度、桌面通知与终端启动 |

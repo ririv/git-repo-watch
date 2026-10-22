@@ -5,7 +5,10 @@ mod command;
 mod confirmation;
 mod diff;
 mod editor;
+mod graphics;
+mod history;
 mod input;
+mod spinner;
 mod task;
 mod view;
 use anyhow::{Context, Result};
@@ -112,6 +115,7 @@ enum Mode {
         choice: confirmation::Choice,
     },
     Files(FileSession),
+    History(Box<history::View>),
     Diff {
         session: FileSession,
         content: Box<diff::View>,
@@ -183,6 +187,7 @@ struct Pending {
     rx: mpsc::Receiver<WorkerEvent>,
     handle: thread::JoinHandle<()>,
     origin: Box<Mode>,
+    animation: spinner::Spinner,
 }
 #[derive(Debug)]
 enum WorkerEvent {
@@ -193,6 +198,7 @@ enum Outcome {
     TerminalOpened(PathBuf),
     Files(Files, FileArea),
     Diff(FileSession, Box<diff::View>),
+    History(Box<history::View>),
     CommitPrepared(CommitPlan),
     PushPrepared(PushPlan),
     Committed(CommitResult),
@@ -207,6 +213,7 @@ struct Screen {
     history: Vec<Page>,
     mode: Mode,
     diff_preference: diff::Preference,
+    graphics: graphics::Display,
     bar: bar::InputBar,
     repository_viewport: ratatui::widgets::TableState,
     scroll_input: input::scroll::ScrollInput,
@@ -240,6 +247,9 @@ impl Screen {
             history: Vec::new(),
             mode: Mode::Browsing,
             diff_preference: Default::default(),
+            graphics: graphics::Display::new(graphics::Support::Unavailable(
+                i18n::tr!(GraphicsUnsupported).into(),
+            )),
             bar: bar::InputBar::default(),
             repository_viewport,
             scroll_input: input::scroll::ScrollInput::default(),
@@ -300,6 +310,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::History(view) = &self.mode {
+            return Some(view.session().references.path.clone());
+        }
         self.mode
             .file_session()
             .map(|s| s.snapshot.path.clone())
@@ -358,11 +371,13 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
     );
     let mut screen = Screen::new(service, &root)?;
     let _guard = TerminalGuard::enter()?;
+    screen.graphics = graphics::Display::detect();
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let result = (|| -> Result<()> {
         // 先显示上轮结果，再仅在本次启动时发起一次后台检查。
         terminal.draw(|frame| view::render(frame, &mut screen))?;
+        screen.graphics.finish_frame(&mut io::stdout())?;
         screen.check_on_startup();
         let mut dirty = true;
         loop {
@@ -377,9 +392,14 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                     break;
                 }
             }
-            let changed = screen.poll(&root) | screen.poll_check() | screen.animate_check();
+            let changed = screen.poll(&root)
+                | screen.poll_check()
+                | screen.animate_check()
+                | screen.animate_task()
+                | screen.graphics.poll();
             if dirty || changed {
                 terminal.draw(|frame| view::render(frame, &mut screen))?;
+                screen.graphics.finish_frame(&mut io::stdout())?;
                 dirty = false;
             }
             if event::poll(Duration::from_millis(80))? {
@@ -398,7 +418,10 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                         screen.paste(&text);
                         dirty = true;
                     }
-                    TerminalEvent::Resize(..) => dirty = true,
+                    TerminalEvent::Resize(..) => {
+                        screen.graphics.refresh_metrics();
+                        dirty = true;
+                    }
                     _ => {}
                 }
             }
@@ -406,6 +429,8 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
         Ok(())
     })();
     screen.shutdown();
+    screen.graphics.begin_frame();
+    screen.graphics.finish_frame(&mut io::stdout())?;
     terminal
         .show_cursor()
         .context(i18n::tr!(UnableToRestoreTerminalCursor))?;
