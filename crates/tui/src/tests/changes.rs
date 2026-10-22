@@ -61,7 +61,14 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 .iter()
                 .map(|command| command.name)
                 .collect::<Vec<_>>(),
-            ["diff stage", "diff unstage", "diff layout"]
+            [
+                "diff stage",
+                "diff unstage",
+                "diff layout",
+                "diff layout auto",
+                "diff layout split",
+                "diff layout unified"
+            ]
         );
         assert_eq!(
             command::matches("diff layout ")
@@ -91,6 +98,42 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
         assert_eq!(s.diff_preference, crate::diff::Preference::Split);
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert!(s.service.store.report().unwrap().is_none());
+    }
+}
+
+#[test]
+fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        support::write(f.repo.join("draft.rs"), "fn draft() {}\n");
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+        s.paste("/di");
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.editor().text, "/diff");
+        assert_eq!(s.bar.commands().unwrap().len(), 7);
+        let text = render(&mut s, 180, 36);
+        for command in command::matches("diff") {
+            assert!(text.contains(&format!("/{}", command.name)), "{text}");
+        }
+        for _ in 0..3 {
+            key(&mut s, KeyCode::Down);
+        }
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.bar, crate::bar::InputBar::Layout { .. }));
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.editor().text, "/diff");
+        assert!(matches!(
+            s.bar,
+            crate::bar::InputBar::Command { selected: 3, .. }
+        ));
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "diff");
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::Changes(_)));
+        assert!(s.repository_tasks.is_empty());
+        assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     }
 }
 

@@ -1,6 +1,8 @@
 //! Explicit command catalog independent of terminal rendering.
 mod argument;
 pub(crate) mod path;
+#[cfg(test)]
+mod tests;
 pub use argument::{ArgumentAction, argument_input};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -53,6 +55,7 @@ pub struct Command {
 }
 use Action::*;
 use Scope::*;
+// 父命令排在子命令之前，使前缀匹配默认选中入口，避免意外执行子操作。
 pub const COMMANDS: &[Command] = &[
     Command {
         name: "branch",
@@ -73,6 +76,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::HistoryMoreCommand,
     },
     Command {
+        name: "diff",
+        action: Diff,
+        scope: Repository,
+        description: i18n::Message::ChangesOpen,
+    },
+    Command {
         name: "diff stage",
         action: Stage,
         scope: Repository,
@@ -83,12 +92,6 @@ pub const COMMANDS: &[Command] = &[
         action: Unstage,
         scope: Repository,
         description: i18n::Message::UnstageSelectedFiles,
-    },
-    Command {
-        name: "diff",
-        action: Diff,
-        scope: Repository,
-        description: i18n::Message::ChangesOpen,
     },
     Command {
         name: "diff layout",
@@ -270,10 +273,9 @@ pub fn matches(input: &str) -> Vec<&'static Command> {
         return vec![argument.command()];
     }
     let input = input.trim_start();
-    let parent_end = input.rfind(' ').map_or(0, |index| index + 1);
     COMMANDS
         .iter()
-        .filter(|c| c.name.starts_with(input) && !c.name[parent_end..].contains(' '))
+        .filter(|c| c.name.starts_with(input) && (!input.is_empty() || !c.name.contains(' ')))
         .collect()
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

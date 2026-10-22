@@ -1284,7 +1284,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
 }
 
 #[test]
-fn root_commands_hide_children_and_each_group_completes_only_its_own_children() {
+fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
     let root = command::matches("");
     assert!(root.iter().all(|command| !command.name.contains(' ')));
     assert!(root.iter().any(|command| command.name == "log"));
@@ -1415,7 +1415,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("/sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.editor().text, "/schedule");
-    assert_eq!(s.bar.commands().unwrap().len(), 1);
+    assert_eq!(s.bar.commands().unwrap().len(), 6);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);

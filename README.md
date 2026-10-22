@@ -158,7 +158,7 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
-根命令候选只显示顶层入口，不平铺子配置；选中候选后按 Enter 直接进入，Tab 只补全命令名称。输入 `/diff `、`/diff layout `、`/schedule `、`/settings `、`/repo ` 或 `/check ` 后显示对应的下一层候选。选中或点击 `/diff layout` 会打开底部横向选择器；左右键、Tab／Shift+Tab 切换候选，Enter 应用，Esc 返回原命令草稿。打开时定位当前设置，候选移动不立即应用；鼠标点击选项可定位候选，仍按 Enter 应用。输入 `/diff layout ` 仍可补全 `auto`、`split`、`unified` 快捷子命令。命令列表会标记当前选项，`/diff` 和 `/diff layout` 的候选直接显示布局设置；自动模式还显示当前预览实际使用的统一／双栏视图，并随窗口大小更新。例如 `/schedule interval` 修改执行间隔，`/repo remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
+`/` 只显示顶层入口；输入命令前缀后显示所有匹配的子命令，不必先输入空格。例如 `/diff` 同时显示入口、`stage`、`unstage`、`layout` 及其三个布局快捷命令，`/diff layout` 显示布局入口和三个快捷命令；末尾加空格可只显示子命令。父命令排在子命令之前，输入 `/diff` 后直接按 Enter 仍进入变更界面。选中候选后按 Enter 执行对应入口，Tab 只补全命令名称。选中或点击 `/diff layout` 会打开底部横向选择器；左右键、Tab／Shift+Tab 切换候选，Enter 应用，Esc 返回原命令草稿。打开时定位当前设置，候选移动不立即应用；鼠标点击选项可定位候选，仍按 Enter 应用。输入 `/diff layout ` 仍可补全 `auto`、`split`、`unified` 快捷子命令。命令列表会标记当前选项，`/diff` 和 `/diff layout` 的候选直接显示布局设置；自动模式还显示当前预览实际使用的统一／双栏视图，并随窗口大小更新。例如 `/schedule interval` 修改执行间隔，`/repo remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
 
 带参数的命令直接在常驻输入栏填写，不打开独立表单：
 
