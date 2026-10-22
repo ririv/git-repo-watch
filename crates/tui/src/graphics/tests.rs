@@ -7,10 +7,11 @@ use std::{
 };
 fn key(index: usize) -> Key {
     Key {
-        source: 1,
+        source: Source::Graph(1),
         index,
         pan: 0,
         columns: 2,
+        rows: 1,
         metrics: Backend::test().metrics,
     }
 }
@@ -74,4 +75,31 @@ fn cache_and_pending_work_stay_bounded_as_viewports_change() {
     assert!(display.cache.len() <= CAPACITY);
     assert!(display.cache.contains_key(&key(299)));
     assert!(!display.retired.is_empty());
+}
+
+#[test]
+fn multirow_preview_pixels_count_toward_the_cache_budget_before_encoding() {
+    let mut display = Display::new(Support::Pixels(Backend::test()));
+    let mut large = key(0);
+    large.source = Source::Preview(1);
+    large.columns = 512;
+    large.rows = 512;
+    display.begin_frame();
+    display.pin([large]);
+    let called = Arc::new(AtomicUsize::new(0));
+    let count = called.clone();
+    display.request(large, move || {
+        count.fetch_add(1, Ordering::Relaxed);
+        Ok(RgbaImage::new(1, 1))
+    });
+    let mut terminal = Terminal::new(TestBackend::new(20, 10)).unwrap();
+    terminal
+        .draw(|frame| {
+            assert!(matches!(
+                display.render(frame, large, Rect::new(0, 0, 10, 5)),
+                Draw::Failed(_)
+            ))
+        })
+        .unwrap();
+    assert_eq!(called.load(Ordering::Relaxed), 0);
 }

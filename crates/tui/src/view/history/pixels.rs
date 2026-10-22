@@ -19,10 +19,11 @@ pub(super) fn render(
     let first = session.state.offset();
     let end = (first + usize::from(area.height)).min(session.records.len());
     let key = |index| Key {
-        source: session.source,
+        source: crate::graphics::Source::Graph(session.source),
         index,
         pan: session.pan,
         columns,
+        rows: 1,
         metrics,
     };
     display.pin((first..end).map(key));

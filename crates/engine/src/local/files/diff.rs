@@ -11,7 +11,12 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use git2::{DiffFile, DiffFormat, DiffLine, DiffLineType, DiffOptions};
-use std::{fs, num::NonZeroU32};
+use std::{
+    fs::{self, OpenOptions},
+    io::Read,
+    num::NonZeroU32,
+    os::unix::fs::OpenOptionsExt,
+};
 
 pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
     Ok(document(snapshot, change, &Cancel::default())?.text())
@@ -41,10 +46,24 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
             ));
         }
         if meta.len() > MAX_SOURCE_BYTES as u64 {
-            return Ok(Document::Notice(i18n::tf!(
-                LargeUntrackedFileBytesViewWithAn,
-                meta.len()
-            )));
+            let mut prefix = Vec::new();
+            OpenOptions::new()
+                .read(true)
+                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
+                .open(&path)?
+                .take(12)
+                .read_to_end(&mut prefix)?;
+            if super::media::Format::detect(&prefix).is_some() {
+                ensure!(
+                    meta.len() <= super::media::MAX_IMAGE_BYTES as u64,
+                    i18n::tr!(ImageEncodedLimit)
+                );
+            } else {
+                return Ok(Document::Notice(i18n::tf!(
+                    LargeUntrackedFileBytesViewWithAn,
+                    meta.len()
+                )));
+            }
         }
     }
     let mut options = DiffOptions::new();

@@ -42,6 +42,12 @@
 - `/push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
 - `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
+## Image previews
+- Select a PNG, JPEG or WebP in files or commit details and press `Enter` to compare image versions. Content detection does not require an extension.
+- Wide windows show versions side by side; narrow windows stack them. Images keep their aspect ratio and use a checkerboard for transparency.
+- `Esc` returns; resizing fits images to the pane. Missing versions, corrupt images and unavailable pixel support are explicit.
+- Index and historical images come from Git objects, never from current worktree contents.
+
 ## Commit graph
 - `/log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
 - `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `←` goes back.

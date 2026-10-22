@@ -3,6 +3,7 @@ mod body;
 mod branches;
 mod completion;
 mod diff;
+mod document;
 mod files;
 mod help;
 mod history;

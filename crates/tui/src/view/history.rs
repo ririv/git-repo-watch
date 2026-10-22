@@ -23,7 +23,7 @@ pub(super) fn render(
         View::Commit(commit) => detail::render(frame, area, commit),
         View::Diff {
             content, scroll, ..
-        } => super::diff::render(frame, area, content, scroll, preference),
+        } => super::document::render(frame, area, content, scroll, preference, graphics),
     }
 }
 

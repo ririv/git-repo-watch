@@ -276,7 +276,7 @@ impl Screen {
             let content = s.diff(&session.snapshot, &change, &c)?;
             Ok(Outcome::Diff(
                 session,
-                diff::prepare(&change.location.display(), content, change.area, &c)?,
+                crate::document::prepare(&change.location.display(), content, change.area, &c)?,
             ))
         })
     }

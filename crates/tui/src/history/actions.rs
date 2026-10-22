@@ -126,7 +126,7 @@ impl Screen {
             Effect::ReadOnly,
             move |service, cancel, _| {
                 let document = service.history_diff(&commit.detail, &change, &cancel)?;
-                let content = diff::prepare_history(
+                let content = crate::document::prepare_history(
                     &change.location.display(),
                     document,
                     commit.detail.base,

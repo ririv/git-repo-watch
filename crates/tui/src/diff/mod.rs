@@ -76,7 +76,7 @@ impl Layout {
     }
 }
 #[derive(Debug, Clone, Copy)]
-enum Comparison {
+pub(super) enum Comparison {
     Staged,
     Working,
     History {
@@ -85,7 +85,7 @@ enum Comparison {
     },
 }
 impl Comparison {
-    fn labels(self) -> (String, String) {
+    pub(super) fn labels(self) -> (String, String) {
         match self {
             Self::Staged => ("HEAD".into(), i18n::tr!(Index).into()),
             Self::Working => (i18n::tr!(Index).into(), i18n::tr!(Worktree).into()),

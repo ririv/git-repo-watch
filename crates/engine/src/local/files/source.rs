@@ -1,5 +1,8 @@
 //! Read bounded blobs and regular worktree files without following symlinks.
-use super::patch::{MAX_SOURCE_BYTES, Source, SourceOmission};
+use super::{
+    media::{Format, Image, MAX_IMAGE_BYTES},
+    patch::{MAX_SOURCE_BYTES, Source, SourceOmission},
+};
 use anyhow::{Context, Result};
 use git2::{FileMode, Oid, Repository};
 use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt, path::PathBuf};
@@ -21,9 +24,6 @@ impl FileInfo {
         if !self.exists {
             return Ok(Source::Absent);
         }
-        if self.binary {
-            return Ok(Source::Unavailable(SourceOmission::Binary));
-        }
         if !matches!(
             self.mode,
             FileMode::Blob | FileMode::BlobExecutable | FileMode::BlobGroupWritable
@@ -36,7 +36,7 @@ impl FileInfo {
                 .context(i18n::tr!(BareRepositoriesAreNotSupported))?
                 .join(&self.path);
             // 拒绝符号链接替换和特殊文件；只读取上限加一个字节，防止读取期间文件增长。
-            let file = OpenOptions::new()
+            let mut file = OpenOptions::new()
                 .read(true)
                 .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
                 .open(path)?;
@@ -44,16 +44,41 @@ impl FileInfo {
                 return Ok(Source::Unavailable(SourceOmission::NonRegular));
             }
             let mut bytes = Vec::new();
-            file.take(MAX_SOURCE_BYTES as u64 + 1)
+            file.by_ref().take(12).read_to_end(&mut bytes)?;
+            let format = Format::detect(&bytes);
+            if format.is_none() && self.binary {
+                return Ok(Source::Unavailable(SourceOmission::Binary));
+            }
+            let limit = if format.is_some() {
+                MAX_IMAGE_BYTES
+            } else {
+                MAX_SOURCE_BYTES
+            };
+            file.take((limit + 1 - bytes.len()) as u64)
                 .read_to_end(&mut bytes)?;
             bytes
         } else {
             let blob = repo.find_blob(self.oid)?;
-            if blob.size() > MAX_SOURCE_BYTES {
+            let format = Format::detect(blob.content());
+            if format.is_none() && self.binary {
+                return Ok(Source::Unavailable(SourceOmission::Binary));
+            }
+            if format.is_some() && blob.size() > MAX_IMAGE_BYTES {
+                anyhow::bail!(i18n::tr!(ImageEncodedLimit));
+            }
+            if format.is_none() && blob.size() > MAX_SOURCE_BYTES {
                 return Ok(Source::Unavailable(SourceOmission::TooLarge));
             }
             blob.content().to_vec()
         };
+        if let Some(format) = Format::detect(&bytes) {
+            anyhow::ensure!(bytes.len() <= MAX_IMAGE_BYTES, i18n::tr!(ImageEncodedLimit));
+            return Ok(Source::Image(Image {
+                path: self.path.clone(),
+                format,
+                bytes,
+            }));
+        }
         if bytes.len() > MAX_SOURCE_BYTES {
             return Ok(Source::Unavailable(SourceOmission::TooLarge));
         }

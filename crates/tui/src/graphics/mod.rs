@@ -19,18 +19,26 @@ const CAPACITY: usize = 256;
 const PIXEL_BUDGET: usize = 32 * 1024 * 1024;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub(crate) enum Source {
+    Graph(u64),
+    Preview(u64),
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) struct Key {
-    pub source: u64,
+    pub source: Source,
     pub index: usize,
     pub pan: usize,
     pub columns: u16,
+    pub rows: u16,
     pub metrics: Metrics,
 }
 impl Key {
-    fn bytes(self) -> usize {
-        usize::from(self.columns)
-            * usize::from(self.metrics.width.get())
-            * usize::from(self.metrics.height.get())
+    fn bytes(self) -> u128 {
+        u128::from(self.columns)
+            * u128::from(self.rows)
+            * u128::from(self.metrics.width.get())
+            * u128::from(self.metrics.height.get())
             * 4
     }
 }
@@ -130,7 +138,8 @@ impl Display {
         };
         let backend = backend.clone();
         while self.cache.len() >= CAPACITY
-            || self.cache.keys().map(|key| key.bytes()).sum::<usize>() + key.bytes() > PIXEL_BUDGET
+            || self.cache.keys().map(|key| key.bytes()).sum::<u128>() + key.bytes()
+                > PIXEL_BUDGET as u128
         {
             let oldest = self
                 .cache

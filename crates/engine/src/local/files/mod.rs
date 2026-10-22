@@ -1,6 +1,7 @@
 //! File snapshots; index mutation and diff rendering are separate capabilities.
 mod diff;
 mod index;
+pub mod media;
 pub mod patch;
 mod source;
 use super::{Head, head, idle, open, utf8_path};

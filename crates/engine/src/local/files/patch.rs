@@ -27,6 +27,7 @@ pub struct FilePatch {
 
 #[derive(Debug)]
 pub enum Source {
+    Image(super::media::Image),
     Absent,
     Text { path: PathBuf, text: String },
     Unavailable(SourceOmission),

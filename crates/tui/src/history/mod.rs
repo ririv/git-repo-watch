@@ -1,7 +1,7 @@
 //! Commit-graph sessions and read-only workflows, separate from terminal drawing.
 mod actions;
 mod session;
-use crate::diff;
+use crate::document;
 use engine::local::history::Detail;
 use ratatui::widgets::ListState;
 pub(super) use session::Session;
@@ -61,7 +61,7 @@ pub(super) enum View {
     Commit(Commit),
     Diff {
         commit: Box<Commit>,
-        content: Box<diff::View>,
+        content: Box<document::View>,
         scroll: usize,
     },
 }

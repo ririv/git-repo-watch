@@ -2,6 +2,16 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ImageInputHint,
+    ImagePreview,
+    ImageAbsent,
+    ImageNotRaster,
+    ImageEncodedLimit,
+    ImageDecodedLimit,
+    ImageDecodeFailed,
+    ImagePreparing,
+    ImageFormats,
+
     BranchTitle,
     BranchCatalogRead,
     BranchCommand,
@@ -596,6 +606,27 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ImageInputHint, Language::English) => "Fit to pane · ←/Esc Back · / Commands",
+            (Self::ImageInputHint, Language::Chinese) => "适应窗口 · ←/Esc 返回 · / 命令",
+            (Self::ImagePreview, Language::English) => "Image preview",
+            (Self::ImagePreview, Language::Chinese) => "图片预览",
+            (Self::ImageAbsent, Language::English) => "No image in this version",
+            (Self::ImageAbsent, Language::Chinese) => "此版本中没有图片",
+            (Self::ImageNotRaster, Language::English) => "This version is not a supported image",
+            (Self::ImageNotRaster, Language::Chinese) => "此版本不是支持的图片",
+            (Self::ImageEncodedLimit, Language::English) => {
+                "Image exceeds the 16 MiB encoded size limit"
+            }
+            (Self::ImageEncodedLimit, Language::Chinese) => "图片编码文件超过 16 MiB 上限",
+            (Self::ImageDecodedLimit, Language::English) => "Image exceeds the decoding limits",
+            (Self::ImageDecodedLimit, Language::Chinese) => "图片超出解码限制",
+            (Self::ImageDecodeFailed, Language::English) => "Cannot decode image",
+            (Self::ImageDecodeFailed, Language::Chinese) => "无法解码图片",
+            (Self::ImagePreparing, Language::English) => "Preparing image…",
+            (Self::ImagePreparing, Language::Chinese) => "正在准备图片…",
+            (Self::ImageFormats, Language::English) => "PNG · JPEG · WebP · Fit to pane",
+            (Self::ImageFormats, Language::Chinese) => "PNG · JPEG · WebP · 适应面板",
+
             (Self::BranchTitle, Language::English) => "Branches",
             (Self::BranchTitle, Language::Chinese) => "分支",
             (Self::BranchCatalogRead, Language::English) => "Read local branches",

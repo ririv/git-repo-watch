@@ -53,6 +53,7 @@ pub(super) fn prepare(
     cancel: &Cancel,
 ) -> Result<Paint> {
     match source {
+        Source::Image(_) => Ok(Paint::Omitted(SourceOmission::Binary)),
         Source::Absent => Ok(Paint::Absent),
         Source::Unavailable(reason) => Ok(Paint::Omitted(*reason)),
         Source::Text { path, text } => {

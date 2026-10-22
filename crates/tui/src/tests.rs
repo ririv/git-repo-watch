@@ -3,6 +3,7 @@ mod completion;
 mod diff;
 mod help;
 mod history;
+mod images;
 mod navigation;
 mod overview;
 mod startup;

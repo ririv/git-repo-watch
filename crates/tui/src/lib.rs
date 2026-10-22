@@ -5,11 +5,13 @@ mod checks;
 mod command;
 mod confirmation;
 mod diff;
+mod document;
 mod editor;
 mod graphics;
 mod history;
 mod input;
 mod overview;
+mod preview;
 mod spinner;
 mod task;
 mod view;
@@ -132,7 +134,7 @@ enum Mode {
     Branches(Box<branches::View>),
     Diff {
         session: FileSession,
-        content: Box<diff::View>,
+        content: Box<document::View>,
         scroll: usize,
     },
     CommitMessage {
@@ -212,7 +214,7 @@ enum Outcome {
     Branches(Box<branches::View>),
     TerminalOpened(PathBuf),
     Files(Files, FileArea),
-    Diff(FileSession, Box<diff::View>),
+    Diff(FileSession, Box<document::View>),
     History(Box<history::View>),
     CommitPrepared(CommitPlan),
     PushPrepared(PushPlan),

@@ -57,9 +57,19 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     Mode::History(ref view) => match view.as_ref() {
                         crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
                         crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
+                        crate::history::View::Diff { content, .. }
+                            if matches!(content.as_ref(), crate::document::View::Images(_)) =>
+                        {
+                            i18n::tr!(ImageInputHint)
+                        }
                         crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
                     },
                     Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
+                    Mode::Diff { ref content, .. }
+                        if matches!(content.as_ref(), crate::document::View::Images(_)) =>
+                    {
+                        i18n::tr!(ImageInputHint)
+                    }
                     Mode::Diff { .. } => i18n::tr!(ScrollEscFilesCommands),
                     _ => match screen.page {
                         Page::Repositories => i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
