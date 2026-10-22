@@ -2,7 +2,7 @@
 use super::*;
 impl Service {
     pub fn add(&self, paths: &[PathBuf]) -> Result<usize> {
-        let _lock = self.store.lock()?;
+        let _lock = self.store.transaction(&Cancel::default())?;
         let mut config = self.store.config()?;
         let mut added = 0;
         for path in paths {
@@ -24,7 +24,7 @@ impl Service {
         Ok(added)
     }
     pub fn configure(&self, operation: ConfigEdit) -> Result<()> {
-        let _lock = self.store.lock()?;
+        let _lock = self.store.transaction(&Cancel::default())?;
         let mut config = self.store.config()?;
         match operation {
             ConfigEdit::Remove(path) => {
@@ -58,9 +58,10 @@ impl Service {
         self.store.save_config(&config)
     }
     pub fn scan(&self, root: &Path, mode: ScanMode, cancel: &Cancel) -> Result<discovery::Report> {
-        let _lock = self.store.lock()?;
+        let initial = self.store.config()?;
+        let report = discovery::discover(root, &initial.excluded_roots, cancel)?;
+        let _lock = self.store.transaction(cancel)?;
         let mut config = self.store.config()?;
-        let report = discovery::discover(root, &config.excluded_roots, cancel)?;
         state::write_json(&self.store.state_dir().join("import-report.json"), &report)?;
         ensure!(
             !report.repositories.is_empty(),
@@ -69,7 +70,12 @@ impl Service {
         if mode == ScanMode::Import {
             for record in &report.repositories {
                 let path = record.path().to_owned();
-                if !config.repositories.contains(&path) {
+                if !config.repositories.contains(&path)
+                    && !config
+                        .excluded_roots
+                        .iter()
+                        .any(|root| path.starts_with(root))
+                {
                     config.repositories.push(path)
                 }
             }

@@ -128,13 +128,6 @@ impl Workspace {
             _ => {}
         }
     }
-    pub fn invalidate(&mut self) {
-        if let Some(session) = self.session_mut() {
-            session.files = Panel::Loading;
-            session.branches = Panel::Loading;
-            session.history = Panel::Loading;
-        }
-    }
     fn reload(&mut self, service: &Arc<Service>) {
         if let Some(path) = self.path().map(Path::to_owned) {
             self.loader.request(path, service);
@@ -223,8 +216,24 @@ impl Screen {
                     Ok(mut branches)
                         if self.page == Page::Detail
                             && focus == Section::Branches
-                            && matches!(self.mode, Mode::Panel(_)) =>
+                            && (matches!(self.mode, Mode::Panel(_))
+                                || matches!(&self.mode, Mode::Branches(view) if matches!(view.as_ref(), branches::View::List(_)))) =>
                     {
+                        if let Mode::Branches(current) = &self.mode {
+                            let previous = current.session();
+                            let selected = previous.selected().map(|entry| entry.reference.clone());
+                            branches.filter = previous.filter;
+                            branches.query = previous.query.clone();
+                            let index = selected.and_then(|reference| {
+                                branches
+                                    .rows()
+                                    .iter()
+                                    .position(|entry| entry.reference == reference)
+                            });
+                            branches.state.select(
+                                index.or_else(|| (!branches.rows().is_empty()).then_some(0)),
+                            );
+                        }
                         if let crate::bar::InputBar::Search(editor) = &self.bar {
                             branches.search(editor.text.clone());
                         }
@@ -240,8 +249,11 @@ impl Screen {
                     Ok(mut files)
                         if self.page == Page::Detail
                             && focus == Section::Worktree
-                            && matches!(self.mode, Mode::Panel(_)) =>
+                            && matches!(self.mode, Mode::Panel(_) | Mode::Files(_)) =>
                     {
+                        if let Mode::Files(current) = &self.mode {
+                            files = current.refreshed(files.snapshot);
+                        }
                         if let crate::bar::InputBar::Search(editor) = &self.bar {
                             files.query = editor.text.clone();
                         }
@@ -260,8 +272,25 @@ impl Screen {
                     Ok(mut view)
                         if self.page == Page::Detail
                             && focus == Section::History
-                            && matches!(self.mode, Mode::Panel(_)) =>
+                            && (matches!(self.mode, Mode::Panel(_))
+                                || matches!(&self.mode, Mode::History(current) if matches!(current.as_ref(), history::View::Graph(_)))) =>
                     {
+                        if let Mode::History(current) = &self.mode {
+                            let previous = current.session();
+                            if let history::View::Graph(next) = view.as_mut() {
+                                next.query = previous.query.clone();
+                                next.pan = previous.pan.min(next.width.saturating_sub(1));
+                                let selected = previous.selected().map(|entry| entry.oid);
+                                let index = selected.and_then(|oid| {
+                                    next.records
+                                        .iter()
+                                        .position(|record| record.entry.oid == oid)
+                                });
+                                next.state.select(
+                                    index.or_else(|| (!next.records.is_empty()).then_some(0)),
+                                );
+                            }
+                        }
                         if let crate::bar::InputBar::Search(editor) = &self.bar {
                             view.search(editor.text.clone());
                         }

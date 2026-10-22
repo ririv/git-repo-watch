@@ -189,6 +189,10 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                         .as_ref()
                         .filter(|task| task.checking(&row.path))
                         .map(|task| task.spinner())
+                        .or_else(|| screen
+                            .repository_tasks
+                            .get(&row.path)
+                            .map(|task| task.animation.symbol()))
                         .unwrap_or(b.overall),
                     name(&row.path)
                 )),
@@ -249,6 +253,10 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
 
 pub(super) fn repository_detail(screen: &Screen, row: &Row) -> Text<'static> {
     let mut text = detail_text(row);
+    if let Some(error) = screen.repository_errors.get(&row.path) {
+        text.lines
+            .push(field(i18n::tr!(OperationResult), safe(error), BAD));
+    }
     if let Some(update) = screen.latest_update(&row.path) {
         text.lines.insert(
             1,

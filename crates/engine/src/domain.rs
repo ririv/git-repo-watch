@@ -215,6 +215,10 @@ pub enum ReportStatus {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Report {
     pub schema_version: u32,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub repository_finished_at: std::collections::BTreeMap<PathBuf, String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub repository_revisions: std::collections::BTreeMap<PathBuf, u64>,
     pub push_policy: PushPolicy,
     pub notifications: Vec<Notice>,
     pub started_at: String,

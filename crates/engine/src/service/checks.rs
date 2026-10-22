@@ -1,4 +1,4 @@
-//! Parallel checks grouped by shared Git storage.
+//! Bounded Git operations and per-repository persistence; batch metadata is independent.
 use super::*;
 enum CheckInvocation {
     Manual,
@@ -19,14 +19,16 @@ impl Service {
         cancel: &Cancel,
         mut emit: impl FnMut(Event),
     ) -> Result<Report> {
-        let _lock = self.store.lock()?;
+        let _batch = self.store.batch_lock()?;
         let mut config = self.store.config()?;
-        match invocation {
-            CheckInvocation::Manual => config.push_policy = PushPolicy::Disabled,
-            CheckInvocation::Scheduled => {}
+        if matches!(invocation, CheckInvocation::Manual) {
+            config.push_policy = PushPolicy::Disabled;
         }
+        // 提前校验旧数据；执行期间只在写入单个结果时持有短事务锁。
+        self.store.repository_reports()?;
         let report = self.execute_checks(&config, cancel, &mut emit)?;
         cancel.check()?;
+        let _transaction = self.store.transaction(cancel)?;
         self.store.save_report(&report)?;
         Ok(report)
     }
@@ -36,28 +38,23 @@ impl Service {
         cancel: &Cancel,
         mut emit: impl FnMut(Event),
     ) -> Result<Report> {
-        let _lock = self.store.lock()?;
-        let mut config = self.store.config()?;
-        ensure!(
-            config
-                .repositories
-                .iter()
-                .any(|registered| registered == path),
-            i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
-        );
-        config.repositories = vec![path.to_owned()];
-        config.max_concurrency = 1;
-        config.push_policy = PushPolicy::Disabled;
-        // 在可能发生 fetch 之前校验已有报告，避免执行成功后才发现缓存损坏。
-        let mut reports = self.store.repository_reports()?;
-        let report = self.execute_checks(&config, cancel, &mut emit)?;
+        self.store.repository_reports()?;
+        emit(Event::Checking(path.to_owned()));
+        let report = self.check_one(path, PushPolicy::Disabled, cancel)?;
+        emit(Event::Checked {
+            result: report.repositories[0].clone(),
+            finished_at: report.finished_at.clone(),
+            revision: report.repository_revisions[path],
+        });
+        Ok(report)
+    }
+    fn check_one(&self, path: &Path, policy: PushPolicy, cancel: &Cancel) -> Result<Report> {
+        let _repository = self.repository_lock(path, cancel)?;
+        let started_at = state::now();
+        let (result, timing) = check::repository(&self.git, path, policy, cancel);
         cancel.check()?;
-        reports.insert(path.to_owned(), report.clone());
-        state::write_json(
-            &self.store.state_dir().join("repository-checks.json"),
-            &reports,
-        )
-        .context(i18n::tr!(SingleReportSaveFailed))?;
+        let mut report = single_report(result, timing, started_at, policy);
+        self.store.save_repository_report(&mut report, cancel)?;
         Ok(report)
     }
     fn execute_checks(
@@ -69,77 +66,143 @@ impl Service {
         cancel.check()?;
         let started_at = state::now();
         let groups = group(&config.repositories);
-        cancel.check()?;
         let mut results = BTreeMap::new();
         let mut timings = BTreeMap::new();
+        let mut finished = BTreeMap::new();
+        let mut revisions = BTreeMap::new();
         let mut notices = Vec::new();
-        for (index, result, timing) in groups.failures {
-            emit(Event::Checking(result.path().to_owned()));
-            emit(Event::Checked(result.clone()));
-            results.insert(index, result);
-            timings.insert(index, timing);
-        }
-        executor::run(
-            groups.jobs,
-            config.max_concurrency,
-            cancel,
-            |path| check::repository(&self.git, path, config.push_policy, cancel),
-            |event| match event {
-                executor::Event::Started { path, .. } => emit(Event::Checking(path)),
-                executor::Event::Finished {
-                    index,
-                    value: (result, timing),
-                } => {
-                    // 取消中的仓库并未完成检查，不能用取消错误覆盖上一轮有效状态。
-                    if cancel.is_cancelled() {
-                        return;
+        let mut error = None;
+        let mut receive = |event: executor::Event<Result<Report>>| {
+            let (index, report) = match event {
+                executor::Event::Started { path, .. } => {
+                    emit(Event::Checking(path));
+                    return;
+                }
+                executor::Event::Finished { index, value } => (index, value),
+            };
+            match report {
+                Err(failure) => {
+                    if error.is_none() {
+                        error = Some(failure);
                     }
+                }
+                Ok(report) => {
+                    let result = report
+                        .repositories
+                        .into_iter()
+                        .next()
+                        .expect("single repository report");
                     for pushed in result.pushes() {
                         if let Publication::Failed { target, error, .. } = pushed {
                             let notice = notify::failure(result.path(), target, error, cancel);
                             if matches!(notice, Notice::Failed { .. }) {
-                                emit(Event::NotificationProblem(notice.clone()))
+                                emit(Event::NotificationProblem(notice.clone()));
                             }
-                            notices.push(notice)
+                            notices.push(notice);
                         }
                     }
-                    emit(Event::Checked(result.clone()));
+                    let revision = report.repository_revisions[result.path()];
+                    revisions.insert(result.path().to_owned(), revision);
+                    finished.insert(result.path().to_owned(), report.finished_at.clone());
+                    emit(Event::Checked {
+                        result: result.clone(),
+                        finished_at: report.finished_at,
+                        revision,
+                    });
                     results.insert(index, result);
-                    timings.insert(index, timing);
+                    if let Some(execution) = report.execution {
+                        timings.insert(
+                            index,
+                            execution
+                                .repositories
+                                .into_iter()
+                                .next()
+                                .expect("single repository timing"),
+                        );
+                    }
                 }
-            },
+            }
+        };
+        for (index, result, timing) in groups.failures {
+            let mut report = single_report(result, timing, state::now(), config.push_policy);
+            let saved = self
+                .store
+                .save_repository_report(&mut report, cancel)
+                .map(|()| report);
+            receive(executor::Event::Finished {
+                index,
+                value: saved,
+            });
+        }
+        // 由执行器独立发送开始事件，写入完成事件必须在仓库锁内持久化之后才能发出。
+        executor::run(
+            groups.jobs,
+            config.max_concurrency,
+            cancel,
+            |path| self.check_one(path, config.push_policy, cancel),
+            &mut receive,
         )?;
+        if let Some(error) = error {
+            return Err(error);
+        }
         let repositories = results.into_values().collect::<Vec<_>>();
         ensure!(
             repositories.len() == config.repositories.len(),
             i18n::tr!(CheckResultsAreIncompleteHistoricalReportWas)
         );
-        let status = if repositories.is_empty() {
-            ReportStatus::Unconfigured
-        } else if repositories
-            .iter()
-            .all(|r| matches!(r, RepositoryResult::Clean { .. }))
-        {
-            ReportStatus::Clean
-        } else {
-            ReportStatus::Attention
-        };
-        let report = Report {
+        Ok(Report {
             schema_version: 3,
+            repository_finished_at: finished,
+            repository_revisions: revisions,
             push_policy: config.push_policy,
             notifications: notices,
             started_at,
             finished_at: state::now(),
-            status,
+            status: status(&repositories),
             repositories,
             classification_updated_at: None,
             execution: Some(Execution {
                 max_concurrency: config.max_concurrency,
                 repositories: timings.into_values().collect(),
             }),
-        };
-        cancel.check()?;
-        Ok(report)
+        })
+    }
+}
+pub(super) fn single_report(
+    result: RepositoryResult,
+    timing: Timing,
+    started_at: String,
+    policy: PushPolicy,
+) -> Report {
+    let finished_at = state::now();
+    let repositories = vec![result];
+    Report {
+        schema_version: 3,
+        repository_revisions: BTreeMap::new(),
+        repository_finished_at: [(repositories[0].path().to_owned(), finished_at.clone())].into(),
+        push_policy: policy,
+        notifications: vec![],
+        started_at,
+        finished_at,
+        status: status(&repositories),
+        repositories,
+        classification_updated_at: None,
+        execution: Some(Execution {
+            max_concurrency: 1,
+            repositories: vec![timing],
+        }),
+    }
+}
+fn status(repositories: &[RepositoryResult]) -> ReportStatus {
+    if repositories.is_empty() {
+        ReportStatus::Unconfigured
+    } else if repositories
+        .iter()
+        .all(|r| matches!(r, RepositoryResult::Clean { .. }))
+    {
+        ReportStatus::Clean
+    } else {
+        ReportStatus::Attention
     }
 }
 pub struct Groups {

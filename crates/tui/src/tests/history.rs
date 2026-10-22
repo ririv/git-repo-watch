@@ -47,7 +47,8 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let config = std::fs::read(s.service.store.home.join("config.json")).unwrap();
         command(&mut s, "log");
-        assert!(matches!(s.mode, Mode::Busy(_)));
+        assert!(!s.repository_tasks.is_empty());
+        assert!(!matches!(s.mode, Mode::Busy(_)));
         wait(&mut s);
         assert_eq!(graph(&s).records.len(), 5);
         for (width, height) in [(60, 18), (100, 28), (160, 36)] {
@@ -249,7 +250,8 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
     let index = graph(&s).state.selected();
     key(&mut s, KeyCode::End);
     key(&mut s, KeyCode::Down);
-    assert!(matches!(s.mode, Mode::Busy(_)));
+    assert!(!s.repository_tasks.is_empty());
+    assert!(!matches!(s.mode, Mode::Busy(_)));
     let loading = render(&mut s, 100, 28);
     assert!(loading.contains("history 21"));
     wait(&mut s);

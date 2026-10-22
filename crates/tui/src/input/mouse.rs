@@ -4,6 +4,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        self.view_revision += 1;
         if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && matches!(self.bar, bar::InputBar::Search(_))
         {

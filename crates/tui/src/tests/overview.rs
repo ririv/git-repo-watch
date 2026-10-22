@@ -175,6 +175,7 @@ fn full_check_errors_are_reachable_after_scrolling_and_resizing() {
     s.updates.insert(
         f.repo.clone(),
         crate::checks::Update {
+            revision: 0,
             result: RepositoryResult::Failed {
                 path: f.repo.clone(),
                 error: format!("{}last error detail", "remote error\n".repeat(500)),

@@ -6,7 +6,8 @@ use std::path::PathBuf;
 
 impl Screen {
     pub(crate) fn open_history(&mut self, path: PathBuf) {
-        self.start(
+        self.start_repository(
+            path.clone(),
             i18n::tr!(HistoryRead),
             Effect::ReadOnly,
             move |service, cancel, _| {
@@ -27,7 +28,8 @@ impl Screen {
             self.message = i18n::tr!(HistoryNoMore).into();
             return;
         };
-        self.start(
+        self.start_repository(
+            session.references.path.clone(),
             i18n::tr!(HistoryRead),
             Effect::ReadOnly,
             move |service, cancel, _| {
@@ -50,7 +52,8 @@ impl Screen {
             return;
         };
         let oid = entry.oid;
-        self.start(
+        self.start_repository(
+            session.references.path.clone(),
             i18n::tr!(HistoryReadCommit),
             Effect::ReadOnly,
             move |service, cancel, _| {
@@ -85,7 +88,8 @@ impl Screen {
         let parent = detail.parents[(index + 1) % detail.parents.len()];
         let oid = detail.oid;
         let session = commit.graph.clone();
-        self.start(
+        self.start_repository(
+            session.references.path.clone(),
             i18n::tr!(HistoryReadCommit),
             Effect::ReadOnly,
             move |service, cancel, _| {
@@ -121,7 +125,8 @@ impl Screen {
             self.message = i18n::tr!(HistoryNoChanges).into();
             return;
         };
-        self.start(
+        self.start_repository(
+            commit.detail.path.clone(),
             i18n::tr!(HistoryReadDiff),
             Effect::ReadOnly,
             move |service, cancel, _| {

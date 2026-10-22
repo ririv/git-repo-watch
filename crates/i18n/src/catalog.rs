@@ -2,6 +2,11 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    RepositoryStateSaveFailed,
+    RepositoryTaskBusy,
+    RepositoryTaskLimit,
+    RepositoryTasksRunning,
+    RepositoryTaskCompleted,
     ImageInputHint,
     ImagePreview,
     ImageAbsent,
@@ -456,9 +461,9 @@ pub enum Message {
     BackgroundWorkerTerminatedUnexpectedly,
     BackgroundWorkerPanicked,
     OperationInterruptedSomeWritesMayHaveCompleted,
-    CommittedTheListStillShowsTheLast,
+    CommittedRepositoryUpdated,
     ContentsChangedVerifyTheCommit,
-    PushedTheListStillShowsTheLast,
+    PushedRepositoryUpdated,
     PushFailed,
     PhasePhaseError,
     RefreshFailedE,
@@ -606,6 +611,26 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
+            (Self::RepositoryTaskCompleted, Language::Chinese) => "{0} · 已完成：{1}",
+            (Self::RepositoryStateSaveFailed, Language::English) => {
+                "Git operation finished, but saving the repository state failed"
+            }
+            (Self::RepositoryStateSaveFailed, Language::Chinese) => {
+                "Git 操作已结束，但仓库状态保存失败"
+            }
+            (Self::RepositoryTaskBusy, Language::English) => {
+                "An operation is already running for this repository"
+            }
+            (Self::RepositoryTaskBusy, Language::Chinese) => "此仓库已有操作正在执行",
+            (Self::RepositoryTaskLimit, Language::English) => {
+                "Repository task limit reached; wait for an operation to finish"
+            }
+            (Self::RepositoryTaskLimit, Language::Chinese) => {
+                "已达到仓库任务并发上限，请等待一个操作完成"
+            }
+            (Self::RepositoryTasksRunning, Language::English) => "  {0} · {1} repository tasks",
+            (Self::RepositoryTasksRunning, Language::Chinese) => "  {0} · {1} 个仓库任务",
             (Self::ImageInputHint, Language::English) => "Fit to pane · ←/Esc Back · / Commands",
             (Self::ImageInputHint, Language::Chinese) => "适应窗口 · ←/Esc 返回 · / 命令",
             (Self::ImagePreview, Language::English) => "Image preview",
@@ -1018,9 +1043,9 @@ impl Message {
             (Self::BackgroundCheckCancelling, Language::English) => " {} Cancelling {}/{}",
             (Self::BackgroundCheckCancelling, Language::Chinese) => " {} 取消中 {}/{}",
             (Self::CancelBackgroundCheck, Language::English) => {
-                "Cancel the background check without interrupting navigation"
+                "Cancel the selected repository task or the batch check"
             }
-            (Self::CancelBackgroundCheck, Language::Chinese) => "取消后台检查，保持界面可操作",
+            (Self::CancelBackgroundCheck, Language::Chinese) => "取消当前仓库任务或整轮检查",
             (Self::CheckOneComplete, Language::English) => "Repository checked: {}",
             (Self::CheckOneComplete, Language::Chinese) => "仓库检查完成：{}",
             (Self::CheckCancelledRetained, Language::English) => {
@@ -2021,23 +2046,21 @@ impl Message {
             (Self::OperationInterruptedSomeWritesMayHaveCompleted, Language::Chinese) => {
                 "操作被中断，可能已完成部分写入，请刷新并核对实际状态。\n{e:#}"
             }
-            (Self::CommittedTheListStillShowsTheLast, Language::English) => {
-                "Committed {}{}; the list still shows the last check"
+            (Self::CommittedRepositoryUpdated, Language::English) => {
+                "Committed {}{}; repository state updated"
             }
-            (Self::CommittedTheListStillShowsTheLast, Language::Chinese) => {
-                "已提交 {}{}；列表仍为上次检查结果"
-            }
+            (Self::CommittedRepositoryUpdated, Language::Chinese) => "已提交 {}{}；仓库状态已更新",
             (Self::ContentsChangedVerifyTheCommit, Language::English) => {
                 " (contents changed; verify the commit)"
             }
             (Self::ContentsChangedVerifyTheCommit, Language::Chinese) => {
                 "（实际内容发生变化，请核对提交）"
             }
-            (Self::PushedTheListStillShowsTheLast, Language::English) => {
-                "Pushed {} → {}/{}; the list still shows the last check"
+            (Self::PushedRepositoryUpdated, Language::English) => {
+                "Pushed {} → {}/{}; repository state updated"
             }
-            (Self::PushedTheListStillShowsTheLast, Language::Chinese) => {
-                "已推送 {} → {}/{}；列表仍为上次检查结果"
+            (Self::PushedRepositoryUpdated, Language::Chinese) => {
+                "已推送 {} → {}/{}；仓库状态已更新"
             }
             (Self::PushFailed, Language::English) => "Push failed",
             (Self::PushFailed, Language::Chinese) => "推送失败",
@@ -2723,6 +2746,19 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (RepositoryTasksRunning $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("  {0} · {1} repository tasks" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("  {0} · {1} 个仓库任务" $(, $($args)*)?),
+        }
+    };
+    (RepositoryTaskCompleted $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{0} · Completed: {1}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{0} · 已完成：{1}" $(, $($args)*)?),
+        }
+    };
+
     (DiffLayoutSelected $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Diff layout: {} · This TUI session" $(, $($args)*)?),
         $crate::Language::Chinese => format!("差异布局：{} · 本次 TUI 会话生效" $(, $($args)*)?),
@@ -3111,16 +3147,16 @@ macro_rules! tf {
             $crate::Language::Chinese => format!("操作被中断，可能已完成部分写入，请刷新并核对实际状态。\n{e:#}" $(, $($args)*)?),
         }
     };
-    (CommittedTheListStillShowsTheLast $(, $($args:tt)*)?) => {
+    (CommittedRepositoryUpdated $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Committed {}{}; the list still shows the last check" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("已提交 {}{}；列表仍为上次检查结果" $(, $($args)*)?),
+            $crate::Language::English => format!("Committed {}{}; repository state updated" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("已提交 {}{}；仓库状态已更新" $(, $($args)*)?),
         }
     };
-    (PushedTheListStillShowsTheLast $(, $($args:tt)*)?) => {
+    (PushedRepositoryUpdated $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Pushed {} → {}/{}; the list still shows the last check" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("已推送 {} → {}/{}；列表仍为上次检查结果" $(, $($args)*)?),
+            $crate::Language::English => format!("Pushed {} → {}/{}; repository state updated" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("已推送 {} → {}/{}；仓库状态已更新" $(, $($args)*)?),
         }
     };
     (PhasePhaseError $(, $($args:tt)*)?) => {

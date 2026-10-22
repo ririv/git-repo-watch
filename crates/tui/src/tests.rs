@@ -1,5 +1,6 @@
 mod branches;
 mod completion;
+mod concurrency;
 mod diff;
 mod help;
 mod history;
@@ -57,6 +58,9 @@ fn screen(service: Service) -> Screen {
         scroll: 0,
         message: String::new(),
         check_task: None,
+        repository_tasks: BTreeMap::new(),
+        repository_errors: BTreeMap::new(),
+        view_revision: 0,
         updates: BTreeMap::new(),
         overview: Default::default(),
         workspace: Default::default(),
@@ -95,7 +99,7 @@ fn command(s: &mut Screen, text: &str) {
 }
 fn wait(s: &mut Screen) {
     let started = Instant::now();
-    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_)) {
+    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_)) || !s.repository_tasks.is_empty() {
         assert!(
             started.elapsed() < Duration::from_secs(8),
             "工作线程没有结束"
@@ -1054,8 +1058,10 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     assert_eq!(s.page, Page::Help);
     key(&mut s, KeyCode::Esc);
     command(&mut s, "check");
-    assert!(s.message.contains("already running"));
+    assert!(s.repository_tasks.contains_key(&second.repo));
     assert!(matches!(s.mode, Mode::Browsing));
+    command(&mut s, "cancel");
+    poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     command(&mut s, "cancel");
     assert!(s.check_task.is_some());
     assert!(matches!(s.mode, Mode::Browsing));
@@ -1109,9 +1115,9 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
     s.paste("check");
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
-    assert!(s.check_task.is_some());
+    assert!(!s.repository_tasks.is_empty());
     assert!(matches!(s.mode, Mode::Browsing));
-    poll_background_until(&mut s, |s| s.check_task.is_none());
+    poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     assert!(matches!(
         s.result_for(&first.repo),
         Some(RepositoryResult::Attention { .. })
@@ -1136,7 +1142,7 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
 }
 
 #[test]
-fn checks_started_from_files_restore_the_panel_and_block_only_writes() {
+fn checks_started_from_files_leave_the_panel_interactive_and_serialize_writes() {
     let _language = i18n::using(i18n::Language::English);
     let f = support::Fixture::create();
     support::write(f.repo.join("new-file"), "contents");
@@ -1150,10 +1156,10 @@ fn checks_started_from_files_restore_the_panel_and_block_only_writes() {
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "stage");
     assert!(matches!(s.mode, Mode::Files(_)));
-    assert!(s.message.contains("unavailable during a check"));
+    assert!(s.message.contains("already running"));
     assert!(support::git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
     gate.release();
-    poll_background_until(&mut s, |s| s.check_task.is_none());
+    poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     assert!(matches!(s.mode, Mode::Files(_)));
     command(&mut s, "stage");
     wait(&mut s);
@@ -1174,7 +1180,7 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     command(&mut s, "check");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");
-    poll_background_until(&mut s, |s| s.check_task.is_none());
+    poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     assert!(s.message.contains("cancelled"));
     assert!(!s.message.contains("writes"));
     assert!(matches!(s.mode, Mode::Browsing));

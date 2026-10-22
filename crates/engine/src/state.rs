@@ -1,5 +1,8 @@
 //! Private, atomic persistence and cross-process coordination.
-use crate::domain::{PushPolicy, Report};
+use crate::{
+    cancel::Cancel,
+    domain::{PushPolicy, Report},
+};
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
@@ -127,12 +130,80 @@ impl Store {
         write_json(&self.state_dir().join("latest.json"), r)
     }
     pub fn lock(&self) -> Result<Lock> {
-        fs::create_dir_all(self.state_dir())?;
-        fs::set_permissions(self.state_dir(), fs::Permissions::from_mode(0o700))?;
+        self.prepare_state()?;
         Lock::acquire(&self.state_dir().join("check.lock"))
     }
+    /// Acquire the short-lived configuration/report transaction lock.
+    pub fn transaction(&self, cancel: &Cancel) -> Result<Lock> {
+        self.prepare_state()?;
+        Lock::wait(&self.state_dir().join("check.lock"), cancel)
+    }
+    fn prepare_state(&self) -> Result<()> {
+        fs::create_dir_all(self.state_dir())?;
+        fs::set_permissions(self.state_dir(), fs::Permissions::from_mode(0o700))?;
+        Ok(())
+    }
+    /// Serialize complete batches without locking unrelated repository operations.
+    pub fn batch_lock(&self) -> Result<Lock> {
+        self.prepare_state()?;
+        Lock::acquire(&self.state_dir().join("batch.lock"))
+    }
+    /// Worktrees sharing Git storage deliberately share the same operation lock.
+    pub fn repository_lock(&self, common_dir: &Path, cancel: &Cancel) -> Result<Lock> {
+        use std::os::unix::ffi::OsStrExt;
+        self.prepare_state()?;
+        let directory = self.state_dir().join("repository-locks");
+        fs::create_dir_all(&directory)?;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+        let key = crate::scheduler::digest(common_dir.as_os_str().as_bytes());
+        Lock::wait(&directory.join(format!("{key}.lock")), cancel)
+    }
+    /// Bound active Git operations across batches, manual tasks, and processes.
+    pub fn operation_slot(&self, limit: usize, cancel: &Cancel) -> Result<Lock> {
+        ensure!(
+            (1..=32).contains(&limit),
+            i18n::tr!(ConcurrencyMustBeBetween1And32)
+        );
+        self.prepare_state()?;
+        let directory = self.state_dir().join("operation-slots");
+        fs::create_dir_all(&directory)?;
+        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+        loop {
+            cancel.check()?;
+            for slot in 0..limit {
+                match Lock::acquire(&directory.join(format!("{slot}.lock"))) {
+                    Ok(lock) => return Ok(lock),
+                    Err(error) if error.downcast_ref::<Busy>().is_some() => {}
+                    Err(error) => return Err(error),
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(10));
+        }
+    }
+    /// Merge while holding only the persistence lock; never hold it during Git work.
+    pub fn save_repository_report(&self, report: &mut Report, cancel: &Cancel) -> Result<()> {
+        report.validate()?;
+        ensure!(
+            report.repositories.len() == 1,
+            i18n::tr!(InvalidRepositoryCheckReport)
+        );
+        let _transaction = self.transaction(cancel)?;
+        let mut reports = self.repository_reports()?;
+        let path = report.repositories[0].path().to_owned();
+        let previous = reports
+            .get(&path)
+            .and_then(|old| old.repository_revisions.get(&path))
+            .copied()
+            .unwrap_or(0);
+        let revision = previous
+            .checked_add(1)
+            .context(i18n::tr!(InvalidRepositoryCheckReport))?;
+        report.repository_revisions.insert(path.clone(), revision);
+        reports.insert(path, report.clone());
+        write_json(&self.state_dir().join("repository-checks.json"), &reports)
+    }
     pub fn running(&self) -> Result<bool> {
-        let p = self.state_dir().join("check.lock");
+        let p = self.state_dir().join("batch.lock");
         if !p.try_exists()? {
             return Ok(false);
         }
@@ -154,6 +225,17 @@ impl std::error::Error for Busy {}
 #[derive(Debug)]
 pub struct Lock(File);
 impl Lock {
+    pub fn wait(path: &Path, cancel: &Cancel) -> Result<Self> {
+        loop {
+            cancel.check()?;
+            match Self::acquire(path) {
+                Err(error) if error.downcast_ref::<Busy>().is_some() => {
+                    std::thread::sleep(std::time::Duration::from_millis(10));
+                }
+                result => return result,
+            }
+        }
+    }
     pub fn acquire(path: &Path) -> Result<Self> {
         let file = OpenOptions::new()
             .create(true)

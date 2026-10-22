@@ -18,6 +18,24 @@ impl Screen {
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         if matches!(
             key.code,
+            KeyCode::Esc
+                | KeyCode::Enter
+                | KeyCode::Left
+                | KeyCode::Right
+                | KeyCode::Tab
+                | KeyCode::BackTab
+                | KeyCode::Up
+                | KeyCode::Down
+                | KeyCode::Home
+                | KeyCode::End
+                | KeyCode::PageUp
+                | KeyCode::PageDown
+        ) || key.modifiers.contains(KeyModifiers::CONTROL)
+        {
+            self.view_revision += 1;
+        }
+        if matches!(
+            key.code,
             KeyCode::Up
                 | KeyCode::Down
                 | KeyCode::PageUp
@@ -280,7 +298,8 @@ impl Screen {
             } => {
                 match choice.input(key.code) {
                     confirmation::Input::Execute => {
-                        self.start(
+                        self.start_repository(
+                            plan.path.clone(),
                             i18n::tr!(CommitStagedContents),
                             Effect::Commit,
                             move |service, cancel, _| {
@@ -317,7 +336,8 @@ impl Screen {
             } => {
                 match choice.input(key.code) {
                     confirmation::Input::Execute => {
-                        self.start(
+                        self.start_repository(
+                            plan.path.clone(),
                             i18n::tr!(PushCurrentBranch),
                             Effect::Push,
                             move |service, cancel, _| {

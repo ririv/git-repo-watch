@@ -215,7 +215,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             }
             let emit = |event| match event {
                 Event::Checking(p) => println!("{}", i18n::tf!(Checking, p.display())),
-                Event::Checked(r) => match serde_json::to_string_pretty(&r) {
+                Event::Checked { result: r, .. } => match serde_json::to_string_pretty(&r) {
                     Ok(s) => println!("{s}"),
                     Err(e) => eprintln!("{}", i18n::tf!(UnableToPrintResultE, e = e)),
                 },

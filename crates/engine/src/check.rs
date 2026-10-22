@@ -17,6 +17,30 @@ pub fn repository(
     policy: PushPolicy,
     cancel: &Cancel,
 ) -> (RepositoryResult, Timing) {
+    inspect(git, path, policy, Refresh::Fetch, cancel)
+}
+/// Inspect current Git references without network requests or automatic publication.
+pub fn local_repository(path: &Path, cancel: &Cancel) -> (RepositoryResult, Timing) {
+    inspect(
+        &Git::default(),
+        path,
+        PushPolicy::Disabled,
+        Refresh::Local,
+        cancel,
+    )
+}
+#[derive(Clone, Copy)]
+enum Refresh {
+    Fetch,
+    Local,
+}
+fn inspect(
+    git: &Git,
+    path: &Path,
+    policy: PushPolicy,
+    refresh: Refresh,
+    cancel: &Cancel,
+) -> (RepositoryResult, Timing) {
     let started = Instant::now();
     let mut timing = Timing {
         path: path.to_owned(),
@@ -56,7 +80,7 @@ pub fn repository(
         let t = Instant::now();
         let fetched = (|| -> Result<()> {
             for remote in &remotes {
-                if !remote.skipped(&repo)? {
+                if matches!(refresh, Refresh::Fetch) && !remote.skipped(&repo)? {
                     git.fetch_tracking(path, remote, cancel)?;
                 }
             }

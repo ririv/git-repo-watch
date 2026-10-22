@@ -13,29 +13,6 @@ impl Screen {
         path: Option<PathBuf>,
         root: &Cancel,
     ) -> Result<bool> {
-        if self.check_task.is_some()
-            && matches!(
-                action,
-                Action::Commit
-                    | Action::Push
-                    | Action::Add
-                    | Action::Remove
-                    | Action::Exclude
-                    | Action::Unexclude
-                    | Action::Scan
-                    | Action::Import
-                    | Action::Interval
-                    | Action::Autopush
-                    | Action::Concurrency
-                    | Action::StartupCheck
-                    | Action::Apply
-                    | Action::EnableSchedule
-                    | Action::DisableSchedule
-            )
-        {
-            self.message = i18n::tr!(CheckWriteConflict).into();
-            return Ok(false);
-        }
         match action {
             Action::Branches => {
                 if let Some(path) = path {
@@ -134,7 +111,8 @@ impl Screen {
             Action::Commit | Action::Push => {
                 if let Some(path) = path {
                     if action == Action::Commit {
-                        self.start(
+                        self.start_repository(
+                            path.clone(),
                             i18n::tr!(ReadStagedContents),
                             Effect::ReadOnly,
                             move |s, c, _| {
@@ -142,7 +120,8 @@ impl Screen {
                             },
                         )
                     } else {
-                        self.start(
+                        self.start_repository(
+                            path.clone(),
                             i18n::tr!(ValidateCurrentBranchAndRemoteUpstream),
                             Effect::ReadOnly,
                             move |s, c, _| Ok(Outcome::PushPrepared(s.prepare_push(&path, &c)?)),
@@ -154,7 +133,8 @@ impl Screen {
             }
             Action::Terminal => {
                 if let Some(path) = path {
-                    self.start(
+                    self.start_repository(
+                        path.clone(),
                         i18n::tr!(OpenRepositoryTerminal),
                         Effect::ReadOnly,
                         move |service, cancel, _| {
@@ -177,22 +157,22 @@ impl Screen {
                 }
             }
             Action::Check | Action::CheckAll => {
-                if self.check_task.is_some() {
-                    self.message = i18n::tr!(CheckAlreadyRunning).into();
+                let target = if action == Action::CheckAll {
+                    Some(checks::CheckTarget::All)
                 } else {
-                    let target = if action == Action::CheckAll {
-                        Some(checks::CheckTarget::All)
-                    } else {
-                        path.map(checks::CheckTarget::Repository)
-                    };
-                    if let Some(target) = target {
-                        self.start_check(target);
-                    } else {
-                        self.message = i18n::tr!(SelectARepositoryFirst).into();
-                    }
+                    path.map(checks::CheckTarget::Repository)
+                };
+                if let Some(target) = target {
+                    self.start_check(target);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
             }
-            Action::CancelCheck => self.cancel_check(),
+            Action::CancelCheck => {
+                if !self.cancel_repository_task() {
+                    self.cancel_check();
+                }
+            }
             Action::Apply | Action::EnableSchedule | Action::DisableSchedule => {
                 self.mode = Mode::Confirm {
                     operation: Confirmation::Schedule(match action {
@@ -229,10 +209,6 @@ impl Screen {
         value: String,
         draft: crate::bar::CommandDraft,
     ) {
-        if self.check_task.is_some() {
-            self.message = i18n::tr!(CheckWriteConflict).into();
-            return;
-        }
         let origin = Box::new(self.take_mode());
         self.mode = Mode::Confirm {
             operation: Confirmation::Configure {
@@ -258,7 +234,8 @@ impl Screen {
         self.scroll = 0;
     }
     pub(crate) fn read_files(&mut self, path: PathBuf, area: FileArea) {
-        self.start(
+        self.start_repository(
+            path.clone(),
             i18n::tr!(ReadRepositoryFiles),
             Effect::ReadOnly,
             move |s, c, _| Ok(Outcome::Files(s.files(&path, &c)?, area)),
@@ -272,19 +249,20 @@ impl Screen {
             self.message = i18n::tr!(NoFilesInThisArea).into();
             return;
         };
-        self.start(i18n::tr!(ReadFileDiff), Effect::ReadOnly, move |s, c, _| {
-            let content = s.diff(&session.snapshot, &change, &c)?;
-            Ok(Outcome::Diff(
-                session,
-                crate::document::prepare(&change.location.display(), content, change.area, &c)?,
-            ))
-        })
+        self.start_repository(
+            session.snapshot.path.clone(),
+            i18n::tr!(ReadFileDiff),
+            Effect::ReadOnly,
+            move |s, c, _| {
+                let content = s.diff(&session.snapshot, &change, &c)?;
+                Ok(Outcome::Diff(
+                    session,
+                    crate::document::prepare(&change.location.display(), content, change.area, &c)?,
+                ))
+            },
+        )
     }
     pub(crate) fn edit_files(&mut self) {
-        if self.check_task.is_some() {
-            self.message = i18n::tr!(CheckWriteConflict).into();
-            return;
-        }
         let Some(session) = self.mode.file_session().cloned() else {
             return;
         };
@@ -298,7 +276,8 @@ impl Screen {
         } else {
             IndexAction::Stage
         };
-        self.start(
+        self.start_repository(
+            session.snapshot.path.clone(),
             if action == IndexAction::Stage {
                 i18n::tr!(StageSelectedFiles)
             } else {

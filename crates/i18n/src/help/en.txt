@@ -61,7 +61,7 @@
 ## Checks and configuration
 - `/check` checks the selected repository; `/check all` checks every registered repository. Both start directly without pushing.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
-- `/cancel` cancels the background check. Repository writes and configuration changes wait until checking stops.
+- `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
 - `/repo` manages registration and exclusions: `/repo add <path>`, `/repo remove`, `/repo exclude <path>`, `/repo unexclude <path>`.
 - `/repo scan <path>` previews discovery; `/repo import <path>` registers discovered repositories. Scanning follows Git ignore rules.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
@@ -69,17 +69,17 @@
 - `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.
 - `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush <policy>` accepts disabled or fast_forward.
 - `/schedule apply` applies configuration; `/schedule enable` enables scheduling; `/schedule disable` stops future runs.
-> Automatic pushing applies only to scheduled checks. The TUI checks all repositories in the background on startup by default; disable this in general settings. It does not scan or push. Completed startup checks update the report; file operations leave reports unchanged.
+> Automatic pushing applies only to scheduled checks. The TUI checks all repositories in the background on startup by default; disable this in general settings. It does not scan or push. Completed startup checks update the batch report. Stage, commit and push refresh only that repository from local Git state, without another fetch.
 
 ## Confirmation
 - `←→` / `Tab` selects an action; `Enter` confirms; `Esc` returns. Returning from commit or configuration confirmation retains the draft.
-- Commit messages use the bottom input. Confirmation and foreground operations lock text input; background checks keep browsing available.
-- `Esc` / `Ctrl+C` cancels a foreground operation and waits for workers and Git processes to stop. Exiting restores the terminal.
+- Commit messages use the bottom input. Repository reads and writes run in the background; navigation and command input remain available. Completion updates its repository and does not replace another view or a new command draft.
+- `/cancel` cancels repository work; `Esc` returns through views. `Ctrl+C` exits, cancelling and collecting owned tasks and Git processes. Configuration tasks use `Esc` to cancel.
 
 ## Status legend
 - `✓` Clean     `!` Needs attention     `×` Check failed     `·` Unchecked
 - `*` Worktree changes: uncommitted, untracked or submodule changes. `?` means unknown.
-- The repository list uses the last report; the file panel explicitly reads the current local state.
+- The list merges per-repository versions from checks and local operations. Newer repository results win over late batch results. The file panel reads current local state.
 - No-upstream branches are counted separately. They are not problems and are never published automatically.
 - Sync combines remote checks and push results. Failures and pending changes take priority; push counts refer to branches.
 - Full errors appear in preview and repository details.

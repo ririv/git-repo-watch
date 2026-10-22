@@ -19,7 +19,10 @@ impl Service {
                 } else {
                     Scope::Outdated
                 };
-                CachedReport::Available { report, scope }
+                CachedReport::Available {
+                    report: Box::new(report),
+                    scope,
+                }
             }
         };
         Ok(Snapshot {

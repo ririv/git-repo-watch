@@ -50,9 +50,10 @@ fn process_lock_is_shared_and_automatically_released() {
         home: temp.path().to_owned(),
     };
     assert!(!store.running().unwrap());
-    let lock = store.lock().unwrap();
+    let lock = store.batch_lock().unwrap();
     assert!(store.running().unwrap());
-    assert!(store.lock().is_err());
+    assert!(store.batch_lock().is_err());
+    assert!(store.lock().is_ok());
     drop(lock);
     assert!(!store.running().unwrap());
 }

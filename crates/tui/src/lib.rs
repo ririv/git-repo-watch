@@ -12,6 +12,7 @@ mod history;
 mod input;
 mod overview;
 mod preview;
+mod repository_tasks;
 mod spinner;
 mod task;
 mod view;
@@ -79,6 +80,42 @@ impl FileSession {
             selected: BTreeSet::new(),
             query: String::new(),
         }
+    }
+    fn refreshed(&self, snapshot: Files) -> Self {
+        let current = self
+            .rows()
+            .get(self.cursor)
+            .map(|change| change.location.clone());
+        let selected = self
+            .snapshot
+            .changes
+            .iter()
+            .enumerate()
+            .filter(|(index, _)| self.selected.contains(index))
+            .map(|(_, change)| (change.area, change.location.clone()))
+            .collect::<Vec<_>>();
+        let mut next = Self::new(snapshot, self.area);
+        next.query = self.query.clone();
+        next.selected = next
+            .snapshot
+            .changes
+            .iter()
+            .enumerate()
+            .filter(|(_, change)| {
+                selected
+                    .iter()
+                    .any(|(area, location)| *area == change.area && *location == change.location)
+            })
+            .map(|(index, _)| index)
+            .collect();
+        next.cursor = current
+            .and_then(|location| {
+                next.rows()
+                    .iter()
+                    .position(|change| change.location == location)
+            })
+            .unwrap_or_else(|| self.cursor.min(next.rows().len().saturating_sub(1)));
+        next
     }
     fn rows(&self) -> Vec<&Change> {
         self.snapshot
@@ -184,6 +221,7 @@ enum Confirmation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Effect {
     ReadOnly,
+    Check,
     IndexWrite,
     Commit,
     Push,
@@ -211,6 +249,7 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    Checked(domain::Report),
     Branches(Box<branches::View>),
     TerminalOpened(PathBuf),
     Files(Files, FileArea),
@@ -243,6 +282,9 @@ struct Screen {
     scroll: usize,
     message: String,
     check_task: Option<checks::CheckTask>,
+    repository_tasks: BTreeMap<PathBuf, repository_tasks::Task>,
+    repository_errors: BTreeMap<PathBuf, String>,
+    view_revision: u64,
     updates: BTreeMap<PathBuf, checks::Update>,
     overview: overview::Overview,
     workspace: workspace::Workspace,
@@ -282,6 +324,9 @@ impl Screen {
             scroll: 0,
             message: String::new(),
             check_task: None,
+            repository_tasks: BTreeMap::new(),
+            repository_errors: BTreeMap::new(),
+            view_revision: 0,
             updates: BTreeMap::new(),
             overview: Default::default(),
             workspace: Default::default(),

@@ -30,7 +30,11 @@ pub struct Service {
 #[derive(Debug, Clone)]
 pub enum Event {
     Checking(PathBuf),
-    Checked(RepositoryResult),
+    Checked {
+        result: RepositoryResult,
+        finished_at: String,
+        revision: u64,
+    },
     NotificationProblem(Notice),
 }
 #[derive(Debug, Clone, Serialize)]
@@ -42,7 +46,7 @@ pub enum Activity {
 #[derive(Debug, Clone)]
 pub enum CachedReport {
     Missing,
-    Available { report: Report, scope: Scope },
+    Available { report: Box<Report>, scope: Scope },
 }
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "snake_case")]

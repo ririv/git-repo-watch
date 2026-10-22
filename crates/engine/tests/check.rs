@@ -298,7 +298,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     );
     assert_eq!(report.execution.unwrap().max_concurrency, 1);
     let saved = store.repository_reports().unwrap();
-    assert_eq!(saved.len(), 1);
+    assert_eq!(saved.len(), 2);
     assert!(saved.contains_key(&first.repo));
     let saved_bytes = fs::read(store.state_dir().join("repository-checks.json")).unwrap();
     let cancel = Cancel::default();
@@ -344,7 +344,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
 }
 
 #[test]
-fn file_reads_remain_available_while_check_lock_blocks_repository_writes() {
+fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_storage() {
     let f = Fixture::create();
     write(f.repo.join("new"), "new");
     let home = tempfile::tempdir().unwrap();
@@ -362,17 +362,30 @@ fn file_reads_remain_available_while_check_lock_blocks_repository_writes() {
         })
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
-    let _check_lock = store.lock().unwrap();
+    let common = engine::local::common_dir(&engine::local::open(&f.repo).unwrap()).unwrap();
+    let _lock = store.repository_lock(&common, &Cancel::default()).unwrap();
     let files = service.files(&f.repo, &Cancel::default()).unwrap();
-    let error = service
-        .edit_index(
+    let cancel = Cancel::default();
+    let worker_cancel = cancel.clone();
+    let worker = std::thread::spawn(move || {
+        service.edit_index(
             &files,
             engine::local::files::IndexAction::Stage,
             &[],
-            &Cancel::default(),
+            &worker_cancel,
         )
-        .unwrap_err();
-    assert!(error.downcast_ref::<engine::state::Busy>().is_some());
+    });
+    std::thread::sleep(std::time::Duration::from_millis(50));
+    assert!(!worker.is_finished());
+    cancel.cancel();
+    assert!(
+        worker
+            .join()
+            .unwrap()
+            .unwrap_err()
+            .downcast_ref::<engine::cancel::Cancelled>()
+            .is_some()
+    );
     assert!(git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
 }
 

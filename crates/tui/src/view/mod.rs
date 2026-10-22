@@ -59,7 +59,7 @@ fn multiline(text: &str) -> String {
         })
         .collect()
 }
-fn name(path: &std::path::Path) -> String {
+pub(super) fn name(path: &std::path::Path) -> String {
     safe(
         &path
             .file_name()

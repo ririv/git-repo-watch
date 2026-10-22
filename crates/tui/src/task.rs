@@ -35,7 +35,12 @@ impl Screen {
     pub(super) fn animate_task(&mut self) -> bool {
         match &mut self.mode {
             Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
-            _ => false,
+            _ => self
+                .repository_tasks
+                .values_mut()
+                .fold(false, |changed, task| {
+                    task.animation.tick(std::time::Instant::now()) | changed
+                }),
         }
     }
     pub(super) fn poll(&mut self, root: &Cancel) -> bool {
@@ -83,12 +88,16 @@ impl Screen {
                 }
             }
         }
-        changed
+        changed | self.poll_repository_tasks(root)
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
         self.scroll = 0;
         match outcome {
+            Outcome::Checked(report) => {
+                self.mode = origin;
+                self.message = i18n::tf!(CheckOneComplete, report.repositories[0].path().display());
+            }
             Outcome::Branches(view) => {
                 self.workspace.save(origin);
                 self.mode = Mode::Branches(view);
@@ -102,8 +111,16 @@ impl Screen {
                 self.message = i18n::tf!(RepositoryTerminalOpened, path.display());
             }
             Outcome::Files(snapshot, area) => {
+                let next = match origin.file_session() {
+                    Some(current)
+                        if current.snapshot.path == snapshot.path && current.area == area =>
+                    {
+                        current.refreshed(snapshot)
+                    }
+                    _ => FileSession::new(snapshot, area),
+                };
                 self.workspace.save(origin);
-                self.mode = Mode::Files(FileSession::new(snapshot, area))
+                self.mode = Mode::Files(next)
             }
             Outcome::Diff(session, content) => {
                 self.mode = Mode::Diff {
@@ -129,11 +146,9 @@ impl Screen {
                 }
             }
             Outcome::Committed(result) => {
-                self.workspace.invalidate();
-                self.refresh_workspace();
                 self.mode = Mode::Browsing;
                 self.message = i18n::tf!(
-                    CommittedTheListStillShowsTheLast,
+                    CommittedRepositoryUpdated,
                     &result.oid[..12],
                     if result.review == engine::operations::commit::Review::Changed {
                         i18n::tr!(ContentsChangedVerifyTheCommit)
@@ -144,11 +159,9 @@ impl Screen {
             }
             Outcome::Published(result) => match result {
                 Publication::Pushed { target } => {
-                    self.workspace.invalidate();
-                    self.refresh_workspace();
                     self.mode = Mode::Browsing;
                     self.message = i18n::tf!(
-                        PushedTheListStillShowsTheLast,
+                        PushedRepositoryUpdated,
                         target.branch,
                         target.remote,
                         target.remote_ref
@@ -187,6 +200,12 @@ impl Screen {
         };
     }
     pub(super) fn shutdown(&mut self) {
+        for task in self.repository_tasks.values() {
+            task.cancel.cancel();
+        }
+        for (_, task) in std::mem::take(&mut self.repository_tasks) {
+            let _ = task.handle.join();
+        }
         self.shutdown_check();
         self.overview.shutdown();
         self.workspace.shutdown();

@@ -314,7 +314,7 @@ fn section_clicks_preserve_command_drafts_and_another_repository_gets_its_own_se
 }
 
 #[test]
-fn successful_commit_invalidates_inactive_file_and_history_snapshots() {
+fn successful_commit_refreshes_inactive_file_and_history_snapshots() {
     let f = support::Fixture::create();
     support::write(f.repo.join("to-commit"), "content\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
@@ -337,6 +337,7 @@ fn successful_commit_invalidates_inactive_file_and_history_snapshots() {
         support::git(&f.repo, &["log", "-1", "--format=%s"]),
         "workspace commit"
     );
+    wait_workspace(&mut s);
     focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==2));
     focus(&mut s, crate::workspace::Section::Worktree);
