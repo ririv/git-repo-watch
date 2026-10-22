@@ -57,6 +57,8 @@ impl Screen {
     pub(crate) fn sync_bar(&mut self) {
         self.bar = InputBar::Search(Editor::new(if let Mode::History(view) = &self.mode {
             view.query().to_owned()
+        } else if let Mode::Branches(view) = &self.mode {
+            view.session().query.clone()
         } else if matches!(self.mode, Mode::Panel(_)) {
             String::new()
         } else {
@@ -93,6 +95,7 @@ impl Screen {
         if let InputBar::Search(editor) = &self.bar {
             let query = editor.text.clone();
             match &mut self.mode {
+                Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
                 Mode::Files(s) if s.query != query => {
                     s.query = query;
@@ -126,7 +129,12 @@ impl Screen {
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
         if !matches!(
             self.mode,
-            Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
+            Mode::Browsing
+                | Mode::Panel(_)
+                | Mode::Branches(_)
+                | Mode::Files(_)
+                | Mode::Diff { .. }
+                | Mode::History(_)
         ) {
             return Ok(BarEvent::Pass);
         }
@@ -304,7 +312,7 @@ impl Screen {
         }
         // 空搜索栏把无修饰的左右键交给页面导航；有文字时仍移动输入光标。
         if self.bar.editor().text.is_empty()
-            && (matches!(self.mode, Mode::History(_))
+            && (matches!(self.mode, Mode::History(_) | Mode::Branches(_))
                 || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
             && matches!(key.code, KeyCode::Home | KeyCode::End)
         {
@@ -354,6 +362,7 @@ impl Screen {
                 self.query.clear();
                 self.focus(path);
             }
+            Mode::Branches(view) => view.search(String::new()),
             Mode::History(view) => view.clear_search(),
             Mode::Files(s) | Mode::Diff { session: s, .. } => {
                 s.query.clear();

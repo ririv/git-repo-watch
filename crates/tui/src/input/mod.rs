@@ -1,5 +1,6 @@
 //! Shared input validation and scrolling primitives.
 mod actions;
+mod branches;
 mod keys;
 mod mouse;
 mod navigation;

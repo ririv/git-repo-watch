@@ -8,6 +8,7 @@ impl Screen {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing
             | Mode::Panel(_)
+            | Mode::Branches(_)
             | Mode::Files(_)
             | Mode::Diff { .. }
             | Mode::History(_) => self.bar_paste(text),
@@ -78,6 +79,7 @@ impl Screen {
                 }
                 _ => self.mode = mode,
             },
+            Mode::Branches(view) => self.branch_key(view, key),
             Mode::History(mut view) => {
                 match view.as_mut() {
                     history::View::Graph(session) => match key.code {

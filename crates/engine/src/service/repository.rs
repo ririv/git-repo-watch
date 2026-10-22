@@ -1,6 +1,14 @@
 //! Locked single-repository operations and manual journals.
 use super::*;
 impl Service {
+    pub fn branches(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<local::branches::catalog::Snapshot> {
+        self.validate_repository(path, cancel)?;
+        local::branches::catalog::read(path, cancel)
+    }
     pub fn overview(&self, path: &Path, cancel: &Cancel) -> Result<local::overview::Snapshot> {
         self.validate_repository(path, cancel)?;
         local::overview::read(path, cancel)

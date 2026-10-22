@@ -16,6 +16,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     for (pane_area, section) in screen.workspace_areas.clone() {
         match section {
             Section::Overview => overview::panel(frame, screen, pane_area),
+            Section::Branches => branch_list(frame, screen, pane_area),
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
@@ -25,33 +26,50 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     }
 }
 fn tiled_areas(area: Rect) -> Vec<(Rect, Section)> {
-    let (overview_area, files_area, history_area) = if area.width >= 110 {
-        let columns = Layout::horizontal([
-            Constraint::Length((area.width / 3).clamp(36, 52)),
-            Constraint::Min(1),
-        ])
-        .split(area);
-        let left = Layout::vertical([
-            Constraint::Length(area.height.saturating_sub(7).clamp(5, 12)),
-            Constraint::Min(1),
-        ])
-        .split(columns[0]);
-        (left[0], left[1], columns[1])
-    } else {
-        let rows = Layout::vertical([
-            Constraint::Length((area.height / 3).clamp(5, 9)),
-            Constraint::Min(1),
-        ])
-        .split(area);
-        let lower = Layout::horizontal([Constraint::Percentage(42), Constraint::Percentage(58)])
-            .split(rows[1]);
-        (rows[0], lower[0], lower[1])
-    };
+    let rows = Layout::vertical([
+        Constraint::Length((area.height * 2 / 5).clamp(5, 12)),
+        Constraint::Min(1),
+    ])
+    .split(area);
+    let columns = [Constraint::Percentage(45), Constraint::Percentage(55)];
+    let upper = Layout::horizontal(columns).split(rows[0]);
+    let lower = Layout::horizontal(columns).split(rows[1]);
     vec![
-        (overview_area, Section::Overview),
-        (files_area, Section::Worktree),
-        (history_area, Section::History),
+        (upper[0], Section::Overview),
+        (upper[1], Section::Branches),
+        (lower[0], Section::Worktree),
+        (lower[1], Section::History),
     ]
+}
+fn branch_list(frame: &mut Frame, screen: &mut Screen, area: Rect) {
+    if let Some(session) = active_branches(&mut screen.mode) {
+        branches::list(frame, area, session);
+    } else if let Some(session) = screen.workspace.session_mut() {
+        match &mut session.branches {
+            Panel::Ready(session) => branches::list(frame, area, session),
+            Panel::Loading => placeholder(
+                frame,
+                area,
+                Section::Branches,
+                &format!(
+                    "{} {}",
+                    screen.workspace.spinner(),
+                    i18n::tr!(BranchCatalogRead)
+                ),
+            ),
+            Panel::Failed(error) => placeholder(frame, area, Section::Branches, &multiline(error)),
+        }
+    }
+}
+fn active_branches(mode: &mut Mode) -> Option<&mut crate::branches::Session> {
+    match mode {
+        Mode::Branches(view) => match view.as_mut() {
+            crate::branches::View::List(session) => Some(session),
+            _ => None,
+        },
+        Mode::Busy(pending) => active_branches(&mut pending.origin),
+        _ => None,
+    }
 }
 fn files(frame: &mut Frame, screen: &Screen, files_area: Rect) {
     if let Some(files) = active_files(&screen.mode) {

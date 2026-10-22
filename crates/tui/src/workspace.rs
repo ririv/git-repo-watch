@@ -1,6 +1,6 @@
 //! Simultaneous repository panes share existing file and history interaction states.
 mod load;
-use crate::{FileSession, Mode, Page, Screen, Service, history};
+use crate::{FileSession, Mode, Page, Screen, Service, branches, history};
 use std::{
     path::{Path, PathBuf},
     sync::Arc,
@@ -9,14 +9,21 @@ use std::{
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum Section {
     Overview,
+    Branches,
     Worktree,
     History,
 }
 impl Section {
-    pub const ALL: [Self; 3] = [Self::Overview, Self::Worktree, Self::History];
+    pub const ALL: [Self; 4] = [
+        Self::Overview,
+        Self::Branches,
+        Self::Worktree,
+        Self::History,
+    ];
     pub fn title(self) -> &'static str {
         match self {
             Self::Overview => i18n::tr!(WorkspaceOverview),
+            Self::Branches => i18n::tr!(BranchTitle),
             Self::Worktree => i18n::tr!(Worktree),
             Self::History => i18n::tr!(WorkspaceHistory),
         }
@@ -24,6 +31,7 @@ impl Section {
     pub fn of(mode: &Mode) -> Self {
         match mode {
             Mode::Panel(section) => *section,
+            Mode::Branches(_) => Self::Branches,
             Mode::Files(_)
             | Mode::Diff { .. }
             | Mode::CommitMessage { .. }
@@ -39,7 +47,7 @@ impl Section {
             .iter()
             .position(|section| *section == self)
             .expect("known repository pane");
-        Self::ALL[(index + if backwards { 2 } else { 1 }) % 3]
+        Self::ALL[(index + if backwards { Self::ALL.len() - 1 } else { 1 }) % Self::ALL.len()]
     }
 }
 #[derive(Debug)]
@@ -65,6 +73,7 @@ pub(super) struct Session {
     path: PathBuf,
     pub arrangement: Arrangement,
     pub files: Panel<FileSession>,
+    pub branches: Panel<branches::Session>,
     pub history: Panel<history::Session>,
 }
 #[derive(Debug, Default)]
@@ -97,6 +106,7 @@ impl Workspace {
             path: path.clone(),
             arrangement: Arrangement::Tiled,
             files: Panel::Loading,
+            branches: Panel::Loading,
             history: Panel::Loading,
         }));
         self.loader.request(path, service);
@@ -106,6 +116,7 @@ impl Workspace {
             return;
         };
         match mode {
+            Mode::Branches(view) => session.branches = Panel::Ready(view.session().clone()),
             Mode::Files(files) | Mode::Diff { session: files, .. } => {
                 session.files = Panel::Ready(files)
             }
@@ -120,6 +131,7 @@ impl Workspace {
     pub fn invalidate(&mut self) {
         if let Some(session) = self.session_mut() {
             session.files = Panel::Loading;
+            session.branches = Panel::Loading;
             session.history = Panel::Loading;
         }
     }
@@ -140,6 +152,7 @@ impl Workspace {
     pub fn is_root(mode: &Mode) -> bool {
         match mode {
             Mode::Browsing | Mode::Panel(_) | Mode::Files(_) => true,
+            Mode::Branches(view) => matches!(view.as_ref(), branches::View::List(_)),
             Mode::History(view) => matches!(view.as_ref(), history::View::Graph(_)),
             Mode::Busy(pending) => Self::is_root(&pending.origin),
             _ => false,
@@ -157,6 +170,7 @@ impl Screen {
                 self.mode,
                 Mode::Browsing
                     | Mode::Panel(_)
+                    | Mode::Branches(_)
                     | Mode::Files(_)
                     | Mode::Diff { .. }
                     | Mode::History(_)
@@ -174,6 +188,12 @@ impl Screen {
         };
         self.mode = match section {
             Section::Overview => Mode::Browsing,
+            Section::Branches => match &session.branches {
+                Panel::Ready(branches) => {
+                    Mode::Branches(Box::new(branches::View::List(branches.clone())))
+                }
+                _ => Mode::Panel(section),
+            },
             Section::Worktree => match &session.files {
                 Panel::Ready(files) => Mode::Files(files.clone()),
                 _ => Mode::Panel(section),
@@ -199,6 +219,23 @@ impl Screen {
                 .session_mut()
                 .expect("matching repository is open");
             match event {
+                load::Event::Branches(result) => match result {
+                    Ok(mut branches)
+                        if self.page == Page::Detail
+                            && focus == Section::Branches
+                            && matches!(self.mode, Mode::Panel(_)) =>
+                    {
+                        if let crate::bar::InputBar::Search(editor) = &self.bar {
+                            branches.search(editor.text.clone());
+                        }
+                        session.branches = Panel::Ready(branches.clone());
+                        self.mode = Mode::Branches(Box::new(branches::View::List(branches)));
+                    }
+                    Ok(branches) => session.branches = Panel::Ready(branches),
+                    Err(error) => {
+                        session.branches = Panel::Failed(error);
+                    }
+                },
                 load::Event::Files(result) => match result {
                     Ok(mut files)
                         if self.page == Page::Detail

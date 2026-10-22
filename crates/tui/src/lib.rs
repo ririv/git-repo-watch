@@ -1,5 +1,6 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
 mod bar;
+mod branches;
 mod checks;
 mod command;
 mod confirmation;
@@ -128,6 +129,7 @@ enum Mode {
     },
     Files(FileSession),
     History(Box<history::View>),
+    Branches(Box<branches::View>),
     Diff {
         session: FileSession,
         content: Box<diff::View>,
@@ -207,6 +209,7 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    Branches(Box<branches::View>),
     TerminalOpened(PathBuf),
     Files(Files, FileArea),
     Diff(FileSession, Box<diff::View>),
@@ -328,6 +331,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::Branches(view) = &self.mode {
+            return Some(view.session().snapshot.path.clone());
+        }
         if let Mode::History(view) = &self.mode {
             return Some(view.session().references.path.clone());
         }

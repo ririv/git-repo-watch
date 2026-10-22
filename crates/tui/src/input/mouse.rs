@@ -24,7 +24,12 @@ impl Screen {
         };
         if !matches!(
             self.mode,
-            Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_)
+            Mode::Browsing
+                | Mode::Panel(_)
+                | Mode::Branches(_)
+                | Mode::Files(_)
+                | Mode::Diff { .. }
+                | Mode::History(_)
         ) {
             return Ok(false);
         }

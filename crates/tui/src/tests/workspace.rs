@@ -1,15 +1,18 @@
 use super::*;
 
-fn switch(s: &mut Screen, backwards: bool) {
-    s.key(
-        KeyEvent::new(
-            KeyCode::Char(if backwards { 's' } else { 'd' }),
-            KeyModifiers::CONTROL,
-        ),
-        &Cancel::default(),
-    )
-    .unwrap();
-    wait(s);
+fn focus(s: &mut Screen, section: crate::workspace::Section) {
+    for _ in 0..crate::workspace::Section::ALL.len() {
+        if crate::workspace::Section::of(&s.mode) == section {
+            return;
+        }
+        s.key(
+            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+            &Cancel::default(),
+        )
+        .unwrap();
+        wait(s);
+    }
+    assert_eq!(crate::workspace::Section::of(&s.mode), section);
 }
 fn zoom(s: &mut Screen) {
     s.key(
@@ -31,9 +34,9 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
         key(&mut s, KeyCode::Enter);
         wait_workspace(&mut s);
         super::overview::wait_overview(&mut s);
-        switch(&mut s, false);
+        focus(&mut s, crate::workspace::Section::Worktree);
         key(&mut s, KeyCode::Char(' '));
-        switch(&mut s, false);
+        focus(&mut s, crate::workspace::Section::History);
         key(&mut s, KeyCode::Down);
         let (source, selection) = match &s.mode {
             Mode::History(view) => (view.session().source, view.session().state.selected()),
@@ -41,7 +44,12 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
         };
         for (width, height) in [(60, 18), (140, 32)] {
             zoom(&mut s);
-            for section in [Section::History, Section::Overview, Section::Worktree] {
+            for section in [
+                Section::History,
+                Section::Overview,
+                Section::Branches,
+                Section::Worktree,
+            ] {
                 let text = render(&mut s, width, height);
                 assert_eq!(Section::of(&s.mode), section);
                 assert_eq!(
@@ -50,11 +58,16 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
                 );
                 assert_eq!(s.workspace_areas, vec![(s.body_area.unwrap(), section)]);
                 assert!(text.contains(i18n::tr!(WorkspaceRestoreHint)), "{text}");
-                switch(&mut s, false);
+                s.key(
+                    KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+                    &Cancel::default(),
+                )
+                .unwrap();
+                wait(&mut s);
             }
             zoom(&mut s);
             render(&mut s, width, height);
-            assert_eq!(s.workspace_areas.len(), 3);
+            assert_eq!(s.workspace_areas.len(), 4);
             assert_eq!(
                 s.workspace.session().unwrap().arrangement,
                 Arrangement::Tiled
@@ -63,7 +76,7 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
         assert!(
             matches!(&s.mode, Mode::History(view) if view.session().source==source && view.session().state.selected()==selection)
         );
-        switch(&mut s, true);
+        focus(&mut s, crate::workspace::Section::Worktree);
         assert!(matches!(&s.mode, Mode::Files(files) if files.selected.len()==1));
     }
 }
@@ -75,7 +88,7 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
     support::write(f.repo.join("pending.ts"), "export const pending = true;\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Worktree);
     zoom(&mut s);
     s.paste("pending");
     key(&mut s, KeyCode::Enter);
@@ -112,7 +125,7 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
         Arrangement::Tiled
     );
     render(&mut s, 100, 28);
-    assert_eq!(s.workspace_areas.len(), 3);
+    assert_eq!(s.workspace_areas.len(), 4);
     key(&mut s, KeyCode::Left);
     key(&mut s, KeyCode::Left);
     s.paste("repo");
@@ -159,7 +172,25 @@ fn overview_files_and_history_are_visible_together_at_every_focus_and_supported_
                 ] {
                     assert!(text.contains(label), "{label}: {text}");
                 }
-                assert_eq!(s.workspace_areas.len(), 3);
+                assert_eq!(s.workspace_areas.len(), 4);
+                let pane = |section| {
+                    s.workspace_areas
+                        .iter()
+                        .find(|(_, value)| *value == section)
+                        .unwrap()
+                        .0
+                };
+                let (overview, branches, files, history) = (
+                    pane(Section::Overview),
+                    pane(Section::Branches),
+                    pane(Section::Worktree),
+                    pane(Section::History),
+                );
+                assert_eq!(overview.y, branches.y);
+                assert_eq!(files.y, history.y);
+                assert_eq!(overview.right(), files.right());
+                assert_eq!(branches.x, history.x);
+                assert!(files.height >= overview.height);
                 for (index, (area, _)) in s.workspace_areas.iter().enumerate() {
                     assert!(area.width > 0 && area.height > 0);
                     for (other, _) in &s.workspace_areas[index + 1..] {
@@ -190,8 +221,8 @@ fn initial_background_read_keeps_command_drafts_and_active_file_selections() {
     s.refresh_workspace();
     wait_workspace(&mut s);
     assert!(matches!(&s.mode, Mode::Files(files) if files.selected.len()==1));
-    switch(&mut s, false);
-    switch(&mut s, true);
+    focus(&mut s, crate::workspace::Section::History);
+    focus(&mut s, crate::workspace::Section::Worktree);
     assert!(matches!(&s.mode, Mode::Files(files) if files.selected.len()==1));
 }
 
@@ -204,14 +235,14 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
         support::write(f.repo.join("pending.ts"), "export const pending = true;\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         key(&mut s, KeyCode::Enter);
-        switch(&mut s, false);
+        focus(&mut s, crate::workspace::Section::Worktree);
         assert!(matches!(s.mode, Mode::Files(_)));
         key(&mut s, KeyCode::Char(' '));
         key(&mut s, KeyCode::Right);
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Diff { .. }));
         assert!(render(&mut s, 120, 30).contains("export const pending"));
-        switch(&mut s, false);
+        focus(&mut s, crate::workspace::Section::History);
         assert!(matches!(s.mode, Mode::History(_)));
         key(&mut s, KeyCode::Down);
         let (source, selected) = match &s.mode {
@@ -219,16 +250,16 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
             _ => unreachable!(),
         };
         assert!(render(&mut s, 140, 32).contains(i18n::tr!(WorkspaceHistory)));
-        switch(&mut s, true);
+        focus(&mut s, crate::workspace::Section::Worktree);
         assert!(
             matches!(&s.mode, Mode::Files(files) if files.selected.len()==1 && files.snapshot.path==f.repo)
         );
         key(&mut s, KeyCode::Tab);
         assert!(matches!(&s.mode, Mode::Files(files) if files.area==FileArea::Index));
-        switch(&mut s, true);
+        focus(&mut s, crate::workspace::Section::Overview);
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(s.page, Page::Detail);
-        switch(&mut s, true);
+        focus(&mut s, crate::workspace::Section::History);
         match &s.mode {
             Mode::History(view) => assert_eq!(
                 (view.session().source, view.session().state.selected()),
@@ -276,7 +307,7 @@ fn section_clicks_preserve_command_drafts_and_another_repository_gets_its_own_se
     key(&mut s, KeyCode::Left);
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Worktree);
     assert!(
         matches!(&s.mode, Mode::Files(files) if files.snapshot.path==second.repo && files.rows().is_empty())
     );
@@ -288,13 +319,13 @@ fn successful_commit_invalidates_inactive_file_and_history_snapshots() {
     support::write(f.repo.join("to-commit"), "content\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Worktree);
     key(&mut s, KeyCode::Char(' '));
     command(&mut s, "stage");
     wait(&mut s);
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==1));
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Overview);
     command(&mut s, "commit");
     wait(&mut s);
     assert!(matches!(s.mode, Mode::CommitMessage { .. }));
@@ -306,9 +337,9 @@ fn successful_commit_invalidates_inactive_file_and_history_snapshots() {
         support::git(&f.repo, &["log", "-1", "--format=%s"]),
         "workspace commit"
     );
-    switch(&mut s, true);
+    focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==2));
-    switch(&mut s, true);
+    focus(&mut s, crate::workspace::Section::Worktree);
     assert!(matches!(&s.mode, Mode::Files(files) if files.snapshot.changes.is_empty()));
 }
 
@@ -318,11 +349,11 @@ fn explicit_refresh_updates_inactive_views_after_external_repository_changes() {
     support::write(f.repo.join("pending"), "pending\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Worktree);
     assert!(matches!(&s.mode, Mode::Files(files) if files.snapshot.changes.len()==1));
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==1));
-    switch(&mut s, false);
+    focus(&mut s, crate::workspace::Section::Overview);
     f.commit("pending", "committed\n");
     s.key(
         KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
@@ -330,8 +361,8 @@ fn explicit_refresh_updates_inactive_views_after_external_repository_changes() {
     )
     .unwrap();
     wait_workspace(&mut s);
-    switch(&mut s, true);
+    focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==2));
-    switch(&mut s, true);
+    focus(&mut s, crate::workspace::Section::Worktree);
     assert!(matches!(&s.mode, Mode::Files(files) if files.snapshot.changes.is_empty()));
 }

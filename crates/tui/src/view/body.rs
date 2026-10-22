@@ -8,6 +8,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::Branches(view) => branches::render(frame, area, view),
         Mode::History(view) => history::render(
             frame,
             area,

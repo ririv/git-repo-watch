@@ -20,6 +20,7 @@ impl Screen {
                     self.mode,
                     Mode::Browsing
                         | Mode::Panel(_)
+                        | Mode::Branches(_)
                         | Mode::Files(_)
                         | Mode::Diff { .. }
                         | Mode::History(_)

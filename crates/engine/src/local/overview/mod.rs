@@ -1,5 +1,5 @@
 //! Read-only repository overview, independent of network checks and file editing.
-mod checkout;
+use crate::local::branches::checkout;
 mod worktree;
 use crate::{cancel::Cancel, local::open};
 use anyhow::Result;

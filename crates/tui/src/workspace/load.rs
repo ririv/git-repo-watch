@@ -9,12 +9,14 @@ use std::{
 };
 
 pub(super) enum Event {
+    Branches(Result<crate::branches::Session, String>),
     Files(Result<FileSession, String>),
     History(Result<Box<history::View>, String>),
 }
 #[derive(Debug, Clone, Copy)]
 enum Phase {
     Files,
+    Branches,
     History,
     Complete,
 }
@@ -67,6 +69,14 @@ impl Loader {
             if task_cancel.is_cancelled() {
                 return;
             }
+            let branches = service
+                .branches(&task_path, &task_cancel)
+                .map(crate::branches::Session::new)
+                .map_err(|error| format!("{error:#}"));
+            let _ = tx.send(Event::Branches(branches));
+            if task_cancel.is_cancelled() {
+                return;
+            }
             let history = service
                 .history(&task_path, Request::Start, &task_cancel)
                 .and_then(|page| history::Session::new(page, &task_cancel))
@@ -93,7 +103,8 @@ impl Loader {
         if let Some(reader) = &mut self.reader {
             while let Ok(event) = reader.rx.try_recv() {
                 reader.phase = match event {
-                    Event::Files(_) => Phase::History,
+                    Event::Files(_) => Phase::Branches,
+                    Event::Branches(_) => Phase::History,
                     Event::History(_) => Phase::Complete,
                 };
                 if !reader.cancel.is_cancelled() {
@@ -107,6 +118,9 @@ impl Loader {
                 let error = i18n::tr!(BackgroundWorkerPanicked).to_owned();
                 if matches!(reader.phase, Phase::Files) {
                     events.push((reader.path.clone(), Event::Files(Err(error.clone()))));
+                }
+                if matches!(reader.phase, Phase::Files | Phase::Branches) {
+                    events.push((reader.path.clone(), Event::Branches(Err(error.clone()))));
                 }
                 if !matches!(reader.phase, Phase::Complete) {
                     events.push((reader.path, Event::History(Err(error))));

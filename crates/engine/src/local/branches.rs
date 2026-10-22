@@ -1,5 +1,8 @@
 //! Typed branch tracking and local graph queries.
+pub mod catalog;
+pub(crate) mod checkout;
 pub mod fetch;
+pub mod upstream;
 use super::utf8_path;
 use anyhow::{Context, Result, ensure};
 use git2::{BranchType, Oid, Repository};

@@ -37,6 +37,13 @@ impl Screen {
             return Ok(false);
         }
         match action {
+            Action::Branches => {
+                if let Some(path) = path {
+                    self.open_branches(path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
             Action::Quit => return Ok(true),
             Action::Repositories => {
                 self.focus(path);
@@ -60,7 +67,9 @@ impl Screen {
                         return Ok(false);
                     }
                     self.refresh_workspace();
-                    if let Mode::History(view) = &self.mode {
+                    if let Mode::Branches(view) = &self.mode {
+                        self.read_branches(view.session().snapshot.path.clone());
+                    } else if let Mode::History(view) = &self.mode {
                         self.open_history(view.session().references.path.clone());
                     } else if let Some(session) = self.mode.file_session() {
                         self.read_files(session.snapshot.path.clone(), session.area);
@@ -68,7 +77,9 @@ impl Screen {
                     return Ok(false);
                 }
                 self.refresh_overview();
-                if let Mode::History(view) = &self.mode {
+                if let Mode::Branches(view) = &self.mode {
+                    self.read_branches(view.session().snapshot.path.clone());
+                } else if let Mode::History(view) = &self.mode {
                     self.open_history(view.session().references.path.clone());
                 } else if let Some(session) = self.mode.file_session() {
                     let path = session.snapshot.path.clone();

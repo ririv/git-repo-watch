@@ -2,6 +2,19 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    BranchTitle,
+    BranchCatalogRead,
+    BranchCommand,
+    BranchTipTextInvalid,
+    BranchAll,
+    BranchLocal,
+    BranchRemote,
+    BranchEmpty,
+    BranchSearch,
+    BranchHint,
+    BranchReference,
+    BranchLocalRefs,
+
     WorkspaceOverview,
     WorkspaceHistory,
     WorkspaceFocusHint,
@@ -583,6 +596,33 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::BranchTitle, Language::English) => "Branches",
+            (Self::BranchTitle, Language::Chinese) => "分支",
+            (Self::BranchCatalogRead, Language::English) => "Read local branches",
+            (Self::BranchCatalogRead, Language::Chinese) => "读取本地分支",
+            (Self::BranchCommand, Language::English) => "Browse local and remote-tracking branches",
+            (Self::BranchCommand, Language::Chinese) => "查看本地与远程跟踪分支",
+            (Self::BranchTipTextInvalid, Language::English) => "Branch tip text is not valid UTF-8",
+            (Self::BranchTipTextInvalid, Language::Chinese) => "分支最新提交文本不是有效 UTF-8",
+            (Self::BranchAll, Language::English) => "All",
+            (Self::BranchAll, Language::Chinese) => "全部",
+            (Self::BranchLocal, Language::English) => "Local",
+            (Self::BranchLocal, Language::Chinese) => "本地",
+            (Self::BranchRemote, Language::English) => "Remote",
+            (Self::BranchRemote, Language::Chinese) => "远程",
+            (Self::BranchEmpty, Language::English) => "No matching branches",
+            (Self::BranchEmpty, Language::Chinese) => "没有匹配的分支",
+            (Self::BranchSearch, Language::English) => "Search branches",
+            (Self::BranchSearch, Language::Chinese) => "搜索分支",
+            (Self::BranchHint, Language::English) => {
+                "↑↓ Select · Enter Details · Tab Filter · Esc Back"
+            }
+            (Self::BranchHint, Language::Chinese) => "↑↓选择 · Enter 详情 · Tab 筛选 · Esc 返回",
+            (Self::BranchReference, Language::English) => "Reference",
+            (Self::BranchReference, Language::Chinese) => "引用",
+            (Self::BranchLocalRefs, Language::English) => "Upstream comparison uses local refs",
+            (Self::BranchLocalRefs, Language::Chinese) => "上游对比基于本地引用",
+
             (Self::WorkspaceOverview, Language::English) => "Overview",
             (Self::WorkspaceOverview, Language::Chinese) => "概览",
             (Self::WorkspaceHistory, Language::English) => "History",

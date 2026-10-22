@@ -1,20 +1,9 @@
-//! Attached, detached, unborn, and tracking states for a local checkout.
-use crate::local::branches::fetch;
-use anyhow::{Context, Result};
+//! Explicit local and remote upstream identity with local reference comparison.
+use super::fetch;
+use anyhow::Result;
 use git2::{ErrorCode, Oid, Repository};
 
-#[derive(Debug)]
-pub enum Checkout {
-    Branch {
-        name: String,
-        oid: Oid,
-        tracking: super::Section<Tracking>,
-    },
-    Detached(Oid),
-    Unborn(String),
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Tracking {
     Absent,
     Local {
@@ -27,7 +16,7 @@ pub enum Tracking {
     },
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Comparison {
     Missing,
     Known { ahead: usize, behind: usize },
@@ -41,7 +30,7 @@ fn configured(repo: &Repository, key: &str) -> Result<Option<String>> {
     }
 }
 
-fn tracking(repo: &Repository, name: &str, oid: Oid) -> Result<Tracking> {
+pub fn read(repo: &Repository, name: &str, oid: Oid) -> Result<Tracking> {
     let (remote, merge) = match (
         configured(repo, &format!("branch.{name}.remote"))?,
         configured(repo, &format!("branch.{name}.merge"))?,
@@ -74,36 +63,4 @@ fn tracking(repo: &Repository, name: &str, oid: Oid) -> Result<Tracking> {
     } else {
         Tracking::Remote { name, comparison }
     })
-}
-
-pub(super) fn read(repo: &Repository) -> Result<Checkout> {
-    match repo.head() {
-        Ok(head) => {
-            let oid = head.peel_to_commit()?.id();
-            if repo.head_detached()? {
-                return Ok(Checkout::Detached(oid));
-            }
-            let name = head
-                .shorthand()
-                .context(i18n::tr!(BranchNameIsNotUtf8))?
-                .to_owned();
-            let tracking = super::section(tracking(repo, &name, oid));
-            Ok(Checkout::Branch {
-                name,
-                oid,
-                tracking,
-            })
-        }
-        Err(error) if error.code() == ErrorCode::UnbornBranch => {
-            let head = repo.find_reference("HEAD")?;
-            let name = head
-                .symbolic_target()?
-                .context(i18n::tr!(HeadHasNoSymbolicBranch))?
-                .strip_prefix("refs/heads/")
-                .context(i18n::tr!(HeadIsNotAttachedToALocal))?
-                .to_owned();
-            Ok(Checkout::Unborn(name))
-        }
-        Err(error) => Err(error.into()),
-    }
 }

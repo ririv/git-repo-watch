@@ -18,7 +18,12 @@ enum Content<'a> {
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     let (title, content, hint) = match &screen.mode {
-        Mode::Browsing | Mode::Panel(_) | Mode::Files(_) | Mode::Diff { .. } | Mode::History(_) => {
+        Mode::Browsing
+        | Mode::Panel(_)
+        | Mode::Branches(_)
+        | Mode::Files(_)
+        | Mode::Diff { .. }
+        | Mode::History(_) => {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
             let hint = if matches!(
@@ -45,6 +50,10 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 i18n::tr!(SearchEditingHint)
             } else {
                 match screen.mode {
+                    Mode::Branches(ref view) => match view.as_ref() {
+                        crate::branches::View::List(_) => i18n::tr!(BranchHint),
+                        crate::branches::View::Detail { .. } => i18n::tr!(OverviewInputHint),
+                    },
                     Mode::History(ref view) => match view.as_ref() {
                         crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
                         crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
@@ -67,6 +76,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                 {
                     i18n::tr!(HistorySearch)
+                } else if matches!(screen.mode, Mode::Branches(_)) {
+                    i18n::tr!(BranchSearch)
                 } else if files || matches!(screen.mode, Mode::History(_)) {
                     i18n::tr!(SearchFiles)
                 } else {

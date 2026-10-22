@@ -1,3 +1,4 @@
+mod branches;
 mod completion;
 mod diff;
 mod help;

@@ -89,6 +89,10 @@ impl Screen {
         self.message.clear();
         self.scroll = 0;
         match outcome {
+            Outcome::Branches(view) => {
+                self.workspace.save(origin);
+                self.mode = Mode::Branches(view);
+            }
             Outcome::History(view) => {
                 self.workspace.save(origin);
                 self.mode = Mode::History(view);

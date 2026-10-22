@@ -4,6 +4,7 @@ pub(crate) mod path;
 pub use argument::{ArgumentAction, argument_input};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
+    Branches,
     Stage,
     Unstage,
     Diff,
@@ -52,6 +53,12 @@ pub struct Command {
 use Action::*;
 use Scope::*;
 pub const COMMANDS: &[Command] = &[
+    Command {
+        name: "branch",
+        action: Action::Branches,
+        scope: Repository,
+        description: i18n::Message::BranchCommand,
+    },
     Command {
         name: "log",
         action: Log,

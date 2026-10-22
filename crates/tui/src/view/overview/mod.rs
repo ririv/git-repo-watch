@@ -173,9 +173,6 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         Content::Closed => {}
     }
     if let Some(path) = path {
-        if presentation == Presentation::Embedded {
-            lines.push(field(i18n::tr!(Path), safe(&path.to_string_lossy()), MUTED));
-        }
         if presentation == Presentation::Expanded {
             lines.push(Line::default());
         }
@@ -190,6 +187,13 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         let mut check = repository::repository_detail(screen, &row);
         // 路径由概览统一显示一次；检查详情沿用列表预览的同一实现。
         check.lines.remove(0);
+        if presentation == Presentation::Embedded {
+            // 先展示检查状态，避免较短的概览面板被长路径占满。
+            check.lines.insert(
+                1,
+                field(i18n::tr!(Path), safe(&path.to_string_lossy()), MUTED),
+            );
+        }
         if screen.latest_update(path).is_none()
             && let CachedReport::Available { report, .. } = &screen.snapshot.report
             && row.result.is_some()

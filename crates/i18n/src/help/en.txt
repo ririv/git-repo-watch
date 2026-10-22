@@ -6,7 +6,9 @@
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
 ## Repository panes
-- Entering a repository shows overview, worktree files and the commit graph together.
+- Entering a repository shows overview, branches, worktree files and the commit graph together.
+- `/branch` opens branches independently or focuses the branch pane. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
+- In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
 - `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it.
 - `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
 - Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
