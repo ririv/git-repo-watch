@@ -101,15 +101,17 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
         s.result_for(&first.repo),
         Some(RepositoryResult::Attention { .. })
     ));
-    let _lock = s.service.store.transaction(&Cancel::default()).unwrap();
-    let mut reports = s.service.store.repository_reports().unwrap();
-    reports.get_mut(&first.repo).unwrap().finished_at = "2000-01-01T00:00:00+00:00".into();
-    engine::state::write_json(
-        &s.service.store.state_dir().join("repository-checks.json"),
-        &reports,
-    )
-    .unwrap();
-    drop(_lock);
+    let mut report = s
+        .service
+        .store
+        .repository_report(&first.repo)
+        .unwrap()
+        .unwrap();
+    report.finished_at = "2000-01-01T00:00:00+00:00".into();
+    s.service
+        .store
+        .save_repository_report(&mut report, &Cancel::default())
+        .unwrap();
     let reopened = Screen::new((*s.service).clone(), &Cancel::default()).unwrap();
     assert!(matches!(
         reopened.result_for(&first.repo),

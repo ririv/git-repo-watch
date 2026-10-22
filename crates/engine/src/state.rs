@@ -1,9 +1,10 @@
 //! Private, atomic persistence and cross-process coordination.
-use crate::{
-    cancel::Cancel,
-    domain::{PushPolicy, Report},
-};
+mod database;
+mod operation;
+use crate::{cancel::Cancel, domain::PushPolicy};
 use anyhow::{Context, Result, ensure};
+pub use database::Migration;
+pub use operation::{Completion, Operation, OperationOrigin, OperationRecord, StoredOperation};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fs::{self, File, OpenOptions},
@@ -88,52 +89,11 @@ impl Store {
         c.validate()?;
         write_json(&self.home.join("config.json"), c)
     }
-    pub fn report(&self) -> Result<Option<Report>> {
-        let p = self.state_dir().join("latest.json");
-        match fs::read(&p) {
-            Ok(data) => {
-                let r: Report =
-                    serde_json::from_slice(&data).context(i18n::tr!(InvalidReportFormat))?;
-                r.validate()?;
-                Ok(Some(r))
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(None),
-            Err(e) => Err(e.into()),
-        }
-    }
-    /// Read independent single-repository reports without replacing a complete batch report.
-    pub fn repository_reports(&self) -> Result<std::collections::BTreeMap<PathBuf, Report>> {
-        let path = self.state_dir().join("repository-checks.json");
-        let data = match fs::read(path) {
-            Ok(data) => data,
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-                return Ok(std::collections::BTreeMap::new());
-            }
-            Err(error) => return Err(error.into()),
-        };
-        let reports: std::collections::BTreeMap<PathBuf, Report> =
-            serde_json::from_slice(&data).context(i18n::tr!(InvalidRepositoryCheckReport))?;
-        for (path, report) in &reports {
-            report.validate()?;
-            ensure!(
-                path.is_absolute()
-                    && report.repositories.len() == 1
-                    && report.repositories[0].path() == path,
-                i18n::tr!(InvalidRepositoryCheckReport)
-            );
-            chrono::DateTime::parse_from_rfc3339(&report.finished_at)
-                .context(i18n::tr!(InvalidRepositoryCheckReport))?;
-        }
-        Ok(reports)
-    }
-    pub fn save_report(&self, r: &Report) -> Result<()> {
-        write_json(&self.state_dir().join("latest.json"), r)
-    }
     pub fn lock(&self) -> Result<Lock> {
         self.prepare_state()?;
         Lock::acquire(&self.state_dir().join("check.lock"))
     }
-    /// Acquire the short-lived configuration/report transaction lock.
+    /// Acquire the short-lived JSON configuration transaction lock.
     pub fn transaction(&self, cancel: &Cancel) -> Result<Lock> {
         self.prepare_state()?;
         Lock::wait(&self.state_dir().join("check.lock"), cancel)
@@ -179,28 +139,6 @@ impl Store {
             }
             std::thread::sleep(std::time::Duration::from_millis(10));
         }
-    }
-    /// Merge while holding only the persistence lock; never hold it during Git work.
-    pub fn save_repository_report(&self, report: &mut Report, cancel: &Cancel) -> Result<()> {
-        report.validate()?;
-        ensure!(
-            report.repositories.len() == 1,
-            i18n::tr!(InvalidRepositoryCheckReport)
-        );
-        let _transaction = self.transaction(cancel)?;
-        let mut reports = self.repository_reports()?;
-        let path = report.repositories[0].path().to_owned();
-        let previous = reports
-            .get(&path)
-            .and_then(|old| old.repository_revisions.get(&path))
-            .copied()
-            .unwrap_or(0);
-        let revision = previous
-            .checked_add(1)
-            .context(i18n::tr!(InvalidRepositoryCheckReport))?;
-        report.repository_revisions.insert(path.clone(), revision);
-        reports.insert(path, report.clone());
-        write_json(&self.state_dir().join("repository-checks.json"), &reports)
     }
     pub fn running(&self) -> Result<bool> {
         let p = self.state_dir().join("batch.lock");

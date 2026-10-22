@@ -153,14 +153,11 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
         report.repositories[1],
         RepositoryResult::Failed { .. }
     ));
-    let saved = fs::read(store.state_dir().join("latest.json")).unwrap();
+    let saved = serde_json::to_vec(&store.report().unwrap()).unwrap();
     let cancel = Cancel::default();
     cancel.cancel();
     assert!(service.run(&cancel, |_| {}).is_err());
-    assert_eq!(
-        saved,
-        fs::read(store.state_dir().join("latest.json")).unwrap()
-    );
+    assert_eq!(saved, serde_json::to_vec(&store.report().unwrap()).unwrap());
 }
 #[test]
 fn git_transport_failures_do_not_become_clean() {
@@ -273,7 +270,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
         .unwrap();
     let service = Service::new(store.home.clone(), Manager::new().unwrap());
     service.run(&Cancel::default(), |_| {}).unwrap();
-    let baseline = fs::read(store.state_dir().join("latest.json")).unwrap();
+    let baseline = serde_json::to_vec(&store.report().unwrap()).unwrap();
     first.commit("first-ahead", "first");
     second.commit("second-ahead", "second");
     let first_before = git(&first.remote, &["rev-parse", "main"]);
@@ -293,14 +290,14 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     assert_eq!(git(&first.remote, &["rev-parse", "main"]), first_before);
     assert_eq!(git(&second.remote, &["rev-parse", "main"]), untouched);
     assert_eq!(
-        fs::read(store.state_dir().join("latest.json")).unwrap(),
+        serde_json::to_vec(&store.report().unwrap()).unwrap(),
         baseline
     );
     assert_eq!(report.execution.unwrap().max_concurrency, 1);
     let saved = store.repository_reports().unwrap();
     assert_eq!(saved.len(), 2);
     assert!(saved.contains_key(&first.repo));
-    let saved_bytes = fs::read(store.state_dir().join("repository-checks.json")).unwrap();
+    let saved_bytes = serde_json::to_vec(&store.repository_reports().unwrap()).unwrap();
     let cancel = Cancel::default();
     cancel.cancel();
     assert!(
@@ -318,7 +315,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             .is_err()
     );
     assert_eq!(
-        fs::read(store.state_dir().join("repository-checks.json")).unwrap(),
+        serde_json::to_vec(&store.repository_reports().unwrap()).unwrap(),
         saved_bytes
     );
     let manual = service.run(&Cancel::default(), |_| {}).unwrap();

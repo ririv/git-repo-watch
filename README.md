@@ -6,7 +6,7 @@
 
 ## 安装
 
-需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，最低 Rust 版本为 1.90，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2，不要求用户安装 Go、Python 或独立 libgit2 运行库。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
+需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，最低 Rust 版本为 1.90，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2 和 SQLite，不要求用户安装 Go、Python、独立 libgit2 运行库或 SQLite 服务。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
 
 ```sh
 cp config.example.json config.json
@@ -20,7 +20,7 @@ macOS 安装位置：
 - `~/Library/Application Support/gw/location.json`：安装目录和二进制 SHA-256。
 - `~/Library/LaunchAgents/local.git-repo-watch.plist`：用户级 launchd 系统任务。
 
-将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`。安装核验现有命令的归属，原子替换可执行文件，并应用配置中的检查间隔。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
+升级前先退出所有旧版 `gw`，并确保旧版定时检查已结束；`install.sh` 构建后先迁移本机状态，再安装命令与任务。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`。安装核验现有命令的归属，原子替换可执行文件，并应用配置中的检查间隔。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
 
 ```sh
 ./build.sh          # 构建到 dist/gw，不安装或检查
@@ -216,9 +216,9 @@ Diff 同时显示代码语法颜色和增删背景：新增行浅绿底、删除
 
 仓库读取、检查、暂存、提交和推送都不占用界面的交互模式：搜索、列表导航、详情、帮助、设置浏览和只读文件面板仍可操作。正在检查的仓库显示旋转标记，已完成仓库立即更新结果；排队和未完成仓库继续显示已有结果，没有历史结果时显示未知。`/cancel` 优先取消当前仓库任务，没有当前仓库任务时取消本界面的整轮检查。顶部显示当前任务与检查进度，检查完成不会清空搜索或跳离当前页面。
 
-`/cancel` 请求取消并等待 Git 子进程收尾，期间仍可浏览；关闭 TUI 会取消并回收它启动的检查任务。已有整轮报告在检查成功结束前不会被覆盖，取消产生的错误也不会替换未完成仓库的旧状态。手动检查只执行 fetch 和本地快照比较，不自动推送；单仓库检查只处理目标注册仓库。检查与仓库写操作只在同一 Git 存储上互斥，等待仓库锁也可取消；不同仓库的检查与写操作可以同时进行。配置和报告使用短事务锁，仅在读改写文件时持有，不覆盖 Git 子进程的执行时间。
+`/cancel` 请求取消并等待 Git 子进程收尾，期间仍可浏览；关闭 TUI 会取消并回收它启动的检查任务。已有整轮报告在检查成功结束前不会被覆盖，取消产生的错误也不会替换未完成仓库的旧状态。手动检查只执行 fetch 和本地快照比较，不自动推送；单仓库检查只处理目标注册仓库。检查与仓库写操作只在同一 Git 存储上互斥，等待仓库锁也可取消；不同仓库的检查与写操作可以同时进行。配置使用短时文件锁，报告使用 SQLite 短事务；两者均不覆盖 Git 子进程的执行时间。
 
-单仓库结果保存在独立的 `var/repository-checks.json`，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号，TUI 按版本合并；兼容没有版本号的旧报告时才比较其时间。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `gw report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
+单仓库结果保存在 `var/state.sqlite3`，每个仓库独立更新当前记录并保留历史，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号；仓库状态、版本号和暂存／提交／推送的操作记录一起提交或回滚，TUI 按版本合并。没有版本号的旧报告在迁移时先比较原始完成时间，再赋予初始版本。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `gw report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
 
 ## 检查与并发
 
@@ -285,18 +285,28 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 
 本机数据：
 
-- `config.json`：显式配置。
-- `var/latest.json`：最近一次完整检查报告。
-- `var/repository-checks.json`：独立的单仓库检查报告。
-- `var/import-report.json`：最近一次扫描报告。
-- `var/manual-commit.json`、`var/manual-push.json`：最近一次已执行的单仓库操作记录。
-- `var/check.lock`：配置与报告读改写的短事务锁。
+- `config.json`：显式配置，继续使用 JSON。
+- `var/state.sqlite3`：仓库当前状态、逐次观察记录、操作记录、完整批次报告和扫描报告。
+- `var/state.sqlite3-wal`、`var/state.sqlite3-shm`：SQLite 的 WAL 日志与共享内存文件，由数据库管理。
+- `var/legacy-json/`：迁移前的原始 JSON 临时备份；确认迁移完成后可删除，运行和重装均不依赖已完成的备份。
+- `var/check.lock`：配置读改写的短时文件锁。
+- `var/migration.lock`：数据库初始化与旧数据迁移锁。
 - `var/batch.lock`：整轮检查互斥锁，不阻塞独立仓库操作。
 - `var/repository-locks/`：按 Git common directory 摘要命名的仓库锁。
-- `var/operation-slots/`：跨进程并发槽位。所有锁都由文件描述符持有，不通过删除文件解锁。
+- `var/operation-slots/`：跨进程并发槽位。所有文件锁均由文件描述符持有，不通过删除文件解锁。
 - `var/launchd.stdout.log`、`var/launchd.stderr.log`：macOS 系统任务输出；Linux 输出保存在用户 journal。
 
-配置、报告和日志含本机私有路径。JSON 数据原子写入，文件权限 0600，运行目录 0700。报告缺失与报告损坏分开处理，损坏数据明确报错。
+SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并行，多个写入者通过短事务串行分配版本；每次存储调用独立连接数据库。单仓库更新不读改写其他仓库的记录，也不覆盖完整批次。历史按仓库和版本查询；整轮报告、扫描与操作记录追加保存，目前不自动清理。`gw report --json` 保留 v3 JSON 输出格式，存储格式与公开输出各自演进。
+
+旧版本升级需先退出旧版进程，再执行 `./install.sh`；只迁移数据可运行：
+
+```sh
+./dist/gw --home /absolute/path/to/installation migrate
+```
+
+迁移会完整校验旧 `latest.json`、`repository-checks.json`、`manual-commit.json`、`manual-push.json` 和 `import-report.json`，在一个数据库事务中导入，提交后校验摘要并归档原文件。中断后可重新执行同一命令继续归档，不会重复导入。损坏、冲突、变化的旧文件、未知数据库版本均明确报错；不会以空数据覆盖，也不会回到 JSON 存储。普通查询发现尚未迁移的数据时会提示运行 `migrate`，不隐式迁移。配置内容、六小时间隔和自动推送策略均不因迁移改变。
+
+配置、数据库、归档与日志含本机私有路径，均不进入版本控制。配置仍原子写入；配置和数据库权限为 0600，运行目录与归档目录为 0700。备份活动数据库应使用 SQLite 备份工具，或停掉全部进程后同时保留数据库与仍存在的 WAL 文件，不能只复制活动中的主文件。结果缺失与损坏分开处理，损坏数据明确报错。
 
 ## 提交历史图
 
@@ -359,14 +369,16 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 | `crates/tui/src/graphics/` | 通用 RGBA 终端显示、能力探测、有界缓存与后台编码 |
 | `crates/tui/src/history/`、`view/history/` | 图会话、后台读取工作流、历史详情与差异导航 |
 | `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
-| `crates/engine/src/state.rs` | 原子持久化与进程锁 |
+| `crates/engine/src/state.rs` | JSON 配置、文件权限与进程锁 |
+| `crates/engine/src/state/database/` | SQLite 短事务、逐仓库读写、历史记录与旧 JSON 迁移 |
+| `crates/engine/src/state/operation.rs` | 持久化后端无关的操作结果与来源枚举 |
 | `crates/engine/src/scheduler/`、`notify/`、`terminal/` | 各平台调度、桌面通知与终端启动 |
 | `crates/engine/src/process.rs`、`cancel.rs` | 子进程收尾、超时与取消 |
 | `crates/tui/src/input/`、`view/`、`task.rs`、`checks.rs` | 交互转换、绘制、前台任务和独立后台检查 |
 | `crates/tui/src/diff/` | 逻辑行高亮缓存、统一／双栏排版、字符簇换行和阅读位置映射 |
 | `src/cli.rs`、`src/main.rs` | CLI 适配和程序入口 |
 
-依赖版本统一放在根目录的 `[workspace.dependencies]`；每个 crate 显式声明自己使用的依赖。互斥状态使用枚举表达，配置和历史 JSON 是明确的数据边界。
+依赖版本统一放在根目录的 `[workspace.dependencies]`；每个 crate 显式声明自己使用的依赖。互斥状态使用枚举表达，JSON 配置、公开报告和 SQLite 存储版本是明确的数据边界。
 
 ## 程序标识与更名
 

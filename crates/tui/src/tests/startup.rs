@@ -17,7 +17,7 @@ fn startup_checks_all_repositories_in_background_keeps_old_results_and_never_pus
     );
     let remote_before = support::git(&first.remote, &["rev-parse", "main"]);
     s.reload(&Cancel::default()).unwrap();
-    let previous = std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap();
+    let previous = serde_json::to_vec(&s.service.store.report().unwrap()).unwrap();
     let gate = FetchGate::install(&first);
     s.check_on_startup();
     poll_background_until(&mut s, |_| gate.started.exists());
@@ -28,7 +28,7 @@ fn startup_checks_all_repositories_in_background_keeps_old_results_and_never_pus
         Some(RepositoryResult::Attention { .. })
     ));
     assert_eq!(
-        std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap(),
+        serde_json::to_vec(&s.service.store.report().unwrap()).unwrap(),
         previous
     );
     command(&mut s, "help");
@@ -86,14 +86,14 @@ fn closing_during_a_startup_check_cancels_it_and_retains_the_previous_report() {
     s.config.check_on_startup = true;
     s.service.store.save_config(&s.config).unwrap();
     s.reload(&Cancel::default()).unwrap();
-    let previous = std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap();
+    let previous = serde_json::to_vec(&s.service.store.report().unwrap()).unwrap();
     let gate = FetchGate::install(&f);
     s.check_on_startup();
     poll_background_until(&mut s, |_| gate.started.exists());
     s.shutdown();
     assert!(s.check_task.is_none());
     assert_eq!(
-        std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap(),
+        serde_json::to_vec(&s.service.store.report().unwrap()).unwrap(),
         previous
     );
     assert!(!s.service.store.running().unwrap());

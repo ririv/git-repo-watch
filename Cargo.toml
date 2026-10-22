@@ -29,6 +29,7 @@ image = { version = "0.25", default-features = false, features = ["png", "jpeg",
 tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+rusqlite = { version = "0.40.2", default-features = false, features = ["bundled"] }
 sha2 = "0.10"
 strip-ansi-escapes = "0.2"
 syntect = { version = "5.3", default-features = false, features = ["parsing", "default-themes", "regex-onig"] }

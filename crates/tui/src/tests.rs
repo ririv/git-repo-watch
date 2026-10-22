@@ -655,7 +655,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     );
     assert!(s.message.starts_with("Opened terminal:"));
     assert_eq!(s.bar.editor().text, "filter");
-    assert!(!s.service.store.state_dir().join("latest.json").exists());
+    assert!(s.service.store.report().unwrap().is_none());
 }
 
 #[test]
@@ -1015,7 +1015,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     s.service.store.save_config(&s.config).unwrap();
     s.service.run(&Cancel::default(), |_| {}).unwrap();
     s.reload(&Cancel::default()).unwrap();
-    let batch = std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap();
+    let batch = serde_json::to_vec(&s.service.store.report().unwrap()).unwrap();
     std::fs::remove_file(first.repo.join("untracked")).unwrap();
     std::fs::remove_file(second.repo.join("untracked")).unwrap();
     let gate = FetchGate::install(&second);
@@ -1075,7 +1075,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
         Some(RepositoryResult::Attention { .. })
     ));
     assert_eq!(
-        std::fs::read(s.service.store.state_dir().join("latest.json")).unwrap(),
+        serde_json::to_vec(&s.service.store.report().unwrap()).unwrap(),
         batch
     );
     assert!(s.message.contains("cancelled"));

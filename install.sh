@@ -19,4 +19,5 @@ for tool in $tools; do
     fi
 done
 "$ROOT/build.sh"
+"$ROOT/dist/$APP_COMMAND" --home "$ROOT" migrate
 exec "$ROOT/dist/$APP_COMMAND" --home "$ROOT" install

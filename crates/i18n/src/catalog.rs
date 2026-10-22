@@ -2,6 +2,14 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    StorageMigrationRequired,
+    InvalidStateDatabase,
+    UnsupportedStateDatabase,
+    StateDatabaseRequiresWal,
+    InvalidHistoryLimit,
+    LegacyStateConflict,
+    LegacyStateChanged,
+
     RepositoryStateSaveFailed,
     RepositoryTaskBusy,
     RepositoryTaskLimit,
@@ -489,7 +497,7 @@ pub enum Message {
     UnregisterRepository,
     RepositoryUnregisteredFilesRetained,
     AddedRepositories,
-    FoundRepositoriesSeeVarImportReportJson,
+    FoundRepositoriesScanSaved,
     ConfigurationSavedApplyScheduleAfterChangingThe,
     RepositoryBranchScopeStagedContentsOnlyStaged,
     FilesCurrentState,
@@ -613,6 +621,42 @@ impl Message {
         match (self, language) {
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
             (Self::RepositoryTaskCompleted, Language::Chinese) => "{0} · 已完成：{1}",
+            (Self::StorageMigrationRequired, Language::English) => {
+                "State migration is required; stop older versions and run the migrate subcommand"
+            }
+            (Self::StorageMigrationRequired, Language::Chinese) => {
+                "状态需要迁移；请退出旧版本并执行 migrate 子命令"
+            }
+            (Self::InvalidStateDatabase, Language::English) => "Invalid state database",
+            (Self::InvalidStateDatabase, Language::Chinese) => "状态数据库无效",
+            (Self::UnsupportedStateDatabase, Language::English) => {
+                "Unsupported state database identity or schema version"
+            }
+            (Self::UnsupportedStateDatabase, Language::Chinese) => {
+                "状态数据库标识或结构版本不受支持"
+            }
+            (Self::StateDatabaseRequiresWal, Language::English) => {
+                "State database must use WAL journal mode"
+            }
+            (Self::StateDatabaseRequiresWal, Language::Chinese) => {
+                "状态数据库必须使用 WAL 日志模式"
+            }
+            (Self::InvalidHistoryLimit, Language::English) => {
+                "History limit must be between 1 and 1000"
+            }
+            (Self::InvalidHistoryLimit, Language::Chinese) => "历史查询条数必须在 1 到 1000 之间",
+            (Self::LegacyStateConflict, Language::English) => {
+                "Legacy state or archive contains conflicting data; migration stopped"
+            }
+            (Self::LegacyStateConflict, Language::Chinese) => {
+                "旧状态或备份存在数据冲突，已停止迁移"
+            }
+            (Self::LegacyStateChanged, Language::English) => {
+                "Legacy JSON changed or its archive is missing; stop older versions before migrating"
+            }
+            (Self::LegacyStateChanged, Language::Chinese) => {
+                "旧 JSON 已变化或备份缺失，请退出旧版本后迁移"
+            }
             (Self::RepositoryStateSaveFailed, Language::English) => {
                 "Git operation finished, but saving the repository state failed"
             }
@@ -1103,7 +1147,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate                          Import legacy JSON state into SQLite\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -1113,7 +1157,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate                           将旧 JSON 状态迁移到 SQLite\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -1169,10 +1213,10 @@ impl Message {
                 )
             }
             (Self::FoundRepositoriesFailedCouldNotBeRead, Language::English) => {
-                "Found {} repositories; {failed} could not be read. See var/import-report.json"
+                "Found {} repositories; {failed} could not be read. scan result saved"
             }
             (Self::FoundRepositoriesFailedCouldNotBeRead, Language::Chinese) => {
-                "发现 {} 个仓库，其中 {failed} 个无法读取；详见 var/import-report.json"
+                "发现 {} 个仓库，其中 {failed} 个无法读取；扫描结果已保存"
             }
             (Self::Checking, Language::English) => "Checking: {}",
             (Self::Checking, Language::Chinese) => "正在检查：{}",
@@ -2134,11 +2178,11 @@ impl Message {
             }
             (Self::AddedRepositories, Language::English) => "Added {} repositories",
             (Self::AddedRepositories, Language::Chinese) => "已添加 {} 个仓库",
-            (Self::FoundRepositoriesSeeVarImportReportJson, Language::English) => {
-                "Found {} repositories; see var/import-report.json"
+            (Self::FoundRepositoriesScanSaved, Language::English) => {
+                "Found {} repositories; scan result saved"
             }
-            (Self::FoundRepositoriesSeeVarImportReportJson, Language::Chinese) => {
-                "发现 {} 个仓库；详见 var/import-report.json"
+            (Self::FoundRepositoriesScanSaved, Language::Chinese) => {
+                "发现 {} 个仓库；扫描结果已保存"
             }
             (Self::ConfigurationSavedApplyScheduleAfterChangingThe, Language::English) => {
                 "Configuration saved; apply schedule after changing the interval"
@@ -2855,8 +2899,8 @@ macro_rules! tf {
     };
     (FoundRepositoriesFailedCouldNotBeRead $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Found {} repositories; {failed} could not be read. See var/import-report.json" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("发现 {} 个仓库，其中 {failed} 个无法读取；详见 var/import-report.json" $(, $($args)*)?),
+            $crate::Language::English => format!("Found {} repositories; {failed} could not be read. scan result saved" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("发现 {} 个仓库，其中 {failed} 个无法读取；扫描结果已保存" $(, $($args)*)?),
         }
     };
     (Checking $(, $($args:tt)*)?) => {
@@ -3183,10 +3227,10 @@ macro_rules! tf {
             $crate::Language::Chinese => format!("已添加 {} 个仓库" $(, $($args)*)?),
         }
     };
-    (FoundRepositoriesSeeVarImportReportJson $(, $($args:tt)*)?) => {
+    (FoundRepositoriesScanSaved $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Found {} repositories; see var/import-report.json" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("发现 {} 个仓库；详见 var/import-report.json" $(, $($args)*)?),
+            $crate::Language::English => format!("Found {} repositories; scan result saved" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("发现 {} 个仓库；扫描结果已保存" $(, $($args)*)?),
         }
     };
     (RepositoryBranchScopeStagedContentsOnlyStaged $(, $($args:tt)*)?) => {

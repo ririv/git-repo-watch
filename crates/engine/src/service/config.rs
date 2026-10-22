@@ -62,7 +62,7 @@ impl Service {
         let report = discovery::discover(root, &initial.excluded_roots, cancel)?;
         let _lock = self.store.transaction(cancel)?;
         let mut config = self.store.config()?;
-        state::write_json(&self.store.state_dir().join("import-report.json"), &report)?;
+        self.store.save_scan_report(&report, cancel)?;
         ensure!(
             !report.repositories.is_empty(),
             i18n::tr!(NoGitRepositoriesFoundUnderThisDirectory)

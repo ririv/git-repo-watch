@@ -25,5 +25,6 @@ unicode-width.workspace = true
 vte.workspace = true
 
 [dev-dependencies]
+serde_json.workspace = true
 test-support.workspace = true
 tempfile.workspace = true

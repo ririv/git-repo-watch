@@ -262,6 +262,11 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(0)
         }
+        "migrate" => {
+            none(&args)?;
+            json(&service.store.migrate(cancel)?)?;
+            Ok(0)
+        }
         "install" => {
             none(&args)?;
             service.install(cancel)?;

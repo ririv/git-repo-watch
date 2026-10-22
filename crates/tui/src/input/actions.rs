@@ -358,10 +358,7 @@ impl Screen {
                                     },
                                     &c,
                                 )?;
-                                i18n::tf!(
-                                    FoundRepositoriesSeeVarImportReportJson,
-                                    report.repositories.len()
-                                )
+                                i18n::tf!(FoundRepositoriesScanSaved, report.repositories.len())
                             }
                             Parameter::Exclude => save(ConfigEdit::Exclude(value.into()))?,
                             Parameter::Unexclude => save(ConfigEdit::Unexclude(value.into()))?,

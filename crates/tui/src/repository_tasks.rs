@@ -65,8 +65,8 @@ impl Screen {
                 Ok(Outcome::Checked(report)) => Refresh::Updated(Box::new(report.clone())),
                 _ => match effect {
                     Effect::IndexWrite | Effect::Commit | Effect::Push => {
-                        match service.store.repository_reports() {
-                            Ok(mut reports) => match reports.remove(&task_path) {
+                        match service.store.repository_report(&task_path) {
+                            Ok(report) => match report {
                                 Some(report) => Refresh::Updated(Box::new(report)),
                                 None => Refresh::Unchanged,
                             },

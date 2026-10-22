@@ -4,6 +4,9 @@ var/
 work/
 .atomic-*
 .schedule-*
+*.sqlite3
+*.sqlite3-wal
+*.sqlite3-shm
 
 # 构建产物与缓存
 __pycache__/

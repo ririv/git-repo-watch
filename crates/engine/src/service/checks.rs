@@ -28,7 +28,6 @@ impl Service {
         self.store.repository_reports()?;
         let report = self.execute_checks(&config, cancel, &mut emit)?;
         cancel.check()?;
-        let _transaction = self.store.transaction(cancel)?;
         self.store.save_report(&report)?;
         Ok(report)
     }

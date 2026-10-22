@@ -16,6 +16,11 @@ cleanup() {
     rm -rf "$FIXTURE"
 }
 trap cleanup EXIT HUP INT TERM
+assert_no_report() {
+    report_status=0
+    "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" report --json > "$FIXTURE/report.json" || report_status=$?
+    [ "$report_status" -eq 1 ]
+}
 cp "$ROOT/config.example.json" "$FIXTURE/config.json"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
 systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
@@ -24,10 +29,10 @@ systemctl --user is-active "$APP_SERVICE_LABEL.timer"
 systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" status --json > "$FIXTURE/status.json"
 # 安装和重新应用间隔均不得产生检查报告。
-[ ! -e "$FIXTURE/var/latest.json" ]
+assert_no_report()
 grep -q '21600' "$FIXTURE/status.json"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
-[ ! -e "$FIXTURE/var/latest.json" ]
+assert_no_report()
 # 停用保留任务定义；在停用状态应用间隔不得重新启用或触发检查。
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule disable
 [ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
@@ -38,13 +43,13 @@ grep -q '21600' "$FIXTURE/status.json"
 grep -q 'OnActiveSec=43200s' "$UNIT.timer"
 [ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
 [ "$(systemctl --user is-active "$APP_SERVICE_LABEL.timer" || true)" = inactive ]
-[ ! -e "$FIXTURE/var/latest.json" ]
+assert_no_report()
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule enable
 systemctl --user is-active "$APP_SERVICE_LABEL.timer"
 systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 6h
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply
-[ ! -e "$FIXTURE/var/latest.json" ]
+assert_no_report()
 # 显式启动一次，仅操作临时本地仓库，自动推送保持关闭。
 git init --bare "$FIXTURE/remote.git"
 git init "$FIXTURE/repository"
@@ -53,7 +58,8 @@ git -C "$FIXTURE/repository" remote add origin "$FIXTURE/remote.git"
 git -C "$FIXTURE/repository" push -u origin HEAD
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" add "$FIXTURE/repository"
 systemctl --user start "$APP_SERVICE_LABEL.service"
-[ -f "$FIXTURE/var/latest.json" ]
+[ -f "$FIXTURE/var/state.sqlite3" ]
+"$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" report --json > "$FIXTURE/report.json"
 [ "$(systemctl --user show "$APP_SERVICE_LABEL.service" --property=Result --value)" = success ]
 [ "$(systemctl --user show "$APP_SERVICE_LABEL.service" --property=ActiveState --value)" = inactive ]
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" uninstall

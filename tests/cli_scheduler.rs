@@ -53,7 +53,7 @@ fn status_and_noninteractive_tui_never_start_checks() {
         let out = cli(&store, args);
         assert_eq!(out.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&out.stderr).contains("交互式终端"));
-        assert!(!store.state_dir().join("latest.json").exists());
+        assert!(store.report().unwrap().is_none());
     }
     assert_eq!(cli(&store, &["report"]).status.code(), Some(1));
 }
@@ -77,7 +77,7 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
     assert_eq!(config.interval_seconds, 43200);
     assert_eq!(config.max_concurrency, 2);
     assert_eq!(config.push_policy, PushPolicy::FastForward);
-    assert!(!store.state_dir().join("latest.json").exists());
+    assert!(store.report().unwrap().is_none());
     assert_eq!(
         cli(&store, &["report", "--problems", "--pushes"])
             .status
@@ -213,7 +213,7 @@ fn language_overrides_localize_text_and_preserve_machine_output() {
         snapshots.push(serde_json::from_slice::<serde_json::Value>(&machine.stdout).unwrap());
     }
     assert_eq!(snapshots[0], snapshots[1]);
-    assert!(!store.state_dir().join("latest.json").exists());
+    assert!(store.report().unwrap().is_none());
 }
 
 #[test]

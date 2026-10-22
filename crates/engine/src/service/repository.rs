@@ -103,7 +103,12 @@ impl Service {
     ) -> Result<Files> {
         let _lock = self.repository_lock(&snapshot.path, cancel)?;
         let result = files::edit(snapshot, operation, selected);
-        self.refresh_after_write(&snapshot.path, result, vec![])
+        let completion = state::Completion::capture(&result, cancel, |_| ());
+        let operation = match operation {
+            IndexAction::Stage => state::Operation::Stage { completion },
+            IndexAction::Unstage => state::Operation::Unstage { completion },
+        };
+        self.refresh_after_write(&snapshot.path, result, vec![], operation)
     }
     pub fn prepare_commit(&self, path: &Path, cancel: &Cancel) -> Result<CommitPlan> {
         let _lock = self.repository_lock(path, cancel)?;
@@ -117,12 +122,11 @@ impl Service {
     ) -> Result<CommitResult> {
         let _lock = self.repository_lock(&plan.path, cancel)?;
         let result = operations::commit::execute(&self.git, plan, message, cancel);
-        let result = self.refresh_after_write(&plan.path, result, vec![])?;
-        let record = serde_json::json!({"at":state::now(),"path":plan.path,"branch":plan.head.branch(),"result":result});
-        let _transaction = self.store.transaction(&Cancel::default())?;
-        state::write_json(&self.store.state_dir().join("manual-commit.json"), &record)
-            .context(i18n::tr!(CommitCreatedButTheOperationRecordCould))?;
-        Ok(result)
+        let operation = state::Operation::Commit {
+            branch: plan.head.branch().to_owned(),
+            completion: state::Completion::capture(&result, cancel, Clone::clone),
+        };
+        self.refresh_after_write(&plan.path, result, vec![], operation)
     }
     pub fn prepare_push(&self, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
         let _lock = self.repository_lock(path, cancel)?;
@@ -131,18 +135,17 @@ impl Service {
     pub fn push(&self, plan: &PushPlan, cancel: &Cancel) -> Result<Publication> {
         let _lock = self.repository_lock(&plan.path, cancel)?;
         let result = operations::push::execute(&self.git, plan, cancel);
-        let result = self.refresh_after_write(&plan.path, Ok(result.clone()), vec![result])?;
-        let record = serde_json::json!({"at":state::now(),"path":plan.path,"push":result});
-        let _transaction = self.store.transaction(&Cancel::default())?;
-        state::write_json(&self.store.state_dir().join("manual-push.json"), &record)
-            .context(i18n::tr!(PushCommandExecutedButTheOperationRecord))?;
-        Ok(result)
+        let operation = state::Operation::Push {
+            publication: result.clone(),
+        };
+        self.refresh_after_write(&plan.path, Ok(result.clone()), vec![result], operation)
     }
     fn refresh_after_write<T>(
         &self,
         path: &Path,
         operation: Result<T>,
         publications: Vec<Publication>,
+        operation_record: state::Operation,
     ) -> Result<T> {
         // 即使 Git 子进程失败或取消，也可能已经修改索引/引用，必须重新读取实际状态。
         let refresh_cancel = Cancel::default();
@@ -151,9 +154,14 @@ impl Service {
         let result = with_publications(result, publications);
         let mut report =
             super::checks::single_report(result, timing, started_at, PushPolicy::Disabled);
+        let record = state::OperationRecord {
+            path: path.to_owned(),
+            at: state::now(),
+            operation: operation_record,
+        };
         let saved = self
             .store
-            .save_repository_report(&mut report, &refresh_cancel);
+            .save_operation_report(&mut report, &record, &refresh_cancel);
         match (operation, saved) {
             (Ok(value), Ok(())) => Ok(value),
             (Err(error), Ok(())) => Err(error),

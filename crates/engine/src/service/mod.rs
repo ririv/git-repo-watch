@@ -15,7 +15,7 @@ use crate::{
     state::{self, Lock, Store},
     transport::Git,
 };
-use anyhow::{Context, Result, ensure};
+use anyhow::{Result, ensure};
 use serde::Serialize;
 use std::{
     collections::{BTreeMap, BTreeSet},
