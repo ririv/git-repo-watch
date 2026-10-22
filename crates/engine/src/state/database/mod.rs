@@ -29,6 +29,7 @@ impl Store {
     /// Explicitly import legacy state and resume interrupted archival without discarding files.
     pub fn migrate(&self, cancel: &Cancel) -> Result<Migration> {
         let _configuration = self.transaction(cancel)?;
+        self.migrate_configuration_locked(cancel)?;
         self.prepare_state()?;
         let _migration = Lock::wait(&self.state_dir().join("migration.lock"), cancel)?;
         Database::initialize(self, cancel)

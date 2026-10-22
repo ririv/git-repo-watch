@@ -1,5 +1,5 @@
 //! One cancellable reader populates repository panes without blocking interaction.
-use crate::{FileArea, FileSession, Service, history, spinner};
+use crate::{FileSession, Service, history, spinner};
 use engine::{cancel::Cancel, local::history::Request};
 use std::{
     path::PathBuf,
@@ -63,7 +63,7 @@ impl Loader {
             let _language = i18n::using(language);
             let files = service
                 .files(&task_path, &task_cancel)
-                .map(|files| FileSession::new(files, FileArea::Worktree))
+                .map(FileSession::new)
                 .map_err(|error| format!("{error:#}"));
             let _ = tx.send(Event::Files(files));
             if task_cancel.is_cancelled() {

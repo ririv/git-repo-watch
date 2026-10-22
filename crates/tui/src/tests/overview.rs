@@ -138,7 +138,7 @@ fn refreshing_keeps_old_content_and_commands_return_to_updated_overview() {
             .untracked,
         1
     );
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     key(&mut s, KeyCode::Left);

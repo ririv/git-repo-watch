@@ -12,13 +12,17 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
         source.push_str("fn last_line() {}\n");
         support::write(f.repo.join("中文 source.rs"), &source);
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        command(&mut s, "stage");
+        open_files(&mut s);
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
-        assert!(matches!(s.mode, Mode::Diff { .. }));
+        maximize_preview(&mut s);
+        assert!(matches!(s.mode, Mode::Changes(_)));
         for (width, height) in [(100, 28), (60, 18), (150, 32)] {
-            let Mode::Diff { scroll, .. } = &mut s.mode else {
+            let Mode::Changes(session) = &mut s.mode else {
+                unreachable!()
+            };
+            let crate::changes::Preview::Ready { scroll, .. } = &mut session.preview else {
                 unreachable!()
             };
             *scroll = 0;
@@ -43,7 +47,10 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
                 .map(|cell| cell.fg)
                 .collect::<std::collections::HashSet<_>>();
             assert!(source_colors.len() >= 3);
-            let Mode::Diff { scroll, .. } = &mut s.mode else {
+            let Mode::Changes(session) = &mut s.mode else {
+                unreachable!()
+            };
+            let crate::changes::Preview::Ready { scroll, .. } = &mut session.preview else {
                 unreachable!()
             };
             *scroll = usize::MAX;
@@ -51,6 +58,8 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
             key(&mut s, KeyCode::PageUp);
             assert!(!render(&mut s, width, height).contains("last_line"));
         }
+        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Left);
         assert!(matches!(s.mode, Mode::Files(_)));
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
@@ -68,10 +77,11 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         support::write(f.repo.join("two.rs"), "fn second() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let before = std::fs::read(s.service.store.config_path()).unwrap();
-        command(&mut s, "stage");
+        open_files(&mut s);
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
+        maximize_preview(&mut s);
         let text = render(&mut s, 160, 32);
         assert!(
             text.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))),
@@ -86,27 +96,31 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        s.paste("/diff ");
+        s.paste("/diff layout ");
         let menu = render(&mut s, 160, 32);
-        for name in ["diff auto", "diff split", "diff unified"] {
+        for name in [
+            "diff layout auto",
+            "diff layout split",
+            "diff layout unified",
+        ] {
             assert!(menu.contains(name));
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/diff split");
+        assert_eq!(s.bar.editor().text, "/diff layout split");
         support::write(f.repo.join("one.rs"), "fn changed_after_snapshot() {}\n");
         key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.mode, Mode::Diff { .. }));
+        assert!(matches!(s.mode, Mode::Changes(_)));
         assert_eq!(s.diff_preference, crate::diff::Preference::Split);
         let narrow = render(&mut s, 80, 28);
         assert!(narrow.contains("cached_new"), "{narrow}");
         assert!(!narrow.contains("changed_after_snapshot"));
         assert!(narrow.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))));
-        command(&mut s, "diff unified");
-        assert!(matches!(s.mode, Mode::Diff { .. }));
+        command(&mut s, "diff layout unified");
+        assert!(matches!(s.mode, Mode::Changes(_)));
         let wide = render(&mut s, 160, 32);
         assert!(wide.contains(&format!("{} → {}", i18n::tr!(Index), i18n::tr!(Worktree))));
-        command(&mut s, "diff auto");
+        command(&mut s, "diff layout auto");
         let narrow = render(&mut s, 80, 28);
         assert!(narrow.contains(&format!(
             "{}: {}",
@@ -118,11 +132,13 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        command(&mut s, "diff unified");
+        command(&mut s, "diff layout unified");
+        key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
+        maximize_preview(&mut s);
         let second = render(&mut s, 160, 32);
         assert!(second.contains("second"));
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
@@ -143,12 +159,14 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only(
     support::git(&f.repo, &["add", "stage.rs"]);
     support::write(f.repo.join("stage.rs"), "fn worktree() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff split");
+    command(&mut s, "diff layout split");
     assert!(matches!(s.mode, Mode::Browsing));
-    command(&mut s, "unstage");
+    open_files(&mut s);
+    key(&mut s, KeyCode::Tab);
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
+    maximize_preview(&mut s);
     let text = render(&mut s, 160, 32);
     assert!(text.contains(&i18n::tf!(DiffBefore, "HEAD")));
     assert!(text.contains(&i18n::tf!(DiffAfter, i18n::tr!(Index))));
@@ -172,15 +190,15 @@ fn narrow_forced_split_is_explicit_and_restores_the_view_when_enlarged() {
     let f = support::Fixture::create();
     support::write(f.repo.join("narrow.rs"), "fn visible_again() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    command(&mut s, "diff split");
+    command(&mut s, "diff layout split");
     assert!(render(&mut s, 160, 32).contains("visible_again"));
     let narrow = render(&mut s, 12, 18);
     assert!(narrow.contains("resize"), "{narrow}");
-    assert!(matches!(s.mode, Mode::Diff { .. }));
+    assert!(matches!(s.mode, Mode::Changes(_)));
     assert!(render(&mut s, 160, 32).contains("visible_again"));
 }
 
@@ -281,11 +299,12 @@ fn common_language_diffs_have_real_token_colors_in_both_layouts() {
             f.commit(file, before);
             support::write(f.repo.join(file), after);
             let (_home, mut s) = fixture(vec![f.repo.clone()]);
-            command(&mut s, "stage");
+            open_files(&mut s);
             wait(&mut s);
             key(&mut s, KeyCode::Enter);
             wait(&mut s);
-            assert!(matches!(s.mode, Mode::Diff { .. }));
+            maximize_preview(&mut s);
+            assert!(matches!(s.mode, Mode::Changes(_)));
             for width in [120, 180] {
                 let rendered = render(&mut s, width, 32);
                 assert!(rendered.contains(syntax), "{file}: {rendered}");

@@ -1,6 +1,9 @@
 use super::*;
 
 fn focus(s: &mut Screen, section: crate::workspace::Section) {
+    while matches!(s.mode, Mode::Changes(_)) {
+        key(s, KeyCode::Esc);
+    }
     for _ in 0..crate::workspace::Section::ALL.len() {
         if crate::workspace::Section::of(&s.mode) == section {
             return;
@@ -93,10 +96,10 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
     s.paste("pending");
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    assert!(matches!(s.mode, Mode::Diff { .. }));
+    assert!(matches!(s.mode, Mode::Changes(_)));
     assert!(render(&mut s, 100, 28).contains("export const pending"));
     key(&mut s, KeyCode::Esc);
-    assert!(matches!(&s.mode, Mode::Diff { session, .. } if session.query.is_empty()));
+    assert!(matches!(&s.mode, Mode::Changes(session) if session.files.query.is_empty()));
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Files(_)));
     assert_eq!(
@@ -215,7 +218,7 @@ fn initial_background_read_keeps_command_drafts_and_active_file_selections() {
     wait_workspace(&mut s);
     assert_eq!(s.bar.editor().text, "/comm");
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     key(&mut s, KeyCode::Char(' '));
     s.refresh_workspace();
@@ -240,7 +243,7 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
         key(&mut s, KeyCode::Char(' '));
         key(&mut s, KeyCode::Right);
         wait(&mut s);
-        assert!(matches!(s.mode, Mode::Diff { .. }));
+        assert!(matches!(s.mode, Mode::Changes(_)));
         assert!(render(&mut s, 120, 30).contains("export const pending"));
         focus(&mut s, crate::workspace::Section::History);
         assert!(matches!(s.mode, Mode::History(_)));
@@ -255,7 +258,9 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
             matches!(&s.mode, Mode::Files(files) if files.selected.len()==1 && files.snapshot.path==f.repo)
         );
         key(&mut s, KeyCode::Tab);
-        assert!(matches!(&s.mode, Mode::Files(files) if files.area==FileArea::Index));
+        assert!(
+            matches!(&s.mode, Mode::Files(files) if files.rows().iter().all(|change| change.area != Area::Staged))
+        );
         focus(&mut s, crate::workspace::Section::Overview);
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(s.page, Page::Detail);
@@ -321,7 +326,7 @@ fn successful_commit_refreshes_inactive_file_and_history_snapshots() {
     key(&mut s, KeyCode::Enter);
     focus(&mut s, crate::workspace::Section::Worktree);
     key(&mut s, KeyCode::Char(' '));
-    command(&mut s, "stage");
+    command(&mut s, "diff stage");
     wait(&mut s);
     focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==1));

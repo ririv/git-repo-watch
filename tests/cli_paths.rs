@@ -116,7 +116,7 @@ fn literal_tilde_paths_expand_for_cli_config_discovery_and_single_checks() {
 fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configuration() {
     let f = Fixture::create();
     let original = fs::read(f.store.config_path()).unwrap();
-    fs::copy(f.store.config_path(), f.user_home.join("config.json")).unwrap();
+    fs::copy(f.store.config_path(), f.user_home.join("config.toml")).unwrap();
     let output = f
         .command()
         .args(["--home", "~", "config"])

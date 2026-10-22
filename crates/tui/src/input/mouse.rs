@@ -5,6 +5,22 @@ use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
         self.view_revision += 1;
+        if let Mode::Changes(session) = &mut self.mode
+            && matches!(self.bar, bar::InputBar::Search(_))
+        {
+            let panel = self.body_area.and_then(|area| {
+                crate::view::changes::areas(area, session)
+                    .into_iter()
+                    .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                    .map(|(_, focus)| focus)
+            });
+            if let Some(focus) = panel {
+                session.focus = focus;
+            }
+            if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left) {
+                return Ok(panel.is_some());
+            }
+        }
         if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && matches!(self.bar, bar::InputBar::Search(_))
         {
@@ -29,7 +45,7 @@ impl Screen {
                 | Mode::Panel(_)
                 | Mode::Branches(_)
                 | Mode::Files(_)
-                | Mode::Diff { .. }
+                | Mode::Changes(_)
                 | Mode::History(_)
         ) {
             return Ok(false);

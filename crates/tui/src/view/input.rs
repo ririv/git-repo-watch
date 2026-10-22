@@ -22,7 +22,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         | Mode::Panel(_)
         | Mode::Branches(_)
         | Mode::Files(_)
-        | Mode::Diff { .. }
+        | Mode::Changes(_)
         | Mode::History(_) => {
             let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
             let files = screen.mode.file_session().is_some();
@@ -65,12 +65,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                         crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
                     },
                     Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
-                    Mode::Diff { ref content, .. }
-                        if matches!(content.as_ref(), crate::document::View::Images(_)) =>
-                    {
-                        i18n::tr!(ImageInputHint)
-                    }
-                    Mode::Diff { .. } => i18n::tr!(ScrollEscFilesCommands),
+                    Mode::Changes(_) => i18n::tr!(ChangesInputHint),
                     _ => match screen.page {
                         Page::Repositories => i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
                         Page::Detail => i18n::tr!(OverviewInputHint),

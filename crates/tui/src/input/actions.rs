@@ -49,7 +49,7 @@ impl Screen {
                     } else if let Mode::History(view) = &self.mode {
                         self.open_history(view.session().references.path.clone());
                     } else if let Some(session) = self.mode.file_session() {
-                        self.read_files(session.snapshot.path.clone(), session.area);
+                        self.read_files(session.snapshot.path.clone());
                     }
                     return Ok(false);
                 }
@@ -60,8 +60,7 @@ impl Screen {
                     self.open_history(view.session().references.path.clone());
                 } else if let Some(session) = self.mode.file_session() {
                     let path = session.snapshot.path.clone();
-                    let area = session.area;
-                    self.read_files(path, area);
+                    self.read_files(path);
                 } else if let Err(e) = self.reload(root) {
                     self.error(i18n::tr!(RefreshFailed), e)
                 }
@@ -78,34 +77,39 @@ impl Screen {
                 }
             }
             Action::LogMore => self.more_history(),
-            Action::Stage | Action::Unstage | Action::Diff => {
-                if action == Action::Diff && matches!(self.mode, Mode::History(_)) {
-                    self.show_history_diff();
-                    return Ok(false);
-                }
-                if let Some(session) = self.mode.file_session() {
-                    if action == Action::Diff {
-                        self.show_diff();
-                        return Ok(false);
-                    }
-                    if (action == Action::Stage && session.area == FileArea::Worktree)
-                        || (action == Action::Unstage && session.area == FileArea::Index)
-                    {
-                        self.edit_files();
-                        return Ok(false);
-                    }
-                }
-                if let Some(path) = path {
-                    self.read_files(
-                        path,
-                        if action == Action::Unstage {
-                            FileArea::Index
-                        } else {
-                            FileArea::Worktree
-                        },
-                    )
+            Action::DiffLayoutMenu => {
+                self.bar = crate::bar::InputBar::Command {
+                    editor: Editor::new("/diff layout ".into()),
+                    selected: 0,
+                    menu: Default::default(),
+                    path,
+                };
+            }
+            Action::Stage | Action::Unstage => {
+                self.edit_files(if action == Action::Stage {
+                    IndexAction::Stage
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into()
+                    IndexAction::Unstage
+                });
+            }
+            Action::Diff => {
+                if matches!(self.mode, Mode::History(_)) {
+                    self.show_history_diff();
+                } else if matches!(self.mode, Mode::Changes(_)) {
+                    // 入口重复执行不改变选择、焦点或已加载的差异。
+                } else if self.mode.file_session().is_some() {
+                    self.show_diff();
+                } else if let Some(path) = path {
+                    self.start_repository(
+                        path.clone(),
+                        i18n::tr!(ReadRepositoryFiles),
+                        Effect::ReadOnly,
+                        move |service, cancel, _| {
+                            Ok(Outcome::Changes(service.files(&path, &cancel)?))
+                        },
+                    );
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
             }
             Action::Commit | Action::Push => {
@@ -233,37 +237,28 @@ impl Screen {
         self.mode = Mode::Browsing;
         self.scroll = 0;
     }
-    pub(crate) fn read_files(&mut self, path: PathBuf, area: FileArea) {
+    pub(crate) fn read_files(&mut self, path: PathBuf) {
         self.start_repository(
             path.clone(),
             i18n::tr!(ReadRepositoryFiles),
             Effect::ReadOnly,
-            move |s, c, _| Ok(Outcome::Files(s.files(&path, &c)?, area)),
-        )
+            move |service, cancel, _| Ok(Outcome::Files(service.files(&path, &cancel)?)),
+        );
     }
     pub(crate) fn show_diff(&mut self) {
-        let Some(session) = self.mode.file_session().cloned() else {
+        let Some(files) = self.mode.file_session().cloned() else {
             return;
         };
-        let Some(change) = session.rows().get(session.cursor).map(|c| (*c).clone()) else {
-            self.message = i18n::tr!(NoFilesInThisArea).into();
-            return;
-        };
-        self.start_repository(
-            session.snapshot.path.clone(),
-            i18n::tr!(ReadFileDiff),
-            Effect::ReadOnly,
-            move |s, c, _| {
-                let content = s.diff(&session.snapshot, &change, &c)?;
-                Ok(Outcome::Diff(
-                    session,
-                    crate::document::prepare(&change.location.display(), content, change.area, &c)?,
-                ))
-            },
-        )
+        self.mode = Mode::Changes(Box::new(crate::changes::Session::new(
+            files,
+            crate::changes::ReturnTo::Files,
+        )));
+        self.poll_changes();
+        self.sync_bar();
     }
-    pub(crate) fn edit_files(&mut self) {
+    pub(crate) fn edit_files(&mut self, action: IndexAction) {
         let Some(session) = self.mode.file_session().cloned() else {
+            self.message = i18n::tr!(ChangesSelectionRequired).into();
             return;
         };
         let selected = session.selection();
@@ -271,11 +266,13 @@ impl Screen {
             self.message = i18n::tr!(NoActionableFilesInThisArea).into();
             return;
         }
-        let action = if session.area == FileArea::Index {
-            IndexAction::Unstage
-        } else {
-            IndexAction::Stage
-        };
+        if selected
+            .iter()
+            .any(|change| (change.area == Area::Staged) != (action == IndexAction::Unstage))
+        {
+            self.message = i18n::tr!(ChangesWrongArea).into();
+            return;
+        }
         self.start_repository(
             session.snapshot.path.clone(),
             if action == IndexAction::Stage {
@@ -284,13 +281,15 @@ impl Screen {
                 i18n::tr!(UnstageSelectedFiles)
             },
             Effect::IndexWrite,
-            move |s, c, _| {
-                Ok(Outcome::Files(
-                    s.edit_index(&session.snapshot, action, &selected, &c)?,
-                    session.area,
-                ))
+            move |service, cancel, _| {
+                Ok(Outcome::Files(service.edit_index(
+                    &session.snapshot,
+                    action,
+                    &selected,
+                    &cancel,
+                )?))
             },
-        )
+        );
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {

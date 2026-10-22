@@ -15,12 +15,7 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
             Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
                 i18n::tr!(HistoryTitle)
             }
-            Mode::Diff { content, .. }
-                if matches!(content.as_ref(), crate::document::View::Images(_)) =>
-            {
-                i18n::tr!(ImagePreview)
-            }
-            Mode::Files(_) | Mode::Diff { .. } => i18n::tr!(FilesCurrentState),
+            Mode::Files(_) | Mode::Changes(_) => i18n::tr!(ChangesTitle),
             Mode::CommitMessage { .. } | Mode::CommitConfirm { .. } => {
                 i18n::tr!(CommitStagedContents)
             }

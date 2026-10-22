@@ -34,13 +34,10 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             s,
             &format!("{} · {}", name(&s.snapshot.path), safe(s.snapshot.branch())),
         ),
-        Mode::Diff {
-            content, scroll, ..
-        } => document::render(
+        Mode::Changes(session) => changes::render(
             frame,
             area,
-            content,
-            scroll,
+            session,
             screen.diff_preference,
             &mut screen.graphics,
         ),

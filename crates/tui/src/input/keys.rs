@@ -10,7 +10,7 @@ impl Screen {
             | Mode::Panel(_)
             | Mode::Branches(_)
             | Mode::Files(_)
-            | Mode::Diff { .. }
+            | Mode::Changes(_)
             | Mode::History(_) => self.bar_paste(text),
             _ => {}
         }
@@ -58,7 +58,7 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
-        if self.repository_pane_key(key) {
+        if self.changes_shortcut(key) || self.repository_pane_key(key) {
             return Ok(false);
         }
         if let Mode::History(view) = &mut self.mode
@@ -206,18 +206,23 @@ impl Screen {
                         return Ok(false);
                     }
                     KeyCode::Tab => {
-                        session.area = if session.area == FileArea::Worktree {
-                            FileArea::Index
-                        } else {
-                            FileArea::Worktree
-                        };
-                        session.cursor = 0;
-                        session.selected.clear();
+                        let rows = session.rows();
+                        let staged = rows
+                            .get(session.cursor)
+                            .is_some_and(|change| change.area == Area::Staged);
+                        if let Some(index) = rows
+                            .iter()
+                            .position(|change| (change.area == Area::Staged) != staged)
+                        {
+                            session.cursor = index;
+                        }
                     }
                     KeyCode::Up => session.cursor = session.cursor.saturating_sub(1),
                     KeyCode::Down => {
                         session.cursor = (session.cursor + 1).min(count.saturating_sub(1))
                     }
+                    KeyCode::Home => session.cursor = 0,
+                    KeyCode::End => session.cursor = count.saturating_sub(1),
                     KeyCode::PageDown => {
                         session.cursor = (session.cursor + 10).min(count.saturating_sub(1))
                     }
@@ -237,25 +242,7 @@ impl Screen {
                 }
                 self.mode = Mode::Files(session);
             }
-            Mode::Diff {
-                session,
-                content,
-                mut scroll,
-            } => {
-                match key.code {
-                    KeyCode::Esc | KeyCode::Left => {
-                        self.mode = Mode::Files(session);
-                        self.sync_bar();
-                        return Ok(false);
-                    }
-                    _ => scroll_key(&mut scroll, key),
-                }
-                self.mode = Mode::Diff {
-                    session,
-                    content,
-                    scroll,
-                };
-            }
+            Mode::Changes(session) => self.changes_key(session, key),
             Mode::CommitMessage {
                 plan,
                 mut editor,

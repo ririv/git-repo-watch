@@ -25,7 +25,7 @@ assert_no_report() {
     "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" report --json > "$FIXTURE/report.json" || report_status=$?
     [ "$report_status" -eq 1 ]
 }
-cp "$ROOT/config.example.json" "$FIXTURE/config.json"
+cp "$ROOT/config.example.toml" "$FIXTURE/config.toml"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
 systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
 grep -q ' scheduled-check$' "$UNIT.service"
@@ -69,7 +69,7 @@ systemctl --user start "$APP_SERVICE_LABEL.service"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" uninstall
 [ ! -e "$UNIT.service" ]
 [ ! -e "$UNIT.timer" ]
-[ -f "$FIXTURE/config.json" ]
+[ -f "$FIXTURE/config.toml" ]
 [ -x "$HOME/.local/bin/$APP_COMMAND" ]
 # 使用含中文和空格的 XDG 目录验证默认配置、后台环境与重复安装。
 PROFILE_MODE=standard
@@ -95,7 +95,7 @@ systemctl --user start "$APP_SERVICE_LABEL.service"
 "$ROOT/dist/$APP_COMMAND" uninstall
 [ ! -e "$UNIT.service" ]
 [ ! -e "$UNIT.timer" ]
-[ -f "$XDG_CONFIG_HOME/$APP_DATA_DIRECTORY/config.json" ]
+[ -f "$XDG_CONFIG_HOME/$APP_DATA_DIRECTORY/config.toml" ]
 trap - EXIT HUP INT TERM
 systemctl --user daemon-reload
 rm -rf "$FIXTURE"

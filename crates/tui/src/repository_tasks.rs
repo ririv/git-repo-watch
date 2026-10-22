@@ -160,6 +160,17 @@ impl Screen {
             ) {
                 self.refresh_repository_panes(&path);
             }
+            if !same_view && let Ok(Outcome::Files(snapshot)) = &completion.outcome {
+                match &mut self.mode {
+                    Mode::Changes(session) if session.files.snapshot.path == snapshot.path => {
+                        session.refreshed(snapshot.clone())
+                    }
+                    Mode::Files(session) if session.snapshot.path == snapshot.path => {
+                        *session = session.refreshed(snapshot.clone())
+                    }
+                    _ => {}
+                }
+            }
             match completion.outcome {
                 Ok(outcome) => {
                     self.repository_errors.remove(&path);

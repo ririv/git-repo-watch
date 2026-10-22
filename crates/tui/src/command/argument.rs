@@ -137,7 +137,7 @@ impl Command {
         format!(
             "/{}{}",
             self.name,
-            if self.action.argument().is_some() {
+            if self.action.argument().is_some() || self.action == Action::DiffLayoutMenu {
                 " "
             } else {
                 ""

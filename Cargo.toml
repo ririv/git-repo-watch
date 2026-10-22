@@ -34,6 +34,7 @@ sha2 = "0.10"
 strip-ansi-escapes = "0.2"
 syntect = { version = "5.3", default-features = false, features = ["parsing", "default-themes", "regex-onig"] }
 tempfile = "3"
+toml_edit = { version = "0.25.17", features = ["serde"] }
 two-face = { version = "0.5.2", default-features = false, features = ["syntect-onig"] }
 unicode-width = "0.2"
 vte = { version = "0.14", default-features = false }

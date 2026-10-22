@@ -88,7 +88,7 @@ mod tests {
             mac.config_path(),
             home.join("Library/Application Support")
                 .join(identity::DATA_DIRECTORY)
-                .join("config.json")
+                .join("config.toml")
         );
         assert_eq!(
             mac.database_path(),
@@ -105,7 +105,7 @@ mod tests {
             linux.config_path(),
             home.join(".config")
                 .join(identity::DATA_DIRECTORY)
-                .join("config.json")
+                .join("config.toml")
         );
         assert_eq!(
             linux.database_path(),

@@ -2,6 +2,19 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ChangesOpen,
+    ChangesLayout,
+    ChangesTitle,
+    ChangesUnstaged,
+    ChangesStaged,
+    ChangesSelectFile,
+    ChangesSelectionRequired,
+    ChangesWrongArea,
+    ChangesInputHint,
+
+    InvalidToml,
+    ConfigurationMigrationRequired,
+    ConfigurationMigrationConflict,
     TransferTargetExists,
     TransferSameSource,
     MigrateFromUsage,
@@ -621,8 +634,57 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ChangesOpen, Language::English) => "Open file changes with a live diff preview",
+            (Self::ChangesOpen, Language::Chinese) => "打开文件变更与差异预览",
+            (Self::ChangesLayout, Language::English) => {
+                "Choose automatic, split or unified diff layout"
+            }
+            (Self::ChangesLayout, Language::Chinese) => "选择自动、双栏或统一差异布局",
+            (Self::ChangesTitle, Language::English) => "File changes",
+            (Self::ChangesTitle, Language::Chinese) => "文件变更",
+            (Self::ChangesUnstaged, Language::English) => "Unstaged",
+            (Self::ChangesUnstaged, Language::Chinese) => "未暂存",
+            (Self::ChangesStaged, Language::English) => "Staged",
+            (Self::ChangesStaged, Language::Chinese) => "已暂存",
+            (Self::ChangesSelectFile, Language::English) => {
+                "Select a changed file to preview its diff"
+            }
+            (Self::ChangesSelectFile, Language::Chinese) => "选择变更文件以预览差异",
+            (Self::ChangesSelectionRequired, Language::English) => {
+                "Open /diff and select files before staging or unstaging"
+            }
+            (Self::ChangesSelectionRequired, Language::Chinese) => {
+                "请先打开 /diff 并选择文件，再暂存或取消暂存"
+            }
+            (Self::ChangesWrongArea, Language::English) => {
+                "Stage requires only unstaged files; unstage requires only staged files. Review the selected groups."
+            }
+            (Self::ChangesWrongArea, Language::Chinese) => {
+                "暂存只能选择未暂存文件，取消暂存只能选择已暂存文件；请核对勾选区域"
+            }
+            (Self::ChangesInputHint, Language::English) => {
+                "↑↓ navigate · Tab focus · Alt+S/U stage/unstage · Ctrl+F zoom · Esc back"
+            }
+            (Self::ChangesInputHint, Language::Chinese) => {
+                "↑↓选择/滚动 · Tab切换 · Alt+S/U暂存/取消 · Ctrl+F放大 · Esc返回"
+            }
+
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
             (Self::RepositoryTaskCompleted, Language::Chinese) => "{0} · 已完成：{1}",
+            (Self::InvalidToml, Language::English) => "Invalid TOML configuration",
+            (Self::InvalidToml, Language::Chinese) => "TOML 配置无效",
+            (Self::ConfigurationMigrationRequired, Language::English) => {
+                "Legacy config.json exists; run the migrate config subcommand before reading or editing configuration"
+            }
+            (Self::ConfigurationMigrationRequired, Language::Chinese) => {
+                "存在旧 config.json，请先运行 migrate config 子命令，再读取或修改配置"
+            }
+            (Self::ConfigurationMigrationConflict, Language::English) => {
+                "JSON and TOML configurations conflict or changed during migration; no file was overwritten"
+            }
+            (Self::ConfigurationMigrationConflict, Language::Chinese) => {
+                "JSON 与 TOML 配置冲突，或迁移期间文件发生变化，未覆盖任何文件"
+            }
             (Self::TransferTargetExists, Language::English) => {
                 "Destination configuration or database already exists; nothing was overwritten"
             }
@@ -634,10 +696,10 @@ impl Message {
             }
             (Self::TransferSameSource, Language::Chinese) => "来源与目标存储目录必须不同",
             (Self::MigrateFromUsage, Language::English) => {
-                "Usage: migrate [--from ABSOLUTE_PATH]; exit all source processes before importing"
+                "Usage: migrate [config | --from ABSOLUTE_PATH]; exit all source processes before importing"
             }
             (Self::MigrateFromUsage, Language::Chinese) => {
-                "用法：migrate [--from 绝对路径]；导入前请退出所有使用来源数据的进程"
+                "用法：migrate [config | --from 绝对路径]；导入前请退出所有使用来源数据的进程"
             }
             (Self::StorageMigrationRequired, Language::English) => {
                 "State migration is required; stop older versions and run the migrate subcommand"
@@ -925,7 +987,9 @@ impl Message {
                 "↑↓文件 · Enter 差异 · Tab 父提交 · PgUp/PgDn说明 · ←返回"
             }
             (Self::HistoryDiffHint, Language::English) => "↑↓ scroll · ←/Esc commit · /diff layout",
-            (Self::HistoryDiffHint, Language::Chinese) => "↑↓滚动 · ←/Esc 提交详情 · /diff 布局",
+            (Self::HistoryDiffHint, Language::Chinese) => {
+                "↑↓滚动 · ←/Esc 提交详情 · /diff layout 布局"
+            }
             (Self::HistoryNoMatch, Language::English) => {
                 "No match in loaded commits; /log more loads older history"
             }
@@ -1011,10 +1075,10 @@ impl Message {
             (Self::DiffAfter, Language::English) => "After · {}",
             (Self::DiffAfter, Language::Chinese) => "新版 · {}",
             (Self::DiffTooNarrow, Language::English) => {
-                "This diff layout needs at least {} columns. Enlarge the window or use /diff auto."
+                "This diff layout needs at least {} columns. Enlarge the window or use /diff layout auto."
             }
             (Self::DiffTooNarrow, Language::Chinese) => {
-                "此差异布局至少需要 {} 列。请扩大窗口或使用 /diff auto。"
+                "此差异布局至少需要 {} 列。请扩大窗口或使用 /diff layout auto。"
             }
             (Self::InvalidDiffStructure, Language::English) => {
                 "Invalid diff structure returned by libgit2"
@@ -1165,7 +1229,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration without overwriting existing data\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate [--from PATH]            Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration without overwriting existing data\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -1175,7 +1239,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置，不覆盖已有数据\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate [--from 路径]              转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置，不覆盖已有数据\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -2627,7 +2691,9 @@ impl Message {
             (Self::ScrollEscFilesCommands, Language::English) => {
                 "↑↓ scroll · ←/Esc files · /diff layout"
             }
-            (Self::ScrollEscFilesCommands, Language::Chinese) => "↑↓滚动 · ←/Esc 返回 · /diff 布局",
+            (Self::ScrollEscFilesCommands, Language::Chinese) => {
+                "↑↓滚动 · ←/Esc 返回 · /diff layout 布局"
+            }
             (Self::SelectEnterDetailsCtrlFFilterTab, Language::English) => {
                 "↑↓ select · →/Enter open · ←/Esc back · Ctrl+F · F1"
             }
@@ -2836,8 +2902,8 @@ macro_rules! tf {
         $crate::Language::Chinese => format!("新版 · {}" $(, $($args)*)?),
     } };
     (DiffTooNarrow $(, $($args:tt)*)?) => { match $crate::language() {
-        $crate::Language::English => format!("This diff layout needs at least {} columns. Enlarge the window or use /diff auto." $(, $($args)*)?),
-        $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /diff auto。" $(, $($args)*)?),
+        $crate::Language::English => format!("This diff layout needs at least {} columns. Enlarge the window or use /diff layout auto." $(, $($args)*)?),
+        $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /diff layout auto。" $(, $($args)*)?),
     } };
     (StartupCheckStatus $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Check all on TUI startup: {}\n" $(, $($args)*)?),

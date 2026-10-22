@@ -33,7 +33,7 @@ impl Section {
             Mode::Panel(section) => *section,
             Mode::Branches(_) => Self::Branches,
             Mode::Files(_)
-            | Mode::Diff { .. }
+            | Mode::Changes(_)
             | Mode::CommitMessage { .. }
             | Mode::CommitConfirm { .. } => Self::Worktree,
             Mode::History(_) => Self::History,
@@ -117,9 +117,8 @@ impl Workspace {
         };
         match mode {
             Mode::Branches(view) => session.branches = Panel::Ready(view.session().clone()),
-            Mode::Files(files) | Mode::Diff { session: files, .. } => {
-                session.files = Panel::Ready(files)
-            }
+            Mode::Files(files) => session.files = Panel::Ready(files),
+            Mode::Changes(view) => session.files = Panel::Ready(view.files),
             Mode::History(view) => session.history = Panel::Ready(view.session().clone()),
             Mode::Confirm {
                 operation: crate::Confirmation::Configure { origin, .. },
@@ -165,7 +164,7 @@ impl Screen {
                     | Mode::Panel(_)
                     | Mode::Branches(_)
                     | Mode::Files(_)
-                    | Mode::Diff { .. }
+                    | Mode::Changes(_)
                     | Mode::History(_)
             )
         {
@@ -246,6 +245,15 @@ impl Screen {
                     }
                 },
                 load::Event::Files(result) => match result {
+                    Ok(files)
+                        if self.page == Page::Detail
+                            && matches!(&self.mode, Mode::Changes(current) if current.files.snapshot.path == path) =>
+                    {
+                        if let Mode::Changes(current) = &mut self.mode {
+                            current.refreshed(files.snapshot);
+                            session.files = Panel::Ready(current.files.clone());
+                        }
+                    }
                     Ok(mut files)
                         if self.page == Page::Detail
                             && focus == Section::Worktree

@@ -32,19 +32,22 @@
 > A path is the entire remaining argument. No variable, wildcard or shell escape expansion occurs. Named-user paths such as ~user are unsupported.
 
 ## Files, commits and pushes
-- `/stage` opens worktree files; `/unstage` opens the index. `Tab` switches areas; `→` / `Enter` opens a file diff.
+- `/diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.
+- Wide windows show files beside the preview; narrow windows stack them. `Tab` / `Ctrl+S` / `Ctrl+D` switches focus; `Enter` / `→` focuses the preview, and `Ctrl+F` maximizes the focused pane.
+- `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Both sides scroll together and align wrapped lines.
-- `/diff auto`, `/diff split`, `/diff unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
+- `/diff layout auto`, `/diff layout split`, `/diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
 - `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
-- In the file panel, `/stage` / `/unstage` acts on marked files, or the cursor file when none are marked.
+- `/diff stage` / `Alt+S` stages marked files or the cursor file; `/diff unstage` / `Alt+U` unstages them. These actions require an explicit file selection and never open a page.
+- Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/commit` previews staged contents, then takes a message and confirms. Git hooks and signing are preserved.
 - `/push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
 - `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
 ## Image previews
-- Select a PNG, JPEG or WebP in files or commit details and press `Enter` to compare image versions. Content detection does not require an extension.
-- Wide windows show versions side by side; narrow windows stack them. Images keep their aspect ratio and use a checkerboard for transparency.
+- Selecting a PNG, JPEG or WebP in `/diff` automatically previews both versions; in commit details, press `Enter` to compare. Content detection does not require an extension.
+- Wide windows show versions side by side; narrow windows with sufficient height stack them. Short panes retain side-by-side images. Images keep their aspect ratio and use a checkerboard for transparency.
 - `Esc` returns; resizing fits images to the pane. Missing versions, corrupt images and unavailable pixel support are explicit.
 - Index and historical images come from Git objects, never from current worktree contents.
 

@@ -1,4 +1,5 @@
 mod branches;
+mod changes;
 mod completion;
 mod concurrency;
 mod diff;
@@ -18,7 +19,7 @@ use engine::{
     state::Store,
 };
 use ratatui::backend::TestBackend;
-use std::time::Instant;
+use std::{collections::BTreeSet, time::Instant};
 use test_support as support;
 fn screen(service: Service) -> Screen {
     let config = service.store.config().unwrap();
@@ -95,15 +96,47 @@ fn command(s: &mut Screen, text: &str) {
     s.paste(&format!("/{text}"));
     key(s, KeyCode::Enter);
 }
-fn wait(s: &mut Screen) {
+fn open_files(s: &mut Screen) {
+    // 直接准备共享文件面板；统一命令入口与预览交互由 changes 测试单独覆盖。
+    s.read_files(s.scope_path().expect("selected repository"));
     let started = Instant::now();
-    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_)) || !s.repository_tasks.is_empty() {
+    while s
+        .repository_tasks
+        .contains_key(&s.scope_path().expect("selected repository"))
+    {
+        assert!(started.elapsed() < Duration::from_secs(8));
+        s.poll(&Cancel::default());
+        s.poll_workspace();
+        thread::sleep(Duration::from_millis(5));
+    }
+}
+fn maximize_preview(s: &mut Screen) {
+    let Mode::Changes(session) = &mut s.mode else {
+        panic!("changes workspace expected")
+    };
+    session.focus = crate::changes::Focus::Preview;
+    if session.arrangement != crate::workspace::Arrangement::Maximized {
+        s.key(
+            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+            &Cancel::default(),
+        )
+        .unwrap();
+    }
+}
+fn wait(s: &mut Screen) {
+    s.poll_changes();
+    let started = Instant::now();
+    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_))
+        || !s.repository_tasks.is_empty()
+        || matches!(&s.mode, Mode::Changes(session) if session.pending())
+    {
         assert!(
             started.elapsed() < Duration::from_secs(8),
             "工作线程没有结束"
         );
         s.poll(&Cancel::default());
         s.poll_workspace();
+        s.poll_changes();
         thread::sleep(Duration::from_millis(5));
     }
 }
@@ -155,9 +188,9 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/a".into(), "/path/to/b".into()]);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("sta");
+    s.paste("diff sta");
     key(&mut s, KeyCode::Tab);
-    assert!(matches!(&s.bar,crate::bar::InputBar::Command{editor,..}if editor.text=="/stage"));
+    assert!(matches!(&s.bar,crate::bar::InputBar::Command{editor,..}if editor.text=="/diff stage"));
     key(&mut s, KeyCode::Esc);
     command(&mut s, "check nope");
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
@@ -213,30 +246,29 @@ fn file_selection_commit_and_push_through_command_bar() {
         support::write(f.repo.join("one.txt"), "one\n");
         support::write(f.repo.join("two.txt"), "two\n");
         let (_temp, mut s) = fixture(vec![f.repo.clone()]);
-        command(&mut s, "stage");
+        open_files(&mut s);
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Files(_)));
         key(&mut s, KeyCode::Char(' '));
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
-        assert!(matches!(&s.mode, Mode::Diff { .. }));
+        assert!(matches!(&s.mode, Mode::Changes(_)));
         assert!(render(&mut s, 100, 28).contains("+one"));
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Char('/'));
         key(&mut s, KeyCode::Esc);
         assert!(matches!(&s.mode,Mode::Files(session)if session.selected.len()==1));
-        command(&mut s, "stage");
+        command(&mut s, "diff stage");
         wait(&mut s);
         assert_eq!(
             support::git(&f.repo, &["diff", "--cached", "--name-only"]),
             "one.txt"
         );
-        key(&mut s, KeyCode::Tab);
-        command(&mut s, "unstage");
+        command(&mut s, "diff unstage");
         wait(&mut s);
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
         key(&mut s, KeyCode::Tab);
-        command(&mut s, "stage");
+        command(&mut s, "diff stage");
         wait(&mut s);
         command(&mut s, "commit");
         wait(&mut s);
@@ -314,7 +346,7 @@ fn default_browsing_and_commands_do_not_open_repositories() {
     for size in [(60, 18), (150, 32)] {
         assert!(render(&mut s, size.0, size.1).contains("repository"));
     }
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Error { .. }));
     let text = render(&mut s, 60, 18);
@@ -425,7 +457,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
     support::write(f.repo.join("one.txt"), "one");
     support::write(f.repo.join("two.txt"), "two");
     let (_temp, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     s.paste("two");
     assert!(matches!(&s.mode,Mode::Files(session)if session.rows().len()==1));
@@ -434,7 +466,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
     assert!(
         matches!(&s.mode,Mode::Files(session)if session.rows().len()==2&&session.selected.len()==1)
     );
-    command(&mut s, "stage");
+    command(&mut s, "diff stage");
     wait(&mut s);
     assert_eq!(
         support::git(&f.repo, &["diff", "--cached", "--name-only"]),
@@ -558,7 +590,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         let candidates = render(&mut s, width, height);
         assert!(candidates.contains("Current repo"));
         assert!(candidates.contains("Tab complete"));
-        assert!(candidates.contains("/stage"));
+        assert!(candidates.contains("/diff"));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings concurrency");
         let input = render(&mut s, width, height);
@@ -587,7 +619,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
 fn english_worker_errors_follow_the_ui_language() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, mut s) = fixture(vec!["/example/unavailable".into()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     let text = render(&mut s, 80, 24);
     assert!(text.contains("Operation result"));
@@ -638,7 +670,6 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     let (_temp, mut s) = fixture(vec![f.repo.clone()]);
     let origin = Mode::Files(FileSession {
         snapshot: s.service.files(&f.repo, &Cancel::default()).unwrap(),
-        area: FileArea::Index,
         cursor: 0,
         selected: BTreeSet::new(),
         query: "filter".into(),
@@ -648,9 +679,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
         origin,
         &Cancel::default(),
     );
-    assert!(
-        matches!(&s.mode, Mode::Files(session) if session.area == FileArea::Index && session.query == "filter")
-    );
+    assert!(matches!(&s.mode, Mode::Files(session) if session.query == "filter"));
     assert!(s.message.starts_with("Opened terminal:"));
     assert_eq!(s.bar.editor().text, "filter");
     assert!(s.service.store.report().unwrap().is_none());
@@ -1145,21 +1174,21 @@ fn checks_started_from_files_leave_the_panel_interactive_and_serialize_writes() 
     let f = support::Fixture::create();
     support::write(f.repo.join("new-file"), "contents");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     let gate = FetchGate::install(&f);
     command(&mut s, "check");
     assert!(matches!(s.mode, Mode::Files(_)));
     poll_background_until(&mut s, |_| gate.started.exists());
-    command(&mut s, "stage");
+    command(&mut s, "diff stage");
     assert!(matches!(s.mode, Mode::Files(_)));
     assert!(s.message.contains("already running"));
     assert!(support::git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
     gate.release();
     poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     assert!(matches!(s.mode, Mode::Files(_)));
-    command(&mut s, "stage");
+    command(&mut s, "diff stage");
     wait(&mut s);
     assert_eq!(
         support::git(&f.repo, &["diff", "--cached", "--name-only"]),
@@ -1601,7 +1630,7 @@ fn cancelling_an_inline_parameter_confirmation_restores_the_file_panel_and_comma
     let f = support::Fixture::create();
     support::write(f.repo.join("new"), "content");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     command(&mut s, "settings concurrency 8");

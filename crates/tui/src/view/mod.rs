@@ -1,6 +1,7 @@
 //! Terminal layout and shared text-safe widgets.
 mod body;
 mod branches;
+pub(super) mod changes;
 mod completion;
 mod diff;
 mod document;
@@ -138,7 +139,7 @@ fn render_commands(frame: &mut Frame, screen: &Screen, body: Rect) {
             | Mode::Panel(_)
             | Mode::Branches(_)
             | Mode::Files(_)
-            | Mode::Diff { .. }
+            | Mode::Changes(_)
             | Mode::History(_)
     ) {
         return;

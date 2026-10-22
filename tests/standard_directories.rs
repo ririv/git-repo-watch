@@ -31,7 +31,7 @@ fn standard_configuration_and_database_ignore_cwd_and_obsolete_location_files() 
     fs::create_dir(&home).unwrap();
     let cwd = temp.path().join("project");
     fs::create_dir(&cwd).unwrap();
-    fs::write(cwd.join("config.json"), b"wrong project config").unwrap();
+    fs::write(cwd.join("config.toml"), b"wrong project config").unwrap();
     let store = UserDirectories::defaults(&home).store();
     fs::create_dir_all(store.config_dir()).unwrap();
     let obsolete = store.config_dir().join("location.json");
@@ -112,7 +112,7 @@ fn linux_xdg_overrides_are_explicit_and_relative_values_fail_without_writes() {
         paths["config"],
         config
             .join(identity::DATA_DIRECTORY)
-            .join("config.json")
+            .join("config.toml")
             .to_str()
             .unwrap()
     );
@@ -125,13 +125,13 @@ fn linux_xdg_overrides_are_explicit_and_relative_values_fail_without_writes() {
             .unwrap()
     );
     json(run(&config, &["init"]));
-    let bytes = fs::read(config.join(identity::DATA_DIRECTORY).join("config.json")).unwrap();
+    let bytes = fs::read(config.join(identity::DATA_DIRECTORY).join("config.toml")).unwrap();
     assert_eq!(
         run(Path::new("relative"), &["config"]).status.code(),
         Some(2)
     );
     assert_eq!(
-        fs::read(config.join(identity::DATA_DIRECTORY).join("config.json")).unwrap(),
+        fs::read(config.join(identity::DATA_DIRECTORY).join("config.toml")).unwrap(),
         bytes
     );
 }

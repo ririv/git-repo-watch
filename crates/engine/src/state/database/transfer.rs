@@ -11,7 +11,7 @@ pub enum Transfer {
     Database { config: PathBuf, database: PathBuf },
 }
 impl Store {
-    /// Import configuration bytes and a consistent SQLite snapshot; retain the source for verification.
+    /// Convert source configuration and import its TOML with a consistent SQLite snapshot.
     pub fn migrate_from(&self, source: &Store, cancel: &Cancel) -> Result<Transfer> {
         cancel.check()?;
         self.prepare_state()?;
@@ -24,7 +24,9 @@ impl Store {
         let _source = source.lock()?;
         let _batch = source.batch_lock()?;
         ensure!(
-            !self.config_path().try_exists()? && !self.database_path().try_exists()?,
+            !self.config_path().try_exists()?
+                && !self.legacy_config_path().try_exists()?
+                && !self.database_path().try_exists()?,
             i18n::tr!(TransferTargetExists)
         );
         // 占住全部源仓库并发槽位，正在执行的写操作会使导入立即报忙。
@@ -34,6 +36,7 @@ impl Store {
         let _operations = (0..32)
             .map(|slot| Lock::acquire(&slots.join(format!("{slot}.lock"))))
             .collect::<Result<Vec<_>>>()?;
+        source.migrate_configuration_locked(cancel)?;
         source.config()?;
         let configuration = fs::read(source.config_path())?;
         let database = Database::read(source)?;
@@ -53,7 +56,7 @@ impl Store {
             .map(|database| stage_database(self, database, cancel))
             .transpose()?;
         cancel.check()?;
-        // 数据库先落盘，配置最后出现；失败时仅移除本次创建的目标，源文件始终保留。
+        // 数据库先落盘，配置最后出现；失败时仅移除本次创建的目标，源 TOML 与数据库保留。
         if let Some(staged) = staged_database {
             staged.persist_noclobber(self.database_path())?;
         }

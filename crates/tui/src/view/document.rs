@@ -30,7 +30,8 @@ pub(super) fn render(
             ])
             .split(rows[1]);
             for (index, pair) in images.pairs.iter().enumerate() {
-                let columns = if area.width >= 100 {
+                let columns = // 高度不足以叠放两个版本时仍左右排列，给像素内容保留有效区域。
+                if area.width >= 100 || pairs[index].height < 10 {
                     Layout::horizontal([Constraint::Percentage(50), Constraint::Percentage(50)])
                         .split(pairs[index])
                 } else {

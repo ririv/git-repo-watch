@@ -101,11 +101,10 @@ impl Screen {
                     s.query = query;
                     s.cursor = 0
                 }
-                Mode::Diff { session, .. } if session.query != query => {
-                    let mut session = session.clone();
-                    session.query = query;
-                    session.cursor = 0;
-                    self.mode = Mode::Files(session)
+                Mode::Changes(session) if session.files.query != query => {
+                    session.files.query = query;
+                    session.files.cursor = 0;
+                    session.focus = crate::changes::Focus::Files;
                 }
                 Mode::Browsing if self.query != query => {
                     self.query = query;
@@ -133,7 +132,7 @@ impl Screen {
                 | Mode::Panel(_)
                 | Mode::Branches(_)
                 | Mode::Files(_)
-                | Mode::Diff { .. }
+                | Mode::Changes(_)
                 | Mode::History(_)
         ) {
             return Ok(BarEvent::Pass);
@@ -217,7 +216,9 @@ impl Screen {
                             Err(error) => self.message = format!("{error:#}"),
                         }
                     } else if let Some(command) = matches.get(*selected) {
-                        if command.action.argument().is_some() {
+                        if command.action.argument().is_some()
+                            || command.action == Action::DiffLayoutMenu
+                        {
                             *editor = Editor::new(command.completion());
                             *selected = 0;
                             self.message.clear();
@@ -284,8 +285,13 @@ impl Screen {
                     self.activate(Action::Refresh, self.scope_path(), root)?;
                     return Ok(BarEvent::Handled);
                 }
-                KeyCode::Char('a') if matches!(self.mode, Mode::Files(_)) => {
-                    if let Mode::Files(s) = &mut self.mode {
+                KeyCode::Char('a') if matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) => {
+                    let files = match &mut self.mode {
+                        Mode::Files(files) => Some(files),
+                        Mode::Changes(session) => Some(&mut session.files),
+                        _ => None,
+                    };
+                    if let Some(s) = files {
                         let indices = s
                             .rows()
                             .iter()
@@ -306,14 +312,16 @@ impl Screen {
         }
         if key.code == KeyCode::Char(' ')
             && self.bar.editor().text.is_empty()
-            && matches!(self.mode, Mode::Files(_))
+            && matches!(self.mode, Mode::Files(_) | Mode::Changes(_))
         {
             return Ok(BarEvent::Pass);
         }
         // 空搜索栏把无修饰的左右键交给页面导航；有文字时仍移动输入光标。
         if self.bar.editor().text.is_empty()
-            && (matches!(self.mode, Mode::History(_) | Mode::Branches(_))
-                || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
+            && (matches!(
+                self.mode,
+                Mode::History(_) | Mode::Branches(_) | Mode::Changes(_) | Mode::Files(_)
+            ) || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
             && matches!(key.code, KeyCode::Home | KeyCode::End)
         {
             return Ok(BarEvent::Pass);
@@ -364,9 +372,13 @@ impl Screen {
             }
             Mode::Branches(view) => view.search(String::new()),
             Mode::History(view) => view.clear_search(),
-            Mode::Files(s) | Mode::Diff { session: s, .. } => {
+            Mode::Files(s) => {
                 s.query.clear();
                 s.cursor = 0;
+            }
+            Mode::Changes(session) => {
+                session.files.query.clear();
+                session.files.cursor = 0;
             }
             _ => {
                 self.query.clear();

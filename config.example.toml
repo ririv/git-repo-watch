@@ -1,0 +1,17 @@
+# 定时检查间隔，单位为秒；21600 秒为 6 小时。
+interval_seconds = 21600
+
+# 显式注册的仓库绝对路径，可用多行数组填写。
+repositories = []
+
+# 扫描时排除的目录绝对路径。
+excluded_roots = []
+
+# 定时任务的自动推送策略：disabled 或 fast_forward。
+push_policy = "disabled"
+
+# 多仓库检查与写操作共用的并发上限，范围为 1 至 32。
+max_concurrency = 4
+
+# 启动 TUI 时是否在后台检查全部仓库。
+check_on_startup = true

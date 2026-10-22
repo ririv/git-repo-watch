@@ -159,7 +159,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
                 .collect();
             assert!(colors.len() >= 3);
         }
-        command(&mut s, "diff unified");
+        command(&mut s, "diff layout unified");
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
         command(&mut s, "diff");
         wait(&mut s);

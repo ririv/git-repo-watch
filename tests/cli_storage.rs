@@ -91,3 +91,50 @@ fn malformed_legacy_data_stays_available_and_does_not_become_an_empty_report() {
     assert_eq!(fs::read(&path).unwrap(), b"broken JSON");
     assert!(!store.state_dir().join("legacy-json").exists());
 }
+
+#[test]
+fn configuration_conversion_is_explicit_preserves_json_output_and_does_not_create_a_database() {
+    let (_home, store) = fixture();
+    let before = cli(&store, &["config"]);
+    assert!(before.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&before.stdout).unwrap();
+    fs::write(
+        store.legacy_config_path(),
+        serde_json::to_vec_pretty(&value).unwrap(),
+    )
+    .unwrap();
+    fs::remove_file(store.config_path()).unwrap();
+    let blocked = cli(&store, &["config"]);
+    assert_eq!(blocked.status.code(), Some(2));
+    assert!(String::from_utf8_lossy(&blocked.stderr).contains("migrate config"));
+    for expected in ["converted", "ready"] {
+        let output = cli(&store, &["migrate", "config"]);
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap()["status"],
+            expected
+        );
+        assert!(!store.database_path().exists());
+        assert!(!store.legacy_config_path().exists());
+        let after = cli(&store, &["config"]);
+        assert!(after.status.success());
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&after.stdout).unwrap(),
+            value
+        );
+    }
+    let original = fs::read(store.config_path()).unwrap();
+    let mut conflicting = value;
+    conflicting["interval_seconds"] = 43200.into();
+    let json = serde_json::to_vec(&conflicting).unwrap();
+    fs::write(store.legacy_config_path(), &json).unwrap();
+    let rejected = cli(&store, &["migrate", "config"]);
+    assert_eq!(rejected.status.code(), Some(2));
+    assert_eq!(fs::read(store.config_path()).unwrap(), original);
+    assert_eq!(fs::read(store.legacy_config_path()).unwrap(), json);
+    assert!(!store.database_path().exists());
+}

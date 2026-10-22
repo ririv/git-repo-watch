@@ -55,7 +55,7 @@ pub fn task_marker(store: &Store, binary: &Path) -> String {
     use std::os::unix::ffi::OsStrExt;
     let mut paths = Vec::new();
     for path in [
-        store.config_path(),
+        store.config_dir(),
         store.state_dir(),
         store.log_dir(),
         binary.to_owned(),

@@ -563,3 +563,41 @@ fn transferring_requires_an_idle_source_and_cancellation_preserves_existing_file
     assert!(destination.config_path().exists());
     assert!(!destination.database_path().exists());
 }
+
+#[test]
+fn transferring_a_json_profile_converts_configuration_and_preserves_its_database() {
+    let (_temp, source) = fixture();
+    let config = engine::state::Config {
+        repositories: vec!["/example/中文 空格".into()],
+        max_concurrency: 8,
+        check_on_startup: false,
+        ..engine::state::Config::default()
+    };
+    fs::write(
+        source.legacy_config_path(),
+        serde_json::to_vec(&config).unwrap(),
+    )
+    .unwrap();
+    let report = report(Path::new("/example/中文 空格"), 0, false);
+    source.save_report(&report).unwrap();
+    let destination_home = tempfile::tempdir().unwrap();
+    let destination = Store::custom(destination_home.path().to_owned());
+    assert!(matches!(
+        destination
+            .migrate_from(&source, &Cancel::default())
+            .unwrap(),
+        engine::state::Transfer::Database { .. }
+    ));
+    assert!(!source.legacy_config_path().exists());
+    assert!(!destination.legacy_config_path().exists());
+    assert_eq!(source.config().unwrap(), config);
+    assert_eq!(destination.config().unwrap(), config);
+    assert_eq!(
+        fs::read(source.config_path()).unwrap(),
+        fs::read(destination.config_path()).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(source.report().unwrap()).unwrap(),
+        serde_json::to_value(destination.report().unwrap()).unwrap()
+    );
+}

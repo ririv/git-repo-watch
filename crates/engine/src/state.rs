@@ -1,11 +1,12 @@
 //! Private, atomic persistence and cross-process coordination.
+mod configuration;
 mod database;
+pub use configuration::{Config, ConfigurationMigration};
 mod operation;
-use crate::{cancel::Cancel, domain::PushPolicy};
+use crate::cancel::Cancel;
 use anyhow::{Context, Result, ensure};
 pub use database::{Migration, Transfer};
 pub use operation::{Completion, Operation, OperationOrigin, OperationRecord, StoredOperation};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     fs::{self, File, OpenOptions},
     io::Write,
@@ -16,74 +17,6 @@ use std::{
     path::{Path, PathBuf},
 };
 
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            interval_seconds: 21600,
-            repositories: vec![],
-            excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
-            max_concurrency: 4,
-            check_on_startup: true,
-        }
-    }
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Config {
-    pub interval_seconds: u64,
-    pub repositories: Vec<PathBuf>,
-    pub excluded_roots: Vec<PathBuf>,
-    pub push_policy: PushPolicy,
-    #[serde(
-        default = "default_concurrency",
-        skip_serializing_if = "is_default_concurrency"
-    )]
-    pub max_concurrency: usize,
-    #[serde(default = "default_startup_check")]
-    pub check_on_startup: bool,
-}
-fn default_startup_check() -> bool {
-    true
-}
-fn default_concurrency() -> usize {
-    4
-}
-fn is_default_concurrency(value: &usize) -> bool {
-    *value == 4
-}
-impl Config {
-    pub fn validate(&self) -> Result<()> {
-        ensure!(
-            self.interval_seconds >= 60,
-            i18n::tr!(CheckIntervalMustBeAtLeast60)
-        );
-        ensure!(
-            (1..=32).contains(&self.max_concurrency),
-            i18n::tr!(ConcurrencyMustBeBetween1And32)
-        );
-        for paths in [&self.repositories, &self.excluded_roots] {
-            let mut seen = std::collections::HashSet::new();
-            for p in paths {
-                ensure!(
-                    p.is_absolute()
-                        && p.components().all(|c| !matches!(
-                            c,
-                            std::path::Component::ParentDir | std::path::Component::CurDir
-                        )),
-                    i18n::tf!(PathMustBeANormalizedAbsolutePath, p.display())
-                );
-                ensure!(seen.insert(p), i18n::tf!(DuplicatePath, p.display()));
-            }
-        }
-        for p in &self.repositories {
-            ensure!(
-                !self.excluded_roots.iter().any(|x| p.starts_with(x)),
-                i18n::tf!(RepositoryIsUnderAnExcludedDirectory, p.display())
-            )
-        }
-        Ok(())
-    }
-}
 #[derive(Debug, Clone)]
 pub enum Store {
     Standard {
@@ -106,7 +39,7 @@ impl Store {
         }
     }
     pub fn config_path(&self) -> PathBuf {
-        self.config_dir().join("config.json")
+        self.config_dir().join("config.toml")
     }
     pub fn state_dir(&self) -> PathBuf {
         match self {
@@ -122,6 +55,10 @@ impl Store {
     }
     pub fn initialize(&self) -> Result<()> {
         let _lock = self.lock()?;
+        ensure!(
+            !self.legacy_config_path().try_exists()?,
+            i18n::tr!(ConfigurationMigrationRequired)
+        );
         let path = self.config_path();
         let directory = self.config_dir();
         fs::create_dir_all(&directory)?;
@@ -132,32 +69,18 @@ impl Store {
         temporary
             .as_file()
             .set_permissions(fs::Permissions::from_mode(0o600))?;
-        let mut data = serde_json::to_vec_pretty(&Config::default())?;
-        data.push(b'\n');
-        temporary.write_all(&data)?;
+        let data = configuration::encode(&Config::default(), None)?;
+        temporary.write_all(data.as_bytes())?;
         temporary.as_file().sync_all()?;
         temporary.persist_noclobber(path)?;
         File::open(directory)?.sync_all()?;
         Ok(())
     }
-    pub fn config(&self) -> Result<Config> {
-        ensure!(
-            self.config_path().try_exists()?,
-            i18n::tr!(ConfigurationMissingRunInit)
-        );
-        let c: Config = read_json(&self.config_path())?;
-        c.validate()?;
-        Ok(c)
-    }
-    pub fn save_config(&self, c: &Config) -> Result<()> {
-        c.validate()?;
-        write_json(&self.config_path(), c)
-    }
     pub fn lock(&self) -> Result<Lock> {
         self.prepare_state()?;
         Lock::acquire(&self.state_dir().join("check.lock"))
     }
-    /// Acquire the short-lived JSON configuration transaction lock.
+    /// Acquire the short-lived configuration transaction lock.
     pub fn transaction(&self, cancel: &Cancel) -> Result<Lock> {
         self.prepare_state()?;
         Lock::wait(&self.state_dir().join("check.lock"), cancel)
@@ -278,15 +201,6 @@ pub fn atomic(path: &Path, data: &[u8], mode: u32) -> Result<()> {
     tmp.persist(path).map_err(|e| e.error)?;
     File::open(parent)?.sync_all()?;
     Ok(())
-}
-pub fn write_json(path: &Path, value: &impl Serialize) -> Result<()> {
-    let mut data = serde_json::to_vec_pretty(value)?;
-    data.push(b'\n');
-    atomic(path, &data, 0o600)
-}
-pub fn read_json<T: DeserializeOwned>(path: &Path) -> Result<T> {
-    serde_json::from_slice(&fs::read(path).with_context(|| i18n::tf!(CannotRead, path.display()))?)
-        .context(i18n::tr!(InvalidJson))
 }
 pub fn canonical(path: &Path) -> Result<PathBuf> {
     if path.try_exists()? {

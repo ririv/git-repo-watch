@@ -12,19 +12,19 @@
 ./build.sh
 ./gw init
 ./gw paths
-# 按下方说明编辑输出位置中的 config.json，再配置仓库。
+# 按下方说明编辑输出位置中的 config.toml，再配置仓库。
 ./install.sh
 ```
 
 macOS 安装位置：
 
 - `~/.local/bin/gw`：原生可执行文件。
-- `~/Library/Application Support/gw/config.json`：用户配置。
+- `~/Library/Application Support/gw/config.toml`：用户配置。
 - `~/Library/Application Support/gw/state.sqlite3`：仓库状态、报告和操作记录。
 - `~/Library/Logs/gw/`：定时任务输出。
 - `~/Library/LaunchAgents/local.git-repo-watch.plist`：用户级 launchd 系统任务。
 
-升级前先退出旧版 `gw`，并确保旧版定时检查已结束；`install.sh` 构建后校验所选用户配置，再迁移该目录中的旧 JSON 状态并安装任务。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`，默认同样读取用户目录，与当前工作目录和源码位置无关。安装核验可执行文件中的产品标识和任务文件中的存储标识，原子替换可执行文件，并应用配置中的检查间隔。不再读取或生成 `location.json`。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
+升级前先退出旧版 `gw`，并确保旧版定时检查已结束；首次从 JSON 配置升级须先按下方迁移说明用旧版命令卸载任务。`install.sh` 构建后显式转换旧配置并校验 TOML，再迁移该目录中的旧 JSON 状态并安装任务。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`，默认同样读取用户目录，与当前工作目录和源码位置无关。安装核验可执行文件中的产品标识和任务文件中的存储标识，原子替换可执行文件，并应用配置中的检查间隔。不再读取或生成 `location.json`。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
 
 ```sh
 ./build.sh          # 构建到 dist/gw，不安装或检查
@@ -41,7 +41,7 @@ sudo apt-get install build-essential pkg-config git openssh-client libnotify-bin
 Linux 安装位置：
 
 - `~/.local/bin/gw`：原生可执行文件。
-- `$XDG_CONFIG_HOME/gw/config.json`：用户配置，未设置时使用 `~/.config/gw/config.json`。
+- `$XDG_CONFIG_HOME/gw/config.toml`：用户配置，未设置时使用 `~/.config/gw/config.toml`。
 - `$XDG_STATE_HOME/gw/state.sqlite3`：状态与历史，未设置时使用 `~/.local/state/gw/state.sqlite3`。
 - `$XDG_CONFIG_HOME/systemd/user/local.git-repo-watch.service`、`.timer`：用户任务，未设置时使用 `~/.config/systemd/user/`。
 
@@ -69,17 +69,17 @@ APP_LANG=en gw status   # 本次以英文查询
 
 ## 配置
 
-默认配置保存在上方系统用户目录中的 `config.json`。`gw init` 显式创建空仓库列表和默认设置；已有文件时拒绝覆盖，普通查询不会创建配置。`gw paths` 显示本次命令实际使用的配置、数据库与日志路径：
+默认配置保存在上方系统用户目录中的 `config.toml`。`gw init` 显式创建带中文说明的 TOML 配置、空仓库列表和默认设置；已有文件时拒绝覆盖，普通查询不会创建配置。程序修改设置时保留注释、未变更字段的原有写法和保留路径的数组内容；配置语法、未知字段或类型错误会直接报错，不重建文件。`gw config` 继续输出 JSON，机器输出与文件格式各自独立。`gw paths` 显示本次命令实际使用的配置、数据库与日志路径。配置示例：
 
-```json
-{
-  "interval_seconds": 21600,
-  "repositories": [],
-  "excluded_roots": [],
-  "push_policy": "disabled",
-  "max_concurrency": 4,
-  "check_on_startup": true
-}
+```toml
+interval_seconds = 21600
+repositories = [
+    "/absolute/path/to/repository",
+]
+excluded_roots = []
+push_policy = "disabled"
+max_concurrency = 4
+check_on_startup = true
 ```
 
 仓库与排除目录以规范绝对路径保存，路径参数可使用 `~` 或 `~/…` 表示当前用户主目录。仓库列表显式维护，检查不会重新扫描发现目录。已排除目录下的仓库不能注册。
@@ -117,7 +117,7 @@ gw install
 
 `/branch` 打开分支列表：在仓库列表中执行时独立显示，在仓库界面内执行时聚焦分支面板。支持按名称搜索，`Tab` / `Shift+Tab` 在全部、本地、远程筛选间切换，`Enter` 查看完整引用、提交 ID、作者、时间和上游详情。当前分支标记 `*`，领先／落后数量基于本地引用，不发起 fetch。无上游、上游引用缺失和配置错误分别建模；远程 `HEAD` 符号别名不重复展示。读取保留工作区、索引、HEAD、引用和报告；不执行分支切换、新建或删除。详情中的提交标题和作者最多展示 200 个字符，与历史列表相同。
 
-工作区直接使用现有文件面板，支持暂存区切换、勾选、diff、暂存与取消暂存；提交历史直接使用现有像素历史图、提交详情与历史 diff。概览不重复列出文件或最近提交。原有 `/stage`、`/unstage`、`/log`、`/commit`、`/push`、`/terminal` 命令继续保留，文件面板中的 `Tab` 仍切换工作区与暂存区，历史中的 `Tab` 仍定位下个匹配或切换合并父提交。
+工作区使用共享文件面板，同时展示已暂存和未暂存分组，支持勾选、差异、暂存与取消暂存；提交历史使用像素历史图、提交详情与历史 diff。概览不重复列出文件或最近提交。`/diff` 进入统一变更界面，暂存操作与布局配置分别收在 `/diff stage`、`/diff unstage` 和 `/diff layout …`；`/log`、`/commit`、`/push`、`/terminal` 仍使用各自的明确入口。仓库首页文件面板的 `Tab` 定位另一分组，变更界面的 `Tab` 切换文件／预览焦点；历史中的 `Tab` 定位下个匹配或切换合并父提交。
 
 - 底部输入框常驻，以边框、光标和弱化的占位提示区分可编辑区域；直接输入搜索仓库；文件面板中搜索文件。
 - 输入 `/` 显示输入框上方的全宽命令面板，最多显示 8 条候选；高度不足时减少可见条数，其余通过方向键滚动。列表和输入框位置保持稳定。
@@ -144,9 +144,9 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 | 命令 | 行为 |
 | --- | --- |
 | `/log` | 打开当前仓库的提交历史图；`/log more` 加载下一页 |
-| `/stage` | 打开工作区文件面板；在工作区中暂存所选文件 |
-| `/unstage` | 打开暂存区文件面板；在暂存区中取消暂存所选文件 |
-| `/diff` | 查看文件面板光标项的差异；子命令 `auto`、`split`、`unified` 切换布局 |
+| `/diff` | 打开统一文件变更界面，选择文件后自动预览差异 |
+| `/diff stage`、`/diff unstage` | 暂存或取消暂存明确选中／勾选的文件 |
+| `/diff layout auto\|split\|unified` | 选择自动、双栏或统一差异布局 |
 | `/commit` | 预览暂存内容、输入提交说明，确认后提交 |
 | `/push` | 获取当前分支对应远程，核对上游，确认后推送 |
 | `/check` | 立即在后台检查当前选中仓库，不推送 |
@@ -158,7 +158,7 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
-根命令候选只显示顶层入口，不平铺子配置；选中候选后按 Enter 直接进入，Tab 只补全命令名称。输入 `/schedule `、`/settings `、`/repo ` 或 `/check ` 后显示对应的下一层候选。例如 `/schedule interval` 修改执行间隔，`/repo remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
+根命令候选只显示顶层入口，不平铺子配置；选中候选后按 Enter 直接进入，Tab 只补全命令名称。输入 `/diff `、`/diff layout `、`/schedule `、`/settings `、`/repo ` 或 `/check ` 后显示对应的下一层候选。选中 `/diff layout` 后按 Enter 会展开布局候选，不执行操作。例如 `/schedule interval` 修改执行间隔，`/repo remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
 
 带参数的命令直接在常驻输入栏填写，不打开独立表单：
 
@@ -178,7 +178,9 @@ TUI 和原生命令行的路径参数（包括 `--home`）均显式支持 `~` �
 
 启用任务会安装或更新本机命令和系统任务，首轮仍等待配置间隔。停用仅停止后续调度，保留任务定义、配置、报告和命令；macOS 同时保存 launchd 的禁用覆盖项，避免下次登录后自动恢复；Linux 使用 `systemctl --user disable --now` 停用 timer。原生 CLI 也提供 `gw schedule enable`、`gw schedule disable`、`gw schedule apply`，它们与 TUI 使用相同的服务入口、归属校验和进程锁。调度配置使用独立的配置锁；保存新配置不等待正在执行的 Git 操作，已开始的检查继续使用启动时的配置快照。
 
-文件面板使用空输入时的 `Space` 或任意输入时的 `Insert` 勾选，`Ctrl+A` 全选或清空当前可见项，`Tab` 切换区域，`Enter` 查看 diff。普通文字按文件路径筛选，清除筛选后仍保留已勾选文件；操作作用于全部勾选项，没有勾选时作用于光标文件。暂存与取消暂存直接作用于显式选择的文件，取消暂存保留磁盘内容。同一文件的暂存和未暂存部分分开展示，Git 忽略的文件不列出。
+`/diff` 使用统一变更界面，文件列表同时显示未暂存与已暂存两组；选中文件后在后台读取对应文本或图片预览。宽屏左侧为文件、右侧为差异，窄屏上下排列，两个分组标题保持可见。`Tab` 或 `Ctrl+S/D` 切换文件／预览焦点，`Enter`／空输入时的 `→` 聚焦预览；`Ctrl+F` 放大当前面板。`Esc` 先清空输入、恢复放大布局、返回文件焦点，再返回进入前的仓库面板或列表。仓库首页保留四个面板，文件面板复用相同分组与选择模型。
+
+文件面板使用空输入时的 `Space` 或任意输入时的 `Insert` 勾选，`Ctrl+A` 全选或清空当前可见项。普通文字按文件路径筛选，清除筛选后仍保留已勾选文件；操作作用于全部勾选项，没有勾选时作用于光标文件。`/diff stage`／`Alt+S` 暂存文件，`/diff unstage`／`Alt+U` 取消暂存；命令不再兼任打开界面。暂存仅接受未暂存项，取消暂存仅接受已暂存项，跨组勾选会明确报错，不隐式忽略不匹配的文件。取消暂存保留磁盘内容。操作后保留文件位置、焦点、搜索和新命令草稿，只刷新当前仓库。同一文件的暂存和未暂存部分分开展示，Git 忽略的文件不列出。
 
 文件名采用字面路径，支持空格、中文、换行和路径模式字符。未跟踪符号链接只显示链接目标；未跟踪大文件和过大的 diff 有明确显示限制。Git LFS、自定义外部 filter 和 `working-tree-encoding` 尚未注册到本地索引后端，涉及这些转换的暂存会明确拒绝，避免把未经转换的内容写入索引；需要使用 Git 显式处理。提交与推送仍走系统 Git，相关钩子正常执行。
 
@@ -192,7 +194,7 @@ Diff 同时显示代码语法颜色和增删背景：新增行浅绿底、删除
 
 差异默认使用自动布局：内容区域至少 140 列、扣除行号后每侧代码区域至少 60 列时，显示左右对比；其余使用统一视图。左侧为旧版，右侧为新版，固定栏头标明 HEAD／暂存区或暂存区／工作区。修改块按顺序配对新增与删除行，缺少的一侧留空，长行按字符簇换行并补齐两边高度；同一滚动位置控制两侧。文件头和区块标题共用全宽行，不重复显示。缩放或切换布局时使用逻辑行与源码字节位置重新定位，重复缩放不会逐步漂移。
 
-`/diff auto`、`/diff split`、`/diff unified` 支持 Tab 补全，立即切换当前视图，也应用于随后打开的文件；偏好仅在本次 TUI 会话保留，不修改配置或报告。切换不重新读取 Git、不重新高亮，也不需要确认。手动选择双栏后即使宽度不足自动阈值仍保持双栏；小到无法容纳行号及代码时明确提示扩大窗口或改回自动模式，并保留当前阅读位置。
+`/diff layout auto`、`/diff layout split`、`/diff layout unified` 支持 Tab 补全，立即切换当前视图，也应用于随后打开的文件；偏好仅在本次 TUI 会话保留，不修改配置或报告。切换不重新读取 Git、不重新高亮，也不需要确认。手动选择双栏后即使宽度不足自动阈值仍保持双栏；小到无法容纳行号及代码时明确提示扩大窗口或改回自动模式，并保留当前阅读位置。
 
 提交只使用已经预览的暂存内容，不自动添加文件或推送，支持首次提交。推送只发布当前分支，独立于自动推送开关。没有上游、落后或分叉时明确报错，不自动配置、拉取、合并或强推。提交和推送统一通过 `/commit`、`/push` 进入。
 
@@ -200,7 +202,7 @@ Diff 同时显示代码语法颜色和增删背景：新增行浅绿底、删除
 
 ### 图片预览
 
-在工作区、暂存区或提交历史的文件列表中，选中图片按 `Enter` 查看前后版本。支持 PNG、JPEG、WebP，按文件内容识别，不依赖扩展名；WebP 动画只显示解码器返回的首帧。宽窗口左右对照，窄窗口上下排列；新增与删除明确标出不存在的一侧。图片按方向信息校正后等比适应面板，透明部分显示棋盘背景；窗口缩放会重新准备显示尺寸，解码只进行一次。`Esc` 返回文件列表，搜索和命令继续使用原来的输入框。
+在 `/diff` 中选中图片即预览前后版本；仓库首页文件面板和提交历史详情仍使用 `Enter` 进入预览。支持 PNG、JPEG、WebP，按文件内容识别，不依赖扩展名；WebP 动画只显示解码器返回的首帧。宽窗口左右对照，窄窗口且高度足够时上下排列，较矮面板保留左右对照；新增与删除明确标出不存在的一侧。图片按方向信息校正后等比适应面板，透明部分显示棋盘背景；窗口缩放会重新准备显示尺寸，解码只进行一次。`Esc` 返回文件列表，搜索和命令继续使用原来的输入框。
 
 工作区对比暂存区与磁盘文件，暂存区对比 HEAD 与索引；历史对比读取父提交和当前提交的 Git 对象，不读取工作区或索引来代替历史图片。读取、解码和像素编码都在后台执行。复用历史图的 Kitty、iTerm2、Sixel 终端像素通道；终端不支持像素或图片损坏时明确报告，不切换为字符图。返回列表或关闭预览时清理已上传的图片。
 
@@ -288,7 +290,7 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 
 `status` 和 `report` 只读取已有配置和结果。`gw check [路径]` 是手动检查入口，不执行推送。系统调度使用独立的 `gw scheduled-check` 入口，才应用自动推送配置。退出码：0 成功且检查正常，1 存在需关注结果、扫描失败项或暂无报告，2 参数或执行错误，130 取消。
 
-默认使用系统用户目录。可通过 `gw --home /absolute/path ...` 显式选择独立数据集，继续使用 `/absolute/path/config.json` 与 `/absolute/path/var/state.sqlite3` 布局；`./gw`、安装和卸载脚本同样接受 `--home`。没有 `--home` 时只使用平台标准目录，不搜索当前项目、不读取旧定位文件。任意目录运行、移动源码或清理构建目录均不影响已安装命令的数据定位。
+默认使用系统用户目录。可通过 `gw --home /absolute/path ...` 显式选择独立数据集，继续使用 `/absolute/path/config.toml` 与 `/absolute/path/var/state.sqlite3` 布局；`./gw`、安装和卸载脚本同样接受 `--home`。没有 `--home` 时只使用平台标准目录，不搜索当前项目、不读取旧定位文件。任意目录运行、移动源码或清理构建目录均不影响已安装命令的数据定位。
 
 所选状态目录内的文件：
 
@@ -302,6 +304,26 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 - `operation-slots/`：跨进程并发槽位。文件锁均由文件描述符持有，不通过删除文件解锁。
 
 macOS 任务日志保存在 `~/Library/Logs/gw/`；Linux 任务输出保存在用户 journal。显式 `--home` 的 macOS 日志继续位于该目录的 `var/`。
+
+旧 `config.json` 通过显式命令转换，正常查询不会回读 JSON：
+
+```sh
+gw migrate config
+# --home 选择的配置也使用相同规则：
+gw --home /absolute/path/to/profile migrate config
+```
+
+转换会完整解析并校验旧配置，写入并校验 `config.toml` 后删除旧 JSON，不额外留下备份。两种配置同时存在且语义一致时可继续完成中断的删除步骤；冲突、语法损坏或迁移期间旧文件变化时明确报错，不覆盖文件。`gw migrate` 会先完成配置转换再处理旧报告，安装脚本也先显式转换配置。转换前须退出旧版程序并停掉旧任务；更换配置格式后重新安装任务以更新其归属标识。数据库和六小时间隔不受配置格式转换影响。
+
+从 JSON 版本升级已安装的任务时，退出 TUI 后先用仍在安装目录中的旧版命令移除任务，再运行新版本安装脚本。任务归属改为按配置目录标识，不再绑定配置文件扩展名；转换本身只处理配置，安装脚本负责重新创建任务：
+
+```sh
+~/.local/bin/gw uninstall
+./install.sh
+# 独立数据集在两个命令中都显式指定相同的 --home：
+# ~/.local/bin/gw --home /absolute/path/to/profile uninstall
+# ./install.sh --home /absolute/path/to/profile
+```
 
 SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并行，多个写入者通过短事务串行分配版本；每次存储调用独立连接数据库。单仓库更新不读改写其他仓库的记录，也不覆盖完整批次。历史按仓库和版本查询；整轮报告、扫描与操作记录追加保存，目前不自动清理。`gw report --json` 保留 v3 JSON 输出格式，存储格式与公开输出各自演进。
 
@@ -387,7 +409,10 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 | `crates/tui/src/history/`、`view/history/` | 图会话、后台读取工作流、历史详情与差异导航 |
 | `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
 | `crates/engine/src/directories.rs` | 平台标准目录与 XDG 环境解析 |
-| `crates/engine/src/state.rs` | 显式存储布局、JSON 配置、文件权限与进程锁 |
+| `crates/engine/src/state.rs` | 显式存储布局、文件权限与进程锁 |
+| `crates/tui/src/changes/` | 统一变更会话、可取消且合并请求的差异预览 |
+| `crates/tui/src/files.rs` | 已暂存／未暂存文件身份、勾选与刷新定位 |
+| `crates/engine/src/state/configuration.rs` | TOML 类型校验、保留注释的配置编辑与显式 JSON 迁移 |
 | `crates/engine/src/state/database/` | SQLite 短事务、逐仓库读写、历史记录、旧 JSON 与显式目录迁移 |
 | `crates/engine/src/state/operation.rs` | 持久化后端无关的操作结果与来源枚举 |
 | `crates/engine/src/scheduler/`、`notify/`、`terminal/` | 各平台调度、桌面通知与终端启动 |
@@ -396,7 +421,7 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 | `crates/tui/src/diff/` | 逻辑行高亮缓存、统一／双栏排版、字符簇换行和阅读位置映射 |
 | `src/cli.rs`、`src/main.rs` | CLI 适配和程序入口 |
 
-依赖版本统一放在根目录的 `[workspace.dependencies]`；每个 crate 显式声明自己使用的依赖。互斥状态使用枚举表达，JSON 配置、公开报告和 SQLite 存储版本是明确的数据边界。
+依赖版本统一放在根目录的 `[workspace.dependencies]`；每个 crate 显式声明自己使用的依赖。互斥状态使用枚举表达，TOML 配置、公开报告和 SQLite 存储版本是明确的数据边界。
 
 ## 程序标识与更名
 

@@ -29,13 +29,13 @@ fn empty_input_file_arrows_open_diff_and_return_through_the_same_file_session() 
     support::write(f.repo.join("navigation-file"), "navigation content");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Right);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     key(&mut s, KeyCode::Char(' '));
     key(&mut s, KeyCode::Right);
     wait(&mut s);
-    assert!(matches!(&s.mode, Mode::Diff { .. }));
+    assert!(matches!(&s.mode, Mode::Changes(_)));
     assert!(render(&mut s, 100, 28).contains("navigation content"));
     key(&mut s, KeyCode::Left);
     assert!(

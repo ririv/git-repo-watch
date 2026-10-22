@@ -30,10 +30,10 @@ fn slow_commit_keeps_navigation_commands_and_other_repository_operations_availab
     assert_eq!(s.page, Page::Help);
     key(&mut s, KeyCode::Esc);
     s.focus(Some(second.repo.clone()));
-    command(&mut s, "stage");
+    open_files(&mut s);
     poll_background_until(&mut s, |s| !s.repository_tasks.contains_key(&second.repo));
     assert!(matches!(&s.mode, Mode::Files(session) if session.snapshot.path == second.repo));
-    command(&mut s, "stage");
+    command(&mut s, "diff stage");
     poll_background_until(&mut s, |s| !s.repository_tasks.contains_key(&second.repo));
     assert_eq!(
         support::git(&second.repo, &["diff", "--cached", "--name-only"]),
@@ -170,10 +170,7 @@ fn task_completion_preserves_a_new_command_draft_and_errors_belong_to_the_origin
         Effect::ReadOnly,
         move |service, cancel, _| {
             gate.recv_timeout(Duration::from_secs(8)).unwrap();
-            Ok(Outcome::Files(
-                service.files(&f.repo, &cancel)?,
-                FileArea::Worktree,
-            ))
+            Ok(Outcome::Files(service.files(&f.repo, &cancel)?))
         },
     );
     s.paste("/settings con");

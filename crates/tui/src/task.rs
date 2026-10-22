@@ -110,24 +110,34 @@ impl Screen {
                 self.mode = origin;
                 self.message = i18n::tf!(RepositoryTerminalOpened, path.display());
             }
-            Outcome::Files(snapshot, area) => {
-                let next = match origin.file_session() {
-                    Some(current)
-                        if current.snapshot.path == snapshot.path && current.area == area =>
-                    {
-                        current.refreshed(snapshot)
-                    }
-                    _ => FileSession::new(snapshot, area),
-                };
-                self.workspace.save(origin);
-                self.mode = Mode::Files(next)
-            }
-            Outcome::Diff(session, content) => {
-                self.mode = Mode::Diff {
-                    session,
-                    content,
-                    scroll: 0,
+            Outcome::Files(snapshot) => match origin {
+                Mode::Changes(mut session) => {
+                    session.refreshed(snapshot);
+                    self.mode = Mode::Changes(session);
+                    self.poll_changes();
                 }
+                origin => {
+                    let next = match origin.file_session() {
+                        Some(current) if current.snapshot.path == snapshot.path => {
+                            current.refreshed(snapshot)
+                        }
+                        _ => FileSession::new(snapshot),
+                    };
+                    self.workspace.save(origin);
+                    self.mode = Mode::Files(next);
+                }
+            },
+            Outcome::Changes(snapshot) => {
+                self.workspace.save(origin);
+                self.mode = Mode::Changes(Box::new(changes::Session::new(
+                    FileSession::new(snapshot),
+                    if self.page == Page::Detail {
+                        changes::ReturnTo::Files
+                    } else {
+                        changes::ReturnTo::Repositories
+                    },
+                )));
+                self.poll_changes();
             }
             Outcome::CommitPrepared(plan) => {
                 self.workspace.save(origin);

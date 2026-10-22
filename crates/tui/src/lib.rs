@@ -1,12 +1,14 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
 mod bar;
 mod branches;
+mod changes;
 mod checks;
 mod command;
 mod confirmation;
 mod diff;
 mod document;
 mod editor;
+mod files;
 mod graphics;
 mod history;
 mod input;
@@ -37,9 +39,10 @@ use engine::{
     service::{self, Service, Snapshot},
     state::Config,
 };
+use files::FileSession;
 use ratatui::{Terminal, backend::CrosstermBackend};
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     io::{self, IsTerminal},
     path::PathBuf,
     sync::{Arc, mpsc},
@@ -58,106 +61,6 @@ enum Order {
     Priority,
     Path,
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum FileArea {
-    Worktree,
-    Index,
-}
-#[derive(Debug, Clone)]
-struct FileSession {
-    snapshot: Files,
-    area: FileArea,
-    cursor: usize,
-    selected: BTreeSet<usize>,
-    query: String,
-}
-impl FileSession {
-    fn new(snapshot: Files, area: FileArea) -> Self {
-        Self {
-            snapshot,
-            area,
-            cursor: 0,
-            selected: BTreeSet::new(),
-            query: String::new(),
-        }
-    }
-    fn refreshed(&self, snapshot: Files) -> Self {
-        let current = self
-            .rows()
-            .get(self.cursor)
-            .map(|change| change.location.clone());
-        let selected = self
-            .snapshot
-            .changes
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| self.selected.contains(index))
-            .map(|(_, change)| (change.area, change.location.clone()))
-            .collect::<Vec<_>>();
-        let mut next = Self::new(snapshot, self.area);
-        next.query = self.query.clone();
-        next.selected = next
-            .snapshot
-            .changes
-            .iter()
-            .enumerate()
-            .filter(|(_, change)| {
-                selected
-                    .iter()
-                    .any(|(area, location)| *area == change.area && *location == change.location)
-            })
-            .map(|(index, _)| index)
-            .collect();
-        next.cursor = current
-            .and_then(|location| {
-                next.rows()
-                    .iter()
-                    .position(|change| change.location == location)
-            })
-            .unwrap_or_else(|| self.cursor.min(next.rows().len().saturating_sub(1)));
-        next
-    }
-    fn rows(&self) -> Vec<&Change> {
-        self.snapshot
-            .changes
-            .iter()
-            .filter(|c| match self.area {
-                FileArea::Index => c.area == Area::Staged,
-                FileArea::Worktree => c.area != Area::Staged,
-            })
-            .filter(|c| {
-                c.location
-                    .name()
-                    .to_string_lossy()
-                    .to_lowercase()
-                    .contains(&self.query.to_lowercase())
-            })
-            .collect()
-    }
-    fn change_index(&self, change: &Change) -> usize {
-        self.snapshot
-            .changes
-            .iter()
-            .position(|c| c == change)
-            .expect("visible change belongs to snapshot")
-    }
-    fn selection(&self) -> Vec<Change> {
-        let rows = self.rows();
-        if self.selected.is_empty() {
-            rows.get(self.cursor)
-                .map(|c| vec![(*c).clone()])
-                .unwrap_or_default()
-        } else {
-            self.snapshot
-                .changes
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| self.selected.contains(i))
-                .map(|(_, c)| c.clone())
-                .collect()
-        }
-    }
-}
 #[derive(Debug)]
 enum Mode {
     Browsing,
@@ -169,11 +72,7 @@ enum Mode {
     Files(FileSession),
     History(Box<history::View>),
     Branches(Box<branches::View>),
-    Diff {
-        session: FileSession,
-        content: Box<document::View>,
-        scroll: usize,
-    },
+    Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,
         editor: Editor,
@@ -201,7 +100,8 @@ enum Mode {
 impl Mode {
     fn file_session(&self) -> Option<&FileSession> {
         match self {
-            Self::Files(s) | Self::Diff { session: s, .. } => Some(s),
+            Self::Files(s) => Some(s),
+            Self::Changes(session) => Some(&session.files),
             Self::Error { origin, .. } => origin.file_session(),
             _ => None,
         }
@@ -252,8 +152,8 @@ enum Outcome {
     Checked(domain::Report),
     Branches(Box<branches::View>),
     TerminalOpened(PathBuf),
-    Files(Files, FileArea),
-    Diff(FileSession, Box<document::View>),
+    Files(Files),
+    Changes(Files),
     History(Box<history::View>),
     CommitPrepared(CommitPlan),
     PushPrepared(PushPlan),
@@ -471,6 +371,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
             let changed = screen.poll(&root)
                 | screen.poll_check()
                 | screen.poll_workspace()
+                | screen.poll_changes()
                 | screen.workspace.animate()
                 | screen.animate_check()
                 | screen.animate_task()

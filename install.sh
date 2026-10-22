@@ -15,6 +15,7 @@ for tool in $tools; do
     fi
 done
 "$ROOT/build.sh"
+"$ROOT/dist/$APP_COMMAND" "$@" migrate config
 "$ROOT/dist/$APP_COMMAND" "$@" config >/dev/null
 "$ROOT/dist/$APP_COMMAND" "$@" migrate
 exec "$ROOT/dist/$APP_COMMAND" "$@" install

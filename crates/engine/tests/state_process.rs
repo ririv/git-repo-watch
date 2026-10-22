@@ -13,11 +13,11 @@ use std::{
     time::{Duration, Instant},
 };
 #[test]
-fn legacy_config_defaults_and_explicit_preferences_survive_roundtrips() {
+fn missing_optional_preferences_and_explicit_values_survive_toml_roundtrips() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
     let store = Store::custom(temp.path().to_owned());
-    let old = r#"{"interval_seconds":21600,"repositories":[],"excluded_roots":[],"push_policy":"disabled"}"#;
+    let old = "interval_seconds = 21600\nrepositories = []\nexcluded_roots = []\npush_policy = \"disabled\"\n";
     fs::write(store.config_path(), old).unwrap();
     let mut config = store.config().unwrap();
     assert_eq!(config.max_concurrency, 4);

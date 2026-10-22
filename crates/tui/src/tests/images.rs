@@ -14,14 +14,14 @@ fn image_bytes(color: [u8; 4], format: ImageFormat) -> Vec<u8> {
 }
 fn images(s: &Screen) -> &preview::View {
     let content = match &s.mode {
-        Mode::Diff { content, .. } => content,
+        Mode::Changes(session) => session.content(),
         Mode::History(view) => match view.as_ref() {
-            crate::history::View::Diff { content, .. } => content,
+            crate::history::View::Diff { content, .. } => content.as_ref(),
             _ => panic!("historical review expected"),
         },
         _ => panic!("review expected"),
     };
-    let document::View::Images(images) = content.as_ref() else {
+    let document::View::Images(images) = content else {
         panic!("image review expected")
     };
     images
@@ -47,7 +47,7 @@ fn working_and_staged_images_decode_exact_snapshots_render_pixels_and_cleanup_on
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let refs = support::git(&f.repo, &["show-ref"]);
-        command(&mut s, "stage");
+        open_files(&mut s);
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
@@ -119,7 +119,7 @@ fn added_deleted_corrupt_and_unsupported_terminal_states_are_explicit() {
     let path = f.repo.join("new.png");
     std::fs::write(&path, image_bytes([255, 0, 0, 128], ImageFormat::Png)).unwrap();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stage");
+    open_files(&mut s);
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);

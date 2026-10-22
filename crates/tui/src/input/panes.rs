@@ -22,7 +22,6 @@ impl Screen {
                         | Mode::Panel(_)
                         | Mode::Branches(_)
                         | Mode::Files(_)
-                        | Mode::Diff { .. }
                         | Mode::History(_)
                 ) =>
             {
