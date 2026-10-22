@@ -9,9 +9,7 @@ use std::{
 
 fn fixture() -> (tempfile::TempDir, Store) {
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -27,9 +25,9 @@ fn fixture() -> (tempfile::TempDir, Store) {
 fn cli(store: &Store, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_app"))
         .env("APP_LANG", "en")
-        .env("HOME", &store.home)
+        .env("HOME", store.config_dir())
         .arg("--home")
-        .arg(&store.home)
+        .arg(store.config_dir())
         .args(args)
         .output()
         .unwrap()
@@ -38,7 +36,7 @@ fn cli(store: &Store, args: &[&str]) -> Output {
 #[test]
 fn explicit_migration_preserves_public_report_and_config_and_can_be_repeated() {
     let (_home, store) = fixture();
-    let config = fs::read(store.home.join("config.json")).unwrap();
+    let config = fs::read(store.config_path()).unwrap();
     let report = serde_json::json!({
         "schema_version":3,
         "started_at":"2026-10-22T12:00:00Z",
@@ -67,7 +65,7 @@ fn explicit_migration_preserves_public_report_and_config_and_can_be_repeated() {
             fs::read(store.state_dir().join("legacy-json/latest.json")).unwrap(),
             bytes
         );
-        assert_eq!(fs::read(store.home.join("config.json")).unwrap(), config);
+        assert_eq!(fs::read(store.config_path()).unwrap(), config);
         let output = cli(&store, &["report", "--json"]);
         assert!(output.status.success());
         assert_eq!(

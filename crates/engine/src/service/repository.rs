@@ -176,7 +176,7 @@ impl Service {
         let _lock = self.store.lock()?;
         let c = self.store.config()?;
         self.scheduler.install(
-            &self.store.home,
+            &self.store,
             &std::env::current_exe()?,
             c.interval_seconds,
             cancel,

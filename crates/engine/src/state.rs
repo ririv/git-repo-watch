@@ -3,7 +3,7 @@ mod database;
 mod operation;
 use crate::{cancel::Cancel, domain::PushPolicy};
 use anyhow::{Context, Result, ensure};
-pub use database::Migration;
+pub use database::{Migration, Transfer};
 pub use operation::{Completion, Operation, OperationOrigin, OperationRecord, StoredOperation};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
@@ -16,6 +16,18 @@ use std::{
     path::{Path, PathBuf},
 };
 
+impl Default for Config {
+    fn default() -> Self {
+        Self {
+            interval_seconds: 21600,
+            repositories: vec![],
+            excluded_roots: vec![],
+            push_policy: PushPolicy::Disabled,
+            max_concurrency: 4,
+            check_on_startup: true,
+        }
+    }
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub interval_seconds: u64,
@@ -73,21 +85,73 @@ impl Config {
     }
 }
 #[derive(Debug, Clone)]
-pub struct Store {
-    pub home: PathBuf,
+pub enum Store {
+    Standard {
+        configuration: PathBuf,
+        state: PathBuf,
+        logs: PathBuf,
+    },
+    Custom {
+        home: PathBuf,
+    },
 }
 impl Store {
+    pub fn custom(home: PathBuf) -> Self {
+        Self::Custom { home }
+    }
+    pub fn config_dir(&self) -> PathBuf {
+        match self {
+            Self::Standard { configuration, .. } => configuration.clone(),
+            Self::Custom { home } => home.clone(),
+        }
+    }
+    pub fn config_path(&self) -> PathBuf {
+        self.config_dir().join("config.json")
+    }
     pub fn state_dir(&self) -> PathBuf {
-        self.home.join("var")
+        match self {
+            Self::Standard { state, .. } => state.clone(),
+            Self::Custom { home } => home.join("var"),
+        }
+    }
+    pub fn log_dir(&self) -> PathBuf {
+        match self {
+            Self::Standard { logs, .. } => logs.clone(),
+            Self::Custom { .. } => self.state_dir(),
+        }
+    }
+    pub fn initialize(&self) -> Result<()> {
+        let _lock = self.lock()?;
+        let path = self.config_path();
+        let directory = self.config_dir();
+        fs::create_dir_all(&directory)?;
+        if matches!(self, Self::Standard { .. }) {
+            fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+        }
+        let mut temporary = tempfile::NamedTempFile::new_in(&directory)?;
+        temporary
+            .as_file()
+            .set_permissions(fs::Permissions::from_mode(0o600))?;
+        let mut data = serde_json::to_vec_pretty(&Config::default())?;
+        data.push(b'\n');
+        temporary.write_all(&data)?;
+        temporary.as_file().sync_all()?;
+        temporary.persist_noclobber(path)?;
+        File::open(directory)?.sync_all()?;
+        Ok(())
     }
     pub fn config(&self) -> Result<Config> {
-        let c: Config = read_json(&self.home.join("config.json"))?;
+        ensure!(
+            self.config_path().try_exists()?,
+            i18n::tr!(ConfigurationMissingRunInit)
+        );
+        let c: Config = read_json(&self.config_path())?;
         c.validate()?;
         Ok(c)
     }
     pub fn save_config(&self, c: &Config) -> Result<()> {
         c.validate()?;
-        write_json(&self.home.join("config.json"), c)
+        write_json(&self.config_path(), c)
     }
     pub fn lock(&self) -> Result<Lock> {
         self.prepare_state()?;

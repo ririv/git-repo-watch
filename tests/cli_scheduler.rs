@@ -11,9 +11,7 @@ use std::{
 };
 fn fixture() -> (tempfile::TempDir, Store) {
     let temp = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: temp.path().to_owned(),
-    };
+    let store = Store::custom(temp.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -30,7 +28,7 @@ fn cli(store: &Store, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_app"))
         .env("APP_LANG", "zh")
         .arg("--home")
-        .arg(&store.home)
+        .arg(store.config_dir())
         .args(args)
         .output()
         .unwrap()
@@ -115,9 +113,10 @@ fn help_is_available_without_installation() {
 fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
     let _language = i18n::using(i18n::Language::Chinese);
     let payload = engine::scheduler::plist(
-        std::path::Path::new("/path/中文 & folder"),
+        &Store::custom("/path/中文 & folder".into()),
         std::path::Path::new("/path/bin/command"),
         21600,
+        std::path::Path::new("/path/user"),
     )
     .unwrap();
     let temp = tempfile::tempdir().unwrap();
@@ -146,7 +145,7 @@ fn installation_refuses_unowned_binary_before_mutation() {
     assert!(
         manager
             .install(
-                temp.path(),
+                &Store::custom(temp.path().to_owned()),
                 &std::env::current_exe().unwrap(),
                 21600,
                 &Cancel::default()
@@ -194,7 +193,7 @@ fn language_overrides_localize_text_and_preserve_machine_output() {
                 .env("APP_LANG", language)
                 .env("LC_ALL", if language == "en" { "zh_CN.UTF-8" } else { "C" })
                 .arg("--home")
-                .arg(&store.home)
+                .arg(store.config_dir())
                 .args(args)
                 .output()
                 .unwrap()
@@ -251,7 +250,7 @@ fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rej
 #[test]
 fn explicit_single_check_creates_a_repository_report_without_creating_a_batch() {
     let (_temp, store) = fixture();
-    let repo = store.home.join("repository");
+    let repo = store.config_dir().join("repository");
     let output = Command::new("/usr/bin/git")
         .args(["init", "-b", "main"])
         .arg(&repo)
@@ -333,12 +332,49 @@ fn startup_check_preference_is_explicit_persistent_and_does_not_trigger_checks()
         assert_eq!(status["check_on_startup"], value == "true");
         assert!(store.report().unwrap().is_none());
     }
-    let before = fs::read(store.home.join("config.json")).unwrap();
+    let before = fs::read(store.config_path()).unwrap();
     for value in ["yes", "0", "TRUE"] {
         assert_eq!(
             cli(&store, &["startup-check", value]).status.code(),
             Some(2)
         );
-        assert_eq!(fs::read(store.home.join("config.json")).unwrap(), before);
+        assert_eq!(fs::read(store.config_path()).unwrap(), before);
     }
+}
+
+#[cfg(target_os = "macos")]
+#[test]
+fn standard_plist_uses_user_storage_logs_and_home_without_checkout_arguments() {
+    let home = std::path::Path::new("/example/用户 空格");
+    let store = engine::directories::UserDirectories::macos(home).store();
+    let payload =
+        engine::scheduler::plist(&store, std::path::Path::new("/example/bin"), 21600, home)
+            .unwrap();
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("task.plist");
+    fs::write(&file, payload).unwrap();
+    let output = Command::new("/usr/bin/plutil")
+        .args(["-convert", "json", "-o", "-"])
+        .arg(file)
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let value: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+    assert_eq!(
+        value["ProgramArguments"],
+        serde_json::json!(["/example/bin", "scheduled-check"])
+    );
+    assert_eq!(
+        value["WorkingDirectory"],
+        store.state_dir().to_str().unwrap()
+    );
+    assert_eq!(
+        value["StandardOutPath"],
+        store.log_dir().join("launchd.stdout.log").to_str().unwrap()
+    );
+    assert_eq!(
+        value["EnvironmentVariables"]["HOME"],
+        home.to_str().unwrap()
+    );
+    assert_eq!(value["RunAtLoad"], false);
 }

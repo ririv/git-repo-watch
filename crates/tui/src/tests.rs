@@ -69,9 +69,7 @@ fn screen(service: Service) -> Screen {
 }
 fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
     let temp = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: temp.path().to_owned(),
-    };
+    let store = Store::custom(temp.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -83,7 +81,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
         })
         .unwrap();
     let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
-    let service = Service::new(store.home, manager);
+    let service = Service::new(store, manager);
     (temp, screen(service))
 }
 fn key(s: &mut Screen, code: KeyCode) -> bool {
@@ -1497,7 +1495,7 @@ fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action
             );
             key(&mut s, KeyCode::Esc);
             assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
-            assert!(!s.service.scheduler.location().exists());
+            assert!(!s.service.scheduler.definition().exists());
         }
     }
 }

@@ -16,11 +16,9 @@ use std::{
 fn legacy_config_defaults_and_explicit_preferences_survive_roundtrips() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: temp.path().to_owned(),
-    };
+    let store = Store::custom(temp.path().to_owned());
     let old = r#"{"interval_seconds":21600,"repositories":[],"excluded_roots":[],"push_policy":"disabled"}"#;
-    fs::write(store.home.join("config.json"), old).unwrap();
+    fs::write(store.config_path(), old).unwrap();
     let mut config = store.config().unwrap();
     assert_eq!(config.max_concurrency, 4);
     assert!(config.check_on_startup);
@@ -31,7 +29,7 @@ fn legacy_config_defaults_and_explicit_preferences_survive_roundtrips() {
     store.save_config(&config).unwrap();
     assert_eq!(store.config().unwrap().max_concurrency, 2);
     assert!(!store.config().unwrap().check_on_startup);
-    let permissions = fs::metadata(store.home.join("config.json"))
+    let permissions = fs::metadata(store.config_path())
         .unwrap()
         .permissions()
         .mode()
@@ -46,9 +44,7 @@ fn legacy_config_defaults_and_explicit_preferences_survive_roundtrips() {
 fn process_lock_is_shared_and_automatically_released() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: temp.path().to_owned(),
-    };
+    let store = Store::custom(temp.path().to_owned());
     assert!(!store.running().unwrap());
     let lock = store.batch_lock().unwrap();
     assert!(store.running().unwrap());

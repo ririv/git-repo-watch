@@ -1,6 +1,7 @@
 //! Composable application services for Git repository monitoring.
 pub mod cancel;
 pub mod check;
+pub mod directories;
 pub mod discovery;
 pub mod domain;
 pub mod executor;

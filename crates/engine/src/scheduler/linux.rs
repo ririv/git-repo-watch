@@ -1,55 +1,5 @@
 //! systemd user service and monotonic timer integration.
 use super::*;
-#[cfg(target_os = "linux")]
-#[derive(Debug, Clone)]
-pub(super) struct Directories {
-    config: PathBuf,
-    data: PathBuf,
-}
-#[cfg(target_os = "linux")]
-impl Directories {
-    pub(super) fn defaults(home: &Path) -> Self {
-        Self {
-            config: home.join(".config"),
-            data: home.join(".local/share"),
-        }
-    }
-    pub(super) fn from_environment(home: &Path) -> Result<Self> {
-        let default = Self::defaults(home);
-        Ok(Self {
-            config: xdg_directory(
-                "XDG_CONFIG_HOME",
-                std::env::var_os("XDG_CONFIG_HOME"),
-                default.config,
-            )?,
-            data: xdg_directory(
-                "XDG_DATA_HOME",
-                std::env::var_os("XDG_DATA_HOME"),
-                default.data,
-            )?,
-        })
-    }
-}
-
-fn xdg_directory(
-    name: &str,
-    value: Option<std::ffi::OsString>,
-    default: PathBuf,
-) -> Result<PathBuf> {
-    match value.filter(|v| !v.is_empty()) {
-        Some(value) => {
-            let path = PathBuf::from(value);
-            ensure!(
-                path.is_absolute(),
-                "{name}: {}",
-                i18n::tr!(XdgDirectoryMustBeAbsolute)
-            );
-            Ok(path)
-        }
-        None => Ok(default),
-    }
-}
-
 fn quoted(value: &Path, exec: bool) -> Result<String> {
     let value = value.to_str().context(i18n::tr!(InstallationPathNotUtf8))?;
     let mut out = String::from("\"");
@@ -70,17 +20,68 @@ fn quoted(value: &Path, exec: bool) -> Result<String> {
     Ok(out)
 }
 
-fn service(root: &Path, binary: &Path) -> Result<String> {
+fn service(store: &Store, binary: &Path, home: &Path) -> Result<String> {
+    let (arguments, environment) = match store {
+        Store::Custom { home } => (format!(" --home {}", quoted(home, true)?), String::new()),
+        Store::Standard {
+            configuration,
+            state,
+            ..
+        } => {
+            let config_base = configuration
+                .parent()
+                .context(i18n::tr!(InstallationPathHasNoParentDirectory))?;
+            let state_base = state
+                .parent()
+                .context(i18n::tr!(InstallationPathHasNoParentDirectory))?;
+            let environment = format!(
+                "Environment={} {}\n",
+                quoted(
+                    Path::new(&format!(
+                        "XDG_CONFIG_HOME={}",
+                        config_base
+                            .to_str()
+                            .context(i18n::tr!(InstallationPathNotUtf8))?
+                    )),
+                    false
+                )?,
+                quoted(
+                    Path::new(&format!(
+                        "XDG_STATE_HOME={}",
+                        state_base
+                            .to_str()
+                            .context(i18n::tr!(InstallationPathNotUtf8))?
+                    )),
+                    false
+                )?
+            );
+            (String::new(), environment)
+        }
+    };
+    let environment = format!(
+        "Environment={}\n{}",
+        quoted(
+            Path::new(&format!(
+                "HOME={}",
+                home.to_str().context(i18n::tr!(InstallationPathNotUtf8))?
+            )),
+            false
+        )?,
+        environment
+    );
     Ok(format!(
-        "[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\nExecStart={} --home {} scheduled-check\n",
-        quoted(root, false)?,
+        "# {}\n[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\n{}ExecStart={}{} scheduled-check\n",
+        task_marker(store, binary),
+        quoted(&store.state_dir(), false)?,
+        environment,
         quoted(binary, true)?,
-        quoted(root, true)?
+        arguments
     ))
 }
-fn timer(interval: u64) -> String {
+fn timer(store: &Store, binary: &Path, interval: u64) -> String {
     format!(
-        "[Unit]\nDescription=Periodic Git repository status check\n\n[Timer]\nOnActiveSec={interval}s\nOnUnitActiveSec={interval}s\nUnit={LABEL}.service\n\n[Install]\nWantedBy=timers.target\n"
+        "# {}\n[Unit]\nDescription=Periodic Git repository status check\n\n[Timer]\nOnActiveSec={interval}s\nOnUnitActiveSec={interval}s\nUnit={LABEL}.service\n\n[Install]\nWantedBy=timers.target\n",
+        task_marker(store, binary)
     )
 }
 fn interval(contents: &str) -> Result<u64> {
@@ -100,19 +101,13 @@ fn interval(contents: &str) -> Result<u64> {
 #[cfg(target_os = "linux")]
 impl Manager {
     fn units(&self) -> PathBuf {
-        self.directories.config.join("systemd/user")
+        self.directories.config_base.join("systemd/user")
     }
-    fn service(&self) -> PathBuf {
+    pub(super) fn service(&self) -> PathBuf {
         self.units().join(format!("{LABEL}.service"))
     }
     pub fn timer(&self) -> PathBuf {
         self.units().join(format!("{LABEL}.timer"))
-    }
-    pub fn location(&self) -> PathBuf {
-        self.directories
-            .data
-            .join(identity::DATA_DIRECTORY)
-            .join("location.json")
     }
     pub fn registration(&self, cancel: &Cancel) -> Result<Registration> {
         if !self.timer().try_exists()? {
@@ -148,76 +143,70 @@ impl Manager {
         process::system("systemctl", &command, cancel)?.success(i18n::tr!(LoadSystemSchedule))?;
         Ok(())
     }
-    pub fn install(&self, root: &Path, source: &Path, seconds: u64, cancel: &Cancel) -> Result<()> {
-        ensure!(
-            root.is_absolute() && seconds >= 60,
-            i18n::tr!(InvalidInstallationArguments)
-        );
+    pub fn install(
+        &self,
+        store: &Store,
+        source: &Path,
+        seconds: u64,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        ensure!(seconds >= 60, i18n::tr!(InvalidInstallationArguments));
+        self.verify_install_target(store)?;
         let data = fs::read(source)?;
-        match fs::read(self.binary()) {
-            Ok(old) => ensure!(
-                digest(&old) == self.read_location()?.binary_sha256,
-                i18n::tr!(InstalledCommandOwnershipMismatch)
-            ),
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.into()),
-        }
-        let payload = service(root, &self.binary())?;
+        let payload = service(store, &self.binary(), &self.user_home)?;
         // 在任何写入之前确认用户服务管理器可连接。
         self.control(&["show-environment"], cancel)?;
-        for path in [
-            self.binary(),
-            self.location(),
-            self.timer(),
-            root.join("var/placeholder"),
-        ] {
+        for path in [self.binary(), self.timer()] {
             fs::create_dir_all(
                 path.parent()
                     .context(i18n::tr!(InstallationPathHasNoParentDirectory))?,
             )?;
         }
         state::atomic(&self.binary(), &data, 0o755)?;
-        state::write_json(
-            &self.location(),
-            &Location {
-                home: root.to_owned(),
-                binary_sha256: digest(&data),
-            },
-        )?;
+        Self::prepare_storage(store)?;
         state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
-        state::atomic(&self.timer(), timer(seconds).as_bytes(), 0o600)?;
+        state::atomic(
+            &self.timer(),
+            timer(store, &self.binary(), seconds).as_bytes(),
+            0o600,
+        )?;
         self.control(&["daemon-reload"], cancel)?;
         let name = format!("{LABEL}.timer");
         self.control(&["enable", &name], cancel)?;
         self.control(&["restart", &name], cancel)
     }
-    pub fn disable(&self, root: &Path, cancel: &Cancel) -> Result<()> {
-        self.verify_owner(root)?;
+    pub fn disable(&self, store: &Store, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         ensure!(
             self.timer().try_exists()? && self.service().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
         );
         self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)
     }
-    pub fn apply(&self, root: &Path, seconds: u64, cancel: &Cancel) -> Result<()> {
-        self.verify_owner(root)?;
+    pub fn apply(&self, store: &Store, seconds: u64, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         ensure!(seconds >= 60, i18n::tr!(InvalidInstallationArguments));
         ensure!(
             self.timer().try_exists()? && self.service().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
         );
         let previous = self.registration(cancel)?;
-        let payload = service(root, &self.binary())?;
+        let payload = service(store, &self.binary(), &self.user_home)?;
         self.control(&["show-environment"], cancel)?;
         state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
-        state::atomic(&self.timer(), timer(seconds).as_bytes(), 0o600)?;
+        state::atomic(
+            &self.timer(),
+            timer(store, &self.binary(), seconds).as_bytes(),
+            0o600,
+        )?;
         self.control(&["daemon-reload"], cancel)?;
         if previous == Registration::Loaded {
             self.control(&["restart", &format!("{LABEL}.timer")], cancel)?;
         }
         Ok(())
     }
-    pub fn uninstall(&self, cancel: &Cancel) -> Result<()> {
+    pub fn uninstall(&self, store: &Store, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)?;
         self.control(&["stop", &format!("{LABEL}.service")], cancel)?;
         fs::remove_file(self.timer())?;
@@ -231,6 +220,7 @@ mod tests {
     use super::*;
     #[test]
     fn xdg_directories_use_explicit_absolute_values_and_default_only_when_unset() {
+        use crate::directories::xdg_directory;
         let default = PathBuf::from("/example/.config");
         assert_eq!(
             xdg_directory("XDG_CONFIG_HOME", None, default.clone()).unwrap(),
@@ -254,11 +244,12 @@ mod tests {
     #[test]
     fn service_paths_are_quoted_and_specifiers_cannot_expand() {
         let payload = service(
-            Path::new("/example/中文 $USER %h \"\nfolder"),
+            &Store::custom("/example/中文 $USER %h \"\nfolder".into()),
             Path::new("/example/a b"),
+            Path::new("/example/user"),
         )
         .unwrap();
-        assert!(payload.contains("WorkingDirectory=\"/example/中文 $USER %%h \\\"\\nfolder\""));
+        assert!(payload.contains("WorkingDirectory=\"/example/中文 $USER %%h \\\"\\nfolder/var\""));
         assert!(payload.contains("ExecStart=\"/example/a b\" --home \"/example/中文 $$USER %%h"));
         assert!(
             payload
@@ -274,8 +265,34 @@ mod tests {
         );
     }
     #[test]
+    fn standard_service_captures_xdg_and_home_without_binding_to_a_checkout() {
+        let home = Path::new("/example/用户 空格");
+        let store = crate::directories::UserDirectories::linux(
+            home,
+            Some("/example/配置 %h $USER".into()),
+            Some("/example/状态 空格".into()),
+        )
+        .unwrap()
+        .store();
+        let payload = service(&store, Path::new("/example/bin"), home).unwrap();
+        assert!(!payload.contains(" --home "));
+        assert!(payload.contains("Environment=\"XDG_CONFIG_HOME=/example/配置 %%h $USER\" \"XDG_STATE_HOME=/example/状态 空格\""));
+        assert!(payload.contains("Environment=\"HOME=/example/用户 空格\""));
+        assert!(payload.contains("WorkingDirectory=\"/example/状态 空格/"));
+        assert!(
+            payload
+                .lines()
+                .any(|line| line == "ExecStart=\"/example/bin\" scheduled-check")
+        );
+    }
+
+    #[test]
     fn timer_delays_first_run_and_preserves_interval() {
-        let payload = timer(21600);
+        let payload = timer(
+            &Store::custom("/example".into()),
+            Path::new("/example/bin"),
+            21600,
+        );
         assert_eq!(interval(&payload).unwrap(), 21600);
         assert!(payload.contains("OnActiveSec=21600s\nOnUnitActiveSec=21600s"));
         assert!(interval("OnActiveSec=1s").is_err());

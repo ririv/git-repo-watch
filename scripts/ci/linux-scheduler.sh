@@ -10,8 +10,12 @@ FIXTURE=$(mktemp -d "${RUNNER_TEMP:?}/repository schedule.XXXXXX")
 [ -z "${XDG_CONFIG_HOME:-}" ]
 [ -z "${XDG_DATA_HOME:-}" ]
 UNIT="$HOME/.config/systemd/user/$APP_SERVICE_LABEL"
+PROFILE_MODE=custom
 cleanup() {
-    "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" uninstall || true
+    case "$PROFILE_MODE" in
+        custom) "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" uninstall || true ;;
+        standard) "$ROOT/dist/$APP_COMMAND" uninstall || true ;;
+    esac
     systemctl --user daemon-reload
     rm -rf "$FIXTURE"
 }
@@ -67,6 +71,31 @@ systemctl --user start "$APP_SERVICE_LABEL.service"
 [ ! -e "$UNIT.timer" ]
 [ -f "$FIXTURE/config.json" ]
 [ -x "$HOME/.local/bin/$APP_COMMAND" ]
+# 使用含中文和空格的 XDG 目录验证默认配置、后台环境与重复安装。
+PROFILE_MODE=standard
+export XDG_CONFIG_HOME="$FIXTURE/配置 config"
+export XDG_STATE_HOME="$FIXTURE/状态 state"
+UNIT="$XDG_CONFIG_HOME/systemd/user/$APP_SERVICE_LABEL"
+"$ROOT/dist/$APP_COMMAND" init
+"$ROOT/dist/$APP_COMMAND" add "$FIXTURE/repository"
+"$ROOT/dist/$APP_COMMAND" install
+"$ROOT/dist/$APP_COMMAND" install
+systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
+grep -q '^Environment=.*XDG_CONFIG_HOME=' "$UNIT.service"
+if grep -q ' --home ' "$UNIT.service"; then exit 1; fi
+[ ! -e "$XDG_STATE_HOME/$APP_DATA_DIRECTORY/state.sqlite3" ]
+systemctl --user start "$APP_SERVICE_LABEL.service"
+[ -f "$XDG_STATE_HOME/$APP_DATA_DIRECTORY/state.sqlite3" ]
+"$ROOT/dist/$APP_COMMAND" report --json > "$FIXTURE/standard-report.json"
+"$ROOT/dist/$APP_COMMAND" schedule disable
+"$ROOT/dist/$APP_COMMAND" interval 12h
+"$ROOT/dist/$APP_COMMAND" schedule apply
+[ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
+"$ROOT/dist/$APP_COMMAND" schedule enable
+"$ROOT/dist/$APP_COMMAND" uninstall
+[ ! -e "$UNIT.service" ]
+[ ! -e "$UNIT.timer" ]
+[ -f "$XDG_CONFIG_HOME/$APP_DATA_DIRECTORY/config.json" ]
 trap - EXIT HUP INT TERM
 systemctl --user daemon-reload
 rm -rf "$FIXTURE"

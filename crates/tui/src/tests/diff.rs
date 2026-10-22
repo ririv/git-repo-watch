@@ -67,7 +67,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         support::write(f.repo.join("one.rs"), "fn cached_new() {}\n");
         support::write(f.repo.join("two.rs"), "fn second() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        let before = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+        let before = std::fs::read(s.service.store.config_path()).unwrap();
         command(&mut s, "stage");
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
@@ -127,7 +127,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         assert!(second.contains("second"));
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
         assert_eq!(
-            std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+            std::fs::read(s.service.store.config_path()).unwrap(),
             before
         );
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
@@ -156,7 +156,7 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only(
     assert!(!text.contains("fn worktree"));
     assert_eq!(
         screen(Service::new(
-            s.service.store.home.clone(),
+            s.service.store.clone(),
             s.service.scheduler.clone()
         ))
         .diff_preference,

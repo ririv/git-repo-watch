@@ -1,5 +1,5 @@
 //! Command routing and backward-compatible machine output.
-use anyhow::{Context, Result, bail, ensure};
+use anyhow::{Result, bail, ensure};
 use engine::{
     cancel::{Cancel, Cancelled},
     discovery,
@@ -51,19 +51,16 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         return Ok(0);
     }
     let manager = Manager::new()?;
-    let home = if args.first().is_some_and(|a| a == "--home") {
+    let store = if args.first().is_some_and(|a| a == "--home") {
         ensure!(args.len() >= 2, i18n::tr!(HomeRequiresAPath));
         let home = paths::expand_home(&args[1], manager.user_home())?;
         args.drain(..2);
-        home
+        ensure!(home.is_absolute(), i18n::tr!(HomeMustBeAnAbsolutePath));
+        state::Store::custom(home)
     } else {
-        manager
-            .read_location()
-            .context(i18n::tr!(CannotReadInstallationLocationRunInstallSh))?
-            .home
+        manager.default_store()
     };
-    ensure!(home.is_absolute(), i18n::tr!(HomeMustBeAnAbsolutePath));
-    let service = Service::new(home, manager);
+    let service = Service::new(store, manager);
     let command = if args.is_empty() {
         "tui".to_owned()
     } else {
@@ -112,6 +109,19 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             } else {
                 print!("{}", render_report(&report, filter))
             }
+            Ok(0)
+        }
+        "init" => {
+            none(&args)?;
+            service.store.initialize()?;
+            json(&service.store.config_path())?;
+            Ok(0)
+        }
+        "paths" => {
+            none(&args)?;
+            json(
+                &serde_json::json!({"config":service.store.config_path(),"database":service.store.database_path(),"logs":service.store.log_dir()}),
+            )?;
             Ok(0)
         }
         "config" | "list" | "exclusions" => {
@@ -263,8 +273,21 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             Ok(0)
         }
         "migrate" => {
-            none(&args)?;
-            json(&service.store.migrate(cancel)?)?;
+            if args.is_empty() {
+                json(&service.store.migrate(cancel)?)?;
+            } else {
+                ensure!(
+                    args.len() == 2 && args[0] == "--from",
+                    i18n::tr!(MigrateFromUsage)
+                );
+                let source = paths::expand_home(&args[1], service.scheduler.user_home())?;
+                ensure!(source.is_absolute(), i18n::tr!(HomeMustBeAnAbsolutePath));
+                json(
+                    &service
+                        .store
+                        .migrate_from(&state::Store::custom(source), cancel)?,
+                )?;
+            }
             Ok(0)
         }
         "install" => {
@@ -282,7 +305,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "uninstall" => {
             none(&args)?;
             let _lock = service.store.lock()?;
-            service.scheduler.uninstall(cancel)?;
+            service.scheduler.uninstall(&service.store, cancel)?;
             println!(
                 "{}",
                 i18n::tr!(ScheduleRemovedConfigurationReportsAndCommandRetained)

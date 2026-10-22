@@ -2,6 +2,7 @@
 mod migration;
 mod reports;
 mod schema;
+mod transfer;
 use super::{Lock, Store};
 use crate::cancel::Cancel;
 use anyhow::{Context, Result, ensure};
@@ -16,6 +17,7 @@ use std::{
     path::Path,
     time::{Duration, Instant},
 };
+pub use transfer::Transfer;
 
 pub(super) struct Database {
     connection: Connection,

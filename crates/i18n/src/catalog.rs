@@ -2,6 +2,9 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    TransferTargetExists,
+    TransferSameSource,
+    MigrateFromUsage,
     StorageMigrationRequired,
     InvalidStateDatabase,
     UnsupportedStateDatabase,
@@ -256,7 +259,7 @@ pub enum Message {
     ErrorE,
     ArgumentsMustBeUtf8,
     HomeRequiresAPath,
-    CannotReadInstallationLocationRunInstallSh,
+    ConfigurationMissingRunInit,
     HomeMustBeAnAbsolutePath,
     StatusOnlyAcceptsJson,
     NoCompleteReportYetWaitForThe,
@@ -349,7 +352,6 @@ pub enum Message {
     CheckWorkerPanicked,
     CannotReadUserHomeDirectory,
     UserHomeDirectoryIsNotAnAbsolute,
-    InstallationLocationIsNotAnAbsolutePath,
     QuerySystemSchedule,
     SchedulePathIsNotUtf8,
     ReadScheduledInterval,
@@ -621,6 +623,22 @@ impl Message {
         match (self, language) {
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
             (Self::RepositoryTaskCompleted, Language::Chinese) => "{0} · 已完成：{1}",
+            (Self::TransferTargetExists, Language::English) => {
+                "Destination configuration or database already exists; nothing was overwritten"
+            }
+            (Self::TransferTargetExists, Language::Chinese) => {
+                "目标配置或数据库已存在，未覆盖任何数据"
+            }
+            (Self::TransferSameSource, Language::English) => {
+                "Source and destination storage must be different"
+            }
+            (Self::TransferSameSource, Language::Chinese) => "来源与目标存储目录必须不同",
+            (Self::MigrateFromUsage, Language::English) => {
+                "Usage: migrate [--from ABSOLUTE_PATH]; exit all source processes before importing"
+            }
+            (Self::MigrateFromUsage, Language::Chinese) => {
+                "用法：migrate [--from 绝对路径]；导入前请退出所有使用来源数据的进程"
+            }
             (Self::StorageMigrationRequired, Language::English) => {
                 "State migration is required; stop older versions and run the migrate subcommand"
             }
@@ -1147,7 +1165,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate                          Import legacy JSON state into SQLite\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration without overwriting existing data\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate [--from PATH]            Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -1157,7 +1175,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate                           将旧 JSON 状态迁移到 SQLite\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置，不覆盖已有数据\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate [--from 路径]              转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -1172,11 +1190,19 @@ impl Message {
             (Self::ArgumentsMustBeUtf8, Language::Chinese) => "参数必须为 UTF-8",
             (Self::HomeRequiresAPath, Language::English) => "--home requires a path",
             (Self::HomeRequiresAPath, Language::Chinese) => "--home 缺少路径",
-            (Self::CannotReadInstallationLocationRunInstallSh, Language::English) => {
-                "Cannot read installation location; run ./install.sh or specify --home"
+            (Self::ConfigurationMissingRunInit, Language::English) => {
+                concat!(
+                    "Configuration is missing; run ",
+                    identity::command!(),
+                    " init or specify --home"
+                )
             }
-            (Self::CannotReadInstallationLocationRunInstallSh, Language::Chinese) => {
-                "无法读取安装位置，请运行 ./install.sh 或显式传入 --home"
+            (Self::ConfigurationMissingRunInit, Language::Chinese) => {
+                concat!(
+                    "配置不存在，请运行 ",
+                    identity::command!(),
+                    " init，或显式传入 --home"
+                )
             }
             (Self::HomeMustBeAnAbsolutePath, Language::English) => {
                 "--home must be an absolute path"
@@ -1562,12 +1588,6 @@ impl Message {
                 "User home directory is not an absolute path"
             }
             (Self::UserHomeDirectoryIsNotAnAbsolute, Language::Chinese) => "用户目录不是绝对路径",
-            (Self::InstallationLocationIsNotAnAbsolutePath, Language::English) => {
-                "Installation location is not an absolute path"
-            }
-            (Self::InstallationLocationIsNotAnAbsolutePath, Language::Chinese) => {
-                "安装位置不是绝对路径"
-            }
             (Self::QuerySystemSchedule, Language::English) => "Query system schedule",
             (Self::QuerySystemSchedule, Language::Chinese) => "查询系统任务",
             (Self::SchedulePathIsNotUtf8, Language::English) => "Schedule path is not UTF-8",

@@ -18,9 +18,7 @@ use test_support::{Fixture, git, write};
 
 fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Service) {
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -32,7 +30,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
         })
         .unwrap();
     let manager = Manager::for_user(home.path().to_owned(), unsafe { libc::getuid() }).unwrap();
-    let service = Service::new(store.home, manager);
+    let service = Service::new(store, manager);
     (home, service)
 }
 struct Gate {

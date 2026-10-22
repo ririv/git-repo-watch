@@ -7,22 +7,16 @@ impl Service {
         cancel.check()?;
         let config = self.store.config()?;
         match operation {
-            Control::Enable => {
-                if self.scheduler.location().try_exists()? {
-                    self.scheduler.verify_owner(&self.store.home)?;
-                }
-                self.scheduler.install(
-                    &self.store.home,
-                    &std::env::current_exe()?,
-                    config.interval_seconds,
-                    cancel,
-                )
-            }
-            Control::Disable => self.scheduler.disable(&self.store.home, cancel),
-            Control::Apply => {
-                self.scheduler
-                    .apply(&self.store.home, config.interval_seconds, cancel)
-            }
+            Control::Enable => self.scheduler.install(
+                &self.store,
+                &std::env::current_exe()?,
+                config.interval_seconds,
+                cancel,
+            ),
+            Control::Disable => self.scheduler.disable(&self.store, cancel),
+            Control::Apply => self
+                .scheduler
+                .apply(&self.store, config.interval_seconds, cancel),
         }
     }
 }

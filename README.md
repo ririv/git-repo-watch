@@ -9,18 +9,22 @@
 需要 Rust 和 C 编译工具链：macOS 使用 Xcode Command Line Tools；Linux 使用 GCC 或 Clang，并要求 systemd 用户服务管理器。项目工具链固定在 `rust-toolchain.toml`，最低 Rust 版本为 1.90，依赖固定在 `Cargo.lock`。构建时会编译内置 libgit2 和 SQLite，不要求用户安装 Go、Python、独立 libgit2 运行库或 SQLite 服务。系统 Git 和 SSH 仍是网络及提交操作的必要依赖。
 
 ```sh
-cp config.example.json config.json
-# 按下面的配置说明编辑 config.json。
+./build.sh
+./gw init
+./gw paths
+# 按下方说明编辑输出位置中的 config.json，再配置仓库。
 ./install.sh
 ```
 
 macOS 安装位置：
 
 - `~/.local/bin/gw`：原生可执行文件。
-- `~/Library/Application Support/gw/location.json`：安装目录和二进制 SHA-256。
+- `~/Library/Application Support/gw/config.json`：用户配置。
+- `~/Library/Application Support/gw/state.sqlite3`：仓库状态、报告和操作记录。
+- `~/Library/Logs/gw/`：定时任务输出。
 - `~/Library/LaunchAgents/local.git-repo-watch.plist`：用户级 launchd 系统任务。
 
-升级前先退出所有旧版 `gw`，并确保旧版定时检查已结束；`install.sh` 构建后先迁移本机状态，再安装命令与任务。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`。安装核验现有命令的归属，原子替换可执行文件，并应用配置中的检查间隔。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
+升级前先退出旧版 `gw`，并确保旧版定时检查已结束；`install.sh` 构建后校验所选用户配置，再迁移该目录中的旧 JSON 状态并安装任务。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内也可使用 `./gw`，默认同样读取用户目录，与当前工作目录和源码位置无关。安装核验可执行文件中的产品标识和任务文件中的存储标识，原子替换可执行文件，并应用配置中的检查间隔。不再读取或生成 `location.json`。`RunAtLoad=false`，安装和重新加载任务都不会立即触发检查。访问可移动卷需要 macOS 授权；勿扰模式会影响通知显示。
 
 ```sh
 ./build.sh          # 构建到 dist/gw，不安装或检查
@@ -37,14 +41,15 @@ sudo apt-get install build-essential pkg-config git openssh-client libnotify-bin
 Linux 安装位置：
 
 - `~/.local/bin/gw`：原生可执行文件。
-- `$XDG_DATA_HOME/gw/location.json`：安装定位，未设置时使用 `~/.local/share/gw/`。
+- `$XDG_CONFIG_HOME/gw/config.json`：用户配置，未设置时使用 `~/.config/gw/config.json`。
+- `$XDG_STATE_HOME/gw/state.sqlite3`：状态与历史，未设置时使用 `~/.local/state/gw/state.sqlite3`。
 - `$XDG_CONFIG_HOME/systemd/user/local.git-repo-watch.service`、`.timer`：用户任务，未设置时使用 `~/.config/systemd/user/`。
 
-XDG 路径必须为绝对路径。安装需能连接 `systemctl --user`，不自动改用 cron。只启用 timer，首轮在配置间隔后运行；每轮是一次性进程，结束后退出。默认随用户会话管理；若需要退出登录后仍运行，可由用户显式执行 `loginctl enable-linger`。日志使用 `journalctl --user -u local.git-repo-watch.service` 查看。自动推送失败通知通过 `notify-send` 发送，需要桌面通知服务和用户会话 D-Bus；无桌面的服务器不能显示通知，失败会写入报告。
+`XDG_CONFIG_HOME`、`XDG_STATE_HOME` 未设置或为空时使用规范默认值；显式值必须为绝对路径。任务文件保存 `HOME` 和解析后的 XDG 目录，后台任务与手动命令读取同一份配置和数据库。安装需能连接 `systemctl --user`，不自动改用 cron。只启用 timer，首轮在配置间隔后运行；每轮是一次性进程，结束后退出。默认随用户会话管理；若需要退出登录后仍运行，可由用户显式执行 `loginctl enable-linger`。日志使用 `journalctl --user -u local.git-repo-watch.service` 查看。自动推送失败通知通过 `notify-send` 发送，需要桌面通知服务和用户会话 D-Bus；无桌面的服务器不能显示通知，失败会写入报告。
 
 Windows 后端尚未实现，当前明确拒绝编译。调度、通知与终端启动分别按平台隔离；后续 Windows 还需实现任务计划、进程树管理、文件锁和权限语义。
 
-构建脚本对 Rust 和 C 依赖执行源码路径裁剪。`config.json`、`var/`、`target/`、`dist/`、日志和定位信息不进入版本控制。
+构建脚本对 Rust 和 C 依赖执行源码路径裁剪。用户配置、数据库、日志、`var/`、`target/` 和 `dist/` 不进入版本控制。
 
 ## 界面语言
 
@@ -64,7 +69,7 @@ APP_LANG=en gw status   # 本次以英文查询
 
 ## 配置
 
-配置保存在安装目录中的 `config.json`：
+默认配置保存在上方系统用户目录中的 `config.json`。`gw init` 显式创建空仓库列表和默认设置；已有文件时拒绝覆盖，普通查询不会创建配置。`gw paths` 显示本次命令实际使用的配置、数据库与日志路径：
 
 ```json
 {
@@ -218,7 +223,7 @@ Diff 同时显示代码语法颜色和增删背景：新增行浅绿底、删除
 
 `/cancel` 请求取消并等待 Git 子进程收尾，期间仍可浏览；关闭 TUI 会取消并回收它启动的检查任务。已有整轮报告在检查成功结束前不会被覆盖，取消产生的错误也不会替换未完成仓库的旧状态。手动检查只执行 fetch 和本地快照比较，不自动推送；单仓库检查只处理目标注册仓库。检查与仓库写操作只在同一 Git 存储上互斥，等待仓库锁也可取消；不同仓库的检查与写操作可以同时进行。配置使用短时文件锁，报告使用 SQLite 短事务；两者均不覆盖 Git 子进程的执行时间。
 
-单仓库结果保存在 `var/state.sqlite3`，每个仓库独立更新当前记录并保留历史，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号；仓库状态、版本号和暂存／提交／推送的操作记录一起提交或回滚，TUI 按版本合并。没有版本号的旧报告在迁移时先比较原始完成时间，再赋予初始版本。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `gw report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
+单仓库结果保存在所选用户状态目录中的 `state.sqlite3`，每个仓库独立更新当前记录并保留历史，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号；仓库状态、版本号和暂存／提交／推送的操作记录一起提交或回滚，TUI 按版本合并。没有版本号的旧报告在迁移时先比较原始完成时间，再赋予初始版本。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `gw report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
 
 ## 检查与并发
 
@@ -283,28 +288,40 @@ gw check /absolute/path/to/repository  # 只检查一个已注册仓库
 
 `status` 和 `report` 只读取已有配置和结果。`gw check [路径]` 是手动检查入口，不执行推送。系统调度使用独立的 `gw scheduled-check` 入口，才应用自动推送配置。退出码：0 成功且检查正常，1 存在需关注结果、扫描失败项或暂无报告，2 参数或执行错误，130 取消。
 
-本机数据：
+默认使用系统用户目录。可通过 `gw --home /absolute/path ...` 显式选择独立数据集，继续使用 `/absolute/path/config.json` 与 `/absolute/path/var/state.sqlite3` 布局；`./gw`、安装和卸载脚本同样接受 `--home`。没有 `--home` 时只使用平台标准目录，不搜索当前项目、不读取旧定位文件。任意目录运行、移动源码或清理构建目录均不影响已安装命令的数据定位。
 
-- `config.json`：显式配置，继续使用 JSON。
-- `var/state.sqlite3`：仓库当前状态、逐次观察记录、操作记录、完整批次报告和扫描报告。
-- `var/state.sqlite3-wal`、`var/state.sqlite3-shm`：SQLite 的 WAL 日志与共享内存文件，由数据库管理。
-- `var/legacy-json/`：迁移前的原始 JSON 临时备份；确认迁移完成后可删除，运行和重装均不依赖已完成的备份。
-- `var/check.lock`：配置读改写的短时文件锁。
-- `var/migration.lock`：数据库初始化与旧数据迁移锁。
-- `var/batch.lock`：整轮检查互斥锁，不阻塞独立仓库操作。
-- `var/repository-locks/`：按 Git common directory 摘要命名的仓库锁。
-- `var/operation-slots/`：跨进程并发槽位。所有文件锁均由文件描述符持有，不通过删除文件解锁。
-- `var/launchd.stdout.log`、`var/launchd.stderr.log`：macOS 系统任务输出；Linux 输出保存在用户 journal。
+所选状态目录内的文件：
+
+- `state.sqlite3`：仓库当前状态、逐次观察记录、操作记录、完整批次报告和扫描报告。
+- `state.sqlite3-wal`、`state.sqlite3-shm`：SQLite 管理的 WAL 日志与共享内存文件。
+- `legacy-json/`：旧 JSON 临时备份；确认迁移完成后可删除，运行和重装不依赖已完成的备份。
+- `check.lock`：配置读改写的短时文件锁。
+- `migration.lock`：数据库初始化与旧 JSON 迁移锁。
+- `batch.lock`：整轮检查互斥锁，不阻塞独立仓库操作。
+- `repository-locks/`：按 Git common directory 摘要命名的仓库锁。
+- `operation-slots/`：跨进程并发槽位。文件锁均由文件描述符持有，不通过删除文件解锁。
+
+macOS 任务日志保存在 `~/Library/Logs/gw/`；Linux 任务输出保存在用户 journal。显式 `--home` 的 macOS 日志继续位于该目录的 `var/`。
 
 SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并行，多个写入者通过短事务串行分配版本；每次存储调用独立连接数据库。单仓库更新不读改写其他仓库的记录，也不覆盖完整批次。历史按仓库和版本查询；整轮报告、扫描与操作记录追加保存，目前不自动清理。`gw report --json` 保留 v3 JSON 输出格式，存储格式与公开输出各自演进。
 
 旧版本升级需先退出旧版进程，再执行 `./install.sh`；只迁移数据可运行：
 
 ```sh
-./dist/gw --home /absolute/path/to/installation migrate
+./gw migrate
+# 显式选择独立数据集：
+./gw --home /absolute/path/to/profile migrate
 ```
 
 迁移会完整校验旧 `latest.json`、`repository-checks.json`、`manual-commit.json`、`manual-push.json` 和 `import-report.json`，在一个数据库事务中导入，提交后校验摘要并归档原文件。中断后可重新执行同一命令继续归档，不会重复导入。损坏、冲突、变化的旧文件、未知数据库版本均明确报错；不会以空数据覆盖，也不会回到 JSON 存储。普通查询发现尚未迁移的数据时会提示运行 `migrate`，不隐式迁移。配置内容、六小时间隔和自动推送策略均不因迁移改变。
+
+从旧的源码数据目录导入标准用户目录时，先退出使用旧数据的全部进程并停掉旧任务，再运行：
+
+```sh
+./gw migrate --from /absolute/path/to/old/home
+```
+
+该命令校验旧配置与数据库，拒绝覆盖已存在的目标配置或数据库；使用 SQLite 备份接口复制包含 WAL 已提交数据的一致快照，并保留所有表、历史和版本号。源目录出现活动批次或仓库写操作时立即报忙。配置最后落盘，普通错误会移除本次创建的数据库；中断后若目标已存在，重新执行会明确报错，不会覆盖它。源文件保留用于核验，确认后可清理；迁移不会执行 Git、fetch 或 push。重新安装任务时需移除已停用的旧任务定义和旧命令，避免新安装器接管没有本版本标识的定义。安装新任务后，核对 `gw paths` 和 `gw status`，再移除旧 `location.json`。
 
 配置、数据库、归档与日志含本机私有路径，均不进入版本控制。配置仍原子写入；配置和数据库权限为 0600，运行目录与归档目录为 0700。备份活动数据库应使用 SQLite 备份工具，或停掉全部进程后同时保留数据库与仍存在的 WAL 文件，不能只复制活动中的主文件。结果缺失与损坏分开处理，损坏数据明确报错。
 
@@ -369,8 +386,9 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 | `crates/tui/src/graphics/` | 通用 RGBA 终端显示、能力探测、有界缓存与后台编码 |
 | `crates/tui/src/history/`、`view/history/` | 图会话、后台读取工作流、历史详情与差异导航 |
 | `crates/engine/src/service/` | 配置、快照、检查调度和单仓库应用服务 |
-| `crates/engine/src/state.rs` | JSON 配置、文件权限与进程锁 |
-| `crates/engine/src/state/database/` | SQLite 短事务、逐仓库读写、历史记录与旧 JSON 迁移 |
+| `crates/engine/src/directories.rs` | 平台标准目录与 XDG 环境解析 |
+| `crates/engine/src/state.rs` | 显式存储布局、JSON 配置、文件权限与进程锁 |
+| `crates/engine/src/state/database/` | SQLite 短事务、逐仓库读写、历史记录、旧 JSON 与显式目录迁移 |
 | `crates/engine/src/state/operation.rs` | 持久化后端无关的操作结果与来源枚举 |
 | `crates/engine/src/scheduler/`、`notify/`、`terminal/` | 各平台调度、桌面通知与终端启动 |
 | `crates/engine/src/process.rs`、`cancel.rs` | 子进程收尾、超时与取消 |
@@ -390,12 +408,12 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 | --- | --- |
 | `APP_COMMAND` | 安装命令名、`dist/` 文件名、帮助和操作提示中的命令名 |
 | `APP_DISPLAY_NAME` | 系统通知中的产品显示名 |
-| `APP_DATA_DIRECTORY` | 各平台安装定位目录名 |
+| `APP_DATA_DIRECTORY` | 各平台配置、状态与日志的应用目录名 |
 | `APP_SERVICE_LABEL` | 系统任务标识及定义文件名 |
 
 该文件是共享的 `KEY=VALUE` 配置；值使用 ASCII 字母、数字、点、下划线和连字符，命令名以字母开头。不使用 Shell 表达式、空格或引号。`identity` 在编译时严格检查字段和取值，Shell 脚本与 Rust 读取同一份定义，不依赖额外运行时。
 
-以后修改 `APP_COMMAND` 后重新构建、安装即可更换公开命令，无需改 Cargo 包名、依赖引用、帮助文案或安装脚本。数据目录和调度标签单独定义，避免仅修改命令名就丢失已有定位或调度。修改这些持久标识时需显式安排迁移；安装器不猜测旧路径。
+以后修改 `APP_COMMAND` 后重新构建、安装即可更换公开命令，无需改 Cargo 包名、依赖引用、帮助文案或安装脚本。数据目录和调度标签单独定义，避免仅修改命令名就丢失已有数据或调度。修改这些持久标识时需显式安排迁移；安装器不猜测旧路径。
 
 项目内统一入口为 `./run.sh`，当前 `./gw` 仅作为兼容启动脚本转发到它。语言覆盖固定使用不含产品前缀的 `APP_LANG`，不随命令更名而改变。
 

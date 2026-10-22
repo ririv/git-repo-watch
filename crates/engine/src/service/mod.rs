@@ -74,9 +74,9 @@ mod config;
 mod repository;
 mod schedule;
 impl Service {
-    pub fn new(home: PathBuf, scheduler: Manager) -> Self {
+    pub fn new(store: Store, scheduler: Manager) -> Self {
         Self {
-            store: Store { home },
+            store,
             git: Git::default(),
             scheduler,
         }

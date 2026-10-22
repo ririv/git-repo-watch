@@ -9,12 +9,6 @@ impl Manager {
             .join("Library/LaunchAgents")
             .join(format!("{LABEL}.plist"))
     }
-    pub fn location(&self) -> PathBuf {
-        self.user_home
-            .join("Library/Application Support")
-            .join(identity::DATA_DIRECTORY)
-            .join("location.json")
-    }
     pub fn registration(&self, cancel: &Cancel) -> Result<Registration> {
         let out = process::system("/bin/launchctl", &["print", &self.target()], cancel)?;
         match out.code {
@@ -52,40 +46,23 @@ impl Manager {
     }
     pub fn install(
         &self,
-        root: &Path,
+        store: &Store,
         source: &Path,
         interval: u64,
         cancel: &Cancel,
     ) -> Result<()> {
-        ensure!(
-            root.is_absolute() && interval >= 60,
-            i18n::tr!(InvalidInstallationArguments)
-        );
+        ensure!(interval >= 60, i18n::tr!(InvalidInstallationArguments));
+        self.verify_install_target(store)?;
         let data = fs::read(source)?;
-        match fs::read(self.binary()) {
-            Ok(old) => {
-                let l = self.read_location()?;
-                ensure!(
-                    digest(&old) == l.binary_sha256,
-                    i18n::tr!(InstalledCommandOwnershipMismatch)
-                );
-            }
-            Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-            Err(e) => return Err(e.into()),
-        }
         let previous = self.registration(cancel)?;
-        for path in [
-            self.binary(),
-            self.location(),
-            self.plist(),
-            root.join("var/placeholder"),
-        ] {
+        for path in [self.binary(), self.plist()] {
             let parent = path
                 .parent()
                 .context(i18n::tr!(InstallationPathHasNoParentDirectory))?;
             fs::create_dir_all(parent)?;
         }
-        let plist = plist(root, &self.binary(), interval)?;
+        Self::prepare_storage(store)?;
+        let plist = plist(store, &self.binary(), interval, &self.user_home)?;
         let staged = tempfile::Builder::new().prefix(".schedule-").tempfile_in(
             self.plist()
                 .parent()
@@ -105,13 +82,6 @@ impl Manager {
         )?
         .success(i18n::tr!(ValidateSystemSchedule))?;
         state::atomic(&self.binary(), &data, 0o755)?;
-        state::write_json(
-            &self.location(),
-            &Location {
-                home: root.to_owned(),
-                binary_sha256: digest(&data),
-            },
-        )?;
         state::atomic(&self.plist(), plist.as_bytes(), 0o600)?;
         if previous == Registration::Loaded {
             process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
@@ -133,8 +103,8 @@ impl Manager {
         .success(i18n::tr!(LoadSystemSchedule))?;
         Ok(())
     }
-    pub fn disable(&self, root: &Path, cancel: &Cancel) -> Result<()> {
-        self.verify_owner(root)?;
+    pub fn disable(&self, store: &Store, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         ensure!(
             self.plist().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
@@ -148,15 +118,15 @@ impl Manager {
             .success(i18n::tr!(DisableScheduledTask))?;
         Ok(())
     }
-    pub fn apply(&self, root: &Path, interval: u64, cancel: &Cancel) -> Result<()> {
-        self.verify_owner(root)?;
+    pub fn apply(&self, store: &Store, interval: u64, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         ensure!(interval >= 60, i18n::tr!(InvalidInstallationArguments));
         ensure!(
             self.plist().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
         );
         let previous = self.registration(cancel)?;
-        let payload = plist(root, &self.binary(), interval)?;
+        let payload = plist(store, &self.binary(), interval, &self.user_home)?;
         let staged = tempfile::NamedTempFile::new_in(
             self.plist()
                 .parent()
@@ -194,7 +164,8 @@ impl Manager {
         }
         Ok(())
     }
-    pub fn uninstall(&self, cancel: &Cancel) -> Result<()> {
+    pub fn uninstall(&self, store: &Store, cancel: &Cancel) -> Result<()> {
+        self.verify_owner(store)?;
         if self.registration(cancel)? == Registration::Loaded {
             process::system("/bin/launchctl", &["bootout", &self.target()], cancel)?
                 .success(i18n::tr!(UnloadSystemSchedule))?;
@@ -211,25 +182,48 @@ fn xml(value: &str) -> String {
         .replace('"', "&quot;")
         .replace('\'', "&apos;")
 }
-pub fn plist(root: &Path, binary: &Path, interval: u64) -> Result<String> {
-    let root = root.to_str().context(i18n::tr!(InstallationPathNotUtf8))?;
-    let binary = binary.to_str().context(i18n::tr!(CommandPathNotUtf8))?;
+pub fn plist(store: &Store, binary: &Path, interval: u64, user_home: &Path) -> Result<String> {
+    let executable = binary.to_str().context(i18n::tr!(CommandPathNotUtf8))?;
+    let arguments = match store {
+        Store::Custom { home } => format!(
+            "<string>--home</string><string>{}</string>",
+            xml(home.to_str().context(i18n::tr!(InstallationPathNotUtf8))?)
+        ),
+        Store::Standard { .. } => String::new(),
+    };
+    let working = store.state_dir();
+    let logs = store.log_dir();
     Ok(format!(
         r#"<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- {marker} -->
 <plist version="1.0"><dict>
 <key>Label</key><string>{LABEL}</string>
-<key>ProgramArguments</key><array><string>{binary}</string><string>--home</string><string>{root}</string><string>scheduled-check</string></array>
-<key>WorkingDirectory</key><string>{root}</string>
+<key>ProgramArguments</key><array><string>{binary}</string>{arguments}<string>scheduled-check</string></array>
+<key>WorkingDirectory</key><string>{working}</string>
 <key>StartInterval</key><integer>{interval}</integer>
 <key>RunAtLoad</key><false/>
 <key>ProcessType</key><string>Background</string>
-<key>EnvironmentVariables</key><dict><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
-<key>StandardOutPath</key><string>{root}/var/launchd.stdout.log</string>
-<key>StandardErrorPath</key><string>{root}/var/launchd.stderr.log</string>
+<key>EnvironmentVariables</key><dict><key>HOME</key><string>{user_home}</string><key>PATH</key><string>/opt/homebrew/bin:/usr/bin:/bin:/usr/sbin:/sbin</string></dict>
+<key>StandardOutPath</key><string>{stdout}</string>
+<key>StandardErrorPath</key><string>{stderr}</string>
 </dict></plist>
 "#,
-        binary = xml(binary),
-        root = xml(root)
+        marker = task_marker(store, binary),
+        user_home = xml(user_home
+            .to_str()
+            .context(i18n::tr!(InstallationPathNotUtf8))?),
+        binary = xml(executable),
+        working = xml(working
+            .to_str()
+            .context(i18n::tr!(InstallationPathNotUtf8))?),
+        stdout = xml(logs
+            .join("launchd.stdout.log")
+            .to_str()
+            .context(i18n::tr!(InstallationPathNotUtf8))?),
+        stderr = xml(logs
+            .join("launchd.stderr.log")
+            .to_str()
+            .context(i18n::tr!(InstallationPathNotUtf8))?),
     ))
 }

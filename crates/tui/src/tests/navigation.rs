@@ -85,7 +85,7 @@ fn text_and_modified_arrows_stay_in_the_editor_instead_of_navigating() {
 #[test]
 fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation() {
     let (_home, mut s) = fixture(vec![]);
-    let before = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+    let before = std::fs::read(s.service.store.config_path()).unwrap();
     command(&mut s, "settings");
     key(&mut s, KeyCode::Right);
     assert_eq!(s.bar.editor().text, "/settings concurrency 4");
@@ -124,7 +124,7 @@ fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation(
     key(&mut s, KeyCode::Left);
     assert_eq!(s.page, Page::Repositories);
     assert_eq!(
-        std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+        std::fs::read(s.service.store.config_path()).unwrap(),
         before
     );
 }

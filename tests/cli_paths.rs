@@ -18,11 +18,9 @@ impl Fixture {
     fn create() -> Self {
         let temp = tempfile::tempdir().unwrap();
         let user_home = temp.path().join("用户 主目录");
-        let store = Store {
-            home: user_home.join("应用 数据"),
-        };
+        let store = Store::custom(user_home.join("应用 数据"));
         let repository = user_home.join("Proj/仓库 空格");
-        fs::create_dir_all(&store.home).unwrap();
+        fs::create_dir_all(store.config_dir()).unwrap();
         fs::create_dir_all(&repository).unwrap();
         assert!(
             Command::new("git")
@@ -117,12 +115,8 @@ fn literal_tilde_paths_expand_for_cli_config_discovery_and_single_checks() {
 #[test]
 fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configuration() {
     let f = Fixture::create();
-    let original = fs::read(f.store.home.join("config.json")).unwrap();
-    fs::copy(
-        f.store.home.join("config.json"),
-        f.user_home.join("config.json"),
-    )
-    .unwrap();
+    let original = fs::read(f.store.config_path()).unwrap();
+    fs::copy(f.store.config_path(), f.user_home.join("config.json")).unwrap();
     let output = f
         .command()
         .args(["--home", "~", "config"])
@@ -145,10 +139,7 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
         let output = f.run(&[command, "~someone/Proj"]);
         assert_eq!(output.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&output.stderr).contains("~user"));
-        assert_eq!(
-            fs::read(f.store.home.join("config.json")).unwrap(),
-            original
-        );
+        assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
     }
     for home in [None, Some("relative")] {
         let mut command = f.command();
@@ -166,9 +157,6 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
             .unwrap();
         assert_eq!(output.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&output.stderr).contains("home directory"));
-        assert_eq!(
-            fs::read(f.store.home.join("config.json")).unwrap(),
-            original
-        );
+        assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
     }
 }

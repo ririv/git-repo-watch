@@ -26,7 +26,7 @@ fn overview_is_live_localized_and_distinct_from_cached_preview() {
             "export const pending = true;\n",
         );
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        let config = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+        let config = std::fs::read(s.service.store.config_path()).unwrap();
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.page, Page::Detail);
@@ -69,7 +69,7 @@ fn overview_is_live_localized_and_distinct_from_cached_preview() {
         assert!(!overview.contains("中文 pending.ts"));
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert_eq!(
-            std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+            std::fs::read(s.service.store.config_path()).unwrap(),
             config
         );
         assert!(s.service.store.report().unwrap().is_none());

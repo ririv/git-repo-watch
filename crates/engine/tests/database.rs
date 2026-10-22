@@ -60,9 +60,7 @@ fn report(path: &Path, revision: u64, dirty: bool) -> Report {
 }
 fn fixture() -> (tempfile::TempDir, Store) {
     let temp = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: temp.path().to_owned(),
-    };
+    let store = Store::custom(temp.path().to_owned());
     (temp, store)
 }
 fn legacy(store: &Store, name: &str, value: &impl serde::Serialize) -> Vec<u8> {
@@ -480,4 +478,88 @@ fn invalid_databases_and_future_schema_versions_are_never_recreated() {
             .unwrap(),
         99
     );
+}
+
+#[test]
+fn transferring_a_home_copies_wal_commits_histories_and_exact_configuration_without_overwriting() {
+    let (_temp, source) = fixture();
+    source
+        .save_config(&engine::state::Config::default())
+        .unwrap();
+    let path = Path::new("/example/中文 仓库");
+    let mut first = report(path, 0, false);
+    source
+        .save_repository_report(&mut first, &Cancel::default())
+        .unwrap();
+    let keep_wal = Connection::open(source.database_path()).unwrap();
+    let mut next = report(path, 0, true);
+    source
+        .save_operation_report(&mut next, &record(path), &Cancel::default())
+        .unwrap();
+    source.save_report(&next).unwrap();
+    let destination_home = tempfile::tempdir().unwrap();
+    let destination =
+        engine::directories::UserDirectories::linux(destination_home.path(), None, None)
+            .unwrap()
+            .store();
+    let imported = destination
+        .migrate_from(&source, &Cancel::default())
+        .unwrap();
+    assert!(matches!(imported, engine::state::Transfer::Database { .. }));
+    assert_eq!(
+        fs::read(destination.config_path()).unwrap(),
+        fs::read(source.config_path()).unwrap()
+    );
+    assert_eq!(
+        serde_json::to_value(destination.report().unwrap()).unwrap(),
+        serde_json::to_value(source.report().unwrap()).unwrap()
+    );
+    assert_eq!(destination.repository_history(path, 100).unwrap().len(), 2);
+    assert_eq!(destination.operation_history(path, 100).unwrap().len(), 1);
+    assert_eq!(
+        destination
+            .repository_report(path)
+            .unwrap()
+            .unwrap()
+            .repository_revisions[path],
+        2
+    );
+    assert!(
+        destination
+            .migrate_from(&source, &Cancel::default())
+            .is_err()
+    );
+    assert_eq!(destination.repository_history(path, 100).unwrap().len(), 2);
+    assert_eq!(source.repository_history(path, 100).unwrap().len(), 2);
+    assert!(source.database_path().exists());
+    drop(keep_wal);
+}
+#[test]
+fn transferring_requires_an_idle_source_and_cancellation_preserves_existing_files() {
+    let (_temp, source) = fixture();
+    source
+        .save_config(&engine::state::Config::default())
+        .unwrap();
+    let destination_home = tempfile::tempdir().unwrap();
+    let destination = Store::custom(destination_home.path().to_owned());
+    let slot = source.operation_slot(4, &Cancel::default()).unwrap();
+    let busy = destination
+        .migrate_from(&source, &Cancel::default())
+        .unwrap_err();
+    assert!(busy.downcast_ref::<engine::state::Busy>().is_some());
+    assert!(!destination.config_path().exists());
+    drop(slot);
+    let cancel = Cancel::default();
+    cancel.cancel();
+    assert!(destination.migrate_from(&source, &cancel).is_err());
+    assert!(!destination.config_path().exists());
+    assert!(!destination.database_path().exists());
+    assert!(matches!(
+        destination
+            .migrate_from(&source, &Cancel::default())
+            .unwrap(),
+        engine::state::Transfer::Configuration { .. }
+    ));
+    assert!(destination.config_path().exists());
+    assert!(!destination.database_path().exists());
 }

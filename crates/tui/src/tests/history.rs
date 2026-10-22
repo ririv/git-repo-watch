@@ -45,7 +45,7 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
         let f = merged();
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-        let config = std::fs::read(s.service.store.home.join("config.json")).unwrap();
+        let config = std::fs::read(s.service.store.config_path()).unwrap();
         command(&mut s, "log");
         assert!(!s.repository_tasks.is_empty());
         assert!(!matches!(s.mode, Mode::Busy(_)));
@@ -86,7 +86,7 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert_eq!(
-            std::fs::read(s.service.store.home.join("config.json")).unwrap(),
+            std::fs::read(s.service.store.config_path()).unwrap(),
             config
         );
         assert!(s.service.store.report().unwrap().is_none());

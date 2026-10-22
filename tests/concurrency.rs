@@ -73,9 +73,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
     let first_gate = Gate::install(&first);
     let second_gate = Gate::install(&second);
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,

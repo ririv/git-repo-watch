@@ -1,8 +1,8 @@
 use engine::{
     cancel::Cancel,
-    scheduler::{Control, Location, Manager, digest},
+    scheduler::{BINARY_MARKER, Control, Manager, task_marker},
     service::Service,
-    state::{Config, Store, write_json},
+    state::{Config, Store},
 };
 use std::fs;
 
@@ -11,46 +11,27 @@ fn fixture() -> (tempfile::TempDir, Service) {
     let home = temp.path().join("project");
     fs::create_dir(&home).unwrap();
     let service = Service::new(
-        home.clone(),
+        Store::custom(home),
         Manager::for_user(temp.path().join("user"), unsafe { libc::getuid() }).unwrap(),
     );
-    service
-        .store
-        .save_config(&Config {
-            interval_seconds: 21600,
-            repositories: vec![],
-            excluded_roots: vec![],
-            push_policy: engine::domain::PushPolicy::Disabled,
-            max_concurrency: 4,
-            check_on_startup: true,
-        })
-        .unwrap();
+    service.store.save_config(&Config::default()).unwrap();
     (temp, service)
 }
-fn owner(service: &Service, home: std::path::PathBuf, hash: &str) {
-    let manager = &service.scheduler;
-    fs::create_dir_all(manager.binary().parent().unwrap()).unwrap();
-    fs::create_dir_all(manager.location().parent().unwrap()).unwrap();
-    fs::write(manager.binary(), b"owned").unwrap();
-    write_json(
-        &manager.location(),
-        &Location {
-            home,
-            binary_sha256: hash.into(),
-        },
-    )
-    .unwrap();
+fn binary(service: &Service, contents: &[u8]) {
+    let path = service.scheduler.binary();
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, contents).unwrap();
 }
 #[test]
 fn schedule_controls_reject_another_installation_before_native_commands_or_file_changes() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, service) = fixture();
-    owner(
-        &service,
-        service.store.home.join("another"),
-        &digest(b"owned"),
-    );
-    let before = fs::read(service.scheduler.location()).unwrap();
+    binary(&service, BINARY_MARKER.as_bytes());
+    let another = Store::custom(service.store.config_dir().join("another"));
+    let path = service.scheduler.definition();
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    let contents = format!("# {}\n", task_marker(&another, &service.scheduler.binary()));
+    fs::write(&path, &contents).unwrap();
     for operation in [Control::Apply, Control::Disable, Control::Enable] {
         let error = service
             .control_schedule(operation, &Cancel::default())
@@ -60,22 +41,24 @@ fn schedule_controls_reject_another_installation_before_native_commands_or_file_
             "{error:#}"
         );
     }
-    assert_eq!(fs::read(service.scheduler.location()).unwrap(), before);
-    assert_eq!(fs::read(service.scheduler.binary()).unwrap(), b"owned");
+    assert_eq!(fs::read_to_string(path).unwrap(), contents);
+    assert_eq!(
+        fs::read(service.scheduler.binary()).unwrap(),
+        BINARY_MARKER.as_bytes()
+    );
     assert!(service.store.report().unwrap().is_none());
-    assert!(!service.scheduler.definition().exists());
 }
 #[test]
 fn controls_validate_binary_ownership_and_require_an_existing_definition_for_apply_or_disable() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, service) = fixture();
-    owner(&service, service.store.home.clone(), "wrong hash");
+    binary(&service, b"unowned");
     assert!(
         service
             .control_schedule(Control::Enable, &Cancel::default())
             .is_err()
     );
-    owner(&service, service.store.home.clone(), &digest(b"owned"));
+    binary(&service, BINARY_MARKER.as_bytes());
     for operation in [Control::Apply, Control::Disable] {
         let error = service
             .control_schedule(operation, &Cancel::default())
@@ -88,12 +71,9 @@ fn controls_validate_binary_ownership_and_require_an_existing_definition_for_app
     assert!(!service.scheduler.definition().exists());
 }
 #[test]
-fn controls_share_the_check_lock_and_cancel_without_changes() {
+fn controls_share_the_configuration_lock_and_cancel_without_changes() {
     let (_temp, service) = fixture();
-    let store = Store {
-        home: service.store.home.clone(),
-    };
-    let lock = store.lock().unwrap();
+    let lock = service.store.lock().unwrap();
     assert!(
         service
             .control_schedule(Control::Enable, &Cancel::default())
@@ -107,5 +87,5 @@ fn controls_share_the_check_lock_and_cancel_without_changes() {
     for operation in [Control::Apply, Control::Disable, Control::Enable] {
         assert!(service.control_schedule(operation, &cancel).is_err());
     }
-    assert!(!service.scheduler.location().exists());
+    assert!(!service.scheduler.definition().exists());
 }

@@ -124,9 +124,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
     let first = Fixture::create();
     let second = Fixture::create();
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     let missing = PathBuf::from("/path/to/unavailable/repository");
     let paths = vec![second.repo.clone(), missing.clone(), first.repo.clone()];
     store
@@ -139,7 +137,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             check_on_startup: true,
         })
         .unwrap();
-    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    let service = Service::new(store.clone(), Manager::new().unwrap());
     let report = service.run(&Cancel::default(), |_| {}).unwrap();
     assert_eq!(
         report
@@ -225,9 +223,7 @@ fn independent_repositories_overlap_real_fetches() {
         );
     }
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -238,7 +234,7 @@ fn independent_repositories_overlap_real_fetches() {
             check_on_startup: true,
         })
         .unwrap();
-    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    let service = Service::new(store.clone(), Manager::new().unwrap());
     let report = service.run(&Cancel::default(), |_| {}).unwrap();
     assert!(
         report
@@ -255,9 +251,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     let first = Fixture::create();
     let second = Fixture::create();
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -268,7 +262,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             check_on_startup: true,
         })
         .unwrap();
-    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    let service = Service::new(store.clone(), Manager::new().unwrap());
     service.run(&Cancel::default(), |_| {}).unwrap();
     let baseline = serde_json::to_vec(&store.report().unwrap()).unwrap();
     first.commit("first-ahead", "first");
@@ -345,9 +339,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
     let f = Fixture::create();
     write(f.repo.join("new"), "new");
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -358,7 +350,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
             check_on_startup: true,
         })
         .unwrap();
-    let service = Service::new(store.home.clone(), Manager::new().unwrap());
+    let service = Service::new(store.clone(), Manager::new().unwrap());
     let common = engine::local::common_dir(&engine::local::open(&f.repo).unwrap()).unwrap();
     let _lock = store.repository_lock(&common, &Cancel::default()).unwrap();
     let files = service.files(&f.repo, &Cancel::default()).unwrap();
@@ -392,9 +384,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
     f.commit("ahead", "ahead");
     let before = git(&f.remote, &["rev-parse", "main"]);
     let home = tempfile::tempdir().unwrap();
-    let store = Store {
-        home: home.path().to_owned(),
-    };
+    let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
@@ -409,7 +399,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
         let _lock = store.lock().unwrap();
         write(store.state_dir().join("repository-checks.json"), "broken");
     }
-    let service = Service::new(store.home, Manager::new().unwrap());
+    let service = Service::new(store, Manager::new().unwrap());
     assert!(
         service
             .check_repository(&f.repo, &Cancel::default(), |_| {})
