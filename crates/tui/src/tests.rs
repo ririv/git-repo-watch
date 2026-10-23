@@ -1451,12 +1451,26 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.bar.text().starts_with("/schedule interval "));
     key(&mut s, KeyCode::Esc);
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(s.page, Page::Repositories);
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(s.page, Page::Configuration(Configuration::General));
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    for (name, page) in [
+        ("schedule", Page::Configuration(Configuration::Schedule)),
+        ("repos", Page::Repositories),
+        ("settings", Page::Configuration(Configuration::General)),
+        (
+            "repos manage",
+            Page::Configuration(Configuration::Repositories),
+        ),
+        ("help", Page::Help),
+    ] {
+        command(&mut s, name);
+        assert_eq!(s.page, page);
+        let depth = s.history.len();
+        for code in [KeyCode::Tab, KeyCode::BackTab] {
+            key(&mut s, code);
+            assert_eq!(s.page, page);
+            assert_eq!(s.history.len(), depth);
+            assert!(matches!(s.mode, Mode::Browsing));
+        }
+    }
     assert_eq!(
         s.service.store.config().unwrap().interval_seconds,
         before.interval_seconds

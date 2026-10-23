@@ -2,7 +2,7 @@
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
-- `Tab` cycles repositories, general settings and the scheduled task.
+- `/repos`, `/settings`, and `/schedule` open repositories, general settings, and the scheduled task; `Tab` does not switch these pages.
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
 ## Mouse & Trackpad

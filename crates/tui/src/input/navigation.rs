@@ -13,18 +13,6 @@ impl Screen {
                 self.return_to_view();
                 return Ok(false);
             }
-            KeyCode::Tab => {
-                match self.page {
-                    Page::Configuration(Configuration::General) => {
-                        self.open_page(Page::Configuration(Configuration::Schedule))
-                    }
-                    Page::Configuration(Configuration::Schedule | Configuration::Repositories) => {
-                        self.open_repository_list(self.selected_path())
-                    }
-                    _ => self.open_page(Page::Configuration(Configuration::General)),
-                }
-                return Ok(false);
-            }
             _ => {}
         }
         match self.page {

@@ -191,6 +191,8 @@ fn configuration_and_help_follow_the_same_enter_and_return_path() {
     command(&mut s, "settings");
     let settings = labels(&s);
     key(&mut s, KeyCode::Tab);
+    assert_eq!(labels(&s), settings);
+    command(&mut s, "schedule");
     assert_eq!(labels(&s).len(), settings.len() + 1);
     key(&mut s, KeyCode::F(1));
     assert_eq!(labels(&s).len(), settings.len() + 2);

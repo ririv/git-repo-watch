@@ -743,7 +743,7 @@ pub enum Message {
     SearchEditingHint,
     SelectSpaceInsMarkCtrlAAll,
     ScrollEscFilesCommands,
-    SelectEnterEditTabReposCommands,
+    SelectEnterEditBackCommands,
     PgdnScrollEscBackCommands,
     CommandsAlt,
     SearchFiles,
@@ -3289,11 +3289,11 @@ impl Message {
             (Self::ScrollEscFilesCommands, Language::Chinese) => {
                 "↑↓滚动 · ←/Esc 返回 · /repo diff layout 布局"
             }
-            (Self::SelectEnterEditTabReposCommands, Language::English) => {
-                "↑↓ select · →/Enter edit · ←/Esc back · Tab pages"
+            (Self::SelectEnterEditBackCommands, Language::English) => {
+                "↑↓ select · →/Enter edit · ←/Esc back · /commands"
             }
-            (Self::SelectEnterEditTabReposCommands, Language::Chinese) => {
-                "↑↓ 选择 · →/Enter 修改 · ←/Esc 返回 · Tab 页面"
+            (Self::SelectEnterEditBackCommands, Language::Chinese) => {
+                "↑↓ 选择 · →/Enter 修改 · ←/Esc 返回 · /命令"
             }
             (Self::PgdnScrollEscBackCommands, Language::English) => {
                 "↑↓/PgDn scroll · ←/Esc back · /commands"

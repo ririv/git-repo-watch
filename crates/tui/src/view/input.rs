@@ -88,7 +88,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                             Page::Configuration(Configuration::Schedule) => {
                                 i18n::tr!(ScheduleHelpHint)
                             }
-                            Page::Configuration(_) => i18n::tr!(SelectEnterEditTabReposCommands),
+                            Page::Configuration(_) => i18n::tr!(SelectEnterEditBackCommands),
                             _ => i18n::tr!(PgdnScrollEscBackCommands),
                         },
                     }
