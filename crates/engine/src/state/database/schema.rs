@@ -1,5 +1,5 @@
 //! Schema changes are transactional and identified independently of the executable name.
-pub(super) const VERSION: i64 = 1;
+pub(super) const VERSION: i64 = 2;
 pub(super) const APPLICATION_ID: i64 = 0x52575053;
 pub(super) const CREATE: &str = r#"
 CREATE TABLE batch_reports (
@@ -39,4 +39,11 @@ CREATE TABLE legacy_imports (
     digest TEXT NOT NULL,
     state TEXT NOT NULL CHECK(state IN ('pending', 'archived'))
 ) STRICT;
+CREATE TABLE scheduled_occurrences (
+    plan TEXT NOT NULL,
+    slot TEXT NOT NULL,
+    claimed_at TEXT NOT NULL,
+    PRIMARY KEY(plan, slot)
+) STRICT;
 "#;
+pub(super) const UPGRADE_V1: &str = "CREATE TABLE scheduled_occurrences (plan TEXT NOT NULL, slot TEXT NOT NULL, claimed_at TEXT NOT NULL, PRIMARY KEY(plan, slot)) STRICT;";

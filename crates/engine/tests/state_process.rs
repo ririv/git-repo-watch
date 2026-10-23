@@ -102,6 +102,7 @@ fn intervals_and_schema_boundaries() {
     assert!(state::interval("NaNh").is_err());
     let c = Config {
         interval_seconds: 21600,
+        schedule_anchor: Default::default(),
         repositories: vec![],
         excluded_roots: vec![],
         push_policy: PushPolicy::Disabled,

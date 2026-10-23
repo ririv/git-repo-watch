@@ -1,6 +1,7 @@
 //! Short SQLite transactions own persistent state; Git work stays outside this module.
 mod migration;
 mod reports;
+mod schedule;
 mod schema;
 mod transfer;
 use super::{Lock, Store};
@@ -66,7 +67,7 @@ impl Database {
         let id: i64 = connection.pragma_query_value(None, "application_id", |row| row.get(0))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
         drop(connection);
-        if version == 0 && id == 0 {
+        if (version == 0 && id == 0) || (version == 1 && id == schema::APPLICATION_ID) {
             let _migration = Lock::wait(&store.state_dir().join("migration.lock"), cancel)?;
             Self::initialize(store, cancel)?;
         }
@@ -169,6 +170,18 @@ impl Database {
                 Ok(())
             })?;
             legacy.files.len()
+        } else if version == 1 && id == schema::APPLICATION_ID {
+            let journal: String =
+                database
+                    .connection
+                    .pragma_query_value(None, "journal_mode", |row| row.get(0))?;
+            ensure!(journal == "wal", i18n::tr!(StateDatabaseRequiresWal));
+            database.transaction(cancel, |transaction| {
+                transaction.execute_batch(schema::UPGRADE_V1)?;
+                transaction.pragma_update(None, "user_version", schema::VERSION)?;
+                Ok(())
+            })?;
+            0
         } else {
             ensure!(
                 version == schema::VERSION && id == schema::APPLICATION_ID,

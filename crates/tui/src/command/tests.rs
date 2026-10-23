@@ -45,7 +45,10 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
         assert_eq!(candidates.len(), children.len() + 1);
     }
     assert_eq!(names("repo r"), ["repo remove"]);
-    assert_eq!(names("schedule a"), ["schedule autopush", "schedule apply"]);
+    assert_eq!(
+        names("schedule a"),
+        ["schedule anchor", "schedule autopush", "schedule apply"]
+    );
     assert_eq!(names("settings st"), ["settings startup-check"]);
 }
 

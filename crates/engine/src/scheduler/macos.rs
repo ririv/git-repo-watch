@@ -25,12 +25,12 @@ impl Manager {
         if !path.try_exists()? {
             return Ok(Schedule::Missing);
         }
+        let contents = fs::read_to_string(&path)?;
         let out = process::system(
             "/usr/bin/plutil",
             &[
-                "-extract",
-                "StartInterval",
-                "raw",
+                "-convert",
+                "json",
                 "-o",
                 "-",
                 path.to_str().context(i18n::tr!(SchedulePathIsNotUtf8))?,
@@ -38,20 +38,38 @@ impl Manager {
             cancel,
         )?
         .success(i18n::tr!(ReadScheduledInterval))?;
-        let interval = std::str::from_utf8(&out)?.trim().parse::<u64>()?;
-        ensure!(interval >= 60, i18n::tr!(InvalidScheduledInterval));
-        Ok(Schedule::Saved {
-            interval_seconds: interval,
-        })
+        let value: serde_json::Value = serde_json::from_slice(&out)?;
+        if let Some(plan) = read_plan(&contents, "<!-- schedule-plan=", " -->")? {
+            ensure!(
+                value["StartCalendarInterval"] == calendar_value(&plan),
+                i18n::tr!(InvalidScheduledInterval)
+            );
+            ensure!(
+                value["StartInterval"].is_null(),
+                i18n::tr!(InvalidScheduledInterval)
+            );
+            ensure!(
+                value["ProgramArguments"]
+                    .as_array()
+                    .is_some_and(|args| args.last().is_some_and(|arg| arg == "scheduled-tick")),
+                i18n::tr!(InvalidScheduledInterval)
+            );
+            return Ok(Schedule::Anchored { plan });
+        }
+        let interval_seconds = value["StartInterval"]
+            .as_u64()
+            .context(i18n::tr!(InvalidScheduledInterval))?;
+        duration::validate(interval_seconds)?;
+        Ok(Schedule::Saved { interval_seconds })
     }
+
     pub fn install(
         &self,
         store: &Store,
         source: &Path,
-        interval: u64,
+        plan: &timing::Plan,
         cancel: &Cancel,
     ) -> Result<()> {
-        ensure!(interval >= 60, i18n::tr!(InvalidInstallationArguments));
         self.verify_install_target(store)?;
         let data = fs::read(source)?;
         let previous = self.registration(cancel)?;
@@ -62,7 +80,7 @@ impl Manager {
             fs::create_dir_all(parent)?;
         }
         Self::prepare_storage(store)?;
-        let plist = plist(store, &self.binary(), interval, &self.user_home)?;
+        let plist = anchored_plist(store, &self.binary(), plan, &self.user_home)?;
         let staged = tempfile::Builder::new().prefix(".schedule-").tempfile_in(
             self.plist()
                 .parent()
@@ -118,15 +136,14 @@ impl Manager {
             .success(i18n::tr!(DisableScheduledTask))?;
         Ok(())
     }
-    pub fn apply(&self, store: &Store, interval: u64, cancel: &Cancel) -> Result<()> {
+    pub fn apply(&self, store: &Store, plan: &timing::Plan, cancel: &Cancel) -> Result<()> {
         self.verify_owner(store)?;
-        ensure!(interval >= 60, i18n::tr!(InvalidInstallationArguments));
         ensure!(
             self.plist().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
         );
         let previous = self.registration(cancel)?;
-        let payload = plist(store, &self.binary(), interval, &self.user_home)?;
+        let payload = anchored_plist(store, &self.binary(), plan, &self.user_home)?;
         let staged = tempfile::NamedTempFile::new_in(
             self.plist()
                 .parent()
@@ -226,4 +243,102 @@ pub fn plist(store: &Store, binary: &Path, interval: u64, user_home: &Path) -> R
             .to_str()
             .context(i18n::tr!(InstallationPathNotUtf8))?),
     ))
+}
+
+fn calendar_value(plan: &timing::Plan) -> serde_json::Value {
+    serde_json::Value::Array(
+        calendar::slots(plan)
+            .into_iter()
+            .map(|slot| {
+                let mut values = serde_json::Map::new();
+                for (key, value) in [
+                    ("Weekday", slot.weekday),
+                    ("Hour", slot.hour),
+                    ("Minute", slot.minute),
+                ] {
+                    if let Some(value) = value {
+                        values.insert(key.into(), value.into());
+                    }
+                }
+                values.into()
+            })
+            .collect(),
+    )
+}
+fn anchored_plist(
+    store: &Store,
+    binary: &Path,
+    plan: &timing::Plan,
+    user_home: &Path,
+) -> Result<String> {
+    let entries = calendar::slots(plan)
+        .into_iter()
+        .map(|slot| {
+            let mut entry = String::from("<dict>");
+            for (key, value) in [
+                ("Weekday", slot.weekday),
+                ("Hour", slot.hour),
+                ("Minute", slot.minute),
+            ] {
+                if let Some(value) = value {
+                    entry.push_str(&format!("<key>{key}</key><integer>{value}</integer>"));
+                }
+            }
+            entry.push_str("</dict>");
+            entry
+        })
+        .collect::<String>();
+    let payload = plist(store, binary, plan.interval_seconds(), user_home)?
+        .replace(
+            &format!(
+                "<key>StartInterval</key><integer>{}</integer>",
+                plan.interval_seconds()
+            ),
+            &format!("<key>StartCalendarInterval</key><array>{entries}</array>"),
+        )
+        .replace(
+            "<string>scheduled-check</string>",
+            "<string>scheduled-tick</string>",
+        )
+        .replace(
+            "<plist version=",
+            &format!("<!-- {} -->\n<plist version=", plan_comment(plan)?),
+        );
+    Ok(payload)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn anchored_plists_round_trip_through_native_plutil_without_installing_a_task() {
+        let temporary = tempfile::tempdir().unwrap();
+        let manager = Manager::for_user(temporary.path().join("user"), 99999).unwrap();
+        let store = Store::custom(temporary.path().join("profile"));
+        fs::create_dir_all(manager.plist().parent().unwrap()).unwrap();
+        let at = chrono::NaiveDate::from_ymd_opt(2026, 10, 23)
+            .unwrap()
+            .and_hms_opt(0, 0, 17)
+            .unwrap();
+        for seconds in [90, 420, 21600, 172800, 604800] {
+            let plan = timing::Plan::new(
+                seconds,
+                timing::Basis {
+                    source: timing::Source::Explicit,
+                    at,
+                },
+            )
+            .unwrap();
+            let payload =
+                anchored_plist(&store, &manager.binary(), &plan, manager.user_home()).unwrap();
+            assert!(
+                payload.contains("<key>RunAtLoad</key><false/>")
+                    && !payload.contains("<key>StartInterval</key>")
+            );
+            fs::write(manager.plist(), payload).unwrap();
+            assert!(
+                matches!(manager.schedule(&Cancel::default()).unwrap(), Schedule::Anchored { plan: actual } if actual == plan)
+            );
+        }
+    }
 }

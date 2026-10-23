@@ -31,6 +31,7 @@ pub enum Action {
     Scan,
     Import,
     Interval,
+    Anchor,
     Autopush,
     Concurrency,
     StartupCheck,
@@ -220,6 +221,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::SaveCheckInterval,
     },
     Command {
+        name: "schedule anchor",
+        action: Anchor,
+        scope: Global,
+        description: i18n::Message::SaveScheduleAnchor,
+    },
+    Command {
         name: "schedule autopush",
         action: Autopush,
         scope: Global,
@@ -291,10 +298,10 @@ impl Configuration {
             Self::Repositories => &[Add, Remove, Exclude, Unexclude, Scan, Import],
             Self::Schedule => match registration {
                 engine::scheduler::Registration::Loaded => {
-                    &[Interval, Autopush, Apply, DisableSchedule]
+                    &[Interval, Anchor, Autopush, Apply, DisableSchedule]
                 }
                 engine::scheduler::Registration::NotLoaded => {
-                    &[Interval, Autopush, Apply, EnableSchedule]
+                    &[Interval, Anchor, Autopush, Apply, EnableSchedule]
                 }
             },
         }

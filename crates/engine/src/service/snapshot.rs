@@ -25,18 +25,23 @@ impl Service {
                 }
             }
         };
+        let registration = self.scheduler.registration(cancel)?;
+        let schedule = self.scheduler.schedule(cancel)?;
+        let next_trigger = schedule.next_trigger(registration, chrono::Local::now())?;
         Ok(Snapshot {
-            registration: self.scheduler.registration(cancel)?,
+            registration,
             activity: if self.store.running()? {
                 Activity::Running
             } else {
                 Activity::Idle
             },
             configured_interval_seconds: c.interval_seconds,
+            configured_anchor: c.schedule_anchor,
+            next_trigger,
             push_policy: c.push_policy,
             repository_count: c.repositories.len(),
             excluded_roots: c.excluded_roots,
-            schedule: self.scheduler.schedule(cancel)?,
+            schedule,
             report,
             max_concurrency: c.max_concurrency,
             check_on_startup: c.check_on_startup,

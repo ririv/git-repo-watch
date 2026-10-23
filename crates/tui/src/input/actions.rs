@@ -191,7 +191,15 @@ impl Screen {
             }
             _ => {
                 let value = match action {
-                    Action::Interval => format!("{}s", self.config.interval_seconds),
+                    Action::Interval => {
+                        engine::scheduler::duration::compact(self.config.interval_seconds)
+                    }
+                    Action::Anchor => self
+                        .config
+                        .schedule_anchor
+                        .basis()
+                        .map(|basis| basis.at.format("%Y-%m-%d %H:%M:%S").to_string())
+                        .unwrap_or_else(|| "auto".into()),
                     Action::Autopush => self.config.push_policy.to_string(),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
                     Action::StartupCheck => self.config.check_on_startup.to_string(),
@@ -364,6 +372,12 @@ impl Screen {
                             Parameter::Unexclude => save(ConfigEdit::Unexclude(value.into()))?,
                             Parameter::Interval => {
                                 save(ConfigEdit::Interval(state::interval(&value)?))?
+                            }
+                            Parameter::Anchor => {
+                                save(ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(
+                                    &value,
+                                    chrono::Local::now().date_naive(),
+                                )?))?
                             }
                             Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
                             Parameter::Concurrency => {

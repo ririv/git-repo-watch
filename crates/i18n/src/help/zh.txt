@@ -73,6 +73,9 @@
 - `/settings startup-check <true|false>` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
 - `/schedule` 打开任务管理页，查看状态和待应用间隔、修改配置并启停任务。
 - `/schedule interval <duration>` 设置间隔，如 6h；`/schedule autopush <policy>` 接受 disabled 或 fast_forward。
+- `/schedule anchor <datetime|auto>` 设置本地时间基准，可填 HH:MM[:SS] 或 YYYY-MM-DD HH:MM[:SS]；auto 在启用时重新生成。
+- 基准缺省时，首次启用会自动生成并保存，后续启停和重启沿用；定时任务页显示基准与当前已应用任务的下次触发。
+- 间隔支持 s / m / h / d / w（秒、分、小时、天、周，至少 60 秒），保存后用 `/schedule apply` 应用。
 - `/schedule apply` 应用配置，`/schedule enable` 启用任务，`/schedule disable` 停止后续调度。
 > 自动推送只用于定时检查。启动 TUI 默认后台检查全部仓库，可在通用设置中关闭；不会扫描或推送。启动检查完成后更新整轮报告；暂存、提交和推送只根据本地 Git 状态刷新对应仓库，不额外 fetch。
 

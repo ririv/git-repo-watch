@@ -15,6 +15,7 @@ impl Default for Config {
     fn default() -> Self {
         Self {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -27,6 +28,11 @@ impl Default for Config {
 #[serde(deny_unknown_fields)]
 pub struct Config {
     pub interval_seconds: u64,
+    #[serde(
+        default,
+        skip_serializing_if = "crate::scheduler::timing::Anchor::is_unset"
+    )]
+    pub schedule_anchor: crate::scheduler::timing::Anchor,
     pub repositories: Vec<PathBuf>,
     pub excluded_roots: Vec<PathBuf>,
     pub push_policy: PushPolicy,
@@ -49,10 +55,10 @@ fn is_default_concurrency(value: &usize) -> bool {
 }
 impl Config {
     pub fn validate(&self) -> Result<()> {
-        ensure!(
-            self.interval_seconds >= 60,
-            i18n::tr!(CheckIntervalMustBeAtLeast60)
-        );
+        crate::scheduler::duration::validate(self.interval_seconds)?;
+        if let Some(basis) = self.schedule_anchor.basis() {
+            basis.validate()?;
+        }
         ensure!(
             (1..=32).contains(&self.max_concurrency),
             i18n::tr!(ConcurrencyMustBeBetween1And32)
@@ -82,13 +88,14 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 6] = [
+const FIELDS: [&str; 7] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
     "push_policy",
     "max_concurrency",
     "check_on_startup",
+    "schedule_anchor",
 ];
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -114,6 +121,23 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     let mut desired = toml_edit::ser::to_document(config)?;
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
     for key in FIELDS {
+        if key == "schedule_anchor" {
+            if before
+                .as_ref()
+                .is_some_and(|before| before.get(key) == after.get(key))
+            {
+                continue;
+            }
+            match desired.remove(key) {
+                Some(value) => {
+                    document[key] = value;
+                }
+                None => {
+                    document.remove(key);
+                }
+            }
+            continue;
+        }
         if document.contains_key(key)
             && before
                 .as_ref()

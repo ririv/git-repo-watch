@@ -61,6 +61,33 @@ check_on_startup = true # 启动检查
     );
     assert_eq!(store.config().unwrap(), config);
 }
+
+#[test]
+fn automatic_and_explicit_bases_persist_and_interval_edits_keep_the_original_basis() {
+    use engine::scheduler::timing::{Anchor, Basis, parse_anchor};
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    assert!(store.config().unwrap().schedule_anchor.is_unset());
+    let mut config = store.config().unwrap();
+    config.schedule_anchor = Anchor::Set(Basis::automatic(chrono::Local::now()));
+    store.save_config(&config).unwrap();
+    let basis = store.config().unwrap().schedule_anchor;
+    config.interval_seconds = 43200;
+    store.save_config(&config).unwrap();
+    assert_eq!(store.config().unwrap().schedule_anchor, basis);
+    config.schedule_anchor =
+        parse_anchor("2026-10-23 00:00:00", chrono::Local::now().date_naive()).unwrap();
+    store.save_config(&config).unwrap();
+    assert_eq!(store.config().unwrap(), config);
+    config.schedule_anchor = Anchor::Unset;
+    store.save_config(&config).unwrap();
+    assert!(store.config().unwrap().schedule_anchor.is_unset());
+    assert!(
+        !fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("[schedule_anchor]")
+    );
+}
 #[test]
 fn invalid_or_unknown_toml_is_reported_without_replacing_the_file() {
     let (_temp, store) = fixture();

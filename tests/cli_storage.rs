@@ -13,6 +13,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,

@@ -9,6 +9,7 @@ mod images;
 mod layout_picker;
 mod navigation;
 mod overview;
+mod schedule;
 mod startup;
 mod workspace;
 use super::*;
@@ -31,6 +32,8 @@ fn screen(service: Service) -> Screen {
             registration: Registration::Loaded,
             activity: Activity::Idle,
             configured_interval_seconds: config.interval_seconds,
+            configured_anchor: config.schedule_anchor.clone(),
+            next_trigger: engine::scheduler::NextTrigger::Unanchored,
             push_policy: config.push_policy,
             repository_count: config.repositories.len(),
             excluded_roots: config.excluded_roots.clone(),
@@ -76,6 +79,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: paths,
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -1308,6 +1312,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         [
             "schedule interval",
+            "schedule anchor",
             "schedule autopush",
             "schedule apply",
             "schedule enable",
@@ -1359,6 +1364,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
             assert!(!text.contains("/example/excluded"));
             assert!(!text.contains(command::description(Action::Concurrency)));
         }
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Browsing));
@@ -1415,7 +1421,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("/sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.editor().text, "/schedule");
-    assert_eq!(s.bar.commands().unwrap().len(), 6);
+    assert_eq!(s.bar.commands().unwrap().len(), 7);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);
@@ -1507,11 +1513,11 @@ fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action
                 let application = if matches!(s.snapshot.schedule, Schedule::Missing) {
                     i18n::tr!(IntervalUninstalled).to_owned()
                 } else {
-                    i18n::tf!(IntervalPending, 6)
+                    i18n::tf!(IntervalPending, "6h")
                 };
                 assert!(text.contains(&application));
             }
-            for _ in 0..3 {
+            for _ in 0..4 {
                 key(&mut s, KeyCode::Down);
             }
             let text = render(&mut s, 60, 18);
@@ -1610,7 +1616,7 @@ fn dashboard_editing_and_confirmation_share_the_inline_command_draft() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "schedule");
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.bar.editor().text, "/schedule interval 21600s");
+    assert_eq!(s.bar.editor().text, "/schedule interval 6h");
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));

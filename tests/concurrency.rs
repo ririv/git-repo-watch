@@ -77,6 +77,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,

@@ -15,6 +15,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![PathBuf::from("/path/to/unavailable/repository")],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -147,7 +148,17 @@ fn installation_refuses_unowned_binary_before_mutation() {
             .install(
                 &Store::custom(temp.path().to_owned()),
                 &std::env::current_exe().unwrap(),
-                21600,
+                &engine::scheduler::timing::Plan::new(
+                    21600,
+                    engine::scheduler::timing::Basis {
+                        source: engine::scheduler::timing::Source::Explicit,
+                        at: chrono::NaiveDate::from_ymd_opt(2026, 10, 23)
+                            .unwrap()
+                            .and_hms_opt(0, 0, 0)
+                            .unwrap(),
+                    }
+                )
+                .unwrap(),
                 &Cancel::default()
             )
             .is_err()

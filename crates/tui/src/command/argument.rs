@@ -9,6 +9,7 @@ pub enum ArgumentAction {
     Scan,
     Import,
     Interval,
+    Anchor,
     Autopush,
     Concurrency,
     StartupCheck,
@@ -28,6 +29,7 @@ impl ArgumentAction {
             Self::Scan => Action::Scan,
             Self::Import => Action::Import,
             Self::Interval => Action::Interval,
+            Self::Anchor => Action::Anchor,
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
             Self::StartupCheck => Action::StartupCheck,
@@ -43,6 +45,7 @@ impl ArgumentAction {
         match self {
             Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => "<path>",
             Self::Interval => "<duration>",
+            Self::Anchor => "<datetime|auto>",
             Self::Autopush => "<policy>",
             Self::Concurrency => "<count>",
             Self::StartupCheck => "<true|false>",
@@ -54,6 +57,7 @@ impl ArgumentAction {
                 i18n::tr!(PathArgumentHint)
             }
             Self::Interval => i18n::tr!(DurationArgumentHint),
+            Self::Anchor => i18n::tr!(ScheduleAnchorHint),
             Self::Autopush => i18n::tr!(PolicyArgumentHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::StartupCheck => i18n::tr!(StartupCheckArgumentHint),
@@ -88,6 +92,18 @@ impl ArgumentAction {
                 engine::state::interval(value)?;
                 Ok(value.into())
             }
+            Self::Anchor => {
+                let anchor = engine::scheduler::timing::parse_anchor(
+                    value,
+                    chrono::Local::now().date_naive(),
+                )?;
+                Ok(match anchor {
+                    engine::scheduler::timing::Anchor::Unset => "auto".into(),
+                    engine::scheduler::timing::Anchor::Set(basis) => {
+                        basis.at.format("%Y-%m-%d %H:%M:%S").to_string()
+                    }
+                })
+            }
             Self::Autopush => {
                 value.parse::<engine::domain::PushPolicy>()?;
                 Ok(value.into())
@@ -119,6 +135,7 @@ impl Action {
             Self::Scan => Some(ArgumentAction::Scan),
             Self::Import => Some(ArgumentAction::Import),
             Self::Interval => Some(ArgumentAction::Interval),
+            Self::Anchor => Some(ArgumentAction::Anchor),
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
             Self::StartupCheck => Some(ArgumentAction::StartupCheck),

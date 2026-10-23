@@ -218,26 +218,7 @@ pub fn canonical(path: &Path) -> Result<PathBuf> {
     }
 }
 pub fn interval(value: &str) -> Result<u64> {
-    let (n, mult) = if let Some(v) = value.strip_suffix('d') {
-        (v, 86400.0)
-    } else if let Some(v) = value.strip_suffix('h') {
-        (v, 3600.0)
-    } else if let Some(v) = value.strip_suffix('m') {
-        (v, 60.0)
-    } else if let Some(v) = value.strip_suffix('s') {
-        (v, 1.0)
-    } else {
-        anyhow::bail!(i18n::tr!(IntervalRequiresAUnitSMH))
-    };
-    let seconds = n.parse::<f64>()? * mult;
-    ensure!(
-        seconds.is_finite()
-            && seconds >= 60.0
-            && seconds.fract() == 0.0
-            && seconds <= i32::MAX as f64,
-        i18n::tr!(CheckIntervalMustBeAnIntegerOf)
-    );
-    Ok(seconds as u64)
+    crate::scheduler::duration::parse(value)
 }
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339()

@@ -156,7 +156,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             Ok(0)
         }
         "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency"
-        | "startup-check" => {
+        | "startup-check" | "anchor" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
                 "remove" => {
@@ -169,6 +169,10 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                     ConfigEdit::Unexclude(paths::expand_home(value, service.scheduler.user_home())?)
                 }
                 "interval" => ConfigEdit::Interval(state::interval(value)?),
+                "anchor" => ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(
+                    value,
+                    chrono::Local::now().date_naive(),
+                )?),
                 "autopush" => ConfigEdit::Policy(value.parse()?),
                 "concurrency" => ConfigEdit::Concurrency(value.parse()?),
                 "startup-check" => {
@@ -217,8 +221,8 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(i32::from(failed > 0))
         }
-        "check" | "scheduled-check" => {
-            if command == "scheduled-check" {
+        "check" | "scheduled-check" | "scheduled-tick" => {
+            if command == "scheduled-check" || command == "scheduled-tick" {
                 none(&args)?;
             } else {
                 ensure!(args.len() <= 1, i18n::tr!(CheckAtMostOnePath));
@@ -233,7 +237,12 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                     eprintln!("{}", i18n::tf!(SystemNotificationFailedN, n = n))
                 }
             };
-            let report = if command == "scheduled-check" {
+            let report = if command == "scheduled-tick" {
+                let Some(report) = service.scheduled_tick(cancel, emit)? else {
+                    return Ok(0);
+                };
+                report
+            } else if command == "scheduled-check" {
                 service.run_scheduled(cancel, emit)?
             } else if let Some(path) = args.first() {
                 service.check_repository(
@@ -299,7 +308,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 "{}",
                 i18n::tf!(
                     InstalledCommandAndSystemSchedule,
-                    service.store.config()?.interval_seconds as f64 / 3600.0
+                    engine::scheduler::duration::compact(service.store.config()?.interval_seconds)
                 )
             );
             Ok(0)
@@ -379,7 +388,7 @@ pub fn render_status(s: &Snapshot) -> String {
         } else {
             i18n::tr!(Idle)
         },
-        s.configured_interval_seconds as f64 / 3600.0,
+        engine::scheduler::duration::compact(s.configured_interval_seconds),
         s.repository_count,
         s.max_concurrency,
         s.push_policy
@@ -392,15 +401,29 @@ pub fn render_status(s: &Snapshot) -> String {
             i18n::tr!(TaskDisabled)
         }
     ));
-    match s.schedule {
+    text.push_str(&format!(
+        "{}: {}\n{}: {}\n",
+        i18n::tr!(ScheduleAnchorLabel),
+        s.configured_anchor.display(),
+        i18n::tr!(ScheduleNextLabel),
+        s.next_trigger.display()
+    ));
+    match &s.schedule {
         Schedule::Missing => text.push_str(i18n::tr!(SystemScheduleFileMissing)),
         Schedule::Saved { interval_seconds } => {
             text.push_str(&i18n::tf!(
                 ScheduledIntervalEveryHours,
-                interval_seconds as f64 / 3600.0
+                engine::scheduler::duration::compact(*interval_seconds)
             ));
-            if interval_seconds != s.configured_interval_seconds {
+            if *interval_seconds != s.configured_interval_seconds {
                 text.push_str(i18n::tr!(IntervalNotAppliedApplySchedule))
+            }
+        }
+        Schedule::Anchored { plan } => {
+            if plan.interval_seconds() != s.configured_interval_seconds
+                || Some(plan.basis()) != s.configured_anchor.basis()
+            {
+                text.push_str(i18n::tr!(IntervalNotAppliedApplySchedule));
             }
         }
     }

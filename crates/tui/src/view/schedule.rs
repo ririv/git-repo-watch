@@ -1,32 +1,46 @@
-//! Dedicated scheduled-task overview and state-dependent management actions.
+//! Configured values and the applied task's next occurrence remain visibly distinct.
 use super::*;
+use engine::scheduler::{duration, timing::Anchor};
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     let panel = block(i18n::tr!(ScheduleSettings));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
-    let parts = Layout::vertical([Constraint::Length(6), Constraint::Min(1)]).split(inner);
+    let parts = Layout::vertical([Constraint::Length(8), Constraint::Min(1)]).split(inner);
     let (status, color) = match screen.snapshot.registration {
         Registration::Loaded => (i18n::tr!(TaskEnabled), GOOD),
         Registration::NotLoaded => match screen.snapshot.schedule {
             Schedule::Missing => (i18n::tr!(TaskMissing), MUTED),
-            Schedule::Saved { .. } => (i18n::tr!(TaskDisabled), WARN),
+            Schedule::Saved { .. } | Schedule::Anchored { .. } => (i18n::tr!(TaskDisabled), WARN),
         },
     };
     let label = |label: &str| Span::styled(format!("{label}: "), Style::default().fg(MUTED));
-    let application = match screen.snapshot.schedule {
+    let application = match &screen.snapshot.schedule {
         Schedule::Missing => {
             Span::styled(i18n::tr!(IntervalUninstalled), Style::default().fg(WARN))
         }
-        Schedule::Saved { interval_seconds }
-            if interval_seconds == screen.config.interval_seconds =>
+        Schedule::Anchored { plan }
+            if plan.interval_seconds() == screen.config.interval_seconds
+                && screen.config.schedule_anchor == Anchor::Set(plan.basis().clone()) =>
         {
             Span::styled(i18n::tr!(IntervalApplied), Style::default().fg(GOOD))
         }
         Schedule::Saved { interval_seconds } => Span::styled(
-            i18n::tf!(IntervalPending, interval_seconds as f64 / 3600.0),
+            i18n::tf!(IntervalPending, duration::compact(*interval_seconds)),
             Style::default().fg(WARN),
         ),
+        Schedule::Anchored { plan } => Span::styled(
+            i18n::tf!(IntervalPending, duration::compact(plan.interval_seconds())),
+            Style::default().fg(WARN),
+        ),
+    };
+    let next = match screen
+        .snapshot
+        .schedule
+        .next_trigger(screen.snapshot.registration, chrono::Local::now())
+    {
+        Ok(next) => next.display(),
+        Err(error) => format!("{error:#}"),
     };
     let lines = vec![
         Line::from(vec![
@@ -46,10 +60,15 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         ]),
         Line::from(vec![
             label(i18n::tr!(IntervalLabel)),
-            Span::raw(i18n::tf!(
-                EveryHours,
-                screen.config.interval_seconds as f64 / 3600.0
-            )),
+            Span::raw(duration::compact(screen.config.interval_seconds)),
+        ]),
+        Line::from(vec![
+            label(i18n::tr!(ScheduleAnchorLabel)),
+            Span::raw(screen.config.schedule_anchor.display()),
+        ]),
+        Line::from(vec![
+            label(i18n::tr!(ScheduleNextLabel)),
+            Span::styled(next, Style::default().fg(ACCENT)),
         ]),
         Line::from(vec![
             label(i18n::tr!(AutopushLabel)),
@@ -66,6 +85,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         .map(|action| {
             ListItem::new(match action {
                 Action::Interval => i18n::tr!(EditInterval),
+                Action::Anchor => i18n::tr!(EditScheduleAnchor),
                 Action::Autopush => i18n::tr!(EditAutopush),
                 Action::Apply => i18n::tr!(ActionApply),
                 Action::EnableSchedule => i18n::tr!(EnableScheduledTask),

@@ -8,8 +8,9 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
     {
         let value = match action {
             Action::Interval => {
-                i18n::tf!(EveryHours, screen.config.interval_seconds as f64 / 3600.0)
+                engine::scheduler::duration::compact(screen.config.interval_seconds)
             }
+            Action::Anchor => screen.config.schedule_anchor.display(),
             Action::Autopush => screen.config.push_policy.to_string(),
             Action::Concurrency => screen.config.max_concurrency.to_string(),
             Action::StartupCheck => if screen.config.check_on_startup {

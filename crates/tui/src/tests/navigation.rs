@@ -96,6 +96,7 @@ fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation(
     command(&mut s, "schedule");
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Right);
     assert!(matches!(
         s.mode,

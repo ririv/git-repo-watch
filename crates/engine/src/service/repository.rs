@@ -173,14 +173,7 @@ impl Service {
         }
     }
     pub fn install(&self, cancel: &Cancel) -> Result<()> {
-        let _lock = self.store.lock()?;
-        let c = self.store.config()?;
-        self.scheduler.install(
-            &self.store,
-            &std::env::current_exe()?,
-            c.interval_seconds,
-            cancel,
-        )
+        self.control_schedule(crate::scheduler::Control::Enable, cancel)
     }
 }
 

@@ -3,8 +3,13 @@
 mod macos;
 #[cfg(target_os = "macos")]
 pub use macos::plist;
+mod calendar;
+pub mod duration;
 #[cfg(any(target_os = "linux", test))]
 mod linux;
+pub mod timing;
+#[cfg(test)]
+mod timing_tests;
 use crate::{
     cancel::Cancel,
     directories::UserDirectories,
@@ -43,6 +48,64 @@ pub enum Registration {
 pub enum Schedule {
     Missing,
     Saved { interval_seconds: u64 },
+    Anchored { plan: timing::Plan },
+}
+#[derive(Debug, Clone, Serialize)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum NextTrigger {
+    Disabled,
+    Missing,
+    Unanchored,
+    At { at: chrono::DateTime<chrono::Local> },
+}
+impl NextTrigger {
+    pub fn display(&self) -> String {
+        match self {
+            Self::Disabled => i18n::tr!(ScheduleNextDisabled).into(),
+            Self::Missing => i18n::tr!(ScheduleNextMissing).into(),
+            Self::Unanchored => i18n::tr!(ScheduleNextUnanchored).into(),
+            Self::At { at } => at.format("%Y-%m-%d %H:%M:%S").to_string(),
+        }
+    }
+}
+impl Schedule {
+    pub fn next_trigger(
+        &self,
+        registration: Registration,
+        now: chrono::DateTime<chrono::Local>,
+    ) -> Result<NextTrigger> {
+        if matches!(self, Self::Missing) {
+            return Ok(NextTrigger::Missing);
+        }
+        if registration == Registration::NotLoaded {
+            return Ok(NextTrigger::Disabled);
+        }
+        match self {
+            Self::Missing => Ok(NextTrigger::Missing),
+            Self::Saved { .. } => Ok(NextTrigger::Unanchored),
+            Self::Anchored { plan } => Ok(NextTrigger::At {
+                at: plan.next_after(now)?,
+            }),
+        }
+    }
+}
+
+fn plan_comment(plan: &timing::Plan) -> Result<String> {
+    Ok(format!("schedule-plan={}", serde_json::to_string(plan)?))
+}
+fn read_plan(contents: &str, prefix: &str, suffix: &str) -> Result<Option<timing::Plan>> {
+    let entries = contents
+        .lines()
+        .filter_map(|line| {
+            line.strip_prefix(prefix)
+                .and_then(|line| line.strip_suffix(suffix))
+        })
+        .collect::<Vec<_>>();
+    ensure!(entries.len() <= 1, i18n::tr!(InvalidScheduledInterval));
+    entries
+        .first()
+        .map(|json| serde_json::from_str(json).map_err(Into::into))
+        .transpose()
 }
 pub const BINARY_MARKER: &str = concat!(
     "\0repository-watch-installation:",
@@ -121,6 +184,9 @@ impl Manager {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }
+        self.verify_task_owner(store)
+    }
+    pub fn verify_task_owner(&self, store: &Store) -> Result<()> {
         let expected = task_marker(store, &self.binary());
         for path in self.definitions() {
             match fs::read_to_string(path) {

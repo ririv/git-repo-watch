@@ -22,6 +22,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: paths,
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,

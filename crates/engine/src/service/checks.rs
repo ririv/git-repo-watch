@@ -17,9 +17,45 @@ impl Service {
         &self,
         invocation: CheckInvocation,
         cancel: &Cancel,
-        mut emit: impl FnMut(Event),
+        emit: impl FnMut(Event),
     ) -> Result<Report> {
         let _batch = self.store.batch_lock()?;
+        self.execute_batch(invocation, cancel, emit)
+    }
+    pub(super) fn run_due(
+        &self,
+        plan: &crate::scheduler::timing::Plan,
+        due: chrono::NaiveDateTime,
+        cancel: &Cancel,
+        emit: impl FnMut(Event),
+    ) -> Result<Option<Report>> {
+        let _batch = self.store.batch_lock()?;
+        {
+            let _configuration = self.store.transaction(cancel)?;
+            if self.scheduler.registration(cancel)? != crate::scheduler::Registration::Loaded {
+                return Ok(None);
+            }
+            if !matches!(self.scheduler.schedule(cancel)?, crate::scheduler::Schedule::Anchored { plan: current } if current == *plan)
+            {
+                return Ok(None);
+            }
+            if !self.store.claim_schedule_occurrence(
+                &plan.fingerprint()?,
+                &due.to_string(),
+                cancel,
+            )? {
+                return Ok(None);
+            }
+        }
+        self.execute_batch(CheckInvocation::Scheduled, cancel, emit)
+            .map(Some)
+    }
+    fn execute_batch(
+        &self,
+        invocation: CheckInvocation,
+        cancel: &Cancel,
+        mut emit: impl FnMut(Event),
+    ) -> Result<Report> {
         let mut config = self.store.config()?;
         if matches!(invocation, CheckInvocation::Manual) {
             config.push_policy = PushPolicy::Disabled;

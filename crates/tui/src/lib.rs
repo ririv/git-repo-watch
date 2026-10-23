@@ -359,6 +359,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
         screen.graphics.finish_frame(&mut io::stdout())?;
         screen.check_on_startup();
         let mut dirty = true;
+        let mut schedule_second = chrono::Local::now().timestamp();
         loop {
             if root.is_cancelled() {
                 if let Mode::Busy(p) = &mut screen.mode {
@@ -371,7 +372,12 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                     break;
                 }
             }
-            let changed = screen.poll(&root)
+            let now = chrono::Local::now().timestamp();
+            let schedule_changed = screen.page == Page::Configuration(Configuration::Schedule)
+                && now != schedule_second;
+            schedule_second = now;
+            let changed = schedule_changed
+                | screen.poll(&root)
                 | screen.poll_check()
                 | screen.poll_workspace()
                 | screen.poll_changes()

@@ -130,6 +130,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: paths.clone(),
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -227,6 +228,7 @@ fn independent_repositories_overlap_real_fetches() {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -255,6 +257,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             excluded_roots: vec![],
             push_policy: PushPolicy::FastForward,
@@ -343,6 +346,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![f.repo.clone()],
             excluded_roots: vec![],
             push_policy: PushPolicy::Disabled,
@@ -388,6 +392,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
     store
         .save_config(&Config {
             interval_seconds: 21600,
+            schedule_anchor: Default::default(),
             repositories: vec![f.repo.clone()],
             excluded_roots: vec![],
             push_policy: PushPolicy::FastForward,

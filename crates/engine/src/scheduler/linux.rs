@@ -70,7 +70,7 @@ fn service(store: &Store, binary: &Path, home: &Path) -> Result<String> {
         environment
     );
     Ok(format!(
-        "# {}\n[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\n{}ExecStart={}{} scheduled-check\n",
+        "# {}\n[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\n{}ExecStart={}{} scheduled-tick\n",
         task_marker(store, binary),
         quoted(&store.state_dir(), false)?,
         environment,
@@ -78,11 +78,41 @@ fn service(store: &Store, binary: &Path, home: &Path) -> Result<String> {
         arguments
     ))
 }
+#[cfg(test)]
 fn timer(store: &Store, binary: &Path, interval: u64) -> String {
     format!(
         "# {}\n[Unit]\nDescription=Periodic Git repository status check\n\n[Timer]\nOnActiveSec={interval}s\nOnUnitActiveSec={interval}s\nUnit={LABEL}.service\n\n[Install]\nWantedBy=timers.target\n",
         task_marker(store, binary)
     )
+}
+fn calendar_events(plan: &timing::Plan) -> String {
+    let weekdays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+    calendar::slots(plan)
+        .into_iter()
+        .map(|slot| {
+            let weekday = slot
+                .weekday
+                .map(|day| format!("{} ", weekdays[day as usize]))
+                .unwrap_or_default();
+            let hour = slot
+                .hour
+                .map(|hour| format!("{hour:02}"))
+                .unwrap_or_else(|| "*".into());
+            let minute = slot
+                .minute
+                .map(|minute| format!("{minute:02}"))
+                .unwrap_or_else(|| "*".into());
+            format!("OnCalendar={weekday}*-*-* {hour}:{minute}:00\n")
+        })
+        .collect::<String>()
+}
+fn anchored_timer(store: &Store, binary: &Path, plan: &timing::Plan) -> Result<String> {
+    let events = calendar_events(plan);
+    Ok(format!(
+        "# {}\n# {}\n[Unit]\nDescription=Anchored Git repository status check\n\n[Timer]\n{events}AccuracySec=1s\nRandomizedDelaySec=0\nPersistent=false\nUnit={LABEL}.service\n\n[Install]\nWantedBy=timers.target\n",
+        task_marker(store, binary),
+        plan_comment(plan)?
+    ))
 }
 fn interval(contents: &str) -> Result<u64> {
     let entries = contents
@@ -130,9 +160,23 @@ impl Manager {
     pub fn schedule(&self, cancel: &Cancel) -> Result<Schedule> {
         cancel.check()?;
         match fs::read_to_string(self.timer()) {
-            Ok(contents) => Ok(Schedule::Saved {
-                interval_seconds: interval(&contents)?,
-            }),
+            Ok(contents) => match read_plan(&contents, "# schedule-plan=", "")? {
+                Some(plan) => {
+                    let actual = contents
+                        .lines()
+                        .filter(|line| line.starts_with("OnCalendar="))
+                        .map(|line| format!("{line}\n"))
+                        .collect::<String>();
+                    ensure!(
+                        actual == calendar_events(&plan) && !contents.contains("OnActiveSec="),
+                        i18n::tr!(InvalidScheduledInterval)
+                    );
+                    Ok(Schedule::Anchored { plan })
+                }
+                None => Ok(Schedule::Saved {
+                    interval_seconds: interval(&contents)?,
+                }),
+            },
             Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Schedule::Missing),
             Err(e) => Err(e.into()),
         }
@@ -147,10 +191,9 @@ impl Manager {
         &self,
         store: &Store,
         source: &Path,
-        seconds: u64,
+        plan: &timing::Plan,
         cancel: &Cancel,
     ) -> Result<()> {
-        ensure!(seconds >= 60, i18n::tr!(InvalidInstallationArguments));
         self.verify_install_target(store)?;
         let data = fs::read(source)?;
         let payload = service(store, &self.binary(), &self.user_home)?;
@@ -167,7 +210,7 @@ impl Manager {
         state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
         state::atomic(
             &self.timer(),
-            timer(store, &self.binary(), seconds).as_bytes(),
+            anchored_timer(store, &self.binary(), plan)?.as_bytes(),
             0o600,
         )?;
         self.control(&["daemon-reload"], cancel)?;
@@ -183,9 +226,8 @@ impl Manager {
         );
         self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)
     }
-    pub fn apply(&self, store: &Store, seconds: u64, cancel: &Cancel) -> Result<()> {
+    pub fn apply(&self, store: &Store, plan: &timing::Plan, cancel: &Cancel) -> Result<()> {
         self.verify_owner(store)?;
-        ensure!(seconds >= 60, i18n::tr!(InvalidInstallationArguments));
         ensure!(
             self.timer().try_exists()? && self.service().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
@@ -196,7 +238,7 @@ impl Manager {
         state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
         state::atomic(
             &self.timer(),
-            timer(store, &self.binary(), seconds).as_bytes(),
+            anchored_timer(store, &self.binary(), plan)?.as_bytes(),
             0o600,
         )?;
         self.control(&["daemon-reload"], cancel)?;
@@ -254,7 +296,7 @@ mod tests {
         assert!(
             payload
                 .lines()
-                .any(|line| line.starts_with("ExecStart=") && line.ends_with(" scheduled-check"))
+                .any(|line| line.starts_with("ExecStart=") && line.ends_with(" scheduled-tick"))
         );
         assert_eq!(
             payload
@@ -282,10 +324,41 @@ mod tests {
         assert!(
             payload
                 .lines()
-                .any(|line| line == "ExecStart=\"/example/bin\" scheduled-check")
+                .any(|line| line == "ExecStart=\"/example/bin\" scheduled-tick")
         );
     }
 
+    #[test]
+    fn anchored_calendar_uses_local_clock_and_preserves_the_persisted_plan() {
+        let plan = timing::Plan::new(
+            21600,
+            timing::Basis {
+                source: timing::Source::Explicit,
+                at: chrono::NaiveDate::from_ymd_opt(2026, 10, 23)
+                    .unwrap()
+                    .and_hms_opt(0, 0, 0)
+                    .unwrap(),
+            },
+        )
+        .unwrap();
+        let payload = anchored_timer(
+            &Store::custom("/example".into()),
+            Path::new("/example/bin"),
+            &plan,
+        )
+        .unwrap();
+        assert_eq!(
+            read_plan(&payload, "# schedule-plan=", "")
+                .unwrap()
+                .unwrap(),
+            plan
+        );
+        for hour in ["00", "06", "12", "18"] {
+            assert!(payload.contains(&format!("OnCalendar=*-*-* {hour}:00:00")));
+        }
+        assert!(payload.contains("AccuracySec=1s") && payload.contains("Persistent=false"));
+        assert!(!payload.contains("OnActiveSec="));
+    }
     #[test]
     fn timer_delays_first_run_and_preserves_interval() {
         let payload = timer(

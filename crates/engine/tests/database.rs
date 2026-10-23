@@ -15,6 +15,73 @@ use std::{
 };
 
 const AT: &str = "2026-10-22T12:00:00+00:00";
+#[test]
+fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
+    let (_temp, store) = fixture();
+    store.migrate(&Cancel::default()).unwrap();
+    let mut observation = report(Path::new("/example/retained"), 0, false);
+    store
+        .save_repository_report(&mut observation, &Cancel::default())
+        .unwrap();
+    let db = Connection::open(store.database_path()).unwrap();
+    db.execute_batch("DROP TABLE scheduled_occurrences; PRAGMA user_version=1;")
+        .unwrap();
+    let before: i64 = db
+        .query_row("SELECT count(*) FROM repository_observations", [], |row| {
+            row.get(0)
+        })
+        .unwrap();
+    drop(db);
+    let store = Arc::new(store);
+    let barrier = Arc::new(Barrier::new(8));
+    let threads = (0..8)
+        .map(|_| {
+            let store = store.clone();
+            let barrier = barrier.clone();
+            thread::spawn(move || {
+                barrier.wait();
+                store
+                    .claim_schedule_occurrence(
+                        "same-plan",
+                        "2026-10-23 06:00:00",
+                        &Cancel::default(),
+                    )
+                    .unwrap()
+            })
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        threads
+            .into_iter()
+            .map(|thread| thread.join().unwrap())
+            .filter(|claimed| *claimed)
+            .count(),
+        1
+    );
+    let db = Connection::open(store.database_path()).unwrap();
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+            .unwrap(),
+        2
+    );
+    assert_eq!(
+        db.query_row("SELECT count(*) FROM repository_observations", [], |row| {
+            row.get::<_, i64>(0)
+        })
+        .unwrap(),
+        before
+    );
+    assert!(
+        store
+            .claim_schedule_occurrence("same-plan", "2026-10-23 12:00:00", &Cancel::default())
+            .unwrap()
+    );
+    assert!(
+        store
+            .claim_schedule_occurrence("another-plan", "2026-10-23 06:00:00", &Cancel::default())
+            .unwrap()
+    );
+}
 fn report(path: &Path, revision: u64, dirty: bool) -> Report {
     let result = if dirty {
         RepositoryResult::Attention {

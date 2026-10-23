@@ -84,7 +84,8 @@ check_on_startup = true
 
 仓库与排除目录以规范绝对路径保存，路径参数可使用 `~` 或 `~/…` 表示当前用户主目录。仓库列表显式维护，检查不会重新扫描发现目录。已排除目录下的仓库不能注册。
 
-- `interval_seconds`：检查间隔，至少 60 秒。修改后运行 `gw install` 应用系统调度。
+- `interval_seconds`：检查间隔，内部保存为秒，范围为 60 至 2147483647 秒。命令支持 `s`、`m`、`h`、`d`、`w`（秒、分、小时、天、周），以及 `90秒`、`30分钟`、`6小时` 等中文写法；界面使用 `6h`、`1d`、`1w` 等紧凑值。修改后运行 `gw schedule apply` 应用系统调度。
+- `schedule_anchor`：可选的时间基准表，包含 `source`（`automatic` 或 `explicit`）和 `at`（本地日期时间，例如 `2026-10-23T00:00:00`）。缺省时首次启用会自动生成并保存；修改间隔、重启、重复安装、停用后再启用都会沿用已有基准。
 - `repositories`：仓库根目录列表，包括通过 `.git` 文件关联的工作区与子模块。
 - `excluded_roots`：排除目录；其下的注册项会在排除操作时移除。
 - `push_policy`：定时任务的自动推送策略；`disabled` 只检查，`fast_forward` 允许受控自动推送。
@@ -163,7 +164,8 @@ Linux 的 `/terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-c
 带参数的命令直接在常驻输入栏填写，不打开独立表单：
 
 - `/repo add <path>`、`/repo exclude <path>`、`/repo unexclude <path>`、`/repo scan <path>`、`/repo import <path>`。
-- `/schedule interval <duration>`，例如 `/schedule interval 6h`。
+- `/schedule interval <duration>`，例如 `/schedule interval 6h`、`/schedule interval 1w`。
+- `/schedule anchor <datetime|auto>`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
 - `/schedule autopush <policy>`，取值 `disabled` 或 `fast_forward`。
 - `/settings concurrency <count>`，范围 1 至 32。
 - `/settings startup-check <true|false>`，控制启动时检查全部仓库，默认 `true`。
@@ -458,3 +460,13 @@ GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格�
 ## 许可证
 
 项目采用 MIT，见 `LICENSE`。依赖遵守各自许可证；libgit2 的链接例外允许应用采用独立许可证。公开源码与示例配置不得包含真实仓库列表、挂载目录、机器用户名或凭据。
+
+## 定时触发时间
+
+定时任务页显示时间基准和下次触发时间，均按系统本地时区展示，不显示时区后缀。基准可在过去；例如零点为基准、间隔 `6h`，检查刻度为 00、06、12、18 点。首次启用自动生成的基准从一个完整间隔后开始检查。时间单位按本地时间序列累计，`1d` 和 `1w` 在夏令时切换后保持本地钟面时刻；缺失时刻跳过，重复时刻只执行第一次。
+
+修改配置后先显示“待应用”；下次触发仍来自当前已应用的任务，应用后更新。停用时显示“已停用”。重新启用会沿用原基准，直接等待后续刻度，不补跑停用期间的检查；安装、重新应用和启动 TUI 不会重置基准。启动 TUI 的检查开关是独立功能，手动检查也不改变定时节奏。
+
+系统任务使用 macOS 的 `StartCalendarInterval` 或 Linux 的 `OnCalendar`，唤起短时运行的 `scheduled-tick`。候选分钟由间隔与基准编译：`6h` 只在四个对应的分钟唤起，周间隔在对应星期唤起；不能直接用日历表达的间隔采用必要的候选分钟，由同一时间模型判断是否到期，不访问 Git。秒级偏移在到期前的最后一分钟内短暂等待，不需要常驻服务。设置时已经过去的刻度不补跑；休眠或调度延迟超过当前触发分钟时，等待后续刻度。
+
+SQLite 保存已领取的计划和触发刻度，同一时刻即使由多个进程请求也只检查一次；手动检查不占用定时刻度。旧版 SQLite v1 自动以短事务升级到 v2，保留报告、仓库状态和操作历史。旧版仅有间隔的系统任务显示尚无基准，启用或在启用状态应用时建立基准。首次基准未建立且任务已停用时，需先启用以建立基准。

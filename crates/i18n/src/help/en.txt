@@ -73,6 +73,9 @@
 - `/settings startup-check <true|false>` controls startup checks of all repositories; default true, effective next launch.
 - `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.
 - `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush <policy>` accepts disabled or fast_forward.
+- `/schedule anchor <datetime|auto>` sets a local time basis (HH:MM[:SS] or YYYY-MM-DD HH:MM[:SS]); auto regenerates it on enable.
+- The first enable persists an automatic basis when omitted. Restarts and re-enabling preserve it; the schedule page shows the basis and applied next trigger.
+- Durations support s / m / h / d / w (at least 60 seconds). Apply saved changes with `/schedule apply`.
 - `/schedule apply` applies configuration; `/schedule enable` enables scheduling; `/schedule disable` stops future runs.
 > Automatic pushing applies only to scheduled checks. The TUI checks all repositories in the background on startup by default; disable this in general settings. It does not scan or push. Completed startup checks update the batch report. Stage, commit and push refresh only that repository from local Git state, without another fetch.
 

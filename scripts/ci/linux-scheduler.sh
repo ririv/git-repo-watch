@@ -28,15 +28,15 @@ assert_no_report() {
 cp "$ROOT/config.example.toml" "$FIXTURE/config.toml"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
 systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
-grep -q ' scheduled-check$' "$UNIT.service"
+grep -q ' scheduled-tick$' "$UNIT.service"
 systemctl --user is-active "$APP_SERVICE_LABEL.timer"
 systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" status --json > "$FIXTURE/status.json"
 # 安装和重新应用间隔均不得产生检查报告。
-assert_no_report()
+assert_no_report
 grep -q '21600' "$FIXTURE/status.json"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" install
-assert_no_report()
+assert_no_report
 # 停用保留任务定义；在停用状态应用间隔不得重新启用或触发检查。
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule disable
 [ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
@@ -44,16 +44,16 @@ assert_no_report()
 [ -f "$UNIT.timer" ]
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 12h
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply
-grep -q 'OnActiveSec=43200s' "$UNIT.timer"
+grep -q '"interval_seconds":43200' "$UNIT.timer"
 [ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
 [ "$(systemctl --user is-active "$APP_SERVICE_LABEL.timer" || true)" = inactive ]
-assert_no_report()
+assert_no_report
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule enable
 systemctl --user is-active "$APP_SERVICE_LABEL.timer"
 systemctl --user is-enabled "$APP_SERVICE_LABEL.timer"
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 6h
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply
-assert_no_report()
+assert_no_report
 # 显式启动一次，仅操作临时本地仓库，自动推送保持关闭。
 git init --bare "$FIXTURE/remote.git"
 git init "$FIXTURE/repository"
@@ -61,6 +61,16 @@ git -C "$FIXTURE/repository" -c user.name=CI -c user.email=ci@example.invalid co
 git -C "$FIXTURE/repository" remote add origin "$FIXTURE/remote.git"
 git -C "$FIXTURE/repository" push -u origin HEAD
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" add "$FIXTURE/repository"
+case "$PROFILE_MODE" in
+    custom)
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 60s
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" anchor "$(date -d '1 minute ago' '+%Y-%m-%d %H:%M:00')"
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply ;;
+    standard)
+        "$ROOT/dist/$APP_COMMAND" interval 60s
+        "$ROOT/dist/$APP_COMMAND" anchor "$(date -d '1 minute ago' '+%Y-%m-%d %H:%M:00')"
+        "$ROOT/dist/$APP_COMMAND" schedule apply ;;
+esac
 systemctl --user start "$APP_SERVICE_LABEL.service"
 [ -f "$FIXTURE/var/state.sqlite3" ]
 "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" report --json > "$FIXTURE/report.json"
@@ -84,6 +94,16 @@ systemd-analyze --user verify "$UNIT.service" "$UNIT.timer"
 grep -q '^Environment=.*XDG_CONFIG_HOME=' "$UNIT.service"
 if grep -q ' --home ' "$UNIT.service"; then exit 1; fi
 [ ! -e "$XDG_STATE_HOME/$APP_DATA_DIRECTORY/state.sqlite3" ]
+case "$PROFILE_MODE" in
+    custom)
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" interval 60s
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" anchor "$(date -d '1 minute ago' '+%Y-%m-%d %H:%M:00')"
+        "$ROOT/dist/$APP_COMMAND" --home "$FIXTURE" schedule apply ;;
+    standard)
+        "$ROOT/dist/$APP_COMMAND" interval 60s
+        "$ROOT/dist/$APP_COMMAND" anchor "$(date -d '1 minute ago' '+%Y-%m-%d %H:%M:00')"
+        "$ROOT/dist/$APP_COMMAND" schedule apply ;;
+esac
 systemctl --user start "$APP_SERVICE_LABEL.service"
 [ -f "$XDG_STATE_HOME/$APP_DATA_DIRECTORY/state.sqlite3" ]
 "$ROOT/dist/$APP_COMMAND" report --json > "$FIXTURE/standard-report.json"

@@ -51,6 +51,7 @@ impl Service {
                 config.excluded_roots.retain(|p| p != &path)
             }
             ConfigEdit::Interval(value) => config.interval_seconds = value,
+            ConfigEdit::Anchor(value) => config.schedule_anchor = value,
             ConfigEdit::Policy(value) => config.push_policy = value,
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
             ConfigEdit::StartupCheck(value) => config.check_on_startup = value,

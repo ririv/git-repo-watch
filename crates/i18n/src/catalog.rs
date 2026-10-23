@@ -2,6 +2,20 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    InvalidScheduleAnchor,
+    AmbiguousScheduleAnchor,
+    ScheduleEnableToSetAnchor,
+    ScheduleAnchorLabel,
+    ScheduleNextLabel,
+    ScheduleAnchorAutomatic,
+    ScheduleAnchorUnset,
+    ScheduleNextDisabled,
+    ScheduleNextUnanchored,
+    ScheduleNextMissing,
+    EditScheduleAnchor,
+    ScheduleAnchorHint,
+    SaveScheduleAnchor,
+
     LayoutPickerTitle,
     LayoutPickerHint,
     LayoutVisible,
@@ -639,6 +653,50 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::InvalidScheduleAnchor, Language::English) => {
+                "Use HH:MM[:SS], YYYY-MM-DD HH:MM[:SS], or auto"
+            }
+            (Self::InvalidScheduleAnchor, Language::Chinese) => {
+                "基准格式为 HH:MM[:SS]、YYYY-MM-DD HH:MM[:SS] 或 auto"
+            }
+            (Self::AmbiguousScheduleAnchor, Language::English) => {
+                "This local time is missing or repeated; choose an unambiguous time"
+            }
+            (Self::AmbiguousScheduleAnchor, Language::Chinese) => {
+                "此本地时间不存在或重复，请选择没有歧义的时刻"
+            }
+            (Self::ScheduleEnableToSetAnchor, Language::English) => {
+                "Enable the task first to establish its automatic time basis"
+            }
+            (Self::ScheduleEnableToSetAnchor, Language::Chinese) => {
+                "请先启用任务，生成并保存自动时间基准"
+            }
+            (Self::ScheduleAnchorLabel, Language::English) => "Time basis",
+            (Self::ScheduleAnchorLabel, Language::Chinese) => "时间基准",
+            (Self::ScheduleNextLabel, Language::English) => "Next trigger",
+            (Self::ScheduleNextLabel, Language::Chinese) => "下次触发",
+            (Self::ScheduleAnchorAutomatic, Language::English) => "automatic",
+            (Self::ScheduleAnchorAutomatic, Language::Chinese) => "自动",
+            (Self::ScheduleAnchorUnset, Language::English) => "Generated on first enable",
+            (Self::ScheduleAnchorUnset, Language::Chinese) => "首次启用时自动生成",
+            (Self::ScheduleNextDisabled, Language::English) => "Disabled",
+            (Self::ScheduleNextDisabled, Language::Chinese) => "已停用",
+            (Self::ScheduleNextUnanchored, Language::English) => "Apply to establish a time basis",
+            (Self::ScheduleNextUnanchored, Language::Chinese) => "应用后确定时间基准",
+            (Self::ScheduleNextMissing, Language::English) => "Not installed",
+            (Self::ScheduleNextMissing, Language::Chinese) => "未安装",
+            (Self::EditScheduleAnchor, Language::English) => "Edit time basis",
+            (Self::EditScheduleAnchor, Language::Chinese) => "修改时间基准",
+            (Self::ScheduleAnchorHint, Language::English) => {
+                "HH:MM[:SS] · YYYY-MM-DD HH:MM[:SS] · auto resets on next enable"
+            }
+            (Self::ScheduleAnchorHint, Language::Chinese) => {
+                "HH:MM[:SS] · YYYY-MM-DD HH:MM[:SS] · auto 在下次启用时重新生成"
+            }
+            (Self::SaveScheduleAnchor, Language::English) => {
+                "Save the time basis; auto generates it on enable"
+            }
+            (Self::SaveScheduleAnchor, Language::Chinese) => "保存时间基准；auto 在启用时自动生成",
             (Self::LayoutPickerTitle, Language::English) => "Diff layout",
             (Self::LayoutPickerTitle, Language::Chinese) => "差异布局",
             (Self::LayoutPickerHint, Language::English) => {
@@ -1340,14 +1398,14 @@ impl Message {
                 concat!(
                     "Installed native ",
                     identity::command!(),
-                    " and system schedule; checking every {} hours. No check started"
+                    " and system schedule; interval {}. No check started"
                 )
             }
             (Self::InstalledCommandAndSystemSchedule, Language::Chinese) => {
                 concat!(
                     "已安装原生 ",
                     identity::command!(),
-                    " 命令与系统任务，每 {} 小时检查一次；未触发检查"
+                    " 命令与系统任务，检查间隔 {}；未触发检查"
                 )
             }
             (Self::ScheduleRemovedConfigurationReportsAndCommandRetained, Language::English) => {
@@ -1393,10 +1451,10 @@ impl Message {
             }
             (Self::InvalidReportTimestampValue, Language::Chinese) => "报告时间格式无效：{value}",
             (Self::SystemScheduleCheckProcessConfiguredIntervalEvery, Language::English) => {
-                "System schedule: {}\nCheck process: {}\nConfigured interval: every {} hours\nRepositories: {}\nConcurrency: {}\nAutomatic push: {}\n"
+                "System schedule: {}\nCheck process: {}\nConfigured interval: {}\nRepositories: {}\nConcurrency: {}\nAutomatic push: {}\n"
             }
             (Self::SystemScheduleCheckProcessConfiguredIntervalEvery, Language::Chinese) => {
-                "系统任务：{}\n检查进程：{}\n配置频率：每 {} 小时\n仓库数量：{}\n检查并发：{}\n自动推送：{}\n"
+                "系统任务：{}\n检查进程：{}\n配置频率：{}\n仓库数量：{}\n检查并发：{}\n自动推送：{}\n"
             }
             (Self::Loaded, Language::English) => "Loaded",
             (Self::Loaded, Language::Chinese) => "已加载",
@@ -1410,10 +1468,8 @@ impl Message {
                 "System schedule file: missing\n"
             }
             (Self::SystemScheduleFileMissing, Language::Chinese) => "系统任务配置文件：不存在\n",
-            (Self::ScheduledIntervalEveryHours, Language::English) => {
-                "Scheduled interval: every {} hours\n"
-            }
-            (Self::ScheduledIntervalEveryHours, Language::Chinese) => "系统任务频率：每 {} 小时\n",
+            (Self::ScheduledIntervalEveryHours, Language::English) => "Scheduled interval: {}\n",
+            (Self::ScheduledIntervalEveryHours, Language::Chinese) => "系统任务频率：{}\n",
             (Self::IntervalNotAppliedApplySchedule, Language::English) => {
                 concat!(
                     "Interval not applied; run ",
@@ -1643,9 +1699,11 @@ impl Message {
             (Self::EnterANormalizedPath, Language::English) => "Enter a normalized path",
             (Self::EnterANormalizedPath, Language::Chinese) => "请输入规范路径",
             (Self::IntervalRequiresAUnitSMH, Language::English) => {
-                "Interval requires a unit: s, m, h or d"
+                "Interval requires a unit: s, m, h, d or w"
             }
-            (Self::IntervalRequiresAUnitSMH, Language::Chinese) => "间隔必须带 s、m、h 或 d 单位",
+            (Self::IntervalRequiresAUnitSMH, Language::Chinese) => {
+                "间隔必须带 s、m、h、d 或 w 单位（秒、分钟、小时、天、周）"
+            }
             (Self::CheckIntervalMustBeAnIntegerOf, Language::English) => {
                 "Check interval must be an integer of at least 60 seconds"
             }
@@ -2378,8 +2436,8 @@ impl Message {
             (Self::IntervalApplied, Language::Chinese) => "已应用",
             (Self::IntervalUninstalled, Language::English) => "Not installed",
             (Self::IntervalUninstalled, Language::Chinese) => "尚未安装",
-            (Self::IntervalPending, Language::English) => "Pending · system: {}h",
-            (Self::IntervalPending, Language::Chinese) => "待应用 · 系统仍为 {} 小时",
+            (Self::IntervalPending, Language::English) => "Pending · system: {}",
+            (Self::IntervalPending, Language::Chinese) => "待应用 · 系统：{}",
             (Self::ScheduleActions, Language::English) => "Actions",
             (Self::ScheduleActions, Language::Chinese) => "操作",
             (Self::EditInterval, Language::English) => "Change interval",
@@ -2451,10 +2509,10 @@ impl Message {
             }
             (Self::PathArgumentHint, Language::Chinese) => "Tab 补全目录 · Enter 预览 · Esc 清空",
             (Self::DurationArgumentHint, Language::English) => {
-                "Duration: 6h, 30m · Enter review · Esc clear"
+                "Duration: 60s / 30m / 6h / 1d / 1w · Enter review · Esc clear"
             }
             (Self::DurationArgumentHint, Language::Chinese) => {
-                "间隔如 6h、30m · Enter 预览 · Esc 清空"
+                "间隔：60s / 30m / 6h / 1d / 1w · Enter 预览 · Esc 清空"
             }
             (Self::PolicyArgumentHint, Language::English) => {
                 "disabled | fast_forward · Enter review · Esc clear"
@@ -2927,7 +2985,7 @@ macro_rules! tf {
     } };
     (ReadCompletionDirectory $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Cannot read directory: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("无法读取目录：{}" $(, $($args)*)?), } };
     (MissingCommandArgument $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Required argument: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("请填写参数：{}" $(, $($args)*)?), } };
-    (IntervalPending $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Pending · system: {}h" $(, $($args)*)?), $crate::Language::Chinese => format!("待应用 · 系统仍为 {} 小时" $(, $($args)*)?), } };
+    (IntervalPending $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Pending · system: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("待应用 · 系统：{}" $(, $($args)*)?), } };
     (OverlappingFetchDestinations $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Overlapping fetch destinations: {} ({}) and {} ({})" $(, $($args)*)?),
         $crate::Language::Chinese => format!("Fetch 清理范围重叠：{}（{}）与 {}（{}）" $(, $($args)*)?),
@@ -3031,8 +3089,8 @@ macro_rules! tf {
     };
     (InstalledCommandAndSystemSchedule $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!(concat!("Installed native ", $crate::__identity::command!(), " and system schedule; checking every {} hours. No check started") $(, $($args)*)?),
-            $crate::Language::Chinese => format!(concat!("已安装原生 ", $crate::__identity::command!(), " 命令与系统任务，每 {} 小时检查一次；未触发检查") $(, $($args)*)?),
+            $crate::Language::English => format!(concat!("Installed native ", $crate::__identity::command!(), " and system schedule; interval {}. No check started") $(, $($args)*)?),
+            $crate::Language::Chinese => format!(concat!("已安装原生 ", $crate::__identity::command!(), " 命令与系统任务，检查间隔 {}；未触发检查") $(, $($args)*)?),
         }
     };
     (UnknownCommandShowHelp $(, $($args:tt)*)?) => {
@@ -3055,14 +3113,14 @@ macro_rules! tf {
     };
     (SystemScheduleCheckProcessConfiguredIntervalEvery $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("System schedule: {}\nCheck process: {}\nConfigured interval: every {} hours\nRepositories: {}\nConcurrency: {}\nAutomatic push: {}\n" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("系统任务：{}\n检查进程：{}\n配置频率：每 {} 小时\n仓库数量：{}\n检查并发：{}\n自动推送：{}\n" $(, $($args)*)?),
+            $crate::Language::English => format!("System schedule: {}\nCheck process: {}\nConfigured interval: {}\nRepositories: {}\nConcurrency: {}\nAutomatic push: {}\n" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("系统任务：{}\n检查进程：{}\n配置频率：{}\n仓库数量：{}\n检查并发：{}\n自动推送：{}\n" $(, $($args)*)?),
         }
     };
     (ScheduledIntervalEveryHours $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Scheduled interval: every {} hours\n" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("系统任务频率：每 {} 小时\n" $(, $($args)*)?),
+            $crate::Language::English => format!("Scheduled interval: {}\n" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("系统任务频率：{}\n" $(, $($args)*)?),
         }
     };
     (ExcludedDirectory $(, $($args:tt)*)?) => {
