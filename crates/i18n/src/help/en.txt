@@ -17,6 +17,7 @@
 ## Search and commands
 - Type to search repositories, or files in the file panel. Input is always active.
 - `/` opens a full-width command menu above the input. `↑↓` selects, `Tab` completes, `Enter` opens the selection.
+- Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `/live diff` or `/终端`. Name matches come first; Tab completes the selected command.
 - `/` shows only top-level entries. A prefix such as `/diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
 - Parameter commands stay in the input: `/repo add <path>`, `/settings concurrency <count>`.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.

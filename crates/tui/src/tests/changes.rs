@@ -54,7 +54,11 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
             "diff split",
             "diff unified",
         ] {
-            assert!(command::matches(removed).is_empty());
+            assert!(
+                command::COMMANDS
+                    .iter()
+                    .all(|command| command.name != removed)
+            );
         }
         assert_eq!(
             command::matches("diff ")

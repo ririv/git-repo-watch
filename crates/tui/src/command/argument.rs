@@ -165,10 +165,14 @@ impl Command {
 pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
     COMMANDS.iter().find_map(|command| {
         let argument = command.action.argument()?;
-        let value = input
-            .trim_start()
-            .strip_prefix(command.name)?
-            .strip_prefix(' ')?;
+        let input = input.trim_start();
+        if !input
+            .get(..command.name.len())?
+            .eq_ignore_ascii_case(command.name)
+        {
+            return None;
+        }
+        let value = input.get(command.name.len()..)?.strip_prefix(' ')?;
         Some((argument, value))
     })
 }

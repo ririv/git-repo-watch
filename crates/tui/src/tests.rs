@@ -1,5 +1,6 @@
 mod branches;
 mod changes;
+mod commands;
 mod completion;
 mod concurrency;
 mod diff;
@@ -1303,7 +1304,11 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
         "scan",
         "import",
     ] {
-        assert!(command::matches(removed).is_empty());
+        assert!(
+            command::COMMANDS
+                .iter()
+                .all(|command| command.name != removed)
+        );
     }
     assert_eq!(
         command::matches("schedule ")

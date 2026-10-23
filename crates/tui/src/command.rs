@@ -280,10 +280,61 @@ pub fn matches(input: &str) -> Vec<&'static Command> {
         return vec![argument.command()];
     }
     let input = input.trim_start();
-    COMMANDS
+    if input.is_empty() {
+        return COMMANDS
+            .iter()
+            .filter(|command| !command.name.contains(' '))
+            .collect();
+    }
+    let query = input.trim_end().to_lowercase();
+    // 父命令末尾的空格限定为子命令；普通说明短语仍搜索整个目录。
+    let parent = input
+        .strip_suffix(' ')
+        .filter(|parent| {
+            COMMANDS
+                .iter()
+                .any(|command| command.name.eq_ignore_ascii_case(parent))
+        })
+        .map(|parent| format!("{} ", parent.to_ascii_lowercase()));
+    let mut matches = COMMANDS
         .iter()
-        .filter(|c| c.name.starts_with(input) && (!input.is_empty() || !c.name.contains(' ')))
-        .collect()
+        .filter(|command| {
+            parent
+                .as_ref()
+                .is_none_or(|parent| command.name.starts_with(parent))
+        })
+        .filter_map(|command| command.match_kind(&query).map(|kind| (kind, command)))
+        .collect::<Vec<_>>();
+    matches.sort_by_key(|(kind, _)| *kind);
+    matches.into_iter().map(|(_, command)| command).collect()
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+enum MatchKind {
+    NamePrefix,
+    NameSubstring,
+    Description,
+}
+impl Command {
+    fn match_kind(&self, query: &str) -> Option<MatchKind> {
+        if self.name.starts_with(query) {
+            Some(MatchKind::NamePrefix)
+        } else if self.name.contains(query) {
+            Some(MatchKind::NameSubstring)
+        } else if [i18n::Language::English, i18n::Language::Chinese]
+            .into_iter()
+            .any(|language| {
+                self.description
+                    .in_language(language)
+                    .to_lowercase()
+                    .contains(query)
+            })
+        {
+            Some(MatchKind::Description)
+        } else {
+            None
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Configuration {
