@@ -98,9 +98,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .with_offset(screen.scroll)
         .with_selected(Some(screen.setting_selected));
     frame.render_stateful_widget(
-        List::new(items)
-            .highlight_style(selected_style())
-            .highlight_symbol("› "),
+        List::new(items).highlight_style(selected_style()),
         parts[1],
         &mut state,
     );

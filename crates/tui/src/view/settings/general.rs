@@ -98,7 +98,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .map(|v| v.width() + 2)
         .max()
         .unwrap_or(0);
-    let inline = 2 + label_width + 4 + value_width <= usize::from(width);
+    let inline = label_width + 4 + value_width <= usize::from(width);
     let mut lines = Vec::new();
     let mut rows = Vec::new();
     let mut group = None;
@@ -142,13 +142,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Value::Toggle(false) => (format!("○ {}", i18n::tr!(TaskDisabled)), Color::Gray),
             Value::Number(value) => (value.to_string(), Color::LightCyan),
         };
-        let mut label = vec![
-            Span::styled(
-                if selected { "› " } else { "  " },
-                Style::default().fg(ACCENT).bold(),
-            ),
-            Span::styled(entry.label, Style::default().fg(Color::White).bold()),
-        ];
+        let mut label = vec![Span::styled(
+            entry.label,
+            Style::default().fg(Color::White).bold(),
+        )];
         if inline {
             label.push(Span::raw(" ".repeat(label_width - entry.label.width() + 4)));
             label.push(Span::styled(

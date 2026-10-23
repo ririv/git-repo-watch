@@ -7,7 +7,7 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
         .iter()
         .map(|name| {
             ListItem::new(Line::from(Span::styled(
-                truncate(&format!("{name}/"), body.width.saturating_sub(4) as usize),
+                truncate(&format!("{name}/"), body.width.saturating_sub(2) as usize),
                 Style::default().fg(ACCENT),
             )))
         })
@@ -25,8 +25,7 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
     frame.render_stateful_widget(
         List::new(items)
             .block(block(i18n::tr!(DirectoryCandidates)))
-            .highlight_style(selected_style())
-            .highlight_symbol("› "),
+            .highlight_style(selected_style()),
         area,
         &mut state,
     );

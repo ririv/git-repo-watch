@@ -204,7 +204,6 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         rows.len()
     )))
     .row_highlight_style(selected_style())
-    .highlight_symbol("› ")
     .column_spacing(1);
     screen.repository_area = Some(area);
     frame.render_stateful_widget(table, area, &mut screen.repository_viewport);

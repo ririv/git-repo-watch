@@ -215,6 +215,26 @@ fn render(s: &mut Screen, width: u16, height: u16) -> String {
         .collect::<Vec<_>>()
         .join("\n")
 }
+fn highlighted_repository(s: &mut Screen, width: u16, height: u16) -> String {
+    let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+    terminal.draw(|frame| view::render(frame, s)).unwrap();
+    let area = s.repository_area.unwrap();
+    let buffer = terminal.backend().buffer();
+    let rows = (area.y + 2..area.bottom() - 1)
+        .filter(|y| buffer[(area.x + 1, *y)].bg == ratatui::style::Color::Rgb(25, 65, 95))
+        .collect::<Vec<_>>();
+    assert_eq!(rows.len(), 1, "exactly one repository row is highlighted");
+    let text: String = (area.x + 1..area.right() - 1)
+        .map(|x| buffer[(x, rows[0])].symbol())
+        .collect();
+    assert!(!text.contains('›'));
+    assert!(
+        !text.starts_with(' '),
+        "selection no longer reserves leading columns"
+    );
+    text
+}
+
 #[test]
 fn command_completion_unknown_commands_and_frozen_scope() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -909,10 +929,9 @@ fn keyboard_reverses_wheel_at_both_list_boundaries_without_an_extra_keypress() {
         assert_eq!(s.selected(), 51);
         assert_eq!(s.repository_viewport.selected(), Some(51));
         key(&mut s, KeyCode::Up);
-        let output = render(&mut s, width, height);
+        let highlighted = highlighted_repository(&mut s, width, height);
         assert_eq!(s.selected(), 50);
         assert_eq!(s.repository_viewport.selected(), Some(50));
-        let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
         assert!(highlighted.contains("repo050"), "{highlighted}");
         for _ in 0..30 {
             wheel(
@@ -925,10 +944,9 @@ fn keyboard_reverses_wheel_at_both_list_boundaries_without_an_extra_keypress() {
         }
         assert_eq!(s.selected(), 0);
         key(&mut s, KeyCode::Down);
-        let output = render(&mut s, width, height);
+        let highlighted = highlighted_repository(&mut s, width, height);
         assert_eq!(s.selected(), 1);
         assert_eq!(s.repository_viewport.selected(), Some(1));
-        let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
         assert!(highlighted.contains("repo001"), "{highlighted}");
     }
 }
@@ -946,19 +964,12 @@ fn shrinking_list_at_bottom_keeps_display_and_navigation_on_the_same_selection()
     assert_eq!(s.selected(), 51);
     // 列表减少一项后，渲染器会将高亮移到新的末项，导航必须立即使用同一个位置。
     s.config.repositories.pop();
-    let output = render(&mut s, 90, 24);
-    let highlighted = output.lines().find(|line| line.contains('›')).unwrap();
+    let highlighted = highlighted_repository(&mut s, 90, 24);
     assert!(highlighted.contains("repo050"), "{highlighted}");
     key(&mut s, KeyCode::Up);
-    let output = render(&mut s, 90, 24);
+    let highlighted = highlighted_repository(&mut s, 90, 24);
     assert_eq!(s.selected_path(), Some(PathBuf::from("/example/repo049")));
-    assert!(
-        output
-            .lines()
-            .find(|line| line.contains('›'))
-            .unwrap()
-            .contains("repo049")
-    );
+    assert!(highlighted.contains("repo049"));
     for _ in 0..10 {
         key(&mut s, KeyCode::PageDown);
     }
@@ -984,13 +995,7 @@ fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary(
         assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
     }
     assert_eq!(s.selected(), 50);
-    assert!(
-        render(&mut s, 90, 24)
-            .lines()
-            .find(|line| line.contains('›'))
-            .unwrap()
-            .contains("repo050")
-    );
+    assert!(highlighted_repository(&mut s, 90, 24).contains("repo050"));
     // 反向滚动属于新的明确意图，应立即恢复响应。
     for _ in 0..30 {
         wheel(&mut s, ScrollUp, area.x + 2, area.y + 3);
@@ -1001,13 +1006,7 @@ fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary(
         assert!(!wheel(&mut s, ScrollUp, area.x + 2, area.y + 3));
     }
     assert_eq!(s.selected(), 1);
-    assert!(
-        render(&mut s, 90, 24)
-            .lines()
-            .find(|line| line.contains('›'))
-            .unwrap()
-            .contains("repo001")
-    );
+    assert!(highlighted_repository(&mut s, 90, 24).contains("repo001"));
 }
 
 struct FetchGate {

@@ -117,9 +117,7 @@ pub(super) fn list(
         items
     };
     frame.render_stateful_widget(
-        List::new(items)
-            .highlight_style(selected_style())
-            .highlight_symbol("› "),
+        List::new(items).highlight_style(selected_style()),
         parts[1],
         &mut session.state,
     );

@@ -148,7 +148,7 @@ fn graph(
         0
     };
     // 图与短哈希固定，只有引用名称和提交标题横向滚动。
-    let text_width = body[1].width.saturating_sub(graph_width + 13) as usize;
+    let text_width = body[1].width.saturating_sub(graph_width + 11) as usize;
     let lines: Vec<_> = session
         .records
         .iter()
@@ -195,10 +195,7 @@ fn graph(
         );
     } else {
         frame.render_stateful_widget(
-            List::new(items)
-                .highlight_symbol("› ")
-                .highlight_spacing(ratatui::widgets::HighlightSpacing::Always)
-                .highlight_style(selected_style()),
+            List::new(items).highlight_style(selected_style()),
             content_area,
             &mut session.state,
         );

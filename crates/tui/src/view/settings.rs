@@ -58,15 +58,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
             _ => String::new(),
         };
         let line = Line::styled(
-            format!(
-                "{} {}  {value}",
-                if screen.setting_selected == i {
-                    "›"
-                } else {
-                    " "
-                },
-                item.description()
-            ),
+            format!("{}  {value}", item.description()),
             if screen.setting_selected == i {
                 selected_style()
             } else {

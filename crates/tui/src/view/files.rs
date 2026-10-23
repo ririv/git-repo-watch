@@ -104,10 +104,7 @@ pub(super) fn render(
             .with_offset(offsets[usize::from(staged)])
             .with_selected(entries.iter().position(|entry| matches!(entry, crate::files::tree::Row::File {index, ..} if *index == session.cursor)));
         frame.render_stateful_widget(
-            List::new(items)
-                .highlight_style(selected_style())
-                .highlight_spacing(ratatui::widgets::HighlightSpacing::Always)
-                .highlight_symbol("› "),
+            List::new(items).highlight_style(selected_style()),
             parts[1],
             &mut state,
         );
@@ -143,7 +140,7 @@ pub(super) fn render(
                 continue;
             };
             let checkbox =
-                Rect::new(parts[1].x + 2, parts[1].y + row as u16, 3, 1).intersection(parts[1]);
+                Rect::new(parts[1].x, parts[1].y + row as u16, 3, 1).intersection(parts[1]);
             hits.file_checkbox(checkbox, *index);
         }
     }

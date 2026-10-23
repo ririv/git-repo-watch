@@ -120,9 +120,7 @@ pub(super) fn render(
             })
             .collect();
         frame.render_stateful_widget(
-            List::new(items)
-                .highlight_style(selected_style())
-                .highlight_symbol("› "),
+            List::new(items).highlight_style(selected_style()),
             inner,
             &mut commit.files,
         );

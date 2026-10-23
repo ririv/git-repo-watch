@@ -64,7 +64,7 @@ pub(super) fn render(
         match display.render(
             frame,
             key(index),
-            Rect::new(area.x + 2, area.y + (index - first) as u16, columns, 1),
+            Rect::new(area.x, area.y + (index - first) as u16, columns, 1),
         ) {
             Draw::Ready => {}
             Draw::Loading => loading = true,

@@ -213,7 +213,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
                 .as_deref()
                 .map_or(0, |text| unicode_width::UnicodeWidthStr::width(text) + 3);
             let description_width = (body.width as usize).saturating_sub(
-                4 + name_width
+                2 + name_width
                     + 2
                     + 4
                     + unicode_width::UnicodeWidthStr::width(scope)
@@ -299,8 +299,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             items
         })
         .block(block(title))
-        .highlight_style(selected_style())
-        .highlight_symbol("› "),
+        .highlight_style(selected_style()),
         area,
         &mut state,
     );

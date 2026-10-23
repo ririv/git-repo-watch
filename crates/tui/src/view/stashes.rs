@@ -73,8 +73,7 @@ pub(super) fn render(
             frame.render_stateful_widget(
                 List::new(items)
                     .block(block(i18n::tr!(StashTitle)))
-                    .highlight_style(selected_style())
-                    .highlight_symbol("› "),
+                    .highlight_style(selected_style()),
                 areas[0],
                 &mut session.state,
             );
