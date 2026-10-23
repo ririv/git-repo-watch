@@ -133,10 +133,17 @@ impl Row {
 }
 #[derive(Debug)]
 pub(super) struct View {
+    pub(crate) export: Export,
     rows: Vec<Row>,
     digits: u16,
     comparison: Comparison,
     cache: Option<Cache>,
+}
+#[derive(Debug)]
+pub(crate) enum Export {
+    Complete(std::sync::Arc<str>),
+    Unavailable,
+    Truncated,
 }
 impl View {
     pub fn selected_layout(&self, width: u16, preference: Preference) -> Layout {
@@ -213,6 +220,14 @@ fn prepare_comparison(
     comparison: Comparison,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
+    let export = match &document {
+        Document::Notice(_) => Export::Unavailable,
+        Document::Patch {
+            extent: engine::local::files::patch::Extent::Truncated,
+            ..
+        } => Export::Truncated,
+        Document::Patch { .. } => Export::Complete(document.text().into()),
+    };
     let rows = build::rows(title, document, cancel)?;
     let digits = rows
         .iter()
@@ -222,6 +237,7 @@ fn prepare_comparison(
         .to_string()
         .len() as u16;
     Ok(Box::new(View {
+        export,
         rows,
         digits,
         comparison,

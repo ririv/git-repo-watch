@@ -11,9 +11,11 @@ impl Screen {
         &mut self,
         action: Action,
         path: Option<PathBuf>,
+        selection: crate::clipboard::Selection,
         root: &Cancel,
     ) -> Result<bool> {
         match action {
+            Action::Copy(scope) => self.copy_to_clipboard(scope, selection, path),
             Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
             Action::Filter(filter) => self.filter_repositories(filter),
@@ -86,6 +88,7 @@ impl Screen {
                     crate::bar::CommandDraft {
                         input: command::Input::global(Editor::new("/diff layout".into())),
                         path,
+                        selection,
                     },
                     0,
                 );
@@ -218,6 +221,7 @@ impl Screen {
                     selected: 0,
                     menu: Default::default(),
                     path,
+                    selection: self.copy_selection(),
                 };
             }
         }

@@ -34,7 +34,17 @@
 - Another / with an empty command suffix switches to global commands too; typing //settings from search opens global settings directly.
 - Switching command ranges does not leave the view or change repositories. The context stays fixed while editing; Esc restores search. Reopening captures the current focus again.
 - With existing search, Home then / opens commands while retaining search. Slashes inside a search path remain literal text.
-- Historical diffs offer layout operations without worktree staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
+- Historical diffs offer layout and copy operations without worktree staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
+
+## Copy the current selection
+- Press `/` in a view and type `copy`. Candidate labels identify the content. There is no global copy group; `/repo copy` copies the selected repository's full path from home.
+- In file lists, `/diff copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
+- In a focused diff preview, `/diff copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
+- `/log copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/diff copy`.
+- `/branch copy` copies the selected branch name. In operation errors, `/` opens /error and copy copies complete error details.
+- Combined panes follow focus. Failed previews or panes copy their error details. Opening commands freezes the repository and selection; background refresh cannot replace the target.
+- Images, loading, empty and truncated patches report explicit errors. Clipboard writes run independently, report success after the system accepts them and preserve navigation and new drafts.
+- Linux needs X11 or a Wayland session supporting data-control. Content retention after exit depends on the desktop clipboard manager. Error pages accept only copy and quit commands.
 
 ## Paths and completion
 - `Tab` completes the directory component at the cursor. One match adds `/`; multiple matches show directory candidates.

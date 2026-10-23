@@ -20,7 +20,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential pkg-config git openssh-client libnotify-bin dbus-user-session
+          sudo apt-get install -y build-essential pkg-config git openssh-client libnotify-bin dbus-user-session xvfb xauth
       - name: 安装项目固定的 Rust 工具链
         run: rustup show
       - name: 检查格式
@@ -29,6 +29,12 @@ jobs:
         run: cargo clippy --workspace --locked --all-targets -- -D warnings
       - name: 运行全部测试
         run: cargo test --workspace --locked
+      - name: 验证 Linux 原生剪贴板
+        if: runner.os == 'Linux'
+        run: xvfb-run -a cargo test --package tui --locked clipboard::worker::tests::native_clipboard_roundtrip -- --ignored --exact
+      - name: 验证 macOS 原生剪贴板
+        if: runner.os == 'macOS'
+        run: cargo test --package tui --locked clipboard::worker::tests::native_clipboard_roundtrip -- --ignored --exact
       - name: 构建发布程序
         run: ./build.sh
       - name: 验证 Linux 用户定时器生命周期

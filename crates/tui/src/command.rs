@@ -22,6 +22,7 @@ pub enum Action {
     Filter(crate::repository_list::Filter),
     SortMenu,
     Sort(crate::repository_list::Order),
+    Copy(crate::clipboard::Scope),
     Commit,
     Push,
     Terminal,
@@ -157,6 +158,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::RefreshContextView,
     },
     Command {
+        name: "branch copy",
+        action: Copy(crate::clipboard::Scope::Branch),
+        scope: View,
+        description: i18n::Message::CopyBranchCommand,
+    },
+    Command {
         name: "log",
         action: Log,
         scope: Repository,
@@ -173,6 +180,12 @@ pub const COMMANDS: &[Command] = &[
         action: Refresh,
         scope: View,
         description: i18n::Message::RefreshContextView,
+    },
+    Command {
+        name: "log copy",
+        action: Copy(crate::clipboard::Scope::Log),
+        scope: View,
+        description: i18n::Message::CopyLogCommand,
     },
     Command {
         name: "diff",
@@ -223,6 +236,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::RefreshContextView,
     },
     Command {
+        name: "diff copy",
+        action: Copy(crate::clipboard::Scope::Diff),
+        scope: View,
+        description: i18n::Message::CopyDiffCommand,
+    },
+    Command {
         name: "commit",
         action: Commit,
         scope: Repository,
@@ -269,6 +288,12 @@ pub const COMMANDS: &[Command] = &[
         action: Repositories,
         scope: Global,
         description: i18n::Message::ManageRepositories,
+    },
+    Command {
+        name: "repo copy",
+        action: Copy(crate::clipboard::Scope::Repository),
+        scope: Repository,
+        description: i18n::Message::CopyRepositoryCommand,
     },
     Command {
         name: "schedule",
@@ -371,6 +396,12 @@ pub const COMMANDS: &[Command] = &[
         action: Help,
         scope: Global,
         description: i18n::Message::ShowHelp,
+    },
+    Command {
+        name: "error copy",
+        action: Copy(crate::clipboard::Scope::Error),
+        scope: View,
+        description: i18n::Message::CopyErrorCommand,
     },
     Command {
         name: "quit",

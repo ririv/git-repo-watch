@@ -72,7 +72,8 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "diff layout auto",
                 "diff layout split",
                 "diff layout unified",
-                "diff refresh"
+                "diff refresh",
+                "diff copy"
             ]
         );
         assert_eq!(
@@ -119,7 +120,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         assert_eq!(s.bar.text(), "/diff");
         assert_eq!(s.bar.commands().unwrap().len(), 8);
         let text = render(&mut s, 180, 36);
-        for command in command::matches("diff") {
+        for command in s.bar.commands().unwrap() {
             assert!(text.contains(&format!("/{}", command.name)), "{text}");
         }
         for _ in 0..3 {

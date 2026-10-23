@@ -12,6 +12,9 @@ impl Screen {
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_) => self.bar_paste(text),
+            Mode::Error { .. } if matches!(self.bar, crate::bar::InputBar::Command { .. }) => {
+                self.bar_paste(text)
+            }
             _ => {}
         }
     }
@@ -180,6 +183,7 @@ impl Screen {
                             self.bar = crate::bar::InputBar::Command {
                                 input: draft.input,
                                 path: draft.path,
+                                selection: draft.selection,
                                 selected: 0,
                                 menu: Default::default(),
                             };

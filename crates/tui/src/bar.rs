@@ -8,6 +8,7 @@ use std::path::PathBuf;
 pub(crate) struct CommandDraft {
     pub input: command::Input,
     pub path: Option<PathBuf>,
+    pub selection: crate::clipboard::Selection,
 }
 #[derive(Debug)]
 pub(crate) enum InputBar {
@@ -22,6 +23,7 @@ pub(crate) enum InputBar {
         selected: usize,
         menu: command::path::Menu,
         path: Option<PathBuf>,
+        selection: crate::clipboard::Selection,
     },
 }
 impl Default for InputBar {
@@ -46,7 +48,18 @@ impl InputBar {
     }
     pub fn commands(&self) -> Option<Vec<&'static command::Command>> {
         match self {
-            Self::Command { input, .. } => Some(input.matches()),
+            Self::Command {
+                input,
+                path,
+                selection,
+                ..
+            } => Some(
+                input
+                    .matches()
+                    .into_iter()
+                    .filter(|command| selection.admits(command.action, path.as_deref()))
+                    .collect(),
+            ),
             Self::Search(_) | Self::Layout { .. } => None,
         }
     }
@@ -60,6 +73,12 @@ impl InputBar {
     pub fn command_input(&self) -> Option<&command::Input> {
         match self {
             Self::Command { input, .. } => Some(input),
+            _ => None,
+        }
+    }
+    pub fn selection(&self) -> Option<&crate::clipboard::Selection> {
+        match self {
+            Self::Command { selection, .. } => Some(selection),
             _ => None,
         }
     }
@@ -141,6 +160,15 @@ impl Screen {
         self.message.clear();
     }
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
+        // 错误页只开放复制与退出；Esc 先关闭命令，再交给错误页返回。
+        if matches!(self.mode, Mode::Error { .. }) && !matches!(self.bar, InputBar::Command { .. })
+        {
+            if key.code == KeyCode::Char('/') && key.modifiers.is_empty() {
+                self.open_command_bar();
+                return Ok(BarEvent::Handled);
+            }
+            return Ok(BarEvent::Pass);
+        }
         if !matches!(
             self.mode,
             Mode::Browsing
@@ -149,6 +177,7 @@ impl Screen {
                 | Mode::Files(_)
                 | Mode::Changes(_)
                 | Mode::History(_)
+                | Mode::Error { .. }
         ) {
             return Ok(BarEvent::Pass);
         }
@@ -160,6 +189,7 @@ impl Screen {
             selected,
             menu,
             path,
+            selection,
         } = &mut self.bar
         {
             if input.namespace_key(key) {
@@ -190,7 +220,11 @@ impl Screen {
                 }
                 return Ok(BarEvent::Handled);
             }
-            let matches = input.matches();
+            let matches = input
+                .matches()
+                .into_iter()
+                .filter(|command| selection.admits(command.action, path.as_deref()))
+                .collect::<Vec<_>>();
             let query = input.query();
             match key.code {
                 KeyCode::Esc => self.clear_bar(),
@@ -219,12 +253,15 @@ impl Screen {
                     }
                 }
                 KeyCode::Enter => {
-                    if let Some((argument, value)) = command::argument_input(&query) {
+                    if !selection.is_error()
+                        && let Some((argument, value)) = command::argument_input(&query)
+                    {
                         match argument.parse(value, self.service.scheduler.user_home()) {
                             Ok(value) => {
                                 let draft = CommandDraft {
                                     input: input.clone(),
                                     path: path.clone(),
+                                    selection: selection.clone(),
                                 };
                                 self.prepare_configuration(argument, value, draft);
                             }
@@ -235,6 +272,7 @@ impl Screen {
                             let draft = CommandDraft {
                                 input: input.clone(),
                                 path: path.clone(),
+                                selection: selection.clone(),
                             };
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);
@@ -245,9 +283,10 @@ impl Screen {
                         } else {
                             let action = command.action;
                             let path = path.clone();
+                            let selection = selection.clone();
                             self.sync_bar();
                             self.message.clear();
-                            if self.activate(action, path, root)? {
+                            if self.activate(action, path, selection, root)? {
                                 return Ok(BarEvent::Quit);
                             }
                         }
@@ -271,7 +310,12 @@ impl Screen {
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('r') => {
-                    self.activate(Action::Refresh, self.scope_path(), root)?;
+                    self.activate(
+                        Action::Refresh,
+                        self.scope_path(),
+                        crate::clipboard::Selection::None,
+                        root,
+                    )?;
                     return Ok(BarEvent::Handled);
                 }
                 KeyCode::Char('a') if matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) => {
@@ -354,6 +398,7 @@ impl Screen {
             selected: 0,
             menu: Default::default(),
             path: self.scope_path(),
+            selection: self.copy_selection(),
         };
     }
     fn clear_bar(&mut self) {

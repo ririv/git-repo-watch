@@ -165,13 +165,12 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Diff(DiffContext::History)));
-    assert!(
-        s.bar
-            .commands()
-            .unwrap()
-            .iter()
-            .all(|c| matches!(c.action, Action::DiffLayoutMenu | Action::DiffLayout(_)))
-    );
+    assert!(s.bar.commands().unwrap().iter().all(|c| matches!(
+        c.action,
+        Action::DiffLayoutMenu
+            | Action::DiffLayout(_)
+            | Action::Copy(crate::clipboard::Scope::Diff)
+    )));
     s.paste("stage");
     key(&mut s, KeyCode::Enter);
     assert!(s.bar.commands().unwrap().is_empty());

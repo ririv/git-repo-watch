@@ -39,6 +39,7 @@ impl Screen {
                 self.bar = InputBar::Command {
                     input: draft.input,
                     path: draft.path,
+                    selection: draft.selection,
                     selected: command_cursor,
                     menu: Default::default(),
                 };

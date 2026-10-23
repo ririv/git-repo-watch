@@ -4,6 +4,7 @@ mod commands;
 mod completion;
 mod concurrency;
 mod contexts;
+mod copy;
 mod diff;
 mod help;
 mod history;
@@ -56,6 +57,7 @@ fn screen(service: Service) -> Screen {
         diff_preference: Default::default(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
+        clipboard: Default::default(),
         repository_viewport,
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
@@ -1340,7 +1342,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         ["check all"]
     );
-    assert_eq!(command::matches("repo ").len(), 6);
+    assert_eq!(command::matches("repo ").len(), 7);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
         command::matches("check")

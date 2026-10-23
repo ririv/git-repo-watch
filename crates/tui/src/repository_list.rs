@@ -88,6 +88,7 @@ impl Screen {
             selected,
             menu: Default::default(),
             path: self.selected_path(),
+            selection: self.copy_selection(),
         };
     }
     pub(crate) fn filter_repositories(&mut self, filter: Filter) {

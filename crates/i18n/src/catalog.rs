@@ -2,6 +2,32 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    CopyRepositoryCommand,
+    CopyDiffCommand,
+    CopyLogCommand,
+    CopyBranchCommand,
+    CopyErrorCommand,
+    CopyRepositoryPath,
+    CopyFilePaths,
+    CopyCommit,
+    CopyBranch,
+    CopyDiff,
+    CopyError,
+    CopyWriting,
+    CopySucceeded,
+    CopyFailed,
+    CopyUnavailable,
+    CopySelectionRequired,
+    CopySelectionLoading,
+    CopyPathNotUtf8,
+    CopyDiffRequired,
+    CopyDiffImage,
+    CopyDiffTruncated,
+    CopyErrorHint,
+    ClipboardOpenFailed,
+    ClipboardWriteFailed,
+    ClipboardWorkerStopped,
+    ClipboardBusy,
     RefreshContextView,
     ContextCommands,
     ContextCommandPlaceholder,
@@ -675,6 +701,82 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::CopyRepositoryCommand, Language::English) => "Copy the selected repository path",
+            (Self::CopyRepositoryCommand, Language::Chinese) => "复制当前仓库的完整路径",
+            (Self::CopyDiffCommand, Language::English) => {
+                "Copy selected file paths or the focused diff preview"
+            }
+            (Self::CopyDiffCommand, Language::Chinese) => "复制选中的文件路径或焦点中的差异预览",
+            (Self::CopyLogCommand, Language::English) => {
+                "Copy the selected commit ID or historical file path"
+            }
+            (Self::CopyLogCommand, Language::Chinese) => "复制选中的提交 ID 或历史文件路径",
+            (Self::CopyBranchCommand, Language::English) => "Copy the selected branch name",
+            (Self::CopyBranchCommand, Language::Chinese) => "复制选中的分支名称",
+            (Self::CopyErrorCommand, Language::English) => "Copy complete error details",
+            (Self::CopyErrorCommand, Language::Chinese) => "复制完整错误详情",
+            (Self::CopyRepositoryPath, Language::English) => "Repository path",
+            (Self::CopyRepositoryPath, Language::Chinese) => "仓库路径",
+            (Self::CopyFilePaths, Language::English) => "Selected file paths",
+            (Self::CopyFilePaths, Language::Chinese) => "选中文件路径",
+            (Self::CopyCommit, Language::English) => "Full commit ID",
+            (Self::CopyCommit, Language::Chinese) => "完整提交 ID",
+            (Self::CopyBranch, Language::English) => "Branch name",
+            (Self::CopyBranch, Language::Chinese) => "分支名称",
+            (Self::CopyDiff, Language::English) => "Original diff patch",
+            (Self::CopyDiff, Language::Chinese) => "原始差异补丁",
+            (Self::CopyError, Language::English) => "Error details",
+            (Self::CopyError, Language::Chinese) => "错误详情",
+            (Self::CopyWriting, Language::English) => "Copying",
+            (Self::CopyWriting, Language::Chinese) => "正在复制",
+            (Self::CopySucceeded, Language::English) => "Copied",
+            (Self::CopySucceeded, Language::Chinese) => "已复制",
+            (Self::CopyFailed, Language::English) => "Copy failed",
+            (Self::CopyFailed, Language::Chinese) => "复制失败",
+            (Self::CopyUnavailable, Language::English) => "No copyable selection",
+            (Self::CopyUnavailable, Language::Chinese) => "无可复制内容",
+            (Self::CopySelectionRequired, Language::English) => {
+                "The current view has no selected content to copy"
+            }
+            (Self::CopySelectionRequired, Language::Chinese) => "当前视图没有选中的可复制内容",
+            (Self::CopySelectionLoading, Language::English) => {
+                "The selected content is still loading; reopen the command after it finishes"
+            }
+            (Self::CopySelectionLoading, Language::Chinese) => {
+                "选中内容仍在加载，请完成后重新打开命令"
+            }
+            (Self::CopyPathNotUtf8, Language::English) => {
+                "The selected path is not valid UTF-8 and cannot be copied as text"
+            }
+            (Self::CopyPathNotUtf8, Language::Chinese) => {
+                "选中路径不是有效 UTF-8，无法作为文本复制"
+            }
+            (Self::CopyDiffRequired, Language::English) => {
+                "This preview has no original text patch to copy"
+            }
+            (Self::CopyDiffRequired, Language::Chinese) => "此预览没有可复制的原始文本补丁",
+            (Self::CopyDiffImage, Language::English) => "Image previews have no text patch to copy",
+            (Self::CopyDiffImage, Language::Chinese) => "图片预览没有可复制的文本补丁",
+            (Self::CopyDiffTruncated, Language::English) => {
+                "This diff is truncated; a complete patch cannot be copied"
+            }
+            (Self::CopyDiffTruncated, Language::Chinese) => "此差异已截断，无法复制完整补丁",
+            (Self::CopyErrorHint, Language::English) => {
+                "↑↓/PgDn scroll · / copy error · Enter/Esc back"
+            }
+            (Self::CopyErrorHint, Language::Chinese) => {
+                "↑↓/PgDn 滚动 · / 复制错误 · Enter/Esc 返回"
+            }
+            (Self::ClipboardOpenFailed, Language::English) => "Cannot access the system clipboard",
+            (Self::ClipboardOpenFailed, Language::Chinese) => "无法访问系统剪贴板",
+            (Self::ClipboardWriteFailed, Language::English) => {
+                "Cannot write to the system clipboard"
+            }
+            (Self::ClipboardWriteFailed, Language::Chinese) => "无法写入系统剪贴板",
+            (Self::ClipboardWorkerStopped, Language::English) => "The clipboard worker stopped",
+            (Self::ClipboardWorkerStopped, Language::Chinese) => "剪贴板任务已停止",
+            (Self::ClipboardBusy, Language::English) => "A clipboard write is already in progress",
+            (Self::ClipboardBusy, Language::Chinese) => "已有复制任务正在进行",
             (Self::RefreshContextView, Language::English) => "Refresh this view",
             (Self::RefreshContextView, Language::Chinese) => "刷新当前视图",
             (Self::ContextCommands, Language::English) => "View commands",

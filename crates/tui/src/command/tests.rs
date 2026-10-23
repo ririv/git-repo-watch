@@ -15,6 +15,7 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "diff layout split",
         "diff layout unified",
         "diff refresh",
+        "diff copy",
     ];
     for input in ["di", "diff", "  diff"] {
         assert_eq!(&names(input)[..expected.len()], expected);

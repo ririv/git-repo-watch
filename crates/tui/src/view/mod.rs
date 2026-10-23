@@ -150,6 +150,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_)
+            | Mode::Error { .. }
     ) {
         return;
     }
@@ -180,7 +181,14 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
                 command::Scope::View => i18n::tr!(CurrentView),
             };
             let annotation = repository_list::annotation(c.action, screen)
-                .or_else(|| layout_picker::annotation(c.action, screen, body));
+                .or_else(|| layout_picker::annotation(c.action, screen, body))
+                .or_else(|| {
+                    screen
+                        .bar
+                        .selection()?
+                        .annotation(c.action)
+                        .map(str::to_owned)
+                });
             let annotation_width = annotation
                 .as_deref()
                 .map_or(0, |text| unicode_width::UnicodeWidthStr::width(text) + 3);

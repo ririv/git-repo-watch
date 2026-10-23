@@ -119,6 +119,7 @@ fn unified_order_stays_removed_then_added_and_metadata_is_not_duplicated() {
 #[test]
 fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() {
     let mut view = View {
+        export: Export::Unavailable,
         rows: vec![
             Row::Metadata(Line::raw("header")),
             Row::Removed(code(1, "old")),

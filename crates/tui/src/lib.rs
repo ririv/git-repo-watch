@@ -3,6 +3,7 @@ mod bar;
 mod branches;
 mod changes;
 mod checks;
+mod clipboard;
 mod command;
 mod confirmation;
 mod diff;
@@ -169,6 +170,7 @@ struct Screen {
     diff_preference: diff::Preference,
     graphics: graphics::Display,
     bar: bar::InputBar,
+    clipboard: clipboard::Writer,
     repository_viewport: ratatui::widgets::TableState,
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
@@ -212,6 +214,7 @@ impl Screen {
                 i18n::tr!(GraphicsUnsupported).into(),
             )),
             bar: bar::InputBar::default(),
+            clipboard: Default::default(),
             repository_viewport,
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
@@ -371,6 +374,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 | screen.poll_check()
                 | screen.poll_workspace()
                 | screen.poll_changes()
+                | screen.poll_clipboard()
                 | screen.workspace.animate()
                 | screen.animate_check()
                 | screen.animate_task()

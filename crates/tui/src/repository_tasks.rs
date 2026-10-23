@@ -88,7 +88,7 @@ impl Screen {
                 revision: self.view_revision,
                 page: self.page,
                 scope: self.scope_path(),
-                input: self.bar.editor().text.clone(),
+                input: self.bar.text(),
                 rx,
                 handle,
             },
@@ -153,7 +153,7 @@ impl Screen {
             let same_view = task.page == self.page
                 && task.revision == self.view_revision
                 && self.scope_path() == task.scope
-                && self.bar.editor().text == task.input;
+                && self.bar.text() == task.input;
             if matches!(
                 task.effect,
                 Effect::IndexWrite | Effect::Commit | Effect::Push | Effect::Check

@@ -18,6 +18,7 @@ highlight = { path = "crates/highlight" }
 graph = { path = "crates/graph" }
 test-support = { path = "crates/test-support" }
 anyhow = "1"
+arboard = { version = "3.6", default-features = false, features = ["wayland-data-control"] }
 chrono = { version = "0.4", features = ["serde"] }
 crossterm = "0.29"
 ctrlc = "3"

@@ -15,6 +15,7 @@ pub(crate) enum Context {
     Repositories,
     Settings,
     Schedule,
+    Error,
 }
 impl Context {
     pub fn name(self) -> &'static str {
@@ -25,6 +26,7 @@ impl Context {
             Self::Repositories => "repo",
             Self::Settings => "settings",
             Self::Schedule => "schedule",
+            Self::Error => "error",
         }
     }
     pub fn relative(self, command: &Command) -> Option<&'static str> {
@@ -87,6 +89,7 @@ impl Screen {
                 _ => Context::History,
             }),
             Mode::Branches(_) => Some(Context::Branches),
+            Mode::Error { .. } => Some(Context::Error),
             Mode::Panel(section) => match section {
                 workspace::Section::Worktree => Some(Context::Diff(DiffContext::Worktree)),
                 workspace::Section::History => Some(Context::History),

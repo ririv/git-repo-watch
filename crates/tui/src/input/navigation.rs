@@ -70,6 +70,7 @@ impl Screen {
                     return self.activate(
                         section.actions(self.snapshot.registration)[self.setting_selected],
                         self.selected_path(),
+                        crate::clipboard::Selection::None,
                         root,
                     );
                 }

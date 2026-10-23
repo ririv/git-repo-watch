@@ -176,10 +176,26 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 },
                 i18n::tr!(ConfirmReviewHint),
             ),
+            Mode::Error { .. } if screen.bar.command_input().is_some() => (
+                i18n::tr!(CommandsAlt),
+                Content::Editable {
+                    editor: screen.bar.editor(),
+                    placeholder: i18n::tr!(ContextCommandPlaceholder),
+                },
+                if screen
+                    .bar
+                    .command_input()
+                    .is_some_and(|input| input.prefix_selected())
+                {
+                    i18n::tr!(ContextPrefixHint)
+                } else {
+                    i18n::tr!(ContextCommandHint)
+                },
+            ),
             Mode::Error { .. } => (
                 i18n::tr!(OperationIncomplete),
                 Content::Locked(i18n::tr!(SeeErrorDetails).into()),
-                i18n::tr!(PgdnFullErrorEnterEscBack),
+                i18n::tr!(CopyErrorHint),
             ),
             Mode::Busy(p) => (
                 i18n::tr!(RunningAlt),
