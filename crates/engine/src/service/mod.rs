@@ -101,4 +101,5 @@ pub enum ConfigEdit {
     Concurrency(usize),
     StartupCheck(bool),
     ChineseCommandTrigger(bool),
+    Mouse(state::MouseSetting, bool),
 }

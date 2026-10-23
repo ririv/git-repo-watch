@@ -5,6 +5,11 @@
 - `Tab` cycles repositories, general settings and the scheduled task.
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
+## Mouse & Trackpad
+- General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.
+- Left-click an item to select it, or a horizontal or vertical scrollbar to seek. Clicking an item does not stage, commit, or push.
+- With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.
+
 ## Repository panes
 - Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
 - Focusing a pane adds one level; switching panes replaces it. Maximizing adds no level. Back at a pane root returns to the repository root, then to the home page.

@@ -14,6 +14,7 @@ mod history;
 mod horizontal;
 mod images;
 mod layout_picker;
+mod mouse;
 mod navigation;
 mod overview;
 mod prefix_selection;
@@ -68,6 +69,7 @@ fn screen(service: Service) -> Screen {
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
         body_area: None,
+        pointer: Default::default(),
         command_items: Vec::new(),
         breadcrumb_items: Vec::new(),
         filter: Filter::All,
@@ -99,6 +101,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             max_concurrency: 4,
             check_on_startup: false,
             chinese_command_trigger: true,
+            mouse: Default::default(),
         })
         .unwrap();
     let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();

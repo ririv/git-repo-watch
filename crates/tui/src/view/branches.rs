@@ -6,9 +6,14 @@ use engine::local::branches::{
     upstream::{Comparison, Tracking},
 };
 
-pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    view: &mut View,
+    hits: &mut crate::pointer::Map,
+) {
     match view {
-        View::List(session) => list(frame, area, session),
+        View::List(session) => list(frame, area, session, hits),
         View::Detail {
             session,
             entry,
@@ -38,7 +43,15 @@ pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
             }
             lines.push(Line::default());
             lines.push(Line::raw(safe(&entry.subject)));
-            review::styled_text_view(frame, area, Text::from(lines), scroll, &safe(&entry.name));
+            review::styled_text_view(
+                frame,
+                area,
+                Text::from(lines),
+                scroll,
+                &safe(&entry.name),
+                hits,
+                crate::pointer::ScrollTarget::Text,
+            );
         }
     }
 }
@@ -51,7 +64,12 @@ fn field(label: &str, value: &str) -> Line<'static> {
         Span::raw(safe(value)),
     ])
 }
-pub(super) fn list(frame: &mut Frame, area: Rect, session: &mut Session) {
+pub(super) fn list(
+    frame: &mut Frame,
+    area: Rect,
+    session: &mut Session,
+    hits: &mut crate::pointer::Map,
+) {
     let panel = block(i18n::tr!(BranchTitle));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
@@ -106,6 +124,13 @@ pub(super) fn list(frame: &mut Frame, area: Rect, session: &mut Session) {
         &mut session.state,
     );
     crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
+    hits.list(
+        area,
+        parts[1],
+        &(0..count).collect::<Vec<_>>(),
+        session.state.offset(),
+        crate::pointer::Target::Branches,
+    );
 }
 fn compact(tracking: &Result<Tracking, String>) -> String {
     match tracking {

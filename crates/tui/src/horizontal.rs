@@ -24,14 +24,30 @@ impl Viewport {
         self.maximum = maximum;
         self.offset = self.offset.min(maximum);
     }
+    pub fn seek(&mut self, offset: usize) {
+        self.offset = offset.min(self.maximum);
+    }
     pub fn advance(&mut self, delta: isize) {
         self.offset = self.offset.saturating_add_signed(delta).min(self.maximum);
     }
     /// Draw only under the scrolling columns, leaving fixed columns and corners intact.
-    pub fn render_on_border(&self, frame: &mut Frame, panel: Rect, columns: std::ops::Range<u16>) {
+    pub fn render_on_border(
+        &self,
+        frame: &mut Frame,
+        panel: Rect,
+        columns: std::ops::Range<u16>,
+        hits: &mut crate::pointer::Map,
+        target: crate::pointer::ScrollTarget,
+    ) {
         if panel.width > 2 && panel.height > 1 {
             let start = columns.start.max(panel.x + 1);
             let end = columns.end.min(panel.right() - 1);
+            hits.track(
+                Rect::new(start, panel.bottom() - 1, end.saturating_sub(start), 1),
+                crate::scrollbar::Axis::Horizontal,
+                self.maximum,
+                target,
+            );
             self.render(
                 frame,
                 Rect::new(start, panel.bottom() - 1, end.saturating_sub(start), 1),

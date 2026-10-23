@@ -4,8 +4,21 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        let click = event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left);
+        let wheel = matches!(
+            event.kind,
+            MouseEventKind::ScrollUp
+                | MouseEventKind::ScrollDown
+                | MouseEventKind::ScrollLeft
+                | MouseEventKind::ScrollRight
+        );
+        if (!click && !wheel) || (wheel && !self.config.mouse.scroll) {
+            return Ok(false);
+        }
         self.view_revision += 1;
-        if matches!(self.bar, bar::InputBar::Search(_))
+        let precise = self.config.mouse.precise_click;
+        if precise
+            && matches!(self.bar, bar::InputBar::Search(_))
             && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && let Some(destination) = self
                 .breadcrumb_items
@@ -17,7 +30,8 @@ impl Screen {
             return Ok(true);
         }
         if matches!(self.bar, bar::InputBar::Layout { .. }) {
-            if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            if precise
+                && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
                 && let Some(body) = self.body_area
             {
                 let inner = ratatui::layout::Rect::new(
@@ -39,7 +53,8 @@ impl Screen {
             }
             return Ok(false);
         }
-        if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+        if precise
+            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && let Some(index) = self
                 .command_items
                 .iter()
@@ -65,34 +80,31 @@ impl Screen {
             self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
             return Ok(true);
         }
-        if let Mode::Changes(session) = &mut self.mode
-            && matches!(self.bar, bar::InputBar::Search(_))
-        {
-            let panel = self.body_area.and_then(|area| {
-                crate::view::changes::areas(area, session)
-                    .into_iter()
-                    .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
-                    .map(|(_, focus)| focus)
-            });
-            if let Some(focus) = panel {
-                session.focus = focus;
+        if click {
+            if !matches!(self.bar, bar::InputBar::Search(_)) {
+                return Ok(false);
             }
-            if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left) {
-                return Ok(panel.is_some());
+            let hit = precise
+                .then(|| self.pointer.hit(Position::new(event.column, event.row)))
+                .flatten();
+            let before = crate::workspace::Section::focused(&self.mode);
+            let focus_before = match &self.mode {
+                Mode::Changes(session) => Some(session.focus),
+                _ => None,
+            };
+            if !self.pointer_focus(event) {
+                return Ok(false);
             }
-        }
-        if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
-            && matches!(self.bar, bar::InputBar::Search(_))
-        {
-            let section = self
-                .workspace_areas
-                .iter()
-                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
-                .map(|(_, section)| *section);
-            if let Some(section) = section {
-                self.switch_repository_section(section);
-                return Ok(true);
+            if let Some(action) = hit {
+                self.scroll_input.keyboard(std::time::Instant::now());
+                return Ok(self.precise_action(action));
             }
+            return Ok(before != crate::workspace::Section::focused(&self.mode)
+                || focus_before
+                    != match &self.mode {
+                        Mode::Changes(session) => Some(session.focus),
+                        _ => None,
+                    });
         }
         let horizontal = match event.kind {
             MouseEventKind::ScrollLeft => Some(KeyCode::Left),
@@ -114,15 +126,8 @@ impl Screen {
             {
                 return Ok(false);
             }
-            if self.page == Page::Detail
-                && crate::workspace::Workspace::is_root(&self.mode)
-                && let Some(section) = self
-                    .workspace_areas
-                    .iter()
-                    .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
-                    .map(|(_, section)| *section)
-            {
-                self.switch_repository_section(section);
+            if !self.pointer_focus(event) {
+                return Ok(false);
             }
             return Ok(self.horizontal_key(KeyEvent::new(code, KeyModifiers::NONE)));
         }
@@ -166,22 +171,48 @@ impl Screen {
         {
             return Ok(false);
         }
-        if self.page == Page::Detail
-            && crate::workspace::Workspace::is_root(&self.mode)
-            && matches!(self.bar, bar::InputBar::Search(_))
-        {
-            let section = self
-                .workspace_areas
-                .iter()
-                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
-                .map(|(_, section)| *section);
-            if let Some(section) = section {
-                self.switch_repository_section(section);
-            }
+        if matches!(self.bar, bar::InputBar::Search(_)) && !self.pointer_focus(event) {
+            return Ok(false);
         }
         for _ in 0..3 {
             self.dispatch_key(KeyEvent::new(code, KeyModifiers::NONE), root)?;
         }
         Ok(true)
+    }
+    fn pointer_focus(&mut self, event: MouseEvent) -> bool {
+        let point = Position::new(event.column, event.row);
+        if let Mode::Changes(session) = &mut self.mode {
+            let panel = self.body_area.and_then(|area| {
+                crate::view::changes::areas(area, session)
+                    .into_iter()
+                    .find(|(area, _)| area.contains(point))
+                    .map(|(_, focus)| focus)
+            });
+            let Some(focus) = panel else {
+                return false;
+            };
+            if focus != session.focus {
+                if !self.config.mouse.select_pane {
+                    return false;
+                }
+                session.focus = focus;
+            }
+        } else if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {
+            let section = self
+                .workspace_areas
+                .iter()
+                .find(|(area, _)| area.contains(point))
+                .map(|(_, section)| *section);
+            let Some(section) = section else {
+                return false;
+            };
+            if crate::workspace::Section::focused(&self.mode) != Some(section) {
+                if !self.config.mouse.select_pane {
+                    return false;
+                }
+                self.switch_repository_section(section);
+            }
+        }
+        true
     }
 }

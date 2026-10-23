@@ -7,12 +7,18 @@ use engine::{cancel::Cancel, scheduler::Registration, service::ConfigEdit};
 pub(crate) enum Item {
     Command(Action),
     ChineseCommandTrigger,
+    Mouse(engine::state::MouseSetting),
 }
 impl Item {
     pub fn description(self) -> &'static str {
         match self {
             Self::Command(action) => command::description(action),
             Self::ChineseCommandTrigger => i18n::tr!(ChineseCommandTrigger),
+            Self::Mouse(setting) => match setting {
+                engine::state::MouseSetting::PreciseClick => i18n::tr!(MousePreciseClick),
+                engine::state::MouseSetting::Scroll => i18n::tr!(MouseScroll),
+                engine::state::MouseSetting::SelectPane => i18n::tr!(MouseSelectPane),
+            },
         }
     }
 }
@@ -27,6 +33,10 @@ impl Configuration {
         if self == Self::General && i18n::language() == i18n::Language::Chinese {
             items.push(Item::ChineseCommandTrigger);
         }
+        if self == Self::General {
+            use engine::state::MouseSetting::*;
+            items.extend([PreciseClick, Scroll, SelectPane].map(Item::Mouse));
+        }
         items
     }
 }
@@ -39,6 +49,18 @@ impl Screen {
                 crate::clipboard::Selection::None,
                 root,
             ),
+            Item::Mouse(setting) => {
+                let enabled = !self.config.mouse.enabled(setting);
+                self.start(
+                    item.description(),
+                    Effect::Configuration,
+                    move |service, _, _| {
+                        service.configure(ConfigEdit::Mouse(setting, enabled))?;
+                        Ok(Outcome::Text(i18n::tr!(MouseSettingsSaved).into()))
+                    },
+                );
+                Ok(false)
+            }
             Item::ChineseCommandTrigger => {
                 let enabled = !self.config.chinese_command_trigger;
                 // 沿用配置事务和后台保存；成功后再更新开关，失败保留原值并显示错误。

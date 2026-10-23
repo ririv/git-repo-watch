@@ -22,6 +22,7 @@ impl Default for Config {
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,
+            mouse: MouseConfig::default(),
         }
     }
 }
@@ -46,6 +47,47 @@ pub struct Config {
     pub check_on_startup: bool,
     #[serde(default = "default_chinese_command_trigger")]
     pub chinese_command_trigger: bool,
+    #[serde(default)]
+    pub mouse: MouseConfig,
+}
+/// Independently configurable pointer capabilities.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct MouseConfig {
+    pub precise_click: bool,
+    pub scroll: bool,
+    pub select_pane: bool,
+}
+impl Default for MouseConfig {
+    fn default() -> Self {
+        Self {
+            precise_click: true,
+            scroll: true,
+            select_pane: true,
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MouseSetting {
+    PreciseClick,
+    Scroll,
+    SelectPane,
+}
+impl MouseConfig {
+    pub fn enabled(&self, setting: MouseSetting) -> bool {
+        match setting {
+            MouseSetting::PreciseClick => self.precise_click,
+            MouseSetting::Scroll => self.scroll,
+            MouseSetting::SelectPane => self.select_pane,
+        }
+    }
+    pub fn set(&mut self, setting: MouseSetting, enabled: bool) {
+        match setting {
+            MouseSetting::PreciseClick => self.precise_click = enabled,
+            MouseSetting::Scroll => self.scroll = enabled,
+            MouseSetting::SelectPane => self.select_pane = enabled,
+        }
+    }
 }
 fn default_chinese_command_trigger() -> bool {
     true
@@ -165,6 +207,25 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             replacement = Value::Array(paths_array(&Array::new(), array));
         }
         document[key] = Item::Value(replacement);
+    }
+    for key in ["precise_click", "scroll", "select_pane"] {
+        if before
+            .as_ref()
+            .is_some_and(|before| before["mouse"][key] == after["mouse"][key])
+        {
+            continue;
+        }
+        if !document.contains_key("mouse") {
+            document["mouse"] = Item::Table(toml_edit::Table::new());
+        }
+        let mut value = desired["mouse"][key]
+            .as_value()
+            .expect("mouse boolean")
+            .clone();
+        if let Some(current) = document["mouse"].get(key).and_then(Item::as_value) {
+            *value.decor_mut() = current.decor().clone();
+        }
+        document["mouse"][key] = Item::Value(value);
     }
     Ok(document.to_string())
 }

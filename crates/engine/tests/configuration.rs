@@ -111,6 +111,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         max_concurrency: 8,
         check_on_startup: false,
         chinese_command_trigger: true,
+        mouse: Default::default(),
         ..Config::default()
     };
     let json = serde_json::to_vec_pretty(&config).unwrap();
@@ -197,4 +198,35 @@ fn chinese_trigger_defaults_without_rewriting_old_config_and_persists_explicit_c
             .unwrap()
             .contains("chinese_command_trigger = false")
     );
+}
+
+#[test]
+fn mouse_preferences_default_independently_and_preserve_table_comments() {
+    use engine::state::MouseSetting;
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let original = fs::read_to_string(store.config_path()).unwrap();
+    let legacy = original.split("# 鼠标能力").next().unwrap();
+    fs::write(store.config_path(), legacy).unwrap();
+    let mut config = store.config().unwrap();
+    assert_eq!(config.mouse, Default::default());
+    config.mouse.set(MouseSetting::Scroll, false);
+    store.save_config(&config).unwrap();
+    assert_eq!(store.config().unwrap().mouse, config.mouse);
+    assert!(store.config().unwrap().mouse.precise_click);
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("scroll = false", "scroll = false # 保留此注释");
+    fs::write(store.config_path(), &text).unwrap();
+    config.mouse.set(MouseSetting::SelectPane, false);
+    store.save_config(&config).unwrap();
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("scroll = false # 保留此注释")
+    );
+    assert_eq!(store.config().unwrap().mouse, config.mouse);
+    let invalid = fs::read_to_string(store.config_path()).unwrap() + "unknown_mouse = true\n";
+    fs::write(store.config_path(), invalid).unwrap();
+    assert!(store.config().is_err());
 }

@@ -8,6 +8,7 @@ use ratatui::{
 
 pub(crate) const THUMB_COLOR: Color = Color::Rgb(230, 160, 189);
 
+#[derive(Debug, Clone, Copy)]
 pub(crate) enum Axis {
     Horizontal,
     Vertical,
@@ -46,16 +47,23 @@ pub(crate) fn vertical(frame: &mut Frame, panel: Rect, content: Rect, rows: usiz
     if panel.width < 2 || panel.height < 3 || content.height == 0 {
         return;
     }
-    let start = content.y.max(panel.y + 1);
-    let end = content.bottom().min(panel.bottom() - 1);
-    let height = end.saturating_sub(start);
+    let area = vertical_area(panel, content);
     render(
         frame,
-        Rect::new(panel.right() - 1, start, 1, height),
+        area,
         Axis::Vertical,
         offset,
-        rows.saturating_sub(usize::from(height)),
+        rows.saturating_sub(usize::from(area.height)),
     );
+}
+
+pub(crate) fn vertical_area(panel: Rect, content: Rect) -> Rect {
+    if panel.width < 2 || panel.height < 3 || content.is_empty() {
+        return Rect::default();
+    }
+    let start = content.y.max(panel.y + 1);
+    let end = content.bottom().min(panel.bottom() - 1);
+    Rect::new(panel.right() - 1, start, 1, end.saturating_sub(start))
 }
 
 #[cfg(test)]

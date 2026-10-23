@@ -17,8 +17,17 @@ pub(super) fn text_view(
     text: &str,
     scroll: &mut usize,
     title: &str,
+    hits: &mut crate::pointer::Map,
 ) {
-    styled_text_view(frame, area, Text::from(text.to_owned()), scroll, title);
+    styled_text_view(
+        frame,
+        area,
+        Text::from(text.to_owned()),
+        scroll,
+        title,
+        hits,
+        crate::pointer::ScrollTarget::Text,
+    );
 }
 
 pub(super) fn styled_text_view(
@@ -27,6 +36,8 @@ pub(super) fn styled_text_view(
     text: Text<'static>,
     scroll: &mut usize,
     title: &str,
+    hits: &mut crate::pointer::Map,
+    target: crate::pointer::ScrollTarget,
 ) {
     let block = block(title.to_owned());
     let inner = block.inner(area);
@@ -40,4 +51,10 @@ pub(super) fn styled_text_view(
         area,
     );
     crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
+    hits.vertical(
+        area,
+        inner,
+        lines.saturating_sub(inner.height as usize),
+        target,
+    );
 }

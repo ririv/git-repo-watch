@@ -3,7 +3,12 @@ use super::*;
 use crate::history::Commit;
 use engine::local::history::{Base, Message};
 
-pub(super) fn render(frame: &mut Frame, area: Rect, commit: &mut Commit) {
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    commit: &mut Commit,
+    hits: &mut crate::pointer::Map,
+) {
     let parts = if area.width >= 110 {
         Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).split(area)
     } else {
@@ -79,6 +84,12 @@ pub(super) fn render(frame: &mut Frame, area: Rect, commit: &mut Commit) {
         parts[0],
     );
     crate::scrollbar::vertical(frame, parts[0], inner, lines, commit.scroll);
+    hits.vertical(
+        parts[0],
+        inner,
+        lines.saturating_sub(inner.height as usize),
+        crate::pointer::ScrollTarget::HistoryMessage,
+    );
     let rows = commit.rows();
     let count = rows.len();
     let title = format!("{} · {}", i18n::tr!(HistoryChanges), rows.len());
@@ -115,5 +126,12 @@ pub(super) fn render(frame: &mut Frame, area: Rect, commit: &mut Commit) {
             &mut commit.files,
         );
         crate::scrollbar::vertical(frame, parts[1], inner, count, commit.files.offset());
+        hits.list(
+            parts[1],
+            inner,
+            &(0..count).collect::<Vec<_>>(),
+            commit.files.offset(),
+            crate::pointer::Target::HistoryFiles,
+        );
     }
 }

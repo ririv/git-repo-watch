@@ -19,6 +19,7 @@ mod layout_picker;
 mod mutations;
 mod navigation;
 mod overview;
+mod pointer;
 mod preview;
 mod repository_list;
 mod repository_tasks;
@@ -197,6 +198,7 @@ struct Screen {
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
     body_area: Option<ratatui::layout::Rect>,
+    pointer: pointer::Map,
     command_items: Vec<(ratatui::layout::Rect, usize)>,
     breadcrumb_items: Vec<(ratatui::layout::Rect, navigation::breadcrumbs::Destination)>,
     filter: Filter,
@@ -242,6 +244,7 @@ impl Screen {
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
             body_area: None,
+            pointer: Default::default(),
             command_items: Vec::new(),
             breadcrumb_items: Vec::new(),
             filter: Filter::All,

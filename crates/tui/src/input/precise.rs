@@ -1,0 +1,124 @@
+//! Apply selections from rendered hit regions without executing repository operations.
+use crate::{
+    Mode, Page, Screen, branches, changes, document, history,
+    pointer::{Action, ScrollTarget, Target},
+    stashes,
+};
+
+impl Screen {
+    pub(super) fn precise_action(&mut self, action: Action) -> bool {
+        match action {
+            Action::Select(target, index) => match target {
+                Target::Repositories if self.page == Page::Repositories => self.select(index),
+                Target::Settings if matches!(self.page, Page::Configuration(_)) => {
+                    self.setting_selected = index
+                }
+                Target::Files => match &mut self.mode {
+                    Mode::Files(files) if index < files.rows().len() => files.cursor = index,
+                    Mode::Changes(session) if index < session.files.rows().len() => {
+                        session.files.cursor = index;
+                        self.poll_changes();
+                    }
+                    _ => return false,
+                },
+                Target::Branches => match &mut self.mode {
+                    Mode::Branches(view) => match view.as_mut() {
+                        branches::View::List(session) if index < session.rows().len() => {
+                            session.state.select(Some(index))
+                        }
+                        _ => return false,
+                    },
+                    _ => return false,
+                },
+                Target::Stashes => match &mut self.mode {
+                    Mode::Stashes(view) => match view.as_mut() {
+                        stashes::View::List(session) if index < session.rows().len() => {
+                            session.state.select(Some(index))
+                        }
+                        _ => return false,
+                    },
+                    _ => return false,
+                },
+                Target::History | Target::HistoryFiles => match &mut self.mode {
+                    Mode::History(view) => match (view.as_mut(), target) {
+                        (history::View::Graph(session), Target::History)
+                            if index < session.records.len() =>
+                        {
+                            session.state.select(Some(index))
+                        }
+                        (history::View::Commit(commit), Target::HistoryFiles)
+                            if index < commit.rows().len() =>
+                        {
+                            commit.files.select(Some(index))
+                        }
+                        _ => return false,
+                    },
+                    _ => return false,
+                },
+                _ => return false,
+            },
+            Action::Scroll(target, offset) => match target {
+                ScrollTarget::Overview if self.page == Page::Detail => self.scroll = offset,
+                ScrollTarget::HistoryMessage => match &mut self.mode {
+                    Mode::History(view) => match view.as_mut() {
+                        history::View::Commit(commit) => commit.scroll = offset,
+                        _ => return false,
+                    },
+                    _ => return false,
+                },
+                ScrollTarget::HistoryHorizontal => match &mut self.mode {
+                    Mode::History(view) => match view.as_mut() {
+                        history::View::Graph(session) => session.horizontal.seek(offset),
+                        _ => return false,
+                    },
+                    _ => return false,
+                },
+                ScrollTarget::Diff | ScrollTarget::DiffHorizontal => {
+                    let (content, scroll) = match &mut self.mode {
+                        Mode::Changes(session) => match &mut session.preview {
+                            changes::Preview::Ready {
+                                content, scroll, ..
+                            } => (content, scroll),
+                            _ => return false,
+                        },
+                        Mode::History(view) => match view.as_mut() {
+                            history::View::Diff {
+                                content, scroll, ..
+                            } => (content, scroll),
+                            _ => return false,
+                        },
+                        _ => return false,
+                    };
+                    match target {
+                        ScrollTarget::Diff => *scroll = offset,
+                        ScrollTarget::DiffHorizontal => match content.as_mut() {
+                            document::View::Text(view) => view.horizontal.seek(offset),
+                            _ => return false,
+                        },
+                        _ => unreachable!(),
+                    }
+                }
+                ScrollTarget::Text => match &mut self.mode {
+                    Mode::Branches(view) => match view.as_mut() {
+                        branches::View::Detail { scroll, .. } => *scroll = offset,
+                        _ => return false,
+                    },
+                    Mode::Stashes(view) => match view.as_mut() {
+                        stashes::View::Detail { scroll, .. } => *scroll = offset,
+                        _ => return false,
+                    },
+                    Mode::CommitMessage { scroll, .. }
+                    | Mode::CommitConfirm { scroll, .. }
+                    | Mode::PushConfirm { scroll, .. }
+                    | Mode::Error { scroll, .. } => *scroll = offset,
+                    Mode::Browsing if matches!(self.page, Page::Help | Page::Configuration(_)) => {
+                        self.scroll = offset
+                    }
+                    _ => return false,
+                },
+                _ => return false,
+            },
+        }
+        true
+    }
+}

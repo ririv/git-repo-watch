@@ -30,6 +30,7 @@ pub(super) fn render(
     session: &mut Session,
     preference: crate::diff::Preference,
     graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
 ) {
     let symbol = session.symbol();
     for (area, focus) in areas(area, session) {
@@ -39,11 +40,12 @@ pub(super) fn render(
                 area,
                 &session.files,
                 &name(&session.files.snapshot.path),
+                hits,
             ),
             Focus::Preview => match &mut session.preview {
                 Preview::Ready {
                     content, scroll, ..
-                } => document::render(frame, area, content, scroll, preference, graphics),
+                } => document::render(frame, area, content, scroll, preference, graphics, hits),
                 state => {
                     let text = match state {
                         Preview::Empty => i18n::tr!(ChangesSelectFile).to_owned(),

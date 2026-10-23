@@ -7,6 +7,7 @@ mod keys;
 mod mouse;
 mod navigation;
 mod panes;
+mod precise;
 pub(crate) mod scroll;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 fn ctrl_c(key: KeyEvent) -> bool {

@@ -60,7 +60,12 @@ fn content() -> Text<'static> {
     Text::from(lines)
 }
 
-pub(super) fn render(frame: &mut Frame, area: Rect, scroll: &mut usize) {
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    scroll: &mut usize,
+    hits: &mut crate::pointer::Map,
+) {
     let panel = block(i18n::tr!(Instructions)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
     let paragraph = Paragraph::new(content()).wrap(Wrap { trim: false });
@@ -74,4 +79,5 @@ pub(super) fn render(frame: &mut Frame, area: Rect, scroll: &mut usize) {
         area,
     );
     crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
+    hits.vertical(area, inner, max_scroll, crate::pointer::ScrollTarget::Text);
 }

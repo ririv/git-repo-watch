@@ -12,9 +12,10 @@ pub(super) fn render(
     scroll: &mut usize,
     preference: crate::diff::Preference,
     graphics: &mut Display,
+    hits: &mut crate::pointer::Map,
 ) {
     match view {
-        View::Text(text) => diff::render(frame, area, text, scroll, preference),
+        View::Text(text) => diff::render(frame, area, text, scroll, preference, hits),
         View::Images(images) => {
             let border = block(i18n::tr!(ImagePreview));
             let inner = border.inner(area);

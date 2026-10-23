@@ -20,7 +20,12 @@ fn details(session: &Session, entry: &engine::local::stash::Entry) -> String {
         safe(&entry.message)
     )
 }
-pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    view: &mut View,
+    hits: &mut crate::pointer::Map,
+) {
     match view {
         View::Detail {
             session,
@@ -32,6 +37,7 @@ pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
             &details(session, entry),
             scroll,
             i18n::tr!(StashTitle),
+            hits,
         ),
         View::List(session) => {
             let areas = if area.width >= 100 {
@@ -78,6 +84,13 @@ pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
                 block("").inner(areas[0]),
                 count,
                 session.state.offset(),
+            );
+            hits.list(
+                areas[0],
+                block("").inner(areas[0]),
+                &(0..count).collect::<Vec<_>>(),
+                session.state.offset(),
+                crate::pointer::Target::Stashes,
             );
             if areas.len() > 1 {
                 // 静态预览没有独立滚动操作；完整详情才显示滚动条。

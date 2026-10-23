@@ -221,6 +221,13 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         rows.len(),
         screen.repository_viewport.offset(),
     );
+    screen.pointer.list(
+        area,
+        inner,
+        &(0..rows.len()).collect::<Vec<_>>(),
+        screen.repository_viewport.offset(),
+        crate::pointer::Target::Repositories,
+    );
     if rows.is_empty() {
         frame.render_widget(
             Paragraph::new(if screen.config.repositories.is_empty() {

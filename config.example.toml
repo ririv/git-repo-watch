@@ -20,3 +20,12 @@ check_on_startup = true
 
 # 中文界面中输入 、 打开命令菜单；英文界面不启用。
 chinese_command_trigger = true
+
+# 鼠标能力独立开关；键盘操作不受影响。
+[mouse]
+# 点击具体条目或滚动条定位，不自动执行仓库写操作。
+precise_click = true
+# 响应滚轮和触控板滚动（含横向滚动）。
+scroll = true
+# 点击或滚动时允许切换到指针所在的子视图。
+select_pane = true

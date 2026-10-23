@@ -2,12 +2,32 @@ use super::*;
 use crate::settings::Item;
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
     let mut lines = Vec::new();
+    let panel = block(section.title());
+    let inner = panel.inner(area);
+    let mut item_rows = Vec::new();
+    let mut row = 0usize;
+    let mut mouse_heading = false;
     for (i, item) in section
         .items(screen.snapshot.registration)
         .iter()
         .enumerate()
     {
+        if matches!(item, Item::Mouse(_)) && !mouse_heading {
+            lines.push(Line::default());
+            lines.push(Line::styled(
+                i18n::tr!(MouseSettings),
+                Style::default().fg(ACCENT).bold(),
+            ));
+            row += 2;
+            mouse_heading = true;
+        }
         let value = match item {
+            Item::Mouse(setting) => if screen.config.mouse.enabled(*setting) {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
             Item::Command(Action::Interval) => {
                 engine::scheduler::duration::compact(screen.config.interval_seconds)
             }
@@ -32,7 +52,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into()),
             _ => String::new(),
         };
-        lines.push(Line::styled(
+        let line = Line::styled(
             format!(
                 "{} {}  {value}",
                 if screen.setting_selected == i {
@@ -47,7 +67,13 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
             } else {
                 Style::default()
             },
-        ));
+        );
+        let height = Paragraph::new(line.clone())
+            .wrap(Wrap { trim: false })
+            .line_count(inner.width);
+        item_rows.push((i, row, height));
+        row += height;
+        lines.push(line);
     }
     if section == Configuration::Repositories {
         lines.push(Line::from(""));
@@ -56,17 +82,42 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
             lines.push(Line::from(safe(&path.to_string_lossy())))
         }
     }
-    let start = if screen.setting_selected + 1 >= area.height.saturating_sub(2) as usize {
-        screen.setting_selected + 2 - area.height.saturating_sub(2) as usize
+    let (selected_row, selected_height) = item_rows
+        .iter()
+        .find(|(index, _, _)| *index == screen.setting_selected)
+        .map(|(_, row, height)| (*row, *height))
+        .unwrap_or((0, 0));
+    let start = if selected_row + selected_height >= inner.height as usize {
+        (selected_row + selected_height).saturating_sub(inner.height as usize)
     } else {
         screen.scroll
     };
     let text = Text::from(lines);
-    let panel = block(section.title());
-    let inner = panel.inner(area);
     let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
     let lines = paragraph.line_count(inner.width);
     let start = start.min(lines.saturating_sub(inner.height as usize));
+    for (index, row, height) in item_rows {
+        let first = row.max(start);
+        let end = (row + height).min(start + inner.height as usize);
+        if first < end {
+            screen.pointer.item(
+                Rect::new(
+                    inner.x,
+                    inner.y + (first - start) as u16,
+                    inner.width,
+                    (end - first) as u16,
+                ),
+                crate::pointer::Target::Settings,
+                index,
+            );
+        }
+    }
+    screen.pointer.vertical(
+        area,
+        inner,
+        lines.saturating_sub(inner.height as usize),
+        crate::pointer::ScrollTarget::Text,
+    );
     let paragraph = paragraph.block(panel);
     frame.render_widget(
         paragraph.scroll((start.min(u16::MAX as usize) as u16, 0)),

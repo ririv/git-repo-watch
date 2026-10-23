@@ -206,7 +206,15 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         }
         lines.extend(check.lines);
     }
-    review::styled_text_view(frame, area, Text::from(lines), &mut screen.scroll, &title);
+    review::styled_text_view(
+        frame,
+        area,
+        Text::from(lines),
+        &mut screen.scroll,
+        &title,
+        &mut screen.pointer,
+        crate::pointer::ScrollTarget::Overview,
+    );
 }
 fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
     Line::from(vec![

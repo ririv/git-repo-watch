@@ -8,14 +8,15 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
-        Mode::Stashes(view) => stashes::render(frame, area, view),
-        Mode::Branches(view) => branches::render(frame, area, view),
+        Mode::Stashes(view) => stashes::render(frame, area, view, &mut screen.pointer),
+        Mode::Branches(view) => branches::render(frame, area, view, &mut screen.pointer),
         Mode::History(view) => history::render(
             frame,
             area,
             view,
             screen.diff_preference,
             &mut screen.graphics,
+            &mut screen.pointer,
         ),
         Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
             let Mode::History(view) = pending.origin.as_mut() else {
@@ -27,6 +28,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 view,
                 screen.diff_preference,
                 &mut screen.graphics,
+                &mut screen.pointer,
             );
         }
         Mode::Files(s) => files::render(
@@ -34,6 +36,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             area,
             s,
             &format!("{} · {}", name(&s.snapshot.path), safe(s.snapshot.branch())),
+            &mut screen.pointer,
         ),
         Mode::Changes(session) => changes::render(
             frame,
@@ -41,6 +44,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             session,
             screen.diff_preference,
             &mut screen.graphics,
+            &mut screen.pointer,
         ),
         Mode::CommitMessage { plan, scroll, .. } => text_view(
             frame,
@@ -48,6 +52,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &commit_review(plan),
             scroll,
             i18n::tr!(CommitPreview),
+            &mut screen.pointer,
         ),
         Mode::CommitConfirm {
             plan,
@@ -60,6 +65,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &i18n::tf!(CommitMessage, safe(message), commit_review(plan)),
             scroll,
             i18n::tr!(ConfirmCommit),
+            &mut screen.pointer,
         ),
         Mode::PushConfirm { plan, scroll, .. } => text_view(
             frame,
@@ -75,6 +81,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             ),
             scroll,
             i18n::tr!(ConfirmPush),
+            &mut screen.pointer,
         ),
         Mode::Error { detail, scroll, .. } => text_view(
             frame,
@@ -82,6 +89,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &multiline(detail),
             scroll,
             i18n::tr!(OperationResult),
+            &mut screen.pointer,
         ),
         Mode::Confirm {
             operation: confirmation,
@@ -123,7 +131,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Page::Detail => overview::render(frame, screen, area),
             Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),
             Page::Configuration(section) => settings(frame, screen, area, section),
-            Page::Help => help::render(frame, area, &mut screen.scroll),
+            Page::Help => help::render(frame, area, &mut screen.scroll, &mut screen.pointer),
         },
     }
 }

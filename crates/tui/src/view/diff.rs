@@ -8,6 +8,7 @@ pub(super) fn render(
     content: &mut crate::diff::View,
     scroll: &mut usize,
     preference: Preference,
+    hits: &mut crate::pointer::Map,
 ) {
     let width = area.width.saturating_sub(2);
     let mode = content.selected_layout(width, preference);
@@ -67,15 +68,27 @@ pub(super) fn render(
     let horizontal = content.horizontal.clone();
     let gutter = content.gutter_width(mode);
     match mode {
-        DiffLayout::Unified => {
-            horizontal.render_on_border(frame, area, body.x + gutter..body.right())
-        }
+        DiffLayout::Unified => horizontal.render_on_border(
+            frame,
+            area,
+            body.x + gutter..body.right(),
+            hits,
+            crate::pointer::ScrollTarget::DiffHorizontal,
+        ),
         DiffLayout::Split => {
-            horizontal.render_on_border(frame, area, body.x + gutter..body.x + left_width);
+            horizontal.render_on_border(
+                frame,
+                area,
+                body.x + gutter..body.x + left_width,
+                hits,
+                crate::pointer::ScrollTarget::DiffHorizontal,
+            );
             horizontal.render_on_border(
                 frame,
                 area,
                 body.x + left_width + 1 + gutter..body.right(),
+                hits,
+                crate::pointer::ScrollTarget::DiffHorizontal,
             );
         }
     }
@@ -84,6 +97,12 @@ pub(super) fn render(
     *scroll = (*scroll).min(cache.rows.len().saturating_sub(body.height as usize));
     cache.settle(*scroll);
     crate::scrollbar::vertical(frame, area, body, cache.rows.len(), *scroll);
+    hits.vertical(
+        area,
+        body,
+        cache.rows.len().saturating_sub(body.height as usize),
+        crate::pointer::ScrollTarget::Diff,
+    );
     for (index, row) in cache
         .rows
         .iter()

@@ -103,6 +103,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.repository_area = None;
     screen.workspace_areas.clear();
     screen.command_items.clear();
+    screen.pointer.clear();
     screen.breadcrumb_items.clear();
     let area = frame.area();
     if area.width < 60 || area.height < 18 {

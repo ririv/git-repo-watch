@@ -43,10 +43,10 @@ fn tiled_areas(area: Rect) -> Vec<(Rect, Section)> {
 }
 fn branch_list(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if let Some(session) = active_branches(&mut screen.mode) {
-        branches::list(frame, area, session);
+        branches::list(frame, area, session, &mut screen.pointer);
     } else if let Some(session) = screen.workspace.session_mut() {
         match &mut session.branches {
-            Panel::Ready(session) => branches::list(frame, area, session),
+            Panel::Ready(session) => branches::list(frame, area, session, &mut screen.pointer),
             Panel::Loading => placeholder(
                 frame,
                 area,
@@ -71,14 +71,24 @@ fn active_branches(mode: &mut Mode) -> Option<&mut crate::branches::Session> {
         _ => None,
     }
 }
-fn files(frame: &mut Frame, screen: &Screen, files_area: Rect) {
+fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
     if let Some(files) = active_files(&screen.mode) {
-        super::files::render(frame, files_area, files, i18n::tr!(Worktree));
+        super::files::render(
+            frame,
+            files_area,
+            files,
+            i18n::tr!(Worktree),
+            &mut screen.pointer,
+        );
     } else if let Some(session) = screen.workspace.session() {
         match &session.files {
-            Panel::Ready(files) => {
-                super::files::render(frame, files_area, files, i18n::tr!(Worktree))
-            }
+            Panel::Ready(files) => super::files::render(
+                frame,
+                files_area,
+                files,
+                i18n::tr!(Worktree),
+                &mut screen.pointer,
+            ),
             Panel::Loading => placeholder(
                 frame,
                 files_area,
@@ -97,10 +107,22 @@ fn files(frame: &mut Frame, screen: &Screen, files_area: Rect) {
 }
 fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
     if let Some(session) = active_history(&mut screen.mode) {
-        history::panel(frame, history_area, session, &mut screen.graphics);
+        history::panel(
+            frame,
+            history_area,
+            session,
+            &mut screen.graphics,
+            &mut screen.pointer,
+        );
     } else if let Some(session) = screen.workspace.session_mut() {
         match &mut session.history {
-            Panel::Ready(graph) => history::panel(frame, history_area, graph, &mut screen.graphics),
+            Panel::Ready(graph) => history::panel(
+                frame,
+                history_area,
+                graph,
+                &mut screen.graphics,
+                &mut screen.pointer,
+            ),
             Panel::Loading => placeholder(
                 frame,
                 history_area,

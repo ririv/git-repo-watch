@@ -278,6 +278,11 @@ pub enum Message {
     SyntaxBinary,
     SyntaxNonRegular,
     ChineseCommandTrigger,
+    MouseSettings,
+    MousePreciseClick,
+    MouseScroll,
+    MouseSelectPane,
+    MouseSettingsSaved,
     ChineseCommandTriggerSaved,
     CheckAllOnStartup,
     StartupCheckArgumentHint,
@@ -2921,6 +2926,18 @@ impl Message {
             }
             (Self::ExpandedPathNotUtf8, Language::English) => "Expanded path is not UTF-8 text",
             (Self::ExpandedPathNotUtf8, Language::Chinese) => "展开后的路径不是 UTF-8 文本",
+            (Self::MouseSettings, Language::English) => "Mouse & Trackpad",
+            (Self::MouseSettings, Language::Chinese) => "鼠标与触控板",
+            (Self::MousePreciseClick, Language::English) => {
+                "Precise clicks · select items and seek scrollbars"
+            }
+            (Self::MousePreciseClick, Language::Chinese) => "精确点击 · 选择条目和滚动条定位",
+            (Self::MouseScroll, Language::English) => "Wheel and trackpad scrolling",
+            (Self::MouseScroll, Language::Chinese) => "滚轮与触控板滚动",
+            (Self::MouseSelectPane, Language::English) => "Select pane under the pointer",
+            (Self::MouseSelectPane, Language::Chinese) => "选择指针所在子视图",
+            (Self::MouseSettingsSaved, Language::English) => "Mouse & Trackpad settings saved",
+            (Self::MouseSettingsSaved, Language::Chinese) => "鼠标与触控板设置已保存",
             (Self::ChineseCommandTrigger, Language::English) => {
                 "Use 、 to open commands in Chinese UI"
             }

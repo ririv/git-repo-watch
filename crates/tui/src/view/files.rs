@@ -1,6 +1,12 @@
 //! Two explicit groups retain their headings even in compact repository panes.
 use super::*;
-pub(super) fn render(frame: &mut Frame, area: Rect, session: &FileSession, title: &str) {
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    session: &FileSession,
+    title: &str,
+    hits: &mut crate::pointer::Map,
+) {
     let border = block(title.to_owned());
     let inner = border.inner(area);
     frame.render_widget(border, area);
@@ -74,5 +80,12 @@ pub(super) fn render(frame: &mut Frame, area: Rect, session: &FileSession, title
             &mut state,
         );
         crate::scrollbar::vertical(frame, area, parts[1], changes.len(), state.offset());
+        hits.list(
+            area,
+            parts[1],
+            &indices,
+            state.offset(),
+            crate::pointer::Target::Files,
+        );
     }
 }

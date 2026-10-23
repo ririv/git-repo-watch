@@ -2,7 +2,7 @@
 use super::*;
 use engine::scheduler::{duration, timing::Anchor};
 
-pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
+pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let panel = block(i18n::tr!(ScheduleSettings));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
@@ -103,4 +103,11 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         &mut state,
     );
     crate::scrollbar::vertical(frame, area, parts[1], actions.len(), state.offset());
+    screen.pointer.list(
+        area,
+        parts[1],
+        &(0..actions.len()).collect::<Vec<_>>(),
+        state.offset(),
+        crate::pointer::Target::Settings,
+    );
 }

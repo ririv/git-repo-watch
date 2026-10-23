@@ -11,6 +11,7 @@ pub(super) fn render(
     view: &mut View,
     preference: crate::diff::Preference,
     graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
 ) {
     match view {
         View::Graph(session) => graph(
@@ -18,12 +19,13 @@ pub(super) fn render(
             area,
             session,
             graphics,
+            hits,
             name(&session.references.path),
         ),
-        View::Commit(commit) => detail::render(frame, area, commit),
+        View::Commit(commit) => detail::render(frame, area, commit, hits),
         View::Diff {
             content, scroll, ..
-        } => super::document::render(frame, area, content, scroll, preference, graphics),
+        } => super::document::render(frame, area, content, scroll, preference, graphics, hits),
     }
 }
 
@@ -81,12 +83,14 @@ pub(super) fn panel(
     area: Rect,
     session: &mut Session,
     graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
 ) {
     graph(
         frame,
         area,
         session,
         graphics,
+        hits,
         i18n::tr!(WorkspaceHistory).into(),
     );
 }
@@ -96,6 +100,7 @@ fn graph(
     area: Rect,
     session: &mut Session,
     graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
     title: String,
 ) {
     let parts = if area.width >= 120 && !session.records.is_empty() {
@@ -162,6 +167,8 @@ fn graph(
         frame,
         parts[0],
         content_area.right() - text_width as u16..content_area.right(),
+        hits,
+        crate::pointer::ScrollTarget::HistoryHorizontal,
     );
     let items: Vec<_> = session
         .records
@@ -201,6 +208,13 @@ fn graph(
             content_area,
             session.records.len(),
             session.state.offset(),
+        );
+        hits.list(
+            parts[0],
+            content_area,
+            &(0..session.records.len()).collect::<Vec<_>>(),
+            session.state.offset(),
+            crate::pointer::Target::History,
         );
         match metrics {
             Ok(metrics) => pixels::render(
