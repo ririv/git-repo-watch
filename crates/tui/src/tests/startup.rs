@@ -108,7 +108,7 @@ fn startup_setting_is_localized_editable_persistent_and_effective_only_next_laun
         s.service.store.save_config(&s.config).unwrap();
         command(&mut s, "settings");
         for (width, height) in [(60, 18), (100, 28)] {
-            assert!(render(&mut s, width, height).contains(i18n::tr!(CheckAllOnStartup)));
+            assert!(render(&mut s, width, height).contains(i18n::tr!(SettingsStartup)));
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Right);

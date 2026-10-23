@@ -1,6 +1,11 @@
+mod general;
 use super::*;
 use crate::settings::Item;
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
+    if section == Configuration::General {
+        general::render(frame, screen, area);
+        return;
+    }
     let mut lines = Vec::new();
     let panel = block(section.title());
     let inner = panel.inner(area);

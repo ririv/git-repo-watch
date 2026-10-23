@@ -22,6 +22,7 @@ mod prefix_selection;
 mod repository_list;
 mod schedule;
 mod scrollbars;
+mod settings_design;
 mod startup;
 mod workspace;
 use super::*;
@@ -78,6 +79,7 @@ fn screen(service: Service) -> Screen {
         query: String::new(),
         order: Order::Priority,
         setting_selected: 0,
+        settings_focus: None,
         scroll: 0,
         message: String::new(),
         check_task: None,
@@ -1393,7 +1395,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         command(&mut s, "settings");
         assert_eq!(s.page, Page::Configuration(Configuration::General));
         let text = render(&mut s, 100, 28);
-        assert!(text.contains(command::description(Action::Concurrency)));
+        assert!(text.contains(i18n::tr!(SettingsConcurrency)));
         assert!(!text.contains(command::description(Action::Interval)));
         assert!(!text.contains(i18n::tr!(SystemSchedule).split('{').next().unwrap()));
         assert_eq!(s.setting_selected, 0);

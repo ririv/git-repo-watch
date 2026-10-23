@@ -2,6 +2,20 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    SettingsChecks,
+    SettingsInput,
+    SettingsConcurrency,
+    SettingsConcurrencyHint,
+    SettingsStartup,
+    SettingsStartupHint,
+    SettingsChineseTrigger,
+    SettingsChineseTriggerHint,
+    SettingsPreciseClick,
+    SettingsPreciseClickHint,
+    SettingsScrollHint,
+    SettingsSelectPane,
+    SettingsSelectPaneHint,
+
     MutationStashConflicts,
     BranchCreateCommand,
     BranchSwitchCommand,
@@ -761,6 +775,49 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::SettingsChecks, Language::English) => "Checks",
+            (Self::SettingsChecks, Language::Chinese) => "检查",
+            (Self::SettingsInput, Language::English) => "Input",
+            (Self::SettingsInput, Language::Chinese) => "输入",
+            (Self::SettingsConcurrency, Language::English) => "Concurrent repositories",
+            (Self::SettingsConcurrency, Language::Chinese) => "并发仓库数",
+            (Self::SettingsConcurrencyHint, Language::English) => {
+                "Maximum repositories checked at once · 1–32"
+            }
+            (Self::SettingsConcurrencyHint, Language::Chinese) => "同时检查的仓库数量，上限 32",
+            (Self::SettingsStartup, Language::English) => "Check on startup",
+            (Self::SettingsStartup, Language::Chinese) => "启动时检查",
+            (Self::SettingsStartupHint, Language::English) => {
+                "Check all repositories on next launch; never push"
+            }
+            (Self::SettingsStartupHint, Language::Chinese) => "下次启动时检查全部仓库，不执行推送",
+            (Self::SettingsChineseTrigger, Language::English) => "Chinese command trigger",
+            (Self::SettingsChineseTrigger, Language::Chinese) => "中文命令触发",
+            (Self::SettingsChineseTriggerHint, Language::English) => {
+                "Type 、 to open the command menu"
+            }
+            (Self::SettingsChineseTriggerHint, Language::Chinese) => {
+                "输入 、 打开命令菜单，保存后立即生效"
+            }
+            (Self::SettingsPreciseClick, Language::English) => "Precise clicks",
+            (Self::SettingsPreciseClick, Language::Chinese) => "精确点击",
+            (Self::SettingsPreciseClickHint, Language::English) => {
+                "Select items and seek scrollbars; double-click to enter"
+            }
+            (Self::SettingsPreciseClickHint, Language::Chinese) => {
+                "点击选择条目和滚动条定位，双击进入"
+            }
+            (Self::SettingsScrollHint, Language::English) => {
+                "Scroll lists and content with the wheel or trackpad"
+            }
+            (Self::SettingsScrollHint, Language::Chinese) => "使用鼠标滚轮或触控板滚动列表与内容",
+            (Self::SettingsSelectPane, Language::English) => "Pane selection",
+            (Self::SettingsSelectPane, Language::Chinese) => "选择子视图",
+            (Self::SettingsSelectPaneHint, Language::English) => {
+                "Focus the pane under the pointer when clicking or scrolling"
+            }
+            (Self::SettingsSelectPaneHint, Language::Chinese) => "点击或滚动时聚焦指针所在子视图",
+
             (Self::MutationStashConflicts, Language::English) => {
                 "Stash restored with conflicts; the stash was retained. Resolve conflicts before continuing."
             }

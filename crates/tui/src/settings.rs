@@ -77,3 +77,10 @@ impl Screen {
         }
     }
 }
+
+/// Last rendered focus and geometry, used to reveal changed selection without overriding manual scroll.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct Focus {
+    pub selected: usize,
+    pub area: ratatui::layout::Rect,
+}
