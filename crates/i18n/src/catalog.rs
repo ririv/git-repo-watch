@@ -1176,10 +1176,10 @@ impl Message {
                 "暂存只能选择未暂存文件，取消暂存只能选择已暂存文件；请核对勾选区域"
             }
             (Self::ChangesInputHint, Language::English) => {
-                "↑↓ navigate · Tab focus · Alt+S/U stage/unstage · Ctrl+F zoom · Esc back"
+                "↑↓ navigate · ←→ pan preview · Tab focus · Ctrl+F zoom · Esc back"
             }
             (Self::ChangesInputHint, Language::Chinese) => {
-                "↑↓选择/滚动 · Tab切换 · Alt+S/U暂存/取消 · Ctrl+F放大 · Esc返回"
+                "↑↓选择/滚动 · ←→平移预览 · Tab切换 · Ctrl+F放大 · Esc返回"
             }
 
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
@@ -1268,8 +1268,8 @@ impl Message {
             }
             (Self::RepositoryTasksRunning, Language::English) => "  {0} · {1} repository tasks",
             (Self::RepositoryTasksRunning, Language::Chinese) => "  {0} · {1} 个仓库任务",
-            (Self::ImageInputHint, Language::English) => "Fit to pane · ←/Esc Back · / Commands",
-            (Self::ImageInputHint, Language::Chinese) => "适应窗口 · ←/Esc 返回 · / 命令",
+            (Self::ImageInputHint, Language::English) => "Fit to pane · Esc Back · / Commands",
+            (Self::ImageInputHint, Language::Chinese) => "适应窗口 · Esc 返回 · / 命令",
             (Self::ImagePreview, Language::English) => "Image preview",
             (Self::ImagePreview, Language::Chinese) => "图片预览",
             (Self::ImageAbsent, Language::English) => "No image in this version",
@@ -1488,10 +1488,10 @@ impl Message {
                 "输入关键词定位已加载提交，或输入 / 查看命令"
             }
             (Self::HistoryInputHint, Language::English) => {
-                "↑↓ select · Enter details · Tab next match · Alt+←→ pan graph · Esc back"
+                "↑↓ select · ←→ text · Enter details · Alt+←→ graph · Esc back"
             }
             (Self::HistoryInputHint, Language::Chinese) => {
-                "↑↓选择 · Enter 详情 · Tab 下个匹配 · Alt+←→ 平移图 · Esc 返回"
+                "↑↓选择 · ←→文字 · Enter详情 · Alt+←→图 · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
                 "↑↓ files · Enter diff · Tab parent · PgUp/PgDn message · ← back"
@@ -1500,10 +1500,10 @@ impl Message {
                 "↑↓文件 · Enter 差异 · Tab 父提交 · PgUp/PgDn说明 · ←返回"
             }
             (Self::HistoryDiffHint, Language::English) => {
-                "↑↓ scroll · ←/Esc commit · /repo diff layout"
+                "↑↓ scroll · ←→ pan · Esc commit · /repo diff layout"
             }
             (Self::HistoryDiffHint, Language::Chinese) => {
-                "↑↓滚动 · ←/Esc 提交详情 · /repo diff layout 布局"
+                "↑↓滚动 · ←→平移 · Esc提交详情 · /repo diff layout 布局"
             }
             (Self::HistoryNoMatch, Language::English) => {
                 "No match in loaded commits; /repo log more loads older history"

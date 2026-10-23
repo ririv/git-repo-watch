@@ -1,4 +1,4 @@
-//! Pair edits within each change block, padding both logical and wrapped line gaps.
+//! Pair edits within each change block without wrapping source lines.
 use super::*;
 
 type Entry<'a> = (usize, &'a Code, Mark);
@@ -8,15 +8,13 @@ enum Pair<'a> {
     Added(Entry<'a>),
 }
 
-pub(super) fn arrange(rows: &[Row], digits: u16, width: u16) -> Vec<VisualRow> {
+pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
     let mut out = Vec::new();
-    let left_width = width.saturating_sub(1) / 2;
-    let right_width = width.saturating_sub(1) - left_width;
     let mut index = 0;
     while index < rows.len() {
         match &rows[index] {
             Row::Metadata(line) => {
-                full(&mut out, index, line, width);
+                full(&mut out, index, line);
                 index += 1;
             }
             Row::Context { old, new } => {
@@ -24,8 +22,6 @@ pub(super) fn arrange(rows: &[Row], digits: u16, width: u16) -> Vec<VisualRow> {
                     &mut out,
                     Pair::Both((index, old, Mark::Context), (index, new, Mark::Context)),
                     digits,
-                    left_width,
-                    right_width,
                 );
                 index += 1;
             }
@@ -50,7 +46,7 @@ pub(super) fn arrange(rows: &[Row], digits: u16, width: u16) -> Vec<VisualRow> {
                         (None, Some(new)) => Pair::Added(new),
                         (None, None) => unreachable!(),
                     };
-                    pair(&mut out, entry, digits, left_width, right_width);
+                    pair(&mut out, entry, digits);
                 }
                 index = end;
             }
@@ -58,49 +54,37 @@ pub(super) fn arrange(rows: &[Row], digits: u16, width: u16) -> Vec<VisualRow> {
     }
     out
 }
-fn column((row, code, mark): Entry<'_>, digits: u16, width: u16) -> Vec<(Line<'static>, Anchor)> {
+fn column((row, code, mark): Entry<'_>, digits: u16) -> (Line<'static>, Anchor) {
     let number_width = usize::from(digits);
-    wrap::line(&code.content, width.saturating_sub(digits + 3).max(1))
-        .into_iter()
-        .enumerate()
-        .map(|(index, part)| {
-            let number = if index == 0 {
-                format!("{:>number_width$}", code.number)
-            } else {
-                " ".repeat(number_width)
-            };
-            (
-                decorate(part.line, format!("{number} │"), mark, index == 0),
-                Anchor {
-                    row,
-                    offset: part.offset,
-                },
-            )
-        })
-        .collect()
-}
-fn pair(out: &mut Vec<VisualRow>, entry: Pair<'_>, digits: u16, left_width: u16, right_width: u16) {
-    let (old, new) = match entry {
-        Pair::Both(old, new) => (
-            column(old, digits, left_width),
-            column(new, digits, right_width),
+    (
+        decorate(
+            code.content.clone(),
+            format!("{:>number_width$} │", code.number),
+            mark,
         ),
-        Pair::Removed(old) => (column(old, digits, left_width), Vec::new()),
-        Pair::Added(new) => (Vec::new(), column(new, digits, right_width)),
+        Anchor { row },
+    )
+}
+fn pair(out: &mut Vec<VisualRow>, entry: Pair<'_>, digits: u16) {
+    let (left, right, anchors) = match entry {
+        Pair::Both(old, new) => {
+            let (left, a) = column(old, digits);
+            let (right, b) = column(new, digits);
+            (left, right, Anchors::Pair(a, b))
+        }
+        Pair::Removed(old) => {
+            let (left, anchor) = column(old, digits);
+            (left, Line::default(), Anchors::One(anchor))
+        }
+        Pair::Added(new) => {
+            let (right, anchor) = column(new, digits);
+            (Line::default(), right, Anchors::One(anchor))
+        }
     };
-    let mut old = old.into_iter();
-    let mut new = new.into_iter();
-    loop {
-        let (left, right, anchors) = match (old.next(), new.next()) {
-            (Some((left, a)), Some((right, b))) => (left, right, Anchors::Pair(a, b)),
-            (Some((left, anchor)), None) => (left, Line::default(), Anchors::One(anchor)),
-            (None, Some((right, anchor))) => (Line::default(), right, Anchors::One(anchor)),
-            (None, None) => break,
-        };
-        out.push(VisualRow::Columns {
-            left,
-            right,
-            anchors,
-        });
-    }
+    out.push(VisualRow::Columns {
+        left,
+        right,
+        anchors,
+        fixed: usize::from(digits) + 3,
+    });
 }

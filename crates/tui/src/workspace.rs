@@ -325,6 +325,7 @@ impl Screen {
                             if let history::View::Graph(next) = view.as_mut() {
                                 next.query = previous.query.clone();
                                 next.pan = previous.pan.min(next.width.saturating_sub(1));
+                                next.horizontal = previous.horizontal.clone();
                                 let selected = previous.selected().map(|entry| entry.oid);
                                 let index = selected.and_then(|oid| {
                                     next.records

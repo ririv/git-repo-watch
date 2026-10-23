@@ -142,10 +142,32 @@ fn graph(
     } else {
         0
     };
-    let items: Vec<_> = session
+    // 图与短哈希固定，只有引用名称和提交标题横向滚动。
+    let text_width = body[1].width.saturating_sub(graph_width + 13) as usize;
+    let lines: Vec<_> = session
         .records
         .iter()
         .map(|record| {
+            let mut spans = labels(&session.references, &record.entry);
+            spans.push(Span::raw(safe(&record.entry.subject)));
+            Line::from(spans)
+        })
+        .collect();
+    let widest = lines.iter().map(Line::width).max().unwrap_or(0);
+    session
+        .horizontal
+        .constrain(widest.saturating_sub(text_width));
+    let content_area = body[1];
+    session.horizontal.render_on_border(
+        frame,
+        parts[0],
+        content_area.right() - text_width as u16..content_area.right(),
+    );
+    let items: Vec<_> = session
+        .records
+        .iter()
+        .zip(lines)
+        .map(|(record, line)| {
             let mut spans = vec![
                 Span::raw(" ".repeat(usize::from(graph_width))),
                 Span::styled(
@@ -153,8 +175,9 @@ fn graph(
                     Style::default().fg(WARN),
                 ),
             ];
-            spans.extend(labels(&session.references, &record.entry));
-            spans.push(Span::raw(safe(&record.entry.subject)));
+            spans.extend(
+                crate::horizontal::clip(&line, session.horizontal.offset(), text_width).spans,
+            );
             ListItem::new(Line::from(spans))
         })
         .collect();
@@ -169,13 +192,13 @@ fn graph(
                 .highlight_symbol("› ")
                 .highlight_spacing(ratatui::widgets::HighlightSpacing::Always)
                 .highlight_style(selected_style()),
-            body[1],
+            content_area,
             &mut session.state,
         );
         match metrics {
             Ok(metrics) => pixels::render(
                 frame,
-                body[1],
+                content_area,
                 session,
                 graphics,
                 metrics,

@@ -25,6 +25,7 @@ pub(crate) struct Session {
     pub state: ListState,
     pub query: String,
     pub pan: usize,
+    pub horizontal: crate::horizontal::Viewport,
     pub width: usize,
     layout: graph::Layout<Oid>,
 }
@@ -38,6 +39,7 @@ impl Session {
             state: ListState::default(),
             query: String::new(),
             pan: 0,
+            horizontal: Default::default(),
             width: 1,
             layout: graph::Layout::default(),
         };

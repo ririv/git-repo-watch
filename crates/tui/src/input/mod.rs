@@ -2,6 +2,7 @@
 mod actions;
 mod branches;
 mod changes;
+mod horizontal;
 mod keys;
 mod mouse;
 mod navigation;

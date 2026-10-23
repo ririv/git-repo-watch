@@ -6,7 +6,6 @@ mod unified;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct Anchor {
     pub row: usize,
-    pub offset: usize,
 }
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Anchors {
@@ -19,13 +18,10 @@ impl Anchors {
             Self::One(anchor) | Self::Pair(anchor, _) => anchor,
         }
     }
-    fn matching(self, target: Anchor) -> Option<usize> {
-        let accepts = |anchor: Anchor| {
-            (anchor.row == target.row && anchor.offset <= target.offset).then_some(anchor.offset)
-        };
+    fn contains(self, target: Anchor) -> bool {
         match self {
-            Self::One(anchor) => accepts(anchor),
-            Self::Pair(old, new) => accepts(old).max(accepts(new)),
+            Self::One(anchor) => anchor == target,
+            Self::Pair(old, new) => old == target || new == target,
         }
     }
 }
@@ -33,12 +29,14 @@ impl Anchors {
 pub(crate) enum VisualRow {
     Full {
         line: Line<'static>,
+        fixed: usize,
         anchor: Anchor,
     },
     Columns {
         left: Line<'static>,
         right: Line<'static>,
         anchors: Anchors,
+        fixed: usize,
     },
 }
 impl VisualRow {
@@ -54,6 +52,7 @@ pub(crate) struct Cache {
     pub width: u16,
     pub mode: Layout,
     pub rows: Vec<VisualRow>,
+    maximum: usize,
     position: Option<Position>,
 }
 #[derive(Debug)]
@@ -62,6 +61,9 @@ struct Position {
     scroll: usize,
 }
 impl Cache {
+    pub fn horizontal_maximum(&self) -> usize {
+        self.maximum
+    }
     pub fn anchor(&self, scroll: usize) -> Option<Anchor> {
         if let Some(position) = &self.position
             && position.scroll == scroll
@@ -81,39 +83,48 @@ impl Cache {
     pub fn locate(&self, target: Anchor) -> usize {
         self.rows
             .iter()
-            .enumerate()
-            .filter_map(|(index, row)| row.anchors().matching(target).map(|offset| (index, offset)))
-            .max_by_key(|(_, offset)| *offset)
-            .map(|(index, _)| index)
+            .position(|row| row.anchors().contains(target))
             .expect("every logical diff row has a visual anchor")
     }
 }
 
 pub(super) fn arrange(rows: &[Row], digits: u16, width: u16, mode: Layout) -> Cache {
     let rows = match mode {
-        Layout::Unified => unified::arrange(rows, digits, width),
-        Layout::Split => split::arrange(rows, digits, width),
+        Layout::Unified => unified::arrange(rows, digits),
+        Layout::Split => split::arrange(rows, digits),
     };
+    let maximum = horizontal_maximum(&rows, width);
     Cache {
         width,
         mode,
         rows,
+        maximum,
         position: None,
     }
 }
 
-fn full(out: &mut Vec<VisualRow>, row: usize, line: &Line<'_>, width: u16) {
-    out.extend(
-        wrap::line(line, width)
-            .into_iter()
-            .map(|part| VisualRow::Full {
-                line: part.line,
-                anchor: Anchor {
-                    row,
-                    offset: part.offset,
-                },
-            }),
-    );
+fn horizontal_maximum(rows: &[VisualRow], width: u16) -> usize {
+    let width = usize::from(width);
+    let left_width = width.saturating_sub(1) / 2;
+    let right_width = width.saturating_sub(1) - left_width;
+    rows.iter()
+        .map(|row| match row {
+            VisualRow::Full { line, .. } => line.width().saturating_sub(width),
+            VisualRow::Columns { left, right, .. } => left
+                .width()
+                .saturating_sub(left_width)
+                .max(right.width().saturating_sub(right_width)),
+        })
+        .max()
+        .unwrap_or(0)
+}
+
+fn full(out: &mut Vec<VisualRow>, row: usize, line: &Line<'static>) {
+    out.push(VisualRow::Full {
+        line: line.clone(),
+        fixed: 0,
+        anchor: Anchor { row },
+    });
 }
 #[derive(Clone, Copy)]
 enum Mark {
@@ -138,14 +149,10 @@ impl Mark {
         Span::styled(text, self.style().fg(color))
     }
 }
-fn decorate(part: Line<'static>, gutter: String, mark: Mark, first: bool) -> Line<'static> {
+fn decorate(part: Line<'static>, gutter: String, mark: Mark) -> Line<'static> {
     let base = mark.style();
     let mut spans = vec![Span::styled(gutter, base.fg(MUTED))];
-    spans.push(if first {
-        mark.prefix()
-    } else {
-        Span::styled(" ", base)
-    });
+    spans.push(mark.prefix());
     spans.extend(part.spans);
     Line::from(spans).style(base)
 }

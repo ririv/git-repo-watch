@@ -1,6 +1,6 @@
 ## Quick navigation
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
-- With empty input, `→` / `Enter` opens the selected item; `←` / `Esc` goes back.
+- With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
 - `Tab` cycles repositories, general settings and the scheduled task.
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
@@ -14,7 +14,7 @@
 - `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it. At the repository root, Enter / → or Ctrl+D enters Overview; Ctrl+S enters History.
 - `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
 - Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
-- At a pane root, Esc / ← leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
+- At a pane root, Esc leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
 ## Search and commands
 - Type to search repositories, or files in the file panel. Input is always active.
@@ -71,7 +71,7 @@
 - `/repo diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.
 - Wide windows show files beside the preview; narrow windows stack them. `Tab` / `Ctrl+S` / `Ctrl+D` switches focus; `Enter` / `→` focuses the preview, and `Ctrl+F` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
-- Diff defaults to side-by-side on wide screens and unified on narrow screens. Both sides scroll together and align wrapped lines.
+- Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
 - `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
 - `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
@@ -91,7 +91,7 @@
 
 ## Commit graph
 - `/repo log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
-- `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `←` goes back.
+- `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `Esc` goes back.
 - Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
 - Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `Tab` / `Shift+Tab` selects the next / previous match.
 - `Alt+←→` pans a wide graph. Wide terminals show a metadata preview.
@@ -127,6 +127,12 @@
 - No-upstream branches are counted separately. They are not problems and are never published automatically.
 - Sync combines remote checks and push results. Failures and pending changes take priority; push counts refer to branches.
 - Full errors appear in preview and repository details.
+
+## Horizontal scrolling
+- Use `Ctrl+S/D` to switch panes; arrow keys do not switch panes.
+- In a diff preview with empty input, ←→ scrolls long lines. Line numbers and change markers stay fixed; split columns pan together. Esc goes back. Overflowing content has a scrollbar embedded in the bottom border without taking a content row.
+- In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. Alt+←→ pans the graph, Enter opens details, and Esc goes back.
+- Horizontal wheel and Shift + vertical wheel also work when forwarded by the terminal. With text in the input, arrow keys edit the input; command and confirmation selectors keep their own keys.
 
 ## Language
 - System Chinese uses Chinese; all other languages use English.

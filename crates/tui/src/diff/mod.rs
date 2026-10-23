@@ -7,7 +7,6 @@ mod source;
 #[cfg(test)]
 mod tests;
 mod text;
-mod wrap;
 use crate::view::safe;
 use anyhow::Result;
 use engine::{
@@ -138,6 +137,7 @@ pub(super) struct View {
     digits: u16,
     comparison: Comparison,
     cache: Option<Cache>,
+    pub horizontal: crate::horizontal::Viewport,
 }
 #[derive(Debug)]
 pub(crate) enum Export {
@@ -148,6 +148,12 @@ pub(crate) enum Export {
 impl View {
     pub fn selected_layout(&self, width: u16, preference: Preference) -> Layout {
         preference.resolve(width, self.digits)
+    }
+    pub fn gutter_width(&self, mode: Layout) -> u16 {
+        match mode {
+            Layout::Unified => 2 * self.digits + 4,
+            Layout::Split => self.digits + 3,
+        }
     }
     pub fn minimum_width(&self, mode: Layout) -> u16 {
         match mode {
@@ -175,7 +181,9 @@ impl View {
             }
             self.cache = Some(cache);
         }
-        self.cache.as_mut().expect("diff layout prepared")
+        let cache = self.cache.as_mut().expect("diff layout prepared");
+        self.horizontal.constrain(cache.horizontal_maximum());
+        cache
     }
     pub fn labels(&self) -> (String, String) {
         self.comparison.labels()
@@ -242,5 +250,6 @@ fn prepare_comparison(
         digits,
         comparison,
         cache: None,
+        horizontal: Default::default(),
     }))
 }

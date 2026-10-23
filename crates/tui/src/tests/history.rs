@@ -82,7 +82,7 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
         key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Down);
         assert_eq!(graph(&s).state.selected(), Some(1));
-        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert_eq!(
@@ -112,7 +112,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         command(&mut s, "repo log");
         wait(&mut s);
         let selected = graph(&s).selected().unwrap().oid;
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(detail(&s).detail.oid, selected);
         assert_eq!(detail(&s).detail.parents.len(), 2);
@@ -125,7 +125,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
             assert!(text.contains(i18n::tr!(HistoryAuthor)));
             assert!(text.contains("feature.ts"));
         }
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Enter);
         wait(&mut s);
         for width in [120, 180] {
             let text = render(&mut s, width, 36);
@@ -169,7 +169,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         assert!(
             matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
         );
-        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Tab);
         wait(&mut s);
         let commit = detail(&s);
@@ -181,7 +181,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
             commit.detail.changes[0].location.name(),
             std::path::Path::new("main.ts")
         );
-        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Esc);
         assert_eq!(graph(&s).selected().unwrap().oid, selected);
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert_eq!(
@@ -220,7 +220,7 @@ fn search_locates_hash_subject_author_and_refs_without_hiding_graph_nodes() {
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::History(_)));
     key(&mut s, KeyCode::Esc);
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
 }
 
@@ -303,9 +303,9 @@ fn historical_file_search_and_diff_back_navigation_preserve_the_graph() {
     assert!(
         matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
     );
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert!(detail(&s).query.is_empty());
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert_eq!(graph(&s).selected().unwrap().oid, oid);
 }
 
@@ -329,7 +329,7 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     wait(&mut s);
     assert!(detail(&s).detail.changes.is_empty());
     assert!(render(&mut s, 100, 28).contains(i18n::tr!(HistoryNoChanges)));
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     let oid = graph(&s).selected().unwrap().oid;
     s.start("delayed read", Effect::ReadOnly, |_, cancel, _| {
         while !cancel.is_cancelled() {

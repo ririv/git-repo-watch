@@ -94,6 +94,38 @@ impl Screen {
                 return Ok(true);
             }
         }
+        let horizontal = match event.kind {
+            MouseEventKind::ScrollLeft => Some(KeyCode::Left),
+            MouseEventKind::ScrollRight => Some(KeyCode::Right),
+            MouseEventKind::ScrollUp if event.modifiers.contains(KeyModifiers::SHIFT) => {
+                Some(KeyCode::Left)
+            }
+            MouseEventKind::ScrollDown if event.modifiers.contains(KeyModifiers::SHIFT) => {
+                Some(KeyCode::Right)
+            }
+            _ => None,
+        };
+        if let Some(code) = horizontal {
+            if !matches!(self.bar, bar::InputBar::Search(_))
+                || !self.bar.editor().text.is_empty()
+                || !self
+                    .body_area
+                    .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
+            {
+                return Ok(false);
+            }
+            if self.page == Page::Detail
+                && crate::workspace::Workspace::is_root(&self.mode)
+                && let Some(section) = self
+                    .workspace_areas
+                    .iter()
+                    .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                    .map(|(_, section)| *section)
+            {
+                self.switch_repository_section(section);
+            }
+            return Ok(self.horizontal_key(KeyEvent::new(code, KeyModifiers::NONE)));
+        }
         let code = match event.kind {
             MouseEventKind::ScrollUp => KeyCode::Up,
             MouseEventKind::ScrollDown => KeyCode::Down,

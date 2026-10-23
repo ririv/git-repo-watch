@@ -63,6 +63,23 @@ pub(super) fn render(
             );
         }
     }
+    content.arrange(inner.width, preference, scroll);
+    let horizontal = content.horizontal.clone();
+    let gutter = content.gutter_width(mode);
+    match mode {
+        DiffLayout::Unified => {
+            horizontal.render_on_border(frame, area, body.x + gutter..body.right())
+        }
+        DiffLayout::Split => {
+            horizontal.render_on_border(frame, area, body.x + gutter..body.x + left_width);
+            horizontal.render_on_border(
+                frame,
+                area,
+                body.x + left_width + 1 + gutter..body.right(),
+            );
+        }
+    }
+    let offset = horizontal.offset();
     let cache = content.arrange(inner.width, preference, scroll);
     *scroll = (*scroll).min(cache.rows.len().saturating_sub(body.height as usize));
     cache.settle(*scroll);
@@ -75,17 +92,23 @@ pub(super) fn render(
     {
         let y = body.y + index as u16;
         match row {
-            VisualRow::Full { line, .. } => {
-                frame.render_widget(line.clone(), Rect::new(body.x, y, body.width, 1))
-            }
-            VisualRow::Columns { left, right, .. } => {
-                frame.render_widget(left.clone(), Rect::new(body.x, y, left_width, 1));
+            VisualRow::Full { line, fixed, .. } => frame.render_widget(
+                crate::horizontal::pinned(line, *fixed, offset, body.width as usize),
+                Rect::new(body.x, y, body.width, 1),
+            ),
+            VisualRow::Columns {
+                left, right, fixed, ..
+            } => {
+                frame.render_widget(
+                    crate::horizontal::pinned(left, *fixed, offset, left_width as usize),
+                    Rect::new(body.x, y, left_width, 1),
+                );
                 frame.render_widget(
                     Line::styled("│", Style::default().fg(MUTED)),
                     Rect::new(body.x + left_width, y, 1, 1),
                 );
                 frame.render_widget(
-                    right.clone(),
+                    crate::horizontal::pinned(right, *fixed, offset, right_width as usize),
                     Rect::new(body.x + left_width + 1, y, right_width, 1),
                 );
             }

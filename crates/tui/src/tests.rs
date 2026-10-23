@@ -11,6 +11,7 @@ mod daily_operations;
 mod diff;
 mod help;
 mod history;
+mod horizontal;
 mod images;
 mod layout_picker;
 mod navigation;

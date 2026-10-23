@@ -377,11 +377,12 @@ impl Screen {
         {
             return Ok(BarEvent::Pass);
         }
-        // 空搜索栏把无修饰的左右键交给页面导航；有文字时仍移动输入光标。
+        // 空搜索栏把无修饰的左右键交给内容视图；有文字时仍移动输入光标。
         if self.bar.editor().text.is_empty()
             && (matches!(
                 self.mode,
                 Mode::History(_)
+                    | Mode::Panel(crate::workspace::Section::Overview)
                     | Mode::Stashes(_)
                     | Mode::Branches(_)
                     | Mode::Changes(_)

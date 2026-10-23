@@ -62,7 +62,7 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
-        if self.changes_shortcut(key) || self.repository_pane_key(key) {
+        if self.changes_shortcut(key) || self.repository_pane_key(key) || self.horizontal_key(key) {
             return Ok(false);
         }
         if let Mode::History(view) = &mut self.mode

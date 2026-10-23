@@ -58,9 +58,9 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
             key(&mut s, KeyCode::PageUp);
             assert!(!render(&mut s, width, height).contains("last_line"));
         }
-        key(&mut s, KeyCode::Left);
-        key(&mut s, KeyCode::Left);
-        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Files(_)));
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
         assert!(s.service.store.report().unwrap().is_none());
@@ -133,8 +133,8 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffSplit)
         )));
         command(&mut s, "repo diff layout unified");
-        key(&mut s, KeyCode::Left);
-        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);

@@ -13,6 +13,7 @@ mod editor;
 mod files;
 mod graphics;
 mod history;
+mod horizontal;
 mod input;
 mod layout_picker;
 mod mutations;

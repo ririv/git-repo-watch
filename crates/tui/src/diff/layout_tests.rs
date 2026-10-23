@@ -1,6 +1,4 @@
 use super::*;
-use layout::{Anchor, Anchors};
-use unicode_width::UnicodeWidthStr;
 
 fn code(number: u32, text: &str) -> Code {
     Code {
@@ -32,7 +30,7 @@ fn automatic_layout_obeys_width_and_code_space_while_manual_modes_are_explicit()
 }
 
 #[test]
-fn unequal_edits_and_unequal_wrapping_pad_each_side_before_the_next_context() {
+fn unequal_edits_keep_logical_rows_and_pad_the_missing_side() {
     let rows = vec![
         Row::Removed(code(1, &"中文".repeat(60))),
         Row::Removed(code(2, "extra deletion")),
@@ -50,19 +48,15 @@ fn unequal_edits_and_unequal_wrapping_pad_each_side_before_the_next_context() {
         .iter()
         .position(|(left, _)| left.to_string().contains("following context"))
         .unwrap();
-    assert!(next >= 4);
+    assert_eq!(next, 2);
     assert!(pairs[next].1.to_string().contains("following context"));
     assert!(
         pairs[1..next]
             .iter()
             .all(|(_, right)| right.to_string().is_empty())
     );
-    assert!(
-        pairs
-            .iter()
-            .all(|(left, right)| left.width() <= 69 && right.width() <= 70)
-    );
-    assert!(pairs[1].0.to_string().starts_with("  │ "));
+    assert!(pairs[0].0.width() > 69);
+    assert!(pairs[1].0.to_string().starts_with("2 │-"));
 }
 
 #[test]
@@ -128,19 +122,14 @@ fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() 
         digits: 1,
         comparison: Comparison::Working,
         cache: None,
+        horizontal: Default::default(),
     };
-    let mut scroll = 0;
+    let mut scroll = 2;
     let cache = view.arrange(80, Preference::Auto, &mut scroll);
-    scroll = cache
-        .rows
-        .iter()
-        .position(
-            |row| matches!(row.anchors(), Anchors::One(Anchor { row: 2, offset }) if offset >= 140),
-        )
-        .unwrap();
     cache.settle(scroll);
     let original_scroll = scroll;
     let original_anchor = cache.anchor(scroll).unwrap();
+    view.horizontal.advance(100);
     for (width, preference) in [
         (160, Preference::Auto),
         (80, Preference::Auto),
@@ -151,43 +140,10 @@ fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() 
         let cache = view.arrange(width, preference, &mut scroll);
         cache.settle(scroll);
         assert_eq!(cache.anchor(scroll), Some(original_anchor));
+        assert_eq!(view.horizontal.offset(), 100);
     }
     assert_eq!(scroll, original_scroll);
-    scroll += 1;
-    view.arrange(80, Preference::Auto, &mut scroll)
-        .settle(scroll);
-    let moved = view.cache.as_ref().unwrap().anchor(scroll).unwrap();
-    assert!(moved.offset > original_anchor.offset);
-    assert_eq!(
-        view.arrange(160, Preference::Auto, &mut scroll)
-            .anchor(scroll),
-        Some(moved)
-    );
-}
-
-#[test]
-fn styled_grapheme_wrapping_retains_unicode_whitespace_colors_and_byte_anchors() {
-    let line = Line::from(vec![
-        Span::styled("  中文e\u{301}👩‍💻", Style::default().fg(Color::LightBlue)),
-        Span::styled(" tail end", Style::default().fg(Color::LightGreen)),
-    ]);
-    for width in [2, 5, 10] {
-        let parts = wrap::line(&line, width);
-        assert!(
-            parts.iter().all(
-                |part| UnicodeWidthStr::width(part.line.to_string().as_str()) <= width as usize
-            )
-        );
-        assert_eq!(
-            parts
-                .iter()
-                .map(|part| part.line.to_string())
-                .collect::<String>(),
-            line.to_string()
-        );
-        for part in parts {
-            assert!(line.to_string().is_char_boundary(part.offset));
-            assert!(part.line.spans.iter().all(|span| span.style.fg.is_some()));
-        }
-    }
+    view.arrange(2000, Preference::Unified, &mut scroll);
+    assert_eq!(view.horizontal.offset(), 0);
+    assert!(!view.horizontal.overflowing());
 }

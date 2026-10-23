@@ -265,6 +265,11 @@ fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_r
             .unwrap();
             assert_eq!(labels(&s).len(), focused.len());
             assert_eq!(s.history.len(), visits);
+            let back = if Section::focused(&s.mode) == Some(Section::History) {
+                KeyCode::Esc
+            } else {
+                back
+            };
             key(&mut s, back);
             assert_eq!(labels(&s), root);
             assert_eq!(
