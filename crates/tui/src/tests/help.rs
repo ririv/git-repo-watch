@@ -1,5 +1,4 @@
 use super::*;
-use ratatui::style::Color;
 
 #[test]
 fn help_resources_wrap_without_markup_and_reach_the_last_section_after_resizing() {
@@ -49,13 +48,13 @@ fn help_scrollbar_tracks_the_first_and_last_visible_pages_in_both_languages() {
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let area = s.body_area.unwrap();
             let first = terminal.backend().buffer()[(area.right() - 1, area.y + 1)].clone();
-            assert_eq!(first.fg, Color::LightBlue);
+            assert_eq!(first.fg, crate::scrollbar::THUMB_COLOR);
             assert_eq!(first.symbol(), "┃");
             s.scroll = usize::MAX;
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let last = &terminal.backend().buffer()[(area.right() - 1, area.bottom() - 2)];
             assert_eq!(last.symbol(), first.symbol());
-            assert_eq!(last.fg, Color::LightBlue);
+            assert_eq!(last.fg, crate::scrollbar::THUMB_COLOR);
         }
     }
 }

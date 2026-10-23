@@ -43,6 +43,7 @@ use settings::settings;
 use shell::header;
 const ACCENT: Color = Color::LightBlue;
 const MUTED: Color = Color::DarkGray;
+const BORDER: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;
 const BAD: Color = Color::LightRed;
 const WARN: Color = Color::Yellow;
@@ -78,9 +79,23 @@ fn selected_style() -> Style {
 fn block(title: impl Into<String>) -> Block<'static> {
     Block::default()
         .borders(Borders::ALL)
-        .border_style(Style::default().fg(MUTED))
+        .border_style(Style::default().fg(BORDER))
         .title(title.into())
         .title_style(Style::default().fg(ACCENT))
+}
+/// Highlight the base border while retaining embedded indicators' own styles.
+fn highlight_border(frame: &mut Frame, area: Rect) {
+    for y in area.y..area.bottom() {
+        for x in area.x..area.right() {
+            if x == area.x || x + 1 == area.right() || y == area.y || y + 1 == area.bottom() {
+                let cell = &mut frame.buffer_mut()[(x, y)];
+                // 滚动条已覆盖边框并使用独立配色；焦点只改变原始边框色。
+                if cell.fg == BORDER {
+                    cell.set_fg(ACCENT);
+                }
+            }
+        }
+    }
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.graphics.begin_frame();
@@ -308,7 +323,45 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
 
 #[cfg(test)]
 mod tests {
-    use super::local_time;
+    use super::*;
+    use ratatui::{Terminal, backend::TestBackend};
+
+    #[test]
+    fn pane_focus_preserves_both_scrollbar_tracks_and_thumbs() {
+        let area = Rect::new(0, 0, 20, 10);
+        let mut terminal = Terminal::new(TestBackend::new(area.width, area.height)).unwrap();
+        for focused in [false, true] {
+            terminal
+                .draw(|frame| {
+                    frame.render_widget(block(""), area);
+                    crate::scrollbar::vertical(frame, area, Rect::new(1, 2, 18, 7), 40, 0);
+                    crate::scrollbar::render(
+                        frame,
+                        Rect::new(4, 9, 15, 1),
+                        crate::scrollbar::Axis::Horizontal,
+                        0,
+                        50,
+                    );
+                    let indicators: Vec<_> = [(19, 2), (19, 8), (4, 9), (18, 9)]
+                        .into_iter()
+                        .map(|pos| (pos, frame.buffer_mut()[pos].clone()))
+                        .collect();
+                    if focused {
+                        highlight_border(frame, area);
+                    }
+                    for (pos, original) in indicators {
+                        assert_eq!(frame.buffer_mut()[pos], original, "indicator at {pos:?}");
+                    }
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(0, 0)].fg, if focused { ACCENT } else { BORDER });
+            assert_eq!(buffer[(19, 2)].fg, crate::scrollbar::THUMB_COLOR);
+            assert_eq!(buffer[(4, 9)].fg, crate::scrollbar::THUMB_COLOR);
+            assert_ne!(buffer[(19, 2)].fg, ACCENT);
+        }
+    }
+
     #[test]
     fn report_time_uses_system_local_time_without_zone_suffix() {
         let _language = i18n::using(i18n::Language::Chinese);

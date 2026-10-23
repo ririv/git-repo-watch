@@ -6,6 +6,8 @@ use ratatui::{
     widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 
+pub(crate) const THUMB_COLOR: Color = Color::Rgb(230, 160, 189);
+
 pub(crate) enum Axis {
     Horizontal,
     Vertical,
@@ -33,7 +35,7 @@ pub(crate) fn render(frame: &mut Frame, area: Rect, axis: Axis, offset: usize, m
                     .add_modifier(Modifier::DIM),
             )
             .thumb_symbol(thumb)
-            .thumb_style(Style::default().fg(Color::LightBlue)),
+            .thumb_style(Style::default().fg(THUMB_COLOR)),
         area,
         &mut state,
     );

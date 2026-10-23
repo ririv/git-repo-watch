@@ -40,6 +40,10 @@ fn file_groups_keep_independent_tracks_and_headers_when_navigating() {
                 groups += 1;
                 assert_eq!(buffer[(area.right() - 1, y)].symbol(), "│");
                 assert_eq!(buffer[(area.right() - 1, y + 1)].symbol(), "┃");
+                assert_eq!(
+                    buffer[(area.right() - 1, y + 1)].fg,
+                    crate::scrollbar::THUMB_COLOR
+                );
             }
         }
         assert_eq!(groups, 2);

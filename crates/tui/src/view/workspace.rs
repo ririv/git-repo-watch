@@ -138,12 +138,3 @@ fn placeholder(frame: &mut Frame, area: Rect, section: Section, text: &str) {
         area,
     );
 }
-fn highlight_border(frame: &mut Frame, area: Rect) {
-    for y in area.y..area.bottom() {
-        for x in area.x..area.right() {
-            if x == area.x || x + 1 == area.right() || y == area.y || y + 1 == area.bottom() {
-                frame.buffer_mut()[(x, y)].set_fg(ACCENT);
-            }
-        }
-    }
-}
