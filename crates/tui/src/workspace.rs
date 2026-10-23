@@ -29,17 +29,20 @@ impl Section {
         }
     }
     pub fn of(mode: &Mode) -> Self {
+        Self::focused(mode).unwrap_or(Self::Overview)
+    }
+    pub fn focused(mode: &Mode) -> Option<Self> {
         match mode {
-            Mode::Panel(section) => *section,
-            Mode::Branches(_) => Self::Branches,
+            Mode::Panel(section) => Some(*section),
+            Mode::Branches(_) => Some(Self::Branches),
             Mode::Files(_)
             | Mode::Changes(_)
             | Mode::CommitMessage { .. }
-            | Mode::CommitConfirm { .. } => Self::Worktree,
-            Mode::History(_) => Self::History,
-            Mode::Busy(pending) => Self::of(&pending.origin),
-            Mode::Error { origin, .. } => Self::of(origin),
-            _ => Self::Overview,
+            | Mode::CommitConfirm { .. } => Some(Self::Worktree),
+            Mode::History(_) => Some(Self::History),
+            Mode::Busy(pending) => Self::focused(&pending.origin),
+            Mode::Error { origin, .. } => Self::focused(origin),
+            _ => None,
         }
     }
     pub fn advance(self, backwards: bool) -> Self {
@@ -194,7 +197,7 @@ impl Screen {
         {
             return;
         }
-        if Section::of(&self.mode) == section {
+        if Section::focused(&self.mode) == Some(section) && Workspace::is_root(&self.mode) {
             return;
         }
         let mode = self.take_mode();
@@ -203,7 +206,7 @@ impl Screen {
             return;
         };
         self.mode = match section {
-            Section::Overview => Mode::Browsing,
+            Section::Overview => Mode::Panel(Section::Overview),
             Section::Branches => match &session.branches {
                 Panel::Ready(branches) => {
                     Mode::Branches(Box::new(branches::View::List(branches.clone())))
@@ -219,6 +222,16 @@ impl Screen {
                 _ => Mode::Panel(section),
             },
         };
+        self.message.clear();
+        self.sync_bar();
+    }
+    pub(super) fn leave_repository_section(&mut self) {
+        // 面板焦点是一层导航；放大只是布局，返回时一并恢复组合界面。
+        let mode = self.take_mode();
+        self.workspace.save(mode);
+        if let Some(session) = self.workspace.session_mut() {
+            session.arrangement = Arrangement::Tiled;
+        }
         self.message.clear();
         self.sync_bar();
     }

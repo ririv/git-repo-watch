@@ -6,6 +6,7 @@ use std::path::Path;
 pub(crate) enum Level {
     Page,
     Repository,
+    Pane(crate::workspace::Section),
     History,
     Commit,
     Branches,
@@ -63,6 +64,11 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         ),
         Page::Configuration(section) => push(section.title().into(), Level::Page),
         Page::Help => push(i18n::tr!(Help).into(), Level::Page),
+    }
+    if page == Page::Detail
+        && let Some(section) = crate::workspace::Section::focused(mode)
+    {
+        push(section.title().into(), Level::Pane(section));
     }
     match mode {
         Mode::History(view) => {
@@ -204,12 +210,8 @@ impl Screen {
         };
         match level {
             Level::Page => {}
-            Level::Repository => {
-                let mode = self.take_mode();
-                let section = crate::workspace::Section::of(&mode);
-                self.workspace.save(mode);
-                self.switch_repository_section(section);
-            }
+            Level::Repository => self.leave_repository_section(),
+            Level::Pane(section) => self.switch_repository_section(section),
             Level::History => {
                 if let Mode::History(view) = &self.mode {
                     self.mode =

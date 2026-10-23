@@ -69,6 +69,7 @@ enum Page {
 #[derive(Debug)]
 enum Mode {
     Browsing,
+    /// Focused pane without an interactive content session (overview or pending data).
     Panel(workspace::Section),
     Confirm {
         operation: Confirmation,

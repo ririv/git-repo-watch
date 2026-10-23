@@ -1,19 +1,20 @@
 ## Quick navigation
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
-- Breadcrumbs show the actual navigation path, starting at Repositories. Opening a child view or details adds a level; Esc / ← returns. Click an ancestor to return with selection and search preserved. Click navigation is disabled during command editing or confirmation. Pane focus does not add levels; Back at a pane root leaves the repository page.
 - With empty input, `→` / `Enter` opens the selected item; `←` / `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
 - `Tab` cycles repositories, general settings and the scheduled task.
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
 ## Repository panes
+- Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
+- Focusing a pane adds one level; switching panes replaces it. Maximizing adds no level. Back at a pane root returns to the repository root, then to the home page.
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
 - `/repo branch` always opens the full branch view. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
-- `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it.
+- `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it. At the repository root, Enter / → or Ctrl+D enters Overview; Ctrl+S enters History.
 - `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
 - Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
-- In a maximized pane, `Esc` clears input first, then restores the layout. Diff and commit details keep their existing back navigation.
+- At a pane root, Esc / ← leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
 ## Search and commands
 - Type to search repositories, or files in the file panel. Input is always active.

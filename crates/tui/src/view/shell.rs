@@ -11,7 +11,11 @@ pub(super) fn header(screen: &mut Screen, area: Rect) -> Text<'static> {
             _ => i18n::tr!(WorkspaceMaximizeHint),
         };
         lines[0].spans.push(Span::styled(
-            format!("  · {} · {size_hint}", i18n::tr!(WorkspaceFocusHint)),
+            if crate::workspace::Section::focused(&screen.mode).is_some() {
+                format!("  · {} · {size_hint}", i18n::tr!(WorkspaceFocusHint))
+            } else {
+                format!("  · {}", i18n::tr!(WorkspaceFocusHint))
+            },
             Style::default().fg(MUTED),
         ));
     }

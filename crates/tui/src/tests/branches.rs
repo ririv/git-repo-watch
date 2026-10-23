@@ -61,6 +61,8 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
     wait_workspace(&mut s);
     super::overview::wait_overview(&mut s);
     control(&mut s, 'd');
+    assert_eq!(Section::focused(&s.mode), Some(Section::Overview));
+    control(&mut s, 'd');
     assert_eq!(Section::of(&s.mode), Section::Branches);
     key(&mut s, KeyCode::Tab);
     for (width, height) in [(60, 18), (140, 32), (200, 50)] {

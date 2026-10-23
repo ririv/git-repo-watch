@@ -5,7 +5,7 @@ fn focus(s: &mut Screen, section: crate::workspace::Section) {
         key(s, KeyCode::Esc);
     }
     for _ in 0..crate::workspace::Section::ALL.len() {
-        if crate::workspace::Section::of(&s.mode) == section {
+        if crate::workspace::Section::focused(&s.mode) == Some(section) {
             return;
         }
         s.key(
@@ -60,7 +60,9 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
                     Arrangement::Maximized
                 );
                 assert_eq!(s.workspace_areas, vec![(s.body_area.unwrap(), section)]);
-                assert!(text.contains(i18n::tr!(WorkspaceRestoreHint)), "{text}");
+                if width >= 140 {
+                    assert!(text.contains(i18n::tr!(WorkspaceRestoreHint)), "{text}");
+                }
                 s.key(
                     KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
                     &Cancel::default(),
@@ -122,7 +124,8 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
     );
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
-    assert!(matches!(s.mode, Mode::Files(_)));
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.page, Page::Detail);
     assert_eq!(
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
@@ -130,22 +133,25 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
     render(&mut s, 100, 28);
     assert_eq!(s.workspace_areas.len(), 4);
     key(&mut s, KeyCode::Left);
-    key(&mut s, KeyCode::Left);
-    s.paste("repo");
+    assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Enter);
+    // 根层没有面板焦点，放大键不会隐式进入概览。
+    zoom(&mut s);
+    assert_eq!(s.breadcrumbs().len(), 2);
     assert_eq!(
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
     );
+    key(&mut s, KeyCode::Right);
+    assert!(matches!(
+        s.mode,
+        Mode::Panel(crate::workspace::Section::Overview)
+    ));
     zoom(&mut s);
+    assert_eq!(s.breadcrumbs().len(), 3);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Detail);
-    assert!(s.bar.editor().text.is_empty());
-    assert_eq!(
-        s.workspace.session().unwrap().arrangement,
-        Arrangement::Maximized
-    );
-    key(&mut s, KeyCode::Esc);
+    assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
@@ -262,7 +268,10 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
             matches!(&s.mode, Mode::Files(files) if files.rows().iter().all(|change| change.area != Area::Staged))
         );
         focus(&mut s, crate::workspace::Section::Overview);
-        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(matches!(
+            s.mode,
+            Mode::Panel(crate::workspace::Section::Overview)
+        ));
         assert_eq!(s.page, Page::Detail);
         focus(&mut s, crate::workspace::Section::History);
         match &s.mode {

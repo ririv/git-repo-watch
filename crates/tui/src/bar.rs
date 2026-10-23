@@ -97,7 +97,13 @@ impl Screen {
             view.session().query.clone()
         } else if let Mode::Branches(view) = &self.mode {
             view.session().query.clone()
-        } else if matches!(self.mode, Mode::Panel(_)) {
+        } else if matches!(self.mode, Mode::Panel(_))
+            || (!matches!(
+                self.page,
+                Page::Repositories | Page::Configuration(crate::Configuration::Repositories)
+            ) && matches!(self.mode, Mode::Browsing))
+        {
+            // 非列表页面不借用首页搜索词，否则 Esc 会清空首页筛选而非按面包屑返回。
             String::new()
         } else {
             self.mode
@@ -437,15 +443,6 @@ impl Screen {
         self.bar = InputBar::default();
         match &mut self.mode {
             Mode::Panel(_) => {}
-            Mode::Browsing
-                if self.page == Page::Detail
-                    && self.workspace.session().is_some_and(|session| {
-                        session.arrangement == crate::workspace::Arrangement::Maximized
-                    }) =>
-            {
-                self.query.clear();
-                self.focus(path);
-            }
             Mode::Stashes(view) => view.search(String::new()),
             Mode::Branches(view) => view.search(String::new()),
             Mode::History(view) => view.clear_search(),

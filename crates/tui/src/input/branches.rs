@@ -12,8 +12,8 @@ impl Screen {
                         return;
                     }
                     if self.page == Page::Detail {
-                        self.workspace.save(Mode::Branches(view));
-                        self.return_to_view();
+                        self.mode = Mode::Branches(view);
+                        self.leave_repository_section();
                     } else {
                         self.sync_bar();
                     }

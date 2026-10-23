@@ -144,6 +144,8 @@ fn refreshing_keeps_old_content_and_commands_return_to_updated_overview() {
     key(&mut s, KeyCode::Left);
     wait_overview(&mut s);
     assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(s.page, Page::Detail);
+    key(&mut s, KeyCode::Left);
     assert_eq!(s.page, Page::Repositories);
     assert_eq!(s.selected_path(), Some(f.repo));
 }

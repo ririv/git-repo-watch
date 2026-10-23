@@ -145,7 +145,8 @@ fn maximize_preview(s: &mut Screen) {
 fn wait(s: &mut Screen) {
     s.poll_changes();
     let started = Instant::now();
-    while matches!(s.mode, Mode::Busy(_) | Mode::Panel(_))
+    while matches!(s.mode, Mode::Busy(_))
+        || matches!(s.mode, Mode::Panel(section) if section != crate::workspace::Section::Overview)
         || !s.repository_tasks.is_empty()
         || matches!(&s.mode, Mode::Changes(session) if session.pending())
     {
@@ -395,8 +396,11 @@ fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
     assert_eq!(s.page, Page::Detail);
     assert_eq!(s.query, "alpha");
     key(&mut s, KeyCode::Esc);
-    assert!(s.query.is_empty());
+    assert_eq!(s.query, "alpha");
     assert_eq!(s.page, Page::Repositories);
+    assert_eq!(s.selected(), 1);
+    key(&mut s, KeyCode::Esc);
+    assert!(s.query.is_empty());
     assert_eq!(s.rows().len(), 3);
     for c in "quit".chars() {
         assert!(!key(&mut s, KeyCode::Char(c)));
@@ -1135,7 +1139,7 @@ fn background_completion_preserves_the_current_detail_page_and_search() {
     poll_background_until(&mut s, |s| s.check_task.is_none());
     assert_eq!(s.page, Page::Detail);
     assert_eq!(s.query, "repo");
-    assert_eq!(s.bar.editor().text, "repo");
+    assert!(s.bar.editor().text.is_empty());
     assert_eq!(s.selected_path(), Some(first.repo.clone()));
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(matches!(s.snapshot.report, CachedReport::Available { .. }));

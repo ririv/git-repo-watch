@@ -60,26 +60,34 @@ impl Screen {
                 _ => scroll_key(&mut self.scroll, key),
             },
             Page::Detail => match key.code {
-                KeyCode::End => self.scroll = usize::MAX,
-                KeyCode::PageUp | KeyCode::PageDown => {
-                    if let Some((area, _)) = self
-                        .workspace_areas
-                        .iter()
-                        .find(|(_, section)| *section == crate::workspace::Section::Overview)
-                    {
-                        let height = usize::from(area.height.saturating_sub(2));
-                        self.scroll = if key.code == KeyCode::PageUp {
-                            self.scroll.saturating_sub(height)
-                        } else {
-                            self.scroll.saturating_add(height)
-                        };
-                    }
+                KeyCode::Enter | KeyCode::Right => {
+                    self.switch_repository_section(crate::workspace::Section::Overview);
                 }
-                _ => scroll_key(&mut self.scroll, key),
+                _ => self.scroll_overview(key),
             },
             Page::View(_) => {}
             Page::Help => scroll_key(&mut self.scroll, key),
         }
         Ok(false)
+    }
+    pub(super) fn scroll_overview(&mut self, key: KeyEvent) {
+        match key.code {
+            KeyCode::End => self.scroll = usize::MAX,
+            KeyCode::PageUp | KeyCode::PageDown => {
+                if let Some((area, _)) = self
+                    .workspace_areas
+                    .iter()
+                    .find(|(_, section)| *section == crate::workspace::Section::Overview)
+                {
+                    let height = usize::from(area.height.saturating_sub(2));
+                    self.scroll = if key.code == KeyCode::PageUp {
+                        self.scroll.saturating_sub(height)
+                    } else {
+                        self.scroll.saturating_add(height)
+                    };
+                }
+            }
+            _ => scroll_key(&mut self.scroll, key),
+        }
     }
 }

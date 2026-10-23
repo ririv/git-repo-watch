@@ -92,11 +92,15 @@ impl Screen {
             Mode::Browsing => return self.navigate(key, root),
             Mode::Panel(_) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {
-                    self.mode = Mode::Browsing;
-                    if self.page == Page::Detail {
-                        self.return_to_view();
+                    self.mode = mode;
+                    self.leave_repository_section();
+                }
+                _ if matches!(mode, Mode::Panel(crate::workspace::Section::Overview)) => {
+                    self.mode = mode;
+                    if key.code == KeyCode::F(1) {
+                        self.open_page(Page::Help);
                     } else {
-                        self.sync_bar();
+                        self.scroll_overview(key);
                     }
                 }
                 KeyCode::Enter => {
@@ -116,8 +120,8 @@ impl Screen {
                                 return Ok(false);
                             }
                             if self.page == Page::Detail {
-                                self.workspace.save(Mode::History(view));
-                                self.return_to_view();
+                                self.mode = Mode::History(view);
+                                self.leave_repository_section();
                             } else {
                                 self.sync_bar();
                             }
@@ -219,8 +223,8 @@ impl Screen {
                     KeyCode::Esc | KeyCode::Left => {
                         self.message.clear();
                         if self.page == Page::Detail {
-                            self.workspace.save(Mode::Files(session));
-                            self.return_to_view();
+                            self.mode = Mode::Files(session);
+                            self.leave_repository_section();
                         } else {
                             self.refresh_overview();
                             self.sync_bar();

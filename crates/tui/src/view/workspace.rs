@@ -20,7 +20,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
-        if section == focused {
+        if Some(section) == Section::focused(&screen.mode) {
             highlight_border(frame, pane_area);
         }
     }

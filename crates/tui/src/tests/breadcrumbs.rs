@@ -32,7 +32,7 @@ fn click_crumb(s: &mut Screen, destination: Destination) {
 }
 
 #[test]
-fn homepage_names_the_view_and_pane_focus_does_not_create_levels() {
+fn pane_focus_adds_one_level_and_sibling_switches_replace_it() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
@@ -43,7 +43,22 @@ fn homepage_names_the_view_and_pane_focus_does_not_create_levels() {
         for section in Section::ALL {
             key(&mut s, KeyCode::Enter);
             wait_workspace(&mut s);
+            let history_len = s.history.len();
+            for sibling in Section::ALL {
+                s.switch_repository_section(sibling);
+                assert_eq!(
+                    labels(&s),
+                    [
+                        home.clone(),
+                        crate::view::name(&f.repo),
+                        sibling.title().into()
+                    ]
+                );
+                assert_eq!(s.history.len(), history_len);
+            }
             s.switch_repository_section(section);
+            key(&mut s, KeyCode::Esc);
+            assert_eq!(s.page, Page::Detail);
             assert_eq!(labels(&s), [home.clone(), crate::view::name(&f.repo)]);
             key(&mut s, KeyCode::Esc);
             assert_eq!(s.page, Page::Repositories);
@@ -152,16 +167,19 @@ fn embedded_detail_returns_to_its_focused_pane_and_commands_do_not_navigate_on_c
     wait_workspace(&mut s);
     s.switch_repository_section(Section::Branches);
     key(&mut s, KeyCode::Enter);
+    assert_eq!(labels(&s).len(), 4);
+    click_crumb(&mut s, Destination::Current(Level::Pane(Section::Branches)));
     assert_eq!(labels(&s).len(), 3);
-    click_crumb(&mut s, Destination::Current(Level::Repository));
-    assert_eq!(labels(&s).len(), 2);
-    assert_eq!(Section::of(&s.mode), Section::Branches);
+    assert_eq!(Section::focused(&s.mode), Some(Section::Branches));
     key(&mut s, KeyCode::Char('/'));
     let draft = s.bar.text();
     click_crumb(&mut s, Destination::Home);
     assert_eq!(s.page, Page::Detail);
     assert_eq!(s.bar.text(), draft);
     key(&mut s, KeyCode::Esc);
+    click_crumb(&mut s, Destination::Current(Level::Repository));
+    assert_eq!(labels(&s).len(), 2);
+    assert_eq!(Section::focused(&s.mode), None);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Repositories);
     s.shutdown();
@@ -213,4 +231,178 @@ fn narrow_headers_keep_the_current_file_visible_and_clip_only_display_labels() {
     }
     click_crumb(&mut s, Destination::Home);
     assert_eq!(s.page, Page::Repositories);
+}
+
+#[test]
+fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_root() {
+    use crate::workspace::Arrangement;
+    for back in [KeyCode::Esc, KeyCode::Left] {
+        let f = support::Fixture::create();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        key(&mut s, KeyCode::Enter);
+        wait_workspace(&mut s);
+        let root = labels(&s);
+        let visits = s.history.len();
+        key(&mut s, KeyCode::Right);
+        for section in Section::ALL {
+            assert_eq!(Section::focused(&s.mode), Some(section));
+            let focused = labels(&s);
+            assert_eq!(focused.len(), root.len() + 1);
+            s.key(
+                KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+                &Cancel::default(),
+            )
+            .unwrap();
+            assert_eq!(labels(&s), focused);
+            assert_eq!(
+                s.workspace.session().unwrap().arrangement,
+                Arrangement::Maximized
+            );
+            s.key(
+                KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
+                &Cancel::default(),
+            )
+            .unwrap();
+            assert_eq!(labels(&s).len(), focused.len());
+            assert_eq!(s.history.len(), visits);
+            key(&mut s, back);
+            assert_eq!(labels(&s), root);
+            assert_eq!(
+                s.workspace.session().unwrap().arrangement,
+                Arrangement::Tiled
+            );
+            s.switch_repository_section(section.advance(false));
+            s.key(
+                KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+                &Cancel::default(),
+            )
+            .unwrap();
+            click_crumb(&mut s, Destination::Current(Level::Repository));
+            assert_eq!(labels(&s), root);
+            assert_eq!(
+                s.workspace.session().unwrap().arrangement,
+                Arrangement::Tiled
+            );
+            s.switch_repository_section(section.advance(false));
+        }
+        key(&mut s, back);
+        key(&mut s, back);
+        assert_eq!(s.page, Page::Repositories);
+        s.shutdown();
+    }
+}
+
+#[test]
+fn loading_and_failed_panes_have_the_same_scope_and_return_without_a_late_takeover() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    s.switch_repository_section(Section::Worktree);
+    assert!(matches!(s.mode, Mode::Panel(Section::Worktree)));
+    assert_eq!(labels(&s).len(), 3);
+    key(&mut s, KeyCode::Esc);
+    wait_workspace(&mut s);
+    assert!(matches!(s.mode, Mode::Browsing));
+    assert_eq!(labels(&s).len(), 2);
+    s.switch_repository_section(Section::Worktree);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    assert_eq!(labels(&s).len(), 3);
+    s.open_repository(f.repo.join("missing-repository"));
+    s.switch_repository_section(Section::History);
+    wait_workspace(&mut s);
+    assert!(matches!(
+        s.workspace.session().unwrap().history,
+        crate::workspace::Panel::Failed(_)
+    ));
+    assert_eq!(labels(&s).len(), 3);
+    click_crumb(&mut s, Destination::Current(Level::Repository));
+    assert_eq!(labels(&s).len(), 2);
+    assert!(matches!(s.mode, Mode::Browsing));
+    s.shutdown();
+}
+
+#[test]
+fn nested_history_and_saved_ancestors_restore_pane_scope_and_selected_commit() {
+    let f = support::Fixture::create();
+    f.commit("example.rs", "fn example() {}\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+    s.switch_repository_section(Section::History);
+    let selected = match &s.mode {
+        Mode::History(view) => view.session().selected().unwrap().oid,
+        _ => unreachable!(),
+    };
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(labels(&s).len(), 4);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(labels(&s).len(), 5);
+    command(&mut s, "settings");
+    let target = s
+        .breadcrumbs()
+        .into_iter()
+        .find(|crumb| crumb.label == Section::History.title())
+        .unwrap()
+        .destination
+        .unwrap();
+    click_crumb(&mut s, target);
+    assert_eq!(labels(&s).len(), 3);
+    assert!(
+        matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)) && view.session().selected().unwrap().oid == selected)
+    );
+    key(&mut s, KeyCode::Char('/'));
+    assert_eq!(s.bar.text(), "/repo log ");
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "settings");
+    let target = s
+        .breadcrumbs()
+        .into_iter()
+        .find(|crumb| crumb.label == crate::view::name(&f.repo))
+        .unwrap()
+        .destination
+        .unwrap();
+    click_crumb(&mut s, target);
+    assert_eq!(labels(&s).len(), 2);
+    assert!(matches!(s.mode, Mode::Browsing));
+    key(&mut s, KeyCode::Char('/'));
+    assert_eq!(s.bar.text(), "/repo ");
+    key(&mut s, KeyCode::Esc);
+    s.switch_repository_section(Section::History);
+    assert!(
+        matches!(&s.mode, Mode::History(view) if view.session().selected().unwrap().oid == selected)
+    );
+    s.shutdown();
+}
+
+#[test]
+fn leaving_pane_and_repository_preserves_the_home_search_without_extra_escape_steps() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.paste("repo");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.page, Page::Detail);
+    assert!(s.bar.editor().text.is_empty());
+    wait_workspace(&mut s);
+    s.switch_repository_section(Section::Branches);
+    s.paste("main");
+    s.paste("//settings");
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.editor().text, "main");
+    click_crumb(&mut s, Destination::Current(Level::Repository));
+    assert!(s.bar.editor().text.is_empty());
+    s.switch_repository_section(Section::Branches);
+    assert_eq!(s.bar.editor().text, "main");
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(labels(&s).len(), 3);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(labels(&s).len(), 2);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Repositories);
+    assert_eq!(s.bar.editor().text, "repo");
+    assert_eq!(s.query, "repo");
+    assert!(s.history.is_empty());
+    s.shutdown();
 }

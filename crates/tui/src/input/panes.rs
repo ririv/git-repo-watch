@@ -25,33 +25,23 @@ impl Screen {
                         | Mode::History(_)
                 ) =>
             {
-                self.switch_repository_section(
-                    Section::of(&self.mode).advance(key.code == KeyCode::Char('s')),
-                );
+                let backwards = key.code == KeyCode::Char('s');
+                let section = match Section::focused(&self.mode) {
+                    Some(section) => section.advance(backwards),
+                    None if backwards => Section::History,
+                    None => Section::Overview,
+                };
+                self.switch_repository_section(section);
                 true
             }
-            (KeyModifiers::CONTROL, KeyCode::Char('f')) if Workspace::is_root(&self.mode) => {
+            (KeyModifiers::CONTROL, KeyCode::Char('f'))
+                if Workspace::is_root(&self.mode) && Section::focused(&self.mode).is_some() =>
+            {
                 let session = self.workspace.session_mut().expect("open repository");
                 session.arrangement = match session.arrangement {
                     Arrangement::Tiled => Arrangement::Maximized,
                     Arrangement::Maximized => Arrangement::Tiled,
                 };
-                true
-            }
-            (KeyModifiers::NONE, KeyCode::Esc)
-                if Workspace::is_root(&self.mode)
-                    && self.bar.editor().text.is_empty()
-                    && self
-                        .workspace
-                        .session()
-                        .expect("open repository")
-                        .arrangement
-                        == Arrangement::Maximized =>
-            {
-                self.workspace
-                    .session_mut()
-                    .expect("open repository")
-                    .arrangement = Arrangement::Tiled;
                 true
             }
             _ => false,
