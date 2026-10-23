@@ -256,7 +256,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     };
     let block = Block::bordered()
         .border_type(ratatui::widgets::BorderType::Rounded)
-        .title(title)
+        .title(format!(" {} ", title.trim()))
         .title_style(Style::default().fg(accent))
         .border_style(Style::default().fg(accent))
         .style(input_style);
@@ -354,8 +354,14 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             inner,
         ),
     }
+    let hint_area = Rect::new(
+        parts[2].x + 2,
+        parts[2].y,
+        parts[2].width.saturating_sub(4),
+        parts[2].height,
+    );
     frame.render_widget(
-        Paragraph::new(truncate(hint, area.width as usize)).style(Style::default().fg(MUTED)),
-        parts[2],
+        Paragraph::new(truncate(hint, hint_area.width as usize)).style(Style::default().fg(MUTED)),
+        hint_area,
     );
 }
