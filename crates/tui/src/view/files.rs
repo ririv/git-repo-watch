@@ -74,7 +74,7 @@ pub(super) fn render(
                         unreachable!()
                     };
                     return ListItem::new(Line::styled(
-                        format!("      {}", safe(label)),
+                        format!("    {}", safe(label)),
                         Style::default().fg(ACCENT),
                     ));
                 };
@@ -91,11 +91,11 @@ pub(super) fn render(
                         ),
                         Style::default().fg(MUTED),
                     ),
+                    Span::styled(prefix.clone(), Style::default().fg(MUTED)),
                     Span::styled(
                         format!("{} ", change.kind),
                         Style::default().fg(if staged { GOOD } else { WARN }),
                     ),
-                    Span::styled(prefix.clone(), Style::default().fg(MUTED)),
                     Span::raw(safe(label)),
                 ]))
             })

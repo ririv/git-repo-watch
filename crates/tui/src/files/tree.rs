@@ -75,9 +75,7 @@ pub(crate) fn project(changes: &[(usize, &Change)], layout: Layout) -> Vec<Row> 
     rows
 }
 fn emit(children: &BTreeMap<(OsString, Kind), Node<'_>>, prefix: &str, rows: &mut Vec<Row>) {
-    for (position, ((name, _), node)) in children.iter().enumerate() {
-        let last = position + 1 == children.len();
-        let branch = if last { "└─ " } else { "├─ " };
+    for ((name, _), node) in children {
         match node {
             Node::Directory(nested) => {
                 let mut nested = nested;
@@ -94,13 +92,9 @@ fn emit(children: &BTreeMap<(OsString, Kind), Node<'_>>, prefix: &str, rows: &mu
                 }
                 rows.push(Row::Directory {
                     following: node.first(),
-                    label: format!("{prefix}{branch}{label}/"),
+                    label: format!("{prefix}{label}/"),
                 });
-                emit(
-                    nested,
-                    &format!("{prefix}{}", if last { "   " } else { "│  " }),
-                    rows,
-                );
+                emit(nested, &format!("{prefix}  "), rows);
             }
             Node::File(index, change) => {
                 // 重命名保留两端路径，避免同名文件隐藏来源信息。
@@ -110,7 +104,7 @@ fn emit(children: &BTreeMap<(OsString, Kind), Node<'_>>, prefix: &str, rows: &mu
                 };
                 rows.push(Row::File {
                     index: *index,
-                    prefix: format!("{prefix}{branch}"),
+                    prefix: prefix.to_owned(),
                     label,
                 });
             }
@@ -130,7 +124,7 @@ mod tests {
         }
     }
     #[test]
-    fn nested_paths_keep_file_identity_unicode_and_sibling_connectors() {
+    fn nested_paths_keep_file_identity_unicode_and_two_column_indentation() {
         let files = [
             change("src/中文 目录/a.ts"),
             change("src/中文 目录/b.ts"),
@@ -143,21 +137,21 @@ mod tests {
             vec![
                 Row::Directory {
                     following: 0,
-                    label: "├─ src/中文 目录/".into()
+                    label: "src/中文 目录/".into()
                 },
                 Row::File {
                     index: 0,
-                    prefix: "│  ├─ ".into(),
+                    prefix: "  ".into(),
                     label: "a.ts".into()
                 },
                 Row::File {
                     index: 1,
-                    prefix: "│  └─ ".into(),
+                    prefix: "  ".into(),
                     label: "b.ts".into()
                 },
                 Row::File {
                     index: 2,
-                    prefix: "└─ ".into(),
+                    prefix: "".into(),
                     label: "z.txt".into()
                 },
             ]
@@ -166,7 +160,7 @@ mod tests {
         let filtered = project(&[(1, &files[1])], Layout::Tree);
         assert_eq!(filtered.len(), 2);
         assert!(
-            matches!(&filtered[0], Row::Directory{following: 1, label} if label == "└─ src/中文 目录/")
+            matches!(&filtered[0], Row::Directory{following: 1, label} if label == "src/中文 目录/")
         );
     }
     #[test]
@@ -211,11 +205,11 @@ mod tests {
         assert_eq!(
             labels,
             [
-                "├─ output/imagegen/",
-                "│  ├─ cache/",
-                "│  └─ thumb/",
-                "└─ src/",
-                "   └─ nested/deep/"
+                "output/imagegen/",
+                "  cache/",
+                "  thumb/",
+                "src/",
+                "  nested/deep/"
             ]
         );
         let indices = rows
