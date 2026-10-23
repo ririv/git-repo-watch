@@ -247,7 +247,13 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     );
     let title = input
         .context()
-        .map(|context| format!("/{} · {}", context.name(), i18n::tr!(ContextCommands)))
+        .map(|context| {
+            format!(
+                "/{} · {}",
+                context.name(),
+                repository_list::menu_title(screen).unwrap_or(i18n::tr!(ContextCommands))
+            )
+        })
         .or_else(|| repository_list::menu_title(screen).map(str::to_owned))
         .unwrap_or_else(|| {
             i18n::tf!(

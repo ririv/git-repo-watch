@@ -46,7 +46,8 @@ impl Screen {
                 }
             }
             Action::Quit => return Ok(true),
-            Action::Repositories => {
+            Action::Repositories => self.open_repository_list(path),
+            Action::RepositorySettings => {
                 self.focus(path);
                 self.open_configuration(Configuration::Repositories);
             }
@@ -60,6 +61,15 @@ impl Screen {
                 self.page = Page::Help;
                 self.mode = Mode::Browsing;
                 self.scroll = 0
+            }
+            Action::RepositoryRefresh => {
+                if self.repository_list_active() {
+                    if let Err(error) = self.reload(root) {
+                        self.error(i18n::tr!(RefreshFailed), error);
+                    }
+                } else {
+                    self.message = i18n::tr!(RepositoryListOnly).into();
+                }
             }
             Action::Refresh => {
                 if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {

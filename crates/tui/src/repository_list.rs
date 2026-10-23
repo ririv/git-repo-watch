@@ -66,6 +66,17 @@ pub(crate) enum Menu {
 }
 
 impl Screen {
+    pub(crate) fn open_repository_list(&mut self, path: Option<std::path::PathBuf>) {
+        if self.page == Page::Detail {
+            self.park_workspace();
+        }
+        self.page = Page::Repositories;
+        self.mode = Mode::Browsing;
+        self.history.clear();
+        self.scroll = 0;
+        self.focus(path);
+        self.sync_bar();
+    }
     pub(crate) fn repository_list_active(&self) -> bool {
         self.page == Page::Repositories && matches!(self.mode, Mode::Browsing)
     }
@@ -78,13 +89,16 @@ impl Screen {
             Menu::Filter => ("filter", Action::Filter(self.filter)),
             Menu::Sort => ("sort", Action::Sort(self.order)),
         };
-        let input = format!("{name} ");
+        let input = format!("repo {name} ");
         let selected = crate::command::matches(&input)
             .iter()
             .position(|command| command.action == current)
             .expect("current list option has a command");
         self.bar = InputBar::Command {
-            input: crate::command::Input::global(Editor::new(format!("/{input}"))),
+            input: crate::command::Input::from_canonical(
+                self.command_context(),
+                Editor::new(format!("/{input}")),
+            ),
             selected,
             menu: Default::default(),
             path: self.selected_path(),

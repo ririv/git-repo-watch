@@ -21,14 +21,14 @@
 - 全局菜单只展示顶层命令；输入 `/diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
 - 带参数命令直接在输入栏填写，如 `/repo add <path>`、`/settings concurrency <count>`。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
-- 仓库首页用 `/filter` 筛选、`/sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
+- 仓库首页用 `/repo filter` 筛选、`/repo sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
-- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/sort name`。
+- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repo sort name`。
 - 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。只影响当前会话，不检查仓库或修改报告。
 - `Ctrl+R` 重新读取报告或刷新文件面板；仓库主列表中的滚轮每次移动三项。
 
 ## 上下文前缀
-- 当前视图前缀独立显示且不能作为文字删除：文件／差异为 /diff，历史为 /log，分支为 /branch，管理页为 /repo、/settings、/schedule。首页与概览使用全局入口。
+- 当前视图前缀独立显示且不能作为文字删除：文件／差异为 /diff，历史为 /log，分支为 /branch，管理页为 /repo、/settings、/schedule。首页使用 /repo，概览使用全局入口。
 - 只输入前缀后的操作，如 diff 中的 stage、unstage、layout、refresh；候选只在当前范围内按名称或中英文说明筛选。
 - 后缀为空时，第一次 Backspace 选中前缀，第二次清除并打开全局菜单；选中前缀时 Enter 只返回编辑，不执行候选。
 - 空命令后缀再按 / 也会切到全局；从搜索状态输入 //settings 可直接打开全局设置。
@@ -100,7 +100,7 @@
 - `/check` 检查当前仓库，`/check all` 检查全部注册仓库；直接开始，无需确认，也不推送。
 - 检查在后台进行，可继续浏览、搜索和查看文件；旋转标记指示正在检查的仓库，未完成的保留上轮状态。
 - `/cancel` 优先取消当前仓库任务，无当前任务时取消整轮检查；独立仓库并行，共享 Git 存储的操作串行。配置读改写使用短事务。
-- `/repo` 管理注册和排除：`/repo add <path>`、`/repo remove`、`/repo exclude <path>`、`/repo unexclude <path>`。
+- `/repo` 返回仓库列表，`/repo manage` 查看注册和排除配置；也可直接使用：`/repo add <path>`、`/repo remove`、`/repo exclude <path>`、`/repo unexclude <path>`。
 - `/repo scan <path>` 预览发现结果，`/repo import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
 - `/settings startup-check <true|false>` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。

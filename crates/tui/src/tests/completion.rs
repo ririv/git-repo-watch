@@ -7,7 +7,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
         std::fs::create_dir(temp.path().join(name)).unwrap();
     }
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "repo");
+    command(&mut s, "repo manage");
     s.paste(&format!("//repo add \"{}/仓\"", temp.path().display()));
     key(&mut s, KeyCode::Tab);
     assert!(matches!(

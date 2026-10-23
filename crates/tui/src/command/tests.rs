@@ -51,7 +51,7 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
                 .any(|candidate| candidate.name == child.name)
         }));
     }
-    assert_eq!(names("repo r"), ["repo remove"]);
+    assert_eq!(names("repo r"), ["repo refresh", "repo remove"]);
     assert_eq!(
         names("schedule a"),
         ["schedule anchor", "schedule autopush", "schedule apply"]

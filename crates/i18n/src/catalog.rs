@@ -327,6 +327,8 @@ pub enum Message {
 
     GeneralSettings,
     ManageRepositories,
+    RepositoryManagementSettings,
+    RefreshRepositoryReport,
     RepositoryManagement,
     ConfigureSchedule,
     ScheduleSettings,
@@ -1076,20 +1078,22 @@ impl Message {
             (Self::RepositoryOrderUpdated, Language::English) => "Recently updated",
             (Self::RepositoryOrderUpdated, Language::Chinese) => "最近更新",
             (Self::RepositoryListOnly, Language::English) => {
-                "Use /filter and /sort on the repository home page"
+                "Use /repo filter and /repo sort on the repository home page"
             }
-            (Self::RepositoryListOnly, Language::Chinese) => "请在仓库首页使用 /filter 和 /sort",
+            (Self::RepositoryListOnly, Language::Chinese) => {
+                "请在仓库首页使用 /repo filter 和 /repo sort"
+            }
             (Self::RepositoryListHint, Language::English) => {
-                "↑↓ select · →/Enter open · /filter · /sort · F1 help"
+                "↑↓ select · →/Enter open · /repo commands"
             }
             (Self::RepositoryListHint, Language::Chinese) => {
-                "↑↓ 选择 · →/Enter 详情 · /filter 筛选 · /sort 排序"
+                "↑↓选择 · →/Enter 打开 · /repo 仓库命令"
             }
             (Self::RepositoryListNoMatches, Language::English) => {
-                "No matches; edit search or /filter"
+                "No matches; edit search or /repo filter"
             }
             (Self::RepositoryListNoMatches, Language::Chinese) => {
-                "没有匹配仓库，请修改搜索或 /filter 筛选"
+                "没有匹配仓库，请修改搜索或 /repo filter 筛选"
             }
             (Self::InvalidScheduleAnchor, Language::English) => {
                 "Use HH:MM[:SS], YYYY-MM-DD HH:MM[:SS], or auto"
@@ -3236,10 +3240,18 @@ impl Message {
             (Self::EnterConfirmEscCancelPgupPgdnReview, Language::Chinese) => {
                 "Enter 确认 · Esc 取消 · PgUp/PgDn 查看"
             }
-            (Self::ManageRepositories, Language::English) => {
-                "Manage registration, discovery and exclusions"
+            (Self::ManageRepositories, Language::English) => "Repository list and management",
+            (Self::RepositoryManagementSettings, Language::English) => {
+                "Manage repository registration and exclusions"
             }
-            (Self::ManageRepositories, Language::Chinese) => "管理仓库注册、扫描和排除",
+            (Self::RepositoryManagementSettings, Language::Chinese) => "查看仓库注册与排除配置",
+            (Self::RefreshRepositoryReport, Language::English) => {
+                "Reload the saved repository report without checking Git"
+            }
+            (Self::RefreshRepositoryReport, Language::Chinese) => {
+                "重新读取仓库报告，不执行 Git 检查"
+            }
+            (Self::ManageRepositories, Language::Chinese) => "仓库列表与管理",
             (Self::RepositoryManagement, Language::English) => "Repository management",
             (Self::RepositoryManagement, Language::Chinese) => "仓库管理",
             (Self::ConfigureSchedule, Language::English) => {

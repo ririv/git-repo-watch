@@ -202,7 +202,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/a".into(), "/path/to/b".into()]);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("diff sta");
+    s.paste("/diff sta");
     key(&mut s, KeyCode::Tab);
     assert!(matches!(&s.bar,crate::bar::InputBar::Command{input,..}if input.text()=="/diff stage"));
     key(&mut s, KeyCode::Esc);
@@ -210,7 +210,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("repo remove");
+    s.paste("/repo remove");
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
@@ -242,8 +242,8 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
         assert!(!text.contains("1 / 1"));
         key(&mut s, KeyCode::Char('/'));
         let text = render(&mut s, size.0, size.1);
-        assert!(text.contains("当前仓库"));
-        assert!(text.contains("Tab 补全"));
+        assert!(text.contains("当前视图"));
+        assert!(text.contains(i18n::tr!(ContextCommandHint)));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repo remove");
         let text = render(&mut s, size.0, size.1);
@@ -398,7 +398,7 @@ fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
     assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Esc);
     assert!(!key(&mut s, KeyCode::Char('/')));
-    s.paste("quit");
+    s.paste("/quit");
     assert!(key(&mut s, KeyCode::Enter));
 }
 #[test]
@@ -439,11 +439,13 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
         let during = render(&mut s, w, h);
         let during_lines = during.lines().collect::<Vec<_>>();
         assert!(during_lines[list_line].contains("仓库 · 1"));
-        assert!(during_lines[input_line].contains("› /"));
-        assert!(during.contains("当前仓库"));
+        assert!(
+            during_lines[input_line].contains("/repo") && during_lines[input_line].contains("›")
+        );
+        assert!(during.contains("当前视图"));
         let top = during_lines
             .iter()
-            .position(|line| line.contains("命令 · alpha"))
+            .position(|line| line.contains("/repo ·"))
             .unwrap();
         assert!(during_lines[top].starts_with('┌'));
         assert!(during_lines[top].ends_with('┐'));
@@ -457,7 +459,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
             key(&mut s, KeyCode::Down);
         }
         let scrolled = render(&mut s, w, h);
-        assert!(scrolled.contains("/quit"));
+        assert!(scrolled.contains("import <path>"));
         s.paste("nonexistent");
         assert!(render(&mut s, w, h).contains("没有匹配命令"));
 
@@ -499,19 +501,19 @@ fn numeric_search_and_list_commands_do_not_conflict() {
     assert_eq!(s.filter, Filter::All);
     assert_eq!(s.rows().len(), 1);
     for (name, expected) in [
-        ("filter problems", Filter::Problems),
-        ("filter unchecked", Filter::Unchecked),
-        ("filter all", Filter::All),
+        ("repo filter problems", Filter::Problems),
+        ("repo filter unchecked", Filter::Unchecked),
+        ("repo filter all", Filter::All),
     ] {
         key(&mut s, KeyCode::Char('/'));
-        s.paste(name);
+        s.paste(&format!("/{name}"));
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.filter, expected);
         assert_eq!(s.query, "1234");
         assert_eq!(s.bar.editor().text, "1234");
     }
     key(&mut s, KeyCode::Esc);
-    s.paste("/");
+    s.paste("//");
     s.key(
         KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
         &Cancel::default(),
@@ -596,9 +598,9 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         let text = render(&mut s, width, height);
         assert!(text.contains("Search repositories"));
         assert!(text.contains("Type to search"));
-        assert!(text.contains("/filter All · /sort Priority"));
+        assert!(text.contains("filter All · sort Priority"));
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
-        s.paste("/");
+        s.paste("//");
         let candidates = render(&mut s, width, height);
         assert!(candidates.contains("Current repo"));
         assert!(candidates.contains("Tab complete"));
@@ -703,7 +705,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
         let _language = i18n::using(language);
         let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
         for (width, height) in [(60, 24), (100, 28), (150, 32)] {
-            s.paste("/");
+            s.paste("//");
             let text = render(&mut s, width, height);
             let visible = |text: &str| {
                 text.lines()
@@ -1151,7 +1153,7 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.focus(Some(first.repo.clone()));
     key(&mut s, KeyCode::Char('/'));
-    s.paste("check");
+    s.paste("/check");
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
     assert!(!s.repository_tasks.is_empty());
@@ -1343,7 +1345,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         ["check all"]
     );
-    assert_eq!(command::matches("repo ").len(), 7);
+    assert_eq!(command::matches("repo ").len(), 22);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
         command::matches("check")
@@ -1391,7 +1393,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         assert!(matches!(s.mode, Mode::Browsing));
         assert!(s.bar.text().starts_with("/settings concurrency "));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "repo");
+        command(&mut s, "repo manage");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         let text = render(&mut s, 100, 28);
         assert!(text.contains("/example/excluded"));
@@ -1403,7 +1405,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
 fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("repo");
+    s.paste("/repo");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/repo");
     s.select(1);
@@ -1459,7 +1461,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
 #[test]
 fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     let (_home, mut s) = fixture(vec![]);
-    s.paste("/");
+    s.paste("//");
     let index = s
         .bar
         .commands()
@@ -1552,7 +1554,7 @@ fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
-        command(&mut s, "repo");
+        command(&mut s, "repo manage");
         s.paste("//repo a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             assert!(render(&mut s, width, height).contains("/repo add <path>"));
@@ -1577,7 +1579,7 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     std::fs::rename(&f.repo, &renamed).unwrap();
     f.repo = std::fs::canonicalize(renamed).unwrap();
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "repo");
+    command(&mut s, "repo manage");
     let input = format!("repo add \"{}\"", f.repo.display());
     command(&mut s, &input);
     assert!(

@@ -26,8 +26,8 @@ fn slow_commit_keeps_navigation_commands_and_other_repository_operations_availab
     );
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(render(&mut s, 140, 30).contains("delayed commit"));
-    command(&mut s, "sort name");
-    command(&mut s, "filter all");
+    command(&mut s, "repo sort name");
+    command(&mut s, "repo filter all");
     assert_eq!(s.order, Order::Name);
     assert_eq!(s.selected_path(), Some(first.repo.clone()));
     assert!(s.repository_tasks.contains_key(&first.repo));

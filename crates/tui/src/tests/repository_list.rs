@@ -159,18 +159,18 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         s.focus(Some("/z/beta".into()));
         let selected = s.selected_path();
         let configuration = std::fs::read(s.service.store.config_path()).unwrap();
-        command(&mut s, "sort");
-        assert_eq!(s.bar.text(), "/sort ");
+        command(&mut s, "repo sort");
+        assert_eq!(s.bar.text(), "/repo sort ");
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 0, .. }));
         key(&mut s, KeyCode::Down);
         assert_eq!(s.order, Order::Priority);
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.selected_path(), selected);
         assert_eq!(s.order, Order::Priority);
-        command(&mut s, "sort name");
+        command(&mut s, "repo sort name");
         assert_eq!(s.order, Order::Name);
         assert_eq!(s.selected_path(), selected);
-        command(&mut s, "sort");
+        command(&mut s, "repo sort");
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 1, .. }));
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
@@ -178,11 +178,11 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
             assert!(text.contains(i18n::tr!(RepositorySortCommand)), "{text}");
         }
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "filter failed");
+        command(&mut s, "repo filter failed");
         assert!(s.rows().is_empty());
         assert_eq!(s.selected_path(), None);
         assert!(render(&mut s, 60, 18).contains(i18n::tr!(RepositoryListNoMatches)));
-        command(&mut s, "filter");
+        command(&mut s, "repo filter");
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 3, .. }));
         key(&mut s, KeyCode::Home);
         // Home 编辑命令光标，不改变选项；↑ 与 Enter 仍可恢复全部。
@@ -247,7 +247,7 @@ fn list_commands_combine_with_search_and_keep_repo_scope_after_reordering() {
 fn list_menus_support_mouse_and_do_not_take_over_other_views() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     let (_home, mut s) = fixture(vec!["/example/a".into()]);
-    command(&mut s, "filter");
+    command(&mut s, "repo filter");
     render(&mut s, 140, 30);
     let (area, _) = s
         .command_items
@@ -269,7 +269,7 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
     .unwrap();
     assert_eq!(s.filter, Filter::Unchecked);
     command(&mut s, "help");
-    command(&mut s, "sort name");
+    command(&mut s, "repo sort name");
     assert_eq!(s.page, Page::Help);
     assert_eq!(s.order, Order::Priority);
     assert_eq!(s.message, i18n::tr!(RepositoryListOnly));

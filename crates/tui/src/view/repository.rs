@@ -8,9 +8,9 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     .split(area);
     frame.render_widget(
         Paragraph::new(Line::from(vec![
-            Span::styled("/filter ", Style::default().fg(MUTED)),
+            Span::styled("filter ", Style::default().fg(MUTED)),
             Span::styled(screen.filter.label(), Style::default().fg(ACCENT)),
-            Span::styled(" · /sort ", Style::default().fg(MUTED)),
+            Span::styled(" · sort ", Style::default().fg(MUTED)),
             Span::styled(screen.order.label(), Style::default().fg(ACCENT)),
         ])),
         parts[0],

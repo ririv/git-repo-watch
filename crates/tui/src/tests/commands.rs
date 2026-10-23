@@ -6,7 +6,7 @@ fn description_selection_completes_real_commands_and_returns_parameter_drafts() 
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
         let configuration = std::fs::read(s.service.store.config_path()).unwrap();
-        s.paste("/检查频率");
+        s.paste("//检查频率");
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
             assert!(text.contains("/schedule interval <duration>"), "{text}");

@@ -8,12 +8,17 @@ pub(crate) enum DiffContext {
     History,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RepositoryContext {
+    List,
+    Management,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Context {
     Diff(DiffContext),
     History,
     Branches,
     Stash,
-    Repositories,
+    Repositories(RepositoryContext),
     Settings,
     Schedule,
     Error,
@@ -25,7 +30,7 @@ impl Context {
             Self::History => "log",
             Self::Branches => "branch",
             Self::Stash => "stash",
-            Self::Repositories => "repo",
+            Self::Repositories(_) => "repo",
             Self::Settings => "settings",
             Self::Schedule => "schedule",
             Self::Error => "error",
@@ -36,6 +41,16 @@ impl Context {
     }
     pub fn admits(self, command: &Command) -> bool {
         self.relative(command).is_some()
+            && !(self == Self::Repositories(RepositoryContext::Management)
+                && matches!(
+                    command.action,
+                    Action::FilterMenu
+                        | Action::Filter(_)
+                        | Action::SortMenu
+                        | Action::Sort(_)
+                        | Action::RepositorySettings
+                        | Action::RepositoryRefresh
+                ))
             && !(self == Self::Diff(DiffContext::History)
                 && matches!(
                     command.action,
@@ -101,7 +116,10 @@ impl Screen {
             },
             Mode::Browsing => match self.page {
                 Page::Configuration(Configuration::General) => Some(Context::Settings),
-                Page::Configuration(Configuration::Repositories) => Some(Context::Repositories),
+                Page::Repositories => Some(Context::Repositories(RepositoryContext::List)),
+                Page::Configuration(Configuration::Repositories) => {
+                    Some(Context::Repositories(RepositoryContext::Management))
+                }
                 Page::Configuration(Configuration::Schedule) => Some(Context::Schedule),
                 _ => None,
             },
