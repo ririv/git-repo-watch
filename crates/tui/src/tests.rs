@@ -1,5 +1,6 @@
 mod branches;
 mod changes;
+mod command_trigger;
 mod commands;
 mod completion;
 mod concurrency;
@@ -93,6 +94,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: false,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();

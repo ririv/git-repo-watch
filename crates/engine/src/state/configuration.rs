@@ -21,6 +21,7 @@ impl Default for Config {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: true,
+            chinese_command_trigger: true,
         }
     }
 }
@@ -43,6 +44,11 @@ pub struct Config {
     pub max_concurrency: usize,
     #[serde(default = "default_startup_check")]
     pub check_on_startup: bool,
+    #[serde(default = "default_chinese_command_trigger")]
+    pub chinese_command_trigger: bool,
+}
+fn default_chinese_command_trigger() -> bool {
+    true
 }
 fn default_startup_check() -> bool {
     true
@@ -88,13 +94,14 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 7] = [
+const FIELDS: [&str; 8] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
     "push_policy",
     "max_concurrency",
     "check_on_startup",
+    "chinese_command_trigger",
     "schedule_anchor",
 ];
 #[derive(Debug, Clone, Serialize)]

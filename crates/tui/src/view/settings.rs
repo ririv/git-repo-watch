@@ -1,25 +1,32 @@
 use super::*;
+use crate::settings::Item;
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
     let mut lines = Vec::new();
-    for (i, action) in section
-        .actions(screen.snapshot.registration)
+    for (i, item) in section
+        .items(screen.snapshot.registration)
         .iter()
         .enumerate()
     {
-        let value = match action {
-            Action::Interval => {
+        let value = match item {
+            Item::Command(Action::Interval) => {
                 engine::scheduler::duration::compact(screen.config.interval_seconds)
             }
-            Action::Anchor => screen.config.schedule_anchor.display(),
-            Action::Autopush => screen.config.push_policy.to_string(),
-            Action::Concurrency => screen.config.max_concurrency.to_string(),
-            Action::StartupCheck => if screen.config.check_on_startup {
+            Item::Command(Action::Anchor) => screen.config.schedule_anchor.display(),
+            Item::Command(Action::Autopush) => screen.config.push_policy.to_string(),
+            Item::Command(Action::Concurrency) => screen.config.max_concurrency.to_string(),
+            Item::Command(Action::StartupCheck) => if screen.config.check_on_startup {
                 i18n::tr!(TaskEnabled)
             } else {
                 i18n::tr!(TaskDisabled)
             }
             .into(),
-            Action::Remove => screen
+            Item::ChineseCommandTrigger => if screen.config.chinese_command_trigger {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
+            Item::Command(Action::Remove) => screen
                 .selected_path()
                 .map(|path| name(&path))
                 .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into()),
@@ -33,7 +40,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 } else {
                     " "
                 },
-                command::description(*action)
+                item.description()
             ),
             if screen.setting_selected == i {
                 selected_style()

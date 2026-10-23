@@ -100,4 +100,5 @@ pub enum ConfigEdit {
     Policy(PushPolicy),
     Concurrency(usize),
     StartupCheck(bool),
+    ChineseCommandTrigger(bool),
 }

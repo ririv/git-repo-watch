@@ -277,6 +277,8 @@ pub enum Message {
     SyntaxLineCountLimit,
     SyntaxBinary,
     SyntaxNonRegular,
+    ChineseCommandTrigger,
+    ChineseCommandTriggerSaved,
     CheckAllOnStartup,
     StartupCheckArgumentHint,
     BooleanArgumentRequired,
@@ -2919,6 +2921,16 @@ impl Message {
             }
             (Self::ExpandedPathNotUtf8, Language::English) => "Expanded path is not UTF-8 text",
             (Self::ExpandedPathNotUtf8, Language::Chinese) => "展开后的路径不是 UTF-8 文本",
+            (Self::ChineseCommandTrigger, Language::English) => {
+                "Use 、 to open commands in Chinese UI"
+            }
+            (Self::ChineseCommandTrigger, Language::Chinese) => "输入 、 打开命令菜单",
+            (Self::ChineseCommandTriggerSaved, Language::English) => {
+                "Chinese command trigger preference saved"
+            }
+            (Self::ChineseCommandTriggerSaved, Language::Chinese) => {
+                "中文命令触发设置已保存，立即生效"
+            }
             (Self::CheckAllOnStartup, Language::English) => "Check all repositories on startup",
             (Self::CheckAllOnStartup, Language::Chinese) => "启动时检查全部仓库",
             (Self::StartupCheckArgumentHint, Language::English) => {

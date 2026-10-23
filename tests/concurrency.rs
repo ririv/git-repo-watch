@@ -83,6 +83,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: false,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let spawn = |repo: &PathBuf| {

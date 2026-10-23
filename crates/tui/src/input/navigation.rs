@@ -53,13 +53,11 @@ impl Screen {
                 KeyCode::Up => self.setting_selected = self.setting_selected.saturating_sub(1),
                 KeyCode::Down => {
                     self.setting_selected = (self.setting_selected + 1)
-                        .min(section.actions(self.snapshot.registration).len() - 1)
+                        .min(section.items(self.snapshot.registration).len() - 1)
                 }
                 KeyCode::Enter | KeyCode::Right => {
-                    return self.activate(
-                        section.actions(self.snapshot.registration)[self.setting_selected],
-                        self.selected_path(),
-                        crate::clipboard::Selection::None,
+                    return self.activate_setting(
+                        section.items(self.snapshot.registration)[self.setting_selected],
                         root,
                     );
                 }

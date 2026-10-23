@@ -139,6 +139,8 @@ impl Screen {
         }
     }
     pub(crate) fn bar_paste(&mut self, text: &str) {
+        let text = self.command_trigger_text(text);
+        let text = text.as_ref();
         if matches!(self.bar, InputBar::Layout { .. }) {
             return;
         }
@@ -163,6 +165,7 @@ impl Screen {
         self.message.clear();
     }
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
+        let key = self.command_trigger_key(key);
         // 错误页只开放复制与退出；Esc 先关闭命令，再交给错误页返回。
         if matches!(self.mode, Mode::Error { .. }) && !matches!(self.bar, InputBar::Command { .. })
         {

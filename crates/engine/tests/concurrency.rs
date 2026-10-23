@@ -28,6 +28,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
             push_policy: PushPolicy::Disabled,
             max_concurrency: concurrency,
             check_on_startup: false,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let manager = Manager::for_user(home.path().to_owned(), unsafe { libc::getuid() }).unwrap();

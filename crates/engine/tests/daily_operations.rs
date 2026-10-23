@@ -24,6 +24,7 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: false,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();

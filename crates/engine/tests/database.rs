@@ -638,6 +638,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         repositories: vec!["/example/中文 空格".into()],
         max_concurrency: 8,
         check_on_startup: false,
+        chinese_command_trigger: true,
         ..engine::state::Config::default()
     };
     fs::write(

@@ -40,6 +40,7 @@ excluded_roots = []
 push_policy = 'disabled'
 max_concurrency = 4
 check_on_startup = true # 启动检查
+chinese_command_trigger = true # 中文输入
 "#;
     fs::write(store.config_path(), text).unwrap();
     let mut config = store.config().unwrap();
@@ -109,6 +110,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         repositories: vec!["/example/中文 空格".into()],
         max_concurrency: 8,
         check_on_startup: false,
+        chinese_command_trigger: true,
         ..Config::default()
     };
     let json = serde_json::to_vec_pretty(&config).unwrap();
@@ -174,4 +176,25 @@ fn malformed_json_and_cancelled_conversion_preserve_the_original() {
     cancel.cancel();
     assert!(store.migrate_configuration(&cancel).is_err());
     assert!(!store.config_path().exists());
+}
+
+#[test]
+fn chinese_trigger_defaults_without_rewriting_old_config_and_persists_explicit_choice() {
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("chinese_command_trigger = true\n", "");
+    fs::write(store.config_path(), &text).unwrap();
+    let mut config = store.config().unwrap();
+    assert!(config.chinese_command_trigger);
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), text);
+    config.chinese_command_trigger = false;
+    store.save_config(&config).unwrap();
+    assert!(!store.config().unwrap().chinese_command_trigger);
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("chinese_command_trigger = false")
+    );
 }

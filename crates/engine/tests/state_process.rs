@@ -108,6 +108,7 @@ fn intervals_and_schema_boundaries() {
         push_policy: PushPolicy::Disabled,
         max_concurrency: 32,
         check_on_startup: true,
+        chinese_command_trigger: true,
     };
     assert!(c.validate().is_ok());
 }

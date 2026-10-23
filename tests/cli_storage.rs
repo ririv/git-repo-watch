@@ -19,6 +19,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: false,
+            chinese_command_trigger: true,
         })
         .unwrap();
     (home, store)

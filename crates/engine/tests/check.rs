@@ -136,6 +136,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 2,
             check_on_startup: true,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -234,6 +235,7 @@ fn independent_repositories_overlap_real_fetches() {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 2,
             check_on_startup: true,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -263,6 +265,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             push_policy: PushPolicy::FastForward,
             max_concurrency: 4,
             check_on_startup: true,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -352,6 +355,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: true,
+            chinese_command_trigger: true,
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -398,6 +402,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
             push_policy: PushPolicy::FastForward,
             max_concurrency: 4,
             check_on_startup: true,
+            chinese_command_trigger: true,
         })
         .unwrap();
     {
