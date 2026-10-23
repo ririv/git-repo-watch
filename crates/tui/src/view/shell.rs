@@ -1,3 +1,4 @@
+mod summary;
 use super::*;
 pub(super) fn header(screen: &mut Screen, area: Rect) -> Text<'static> {
     let mut lines = vec![super::breadcrumbs::render(screen, area)];
@@ -63,35 +64,7 @@ pub(super) fn header(screen: &mut Screen, area: Rect) -> Text<'static> {
                 Style::default().fg(WARN),
             ))
         }
-        if screen.page == Page::Repositories {
-            let known = screen
-                .config
-                .repositories
-                .iter()
-                .filter_map(|path| screen.result_for(path))
-                .collect::<Vec<_>>();
-            if !known.is_empty() {
-                let stats = Stats::repositories(known);
-                lines.push(Line::from(i18n::tf!(
-                    CleanAttentionFailed,
-                    stats.clean,
-                    stats.attention,
-                    stats.failed
-                )));
-            }
-        }
-        match &screen.snapshot.report {
-            CachedReport::Missing => lines.push(Line::from(i18n::tr!(NoCompleteReportYet))),
-            CachedReport::Available { report, scope } => lines.push(Line::from(i18n::tf!(
-                LastCheck,
-                local_time(&report.finished_at),
-                if matches!(scope, Scope::Outdated) {
-                    i18n::tr!(ReportScopeChanged)
-                } else {
-                    ""
-                }
-            ))),
-        }
+        lines.extend(summary::lines(screen, area.width));
     }
     Text::from(lines)
 }

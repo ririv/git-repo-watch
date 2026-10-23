@@ -487,6 +487,7 @@ pub enum Message {
     CheckFailed,
     NeedsAttention,
     Clean,
+    Failed,
     UnsupportedReportVersion,
     All,
     Problems,
@@ -678,7 +679,6 @@ pub enum Message {
     CheckingAlt,
     ScheduleNotLoaded,
     NoCompleteReportYet,
-    CleanAttentionFailed,
     LastCheck,
     ReportScopeChanged,
     FilesSelected,
@@ -2163,6 +2163,8 @@ impl Message {
             (Self::NeedsAttention, Language::Chinese) => "需关注",
             (Self::Clean, Language::English) => "Clean",
             (Self::Clean, Language::Chinese) => "正常",
+            (Self::Failed, Language::English) => "Failed",
+            (Self::Failed, Language::Chinese) => "失败",
             (Self::UnsupportedReportVersion, Language::English) => "Unsupported report version: {}",
             (Self::UnsupportedReportVersion, Language::Chinese) => "不支持的报告版本：{}",
             (Self::All, Language::English) => "All",
@@ -3109,10 +3111,6 @@ impl Message {
             (Self::ScheduleNotLoaded, Language::Chinese) => " · 定时任务未加载",
             (Self::NoCompleteReportYet, Language::English) => " No complete report yet",
             (Self::NoCompleteReportYet, Language::Chinese) => " 尚无完整报告",
-            (Self::CleanAttentionFailed, Language::English) => {
-                " Clean {} · Attention {} · Failed {}"
-            }
-            (Self::CleanAttentionFailed, Language::Chinese) => " 正常 {} · 需关注 {} · 失败 {}",
             (Self::LastCheck, Language::English) => " Last check: {}{}",
             (Self::LastCheck, Language::Chinese) => " 上次检查：{}{}",
             (Self::ReportScopeChanged, Language::English) => " · Report scope changed",
@@ -3966,12 +3964,6 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("Repository: {}\nBranch: {}\nScope: staged contents only\n\nStaged files\n" $(, $($args)*)?),
             $crate::Language::Chinese => format!("仓库：{}\n分支：{}\n范围：仅已暂存内容\n\n暂存文件\n" $(, $($args)*)?),
-        }
-    };
-    (CleanAttentionFailed $(, $($args:tt)*)?) => {
-        match $crate::language() {
-            $crate::Language::English => format!(" Clean {} · Attention {} · Failed {}" $(, $($args)*)?),
-            $crate::Language::Chinese => format!(" 正常 {} · 需关注 {} · 失败 {}" $(, $($args)*)?),
         }
     };
     (LastCheck $(, $($args:tt)*)?) => {
