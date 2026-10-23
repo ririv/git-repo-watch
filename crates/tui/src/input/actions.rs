@@ -14,6 +14,10 @@ impl Screen {
         root: &Cancel,
     ) -> Result<bool> {
         match action {
+            Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
+            Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
+            Action::Filter(filter) => self.filter_repositories(filter),
+            Action::Sort(order) => self.sort_repositories(order),
             Action::Branches => {
                 if let Some(path) = path {
                     self.open_branches(path);

@@ -80,7 +80,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                         Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
                         Mode::Changes(_) => i18n::tr!(ChangesInputHint),
                         _ => match screen.page {
-                            Page::Repositories => i18n::tr!(SelectEnterDetailsCtrlFFilterTab),
+                            Page::Repositories => i18n::tr!(RepositoryListHint),
                             Page::Detail => i18n::tr!(OverviewInputHint),
                             Page::Configuration(Configuration::Schedule) => {
                                 i18n::tr!(ScheduleHelpHint)

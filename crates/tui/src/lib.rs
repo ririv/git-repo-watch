@@ -15,6 +15,7 @@ mod input;
 mod layout_picker;
 mod overview;
 mod preview;
+mod repository_list;
 mod repository_tasks;
 mod spinner;
 mod task;
@@ -31,7 +32,7 @@ use crossterm::{
 use editor::Editor;
 use engine::{
     cancel::Cancel,
-    domain::{self, Filter, Publication, RepositoryResult},
+    domain::{self, Publication, RepositoryResult},
     local::{
         files::{Area, Change, Files},
         review::CommitPlan,
@@ -42,6 +43,7 @@ use engine::{
 };
 use files::FileSession;
 use ratatui::{Terminal, backend::CrosstermBackend};
+use repository_list::{Filter, Order};
 use std::{
     collections::BTreeMap,
     io::{self, IsTerminal},
@@ -56,11 +58,6 @@ enum Page {
     Detail,
     Configuration(Configuration),
     Help,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum Order {
-    Priority,
-    Path,
 }
 #[derive(Debug)]
 enum Mode {
@@ -242,7 +239,7 @@ impl Screen {
         let mut rows = Vec::new();
         for path in &self.config.repositories {
             let result = self.result_for(path);
-            if self.filter != Filter::All && !result.is_some_and(|r| self.filter.matches(r)) {
+            if !self.filter.matches(result) {
                 continue;
             }
             if !path
@@ -257,14 +254,7 @@ impl Screen {
                 result: result.cloned(),
             })
         }
-        rows.sort_by(|a, b| {
-            let priority = |r: &Row| r.result.as_ref().map(|r| r.priority()).unwrap_or(2);
-            if self.order == Order::Priority {
-                priority(a).cmp(&priority(b)).then(a.path.cmp(&b.path))
-            } else {
-                a.path.cmp(&b.path)
-            }
-        });
+        self.sort_rows(&mut rows);
         rows
     }
     fn selected(&self) -> usize {

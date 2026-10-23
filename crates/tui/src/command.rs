@@ -14,6 +14,10 @@ pub enum Action {
     LogMore,
     DiffLayoutMenu,
     DiffLayout(crate::diff::Preference),
+    FilterMenu,
+    Filter(crate::repository_list::Filter),
+    SortMenu,
+    Sort(crate::repository_list::Order),
     Commit,
     Push,
     Terminal,
@@ -58,6 +62,84 @@ use Action::*;
 use Scope::*;
 // 父命令排在子命令之前，使前缀匹配默认选中入口，避免意外执行子操作。
 pub const COMMANDS: &[Command] = &[
+    Command {
+        name: "filter",
+        action: FilterMenu,
+        scope: View,
+        description: i18n::Message::RepositoryFilterCommand,
+    },
+    Command {
+        name: "filter all",
+        action: Filter(crate::repository_list::Filter::All),
+        scope: View,
+        description: i18n::Message::RepositoryFilterAll,
+    },
+    Command {
+        name: "filter problems",
+        action: Filter(crate::repository_list::Filter::Problems),
+        scope: View,
+        description: i18n::Message::RepositoryFilterProblems,
+    },
+    Command {
+        name: "filter clean",
+        action: Filter(crate::repository_list::Filter::Clean),
+        scope: View,
+        description: i18n::Message::RepositoryFilterClean,
+    },
+    Command {
+        name: "filter failed",
+        action: Filter(crate::repository_list::Filter::Failed),
+        scope: View,
+        description: i18n::Message::RepositoryFilterFailed,
+    },
+    Command {
+        name: "filter unchecked",
+        action: Filter(crate::repository_list::Filter::Unchecked),
+        scope: View,
+        description: i18n::Message::RepositoryFilterUnchecked,
+    },
+    Command {
+        name: "filter no-upstream",
+        action: Filter(crate::repository_list::Filter::WithoutUpstream),
+        scope: View,
+        description: i18n::Message::RepositoryFilterNoUpstream,
+    },
+    Command {
+        name: "filter pushes",
+        action: Filter(crate::repository_list::Filter::Pushes),
+        scope: View,
+        description: i18n::Message::RepositoryFilterPushes,
+    },
+    Command {
+        name: "sort",
+        action: SortMenu,
+        scope: View,
+        description: i18n::Message::RepositorySortCommand,
+    },
+    Command {
+        name: "sort priority",
+        action: Sort(crate::repository_list::Order::Priority),
+        scope: View,
+        description: i18n::Message::RepositorySortPriority,
+    },
+    Command {
+        name: "sort name",
+        action: Sort(crate::repository_list::Order::Name),
+        scope: View,
+        description: i18n::Message::RepositorySortName,
+    },
+    Command {
+        name: "sort path",
+        action: Sort(crate::repository_list::Order::Path),
+        scope: View,
+        description: i18n::Message::RepositorySortPath,
+    },
+    Command {
+        name: "sort updated",
+        action: Sort(crate::repository_list::Order::Updated),
+        scope: View,
+        description: i18n::Message::RepositorySortUpdated,
+    },
     Command {
         name: "branch",
         action: Action::Branches,

@@ -2,6 +2,26 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    RepositoryFilterCommand,
+    RepositoryFilterAll,
+    RepositoryFilterProblems,
+    RepositoryFilterClean,
+    RepositoryFilterFailed,
+    RepositoryFilterUnchecked,
+    RepositoryFilterNoUpstream,
+    RepositoryFilterPushes,
+    RepositorySortCommand,
+    RepositorySortPriority,
+    RepositorySortName,
+    RepositorySortPath,
+    RepositorySortUpdated,
+    RepositoryOrderPriority,
+    RepositoryOrderName,
+    RepositoryOrderPath,
+    RepositoryOrderUpdated,
+    RepositoryListOnly,
+    RepositoryListHint,
+    RepositoryListNoMatches,
     InvalidScheduleAnchor,
     AmbiguousScheduleAnchor,
     ScheduleEnableToSetAnchor,
@@ -584,8 +604,6 @@ pub enum Message {
     RemoteChangedAfterFetchOrFetchRefspecAlt,
     RefMismatch,
     Remote,
-    ListProblemsFirst,
-    ListPathOrder,
     NoRepositoriesMatchAddToAddOne,
     Path,
     Status,
@@ -620,7 +638,6 @@ pub enum Message {
     SearchEditingHint,
     SelectSpaceInsMarkCtrlAAll,
     ScrollEscFilesCommands,
-    SelectEnterDetailsCtrlFFilterTab,
     SelectEnterEditTabReposCommands,
     PgdnScrollEscBackCommands,
     CommandsAlt,
@@ -653,6 +670,68 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::RepositoryFilterCommand, Language::English) => "Filter repositories",
+            (Self::RepositoryFilterCommand, Language::Chinese) => "筛选仓库",
+            (Self::RepositoryFilterAll, Language::English) => "All registered repositories",
+            (Self::RepositoryFilterAll, Language::Chinese) => "全部已注册仓库",
+            (Self::RepositoryFilterProblems, Language::English) => {
+                "Needs attention or check failed"
+            }
+            (Self::RepositoryFilterProblems, Language::Chinese) => "需关注或检查失败的仓库",
+            (Self::RepositoryFilterClean, Language::English) => "Passed the last check",
+            (Self::RepositoryFilterClean, Language::Chinese) => "上次检查正常的仓库",
+            (Self::RepositoryFilterFailed, Language::English) => "Failed the last check",
+            (Self::RepositoryFilterFailed, Language::Chinese) => "上次检查失败的仓库",
+            (Self::RepositoryFilterUnchecked, Language::English) => "No recorded repository status",
+            (Self::RepositoryFilterUnchecked, Language::Chinese) => "尚无状态记录的仓库",
+            (Self::RepositoryFilterNoUpstream, Language::English) => {
+                "Branches without a remote upstream"
+            }
+            (Self::RepositoryFilterNoUpstream, Language::Chinese) => "存在未配置远程上游分支的仓库",
+            (Self::RepositoryFilterPushes, Language::English) => {
+                "Recorded push successes or failures"
+            }
+            (Self::RepositoryFilterPushes, Language::Chinese) => "有推送成功或失败记录的仓库",
+            (Self::RepositorySortCommand, Language::English) => "Sort repositories",
+            (Self::RepositorySortCommand, Language::Chinese) => "仓库排序",
+            (Self::RepositorySortPriority, Language::English) => {
+                "Failed, attention, unchecked, clean"
+            }
+            (Self::RepositorySortPriority, Language::Chinese) => "检查失败、需关注、未检查、正常",
+            (Self::RepositorySortName, Language::English) => "Repository name, A to Z",
+            (Self::RepositorySortName, Language::Chinese) => "按仓库名称升序，忽略英文大小写",
+            (Self::RepositorySortPath, Language::English) => "Full repository path, ascending",
+            (Self::RepositorySortPath, Language::Chinese) => "按完整仓库路径升序",
+            (Self::RepositorySortUpdated, Language::English) => {
+                "Latest state update first; unchecked last"
+            }
+            (Self::RepositorySortUpdated, Language::Chinese) => {
+                "状态更新时间从新到旧，未检查排末尾"
+            }
+            (Self::RepositoryOrderPriority, Language::English) => "Priority",
+            (Self::RepositoryOrderPriority, Language::Chinese) => "状态优先",
+            (Self::RepositoryOrderName, Language::English) => "Name A→Z",
+            (Self::RepositoryOrderName, Language::Chinese) => "名称升序",
+            (Self::RepositoryOrderPath, Language::English) => "Path ↑",
+            (Self::RepositoryOrderPath, Language::Chinese) => "路径升序",
+            (Self::RepositoryOrderUpdated, Language::English) => "Recently updated",
+            (Self::RepositoryOrderUpdated, Language::Chinese) => "最近更新",
+            (Self::RepositoryListOnly, Language::English) => {
+                "Use /filter and /sort on the repository home page"
+            }
+            (Self::RepositoryListOnly, Language::Chinese) => "请在仓库首页使用 /filter 和 /sort",
+            (Self::RepositoryListHint, Language::English) => {
+                "↑↓ select · →/Enter open · /filter · /sort · F1 help"
+            }
+            (Self::RepositoryListHint, Language::Chinese) => {
+                "↑↓ 选择 · →/Enter 详情 · /filter 筛选 · /sort 排序"
+            }
+            (Self::RepositoryListNoMatches, Language::English) => {
+                "No matches; edit search or /filter"
+            }
+            (Self::RepositoryListNoMatches, Language::Chinese) => {
+                "没有匹配仓库，请修改搜索或 /filter 筛选"
+            }
             (Self::InvalidScheduleAnchor, Language::English) => {
                 "Use HH:MM[:SS], YYYY-MM-DD HH:MM[:SS], or auto"
             }
@@ -2662,10 +2741,6 @@ impl Message {
             (Self::RefMismatch, Language::Chinese) => "引用不符",
             (Self::Remote, Language::English) => "Remote",
             (Self::Remote, Language::Chinese) => "远程",
-            (Self::ListProblemsFirst, Language::English) => "List · problems first",
-            (Self::ListProblemsFirst, Language::Chinese) => "列表 · 问题优先",
-            (Self::ListPathOrder, Language::English) => "List · path order",
-            (Self::ListPathOrder, Language::Chinese) => "列表 · 路径顺序",
             (Self::NoRepositoriesMatchAddToAddOne, Language::English) => {
                 "No repositories match; /repo add to add one"
             }
@@ -2767,12 +2842,6 @@ impl Message {
             }
             (Self::ScrollEscFilesCommands, Language::Chinese) => {
                 "↑↓滚动 · ←/Esc 返回 · /diff layout 布局"
-            }
-            (Self::SelectEnterDetailsCtrlFFilterTab, Language::English) => {
-                "↑↓ select · →/Enter open · ←/Esc back · Ctrl+F · F1"
-            }
-            (Self::SelectEnterDetailsCtrlFFilterTab, Language::Chinese) => {
-                "↑↓ 选择 · →/Enter 详情 · ←/Esc 返回 · Ctrl+F 筛选"
             }
             (Self::SelectEnterEditTabReposCommands, Language::English) => {
                 "↑↓ select · →/Enter edit · ←/Esc back · Tab pages"

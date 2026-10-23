@@ -12,6 +12,7 @@ mod input;
 pub(super) mod layout_picker;
 mod overview;
 mod repository;
+mod repository_list;
 mod review;
 mod schedule;
 mod settings;
@@ -172,7 +173,8 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
                 command::Scope::Global => i18n::tr!(Global),
                 command::Scope::View => i18n::tr!(CurrentView),
             };
-            let annotation = layout_picker::annotation(c.action, screen, body);
+            let annotation = repository_list::annotation(c.action, screen)
+                .or_else(|| layout_picker::annotation(c.action, screen, body));
             let annotation_width = annotation
                 .as_deref()
                 .map_or(0, |text| unicode_width::UnicodeWidthStr::width(text) + 3);
@@ -222,12 +224,16 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         body.width,
         height,
     );
-    let title = i18n::tf!(
-        Commands,
-        path.as_deref()
-            .map(name)
-            .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into())
-    );
+    let title = repository_list::menu_title(screen)
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            i18n::tf!(
+                Commands,
+                path.as_deref()
+                    .map(name)
+                    .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into())
+            )
+        });
     let mut state = ListState::default().with_selected(if items.is_empty() {
         None
     } else {

@@ -1,8 +1,8 @@
 //! Persistent input: plain text filters the current list; slash-prefixed text selects commands.
-use crate::{Action, Editor, Mode, Order, Page, Screen, command};
+use crate::{Action, Editor, Mode, Page, Screen, command};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use engine::{cancel::Cancel, domain::Filter};
+use engine::cancel::Cancel;
 use std::path::PathBuf;
 #[derive(Debug)]
 pub(crate) struct CommandDraft {
@@ -267,36 +267,6 @@ impl Screen {
             self.clear_bar();
             return Ok(BarEvent::Handled);
         }
-        if key.code == KeyCode::Char('f')
-            && key.modifiers.contains(KeyModifiers::CONTROL)
-            && matches!(self.mode, Mode::Browsing)
-            && self.page == Page::Repositories
-        {
-            let filters = [
-                Filter::All,
-                Filter::Problems,
-                Filter::WithoutUpstream,
-                Filter::Pushes,
-            ];
-            let index = filters
-                .iter()
-                .position(|filter| *filter == self.filter)
-                .expect("known filter");
-            let path = self.selected_path();
-            self.filter = filters[(index + 1) % filters.len()];
-            self.focus(path);
-            return Ok(BarEvent::Handled);
-        }
-        if key.modifiers.contains(KeyModifiers::ALT) && key.code == KeyCode::Char('o') {
-            let path = self.selected_path();
-            self.order = if self.order == Order::Priority {
-                Order::Path
-            } else {
-                Order::Priority
-            };
-            self.focus(path);
-            return Ok(BarEvent::Handled);
-        }
         if key.modifiers.contains(KeyModifiers::CONTROL) {
             match key.code {
                 KeyCode::Char('r') => {
@@ -349,6 +319,20 @@ impl Screen {
             && matches!(key.code, KeyCode::Left | KeyCode::Right)
         {
             return Ok(BarEvent::Pass);
+        }
+        // 首页按 / 打开独立命令草稿，保留已有搜索，应用或关闭后恢复搜索。
+        if key.code == KeyCode::Char('/')
+            && key.modifiers.is_empty()
+            && self.repository_list_active()
+        {
+            self.bar = InputBar::Command {
+                editor: Editor::new("/".into()),
+                selected: 0,
+                menu: Default::default(),
+                path: self.selected_path(),
+            };
+            self.message.clear();
+            return Ok(BarEvent::Handled);
         }
         let editing = matches!(
             key.code,

@@ -10,10 +10,12 @@ mod images;
 mod layout_picker;
 mod navigation;
 mod overview;
+mod repository_list;
 mod schedule;
 mod startup;
 mod workspace;
 use super::*;
+use crate::repository_list::{Filter, Order};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::{
     domain::*,
@@ -422,7 +424,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
         let before_lines = before.lines().collect::<Vec<_>>();
         let list_line = before_lines
             .iter()
-            .position(|line| line.contains("列表 ·"))
+            .position(|line| line.contains("仓库 · 1"))
             .unwrap();
         let input_line = before_lines
             .iter()
@@ -431,7 +433,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
         key(&mut s, KeyCode::Char('/'));
         let during = render(&mut s, w, h);
         let during_lines = during.lines().collect::<Vec<_>>();
-        assert!(during_lines[list_line].contains("列表 ·"));
+        assert!(during_lines[list_line].contains("仓库 · 1"));
         assert!(during_lines[input_line].contains("› /"));
         assert!(during.contains("当前仓库"));
         let top = during_lines
@@ -482,7 +484,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
 }
 
 #[test]
-fn numeric_input_and_control_key_filters_do_not_conflict() {
+fn numeric_search_and_list_commands_do_not_conflict() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/1234".into()]);
     for c in "1234".chars() {
@@ -491,19 +493,17 @@ fn numeric_input_and_control_key_filters_do_not_conflict() {
     assert_eq!(s.query, "1234");
     assert_eq!(s.filter, Filter::All);
     assert_eq!(s.rows().len(), 1);
-    for expected in [
-        Filter::Problems,
-        Filter::WithoutUpstream,
-        Filter::Pushes,
-        Filter::All,
+    for (name, expected) in [
+        ("filter problems", Filter::Problems),
+        ("filter unchecked", Filter::Unchecked),
+        ("filter all", Filter::All),
     ] {
-        s.key(
-            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-            &Cancel::default(),
-        )
-        .unwrap();
+        key(&mut s, KeyCode::Char('/'));
+        s.paste(name);
+        key(&mut s, KeyCode::Enter);
         assert_eq!(s.filter, expected);
         assert_eq!(s.query, "1234");
+        assert_eq!(s.bar.editor().text, "1234");
     }
     key(&mut s, KeyCode::Esc);
     s.paste("/");
@@ -591,7 +591,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         let text = render(&mut s, width, height);
         assert!(text.contains("Search repositories"));
         assert!(text.contains("Type to search"));
-        assert!(text.contains("No up"));
+        assert!(text.contains("/filter All · /sort Priority"));
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         s.paste("/");
         let candidates = render(&mut s, width, height);

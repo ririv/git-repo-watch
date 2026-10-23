@@ -6,35 +6,15 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         Constraint::Min(3),
     ])
     .split(area);
-    let mut filters = Vec::new();
-    for filter in [
-        Filter::All,
-        Filter::Problems,
-        Filter::WithoutUpstream,
-        Filter::Pushes,
-    ]
-    .iter()
-    {
-        let count = if *filter == Filter::All {
-            format!(" {}", screen.config.repositories.len())
-        } else if *filter == screen.filter {
-            i18n::tf!(Repos, screen.rows().len())
-        } else {
-            String::new()
-        };
-        filters.push(Span::styled(
-            format!(" {}{} ", filter.name(), count),
-            if *filter == screen.filter {
-                selected_style()
-            } else {
-                Style::default().fg(MUTED)
-            },
-        ));
-    }
-    if !screen.query.is_empty() {
-        filters.push(Span::raw(i18n::tf!(Search, safe(&screen.query))))
-    }
-    frame.render_widget(Paragraph::new(Line::from(filters)), parts[0]);
+    frame.render_widget(
+        Paragraph::new(Line::from(vec![
+            Span::styled("/filter ", Style::default().fg(MUTED)),
+            Span::styled(screen.filter.label(), Style::default().fg(ACCENT)),
+            Span::styled(" · /sort ", Style::default().fg(MUTED)),
+            Span::styled(screen.order.label(), Style::default().fg(ACCENT)),
+        ])),
+        parts[0],
+    );
     frame.render_widget(
         Paragraph::new(i18n::tr!(WorktreeAndSyncLegend)).style(Style::default().fg(MUTED)),
         parts[1],
@@ -218,11 +198,11 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ])
         .style(Style::default().fg(MUTED)),
     )
-    .block(block(if screen.order == Order::Priority {
-        i18n::tr!(ListProblemsFirst)
-    } else {
-        i18n::tr!(ListPathOrder)
-    }))
+    .block(block(format!(
+        "{} · {}",
+        i18n::tr!(Repositories),
+        rows.len()
+    )))
     .row_highlight_style(selected_style())
     .highlight_symbol("› ")
     .column_spacing(1);
@@ -236,7 +216,11 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             width: area.width.saturating_sub(2),
         };
         frame.render_widget(
-            Paragraph::new(i18n::tr!(NoRepositoriesMatchAddToAddOne)),
+            Paragraph::new(if screen.config.repositories.is_empty() {
+                i18n::tr!(NoRepositoriesMatchAddToAddOne)
+            } else {
+                i18n::tr!(RepositoryListNoMatches)
+            }),
             inner,
         );
     }
