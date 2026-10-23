@@ -389,3 +389,127 @@ fn file_checkboxes_toggle_filtered_staged_and_unstaged_rows_without_entering_or_
     );
     s.shutdown();
 }
+
+#[test]
+fn dragging_repository_scrollbar_survives_redraw_reverses_and_ends_on_release_or_key() {
+    let (_home, mut s) = fixture(
+        (0..80)
+            .map(|n| PathBuf::from(format!("/example/repo-{n:03}")))
+            .collect(),
+    );
+    render(&mut s, 100, 24);
+    let area = s.repository_area.unwrap();
+    let (x, y) = (area.right() - 1, area.y + 2);
+    let initial = s.selected();
+    click(&mut s, x, y);
+    assert_eq!(s.selected(), initial);
+    assert!(s.drag.is_some());
+    event(
+        &mut s,
+        MouseEventKind::Drag(MouseButton::Left),
+        0,
+        area.bottom() + 5,
+    );
+    render(&mut s, 100, 24);
+    assert!(s.repository_viewport.offset() > 40);
+    event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y + 2);
+    render(&mut s, 100, 24);
+    assert!(s.repository_viewport.offset() > 0 && s.repository_viewport.offset() < 30);
+    event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y);
+    render(&mut s, 100, 24);
+    assert_eq!(s.repository_viewport.offset(), 0);
+    event(&mut s, MouseEventKind::Up(MouseButton::Left), 0, y);
+    assert!(s.drag.is_none());
+    let selected = s.selected();
+    event(
+        &mut s,
+        MouseEventKind::Drag(MouseButton::Left),
+        x,
+        area.bottom(),
+    );
+    assert_eq!(s.selected(), selected);
+    click(&mut s, x, y);
+    key(&mut s, KeyCode::Down);
+    assert!(s.drag.is_none());
+    s.config.mouse.precise_click = false;
+    click(&mut s, x, y);
+    assert!(s.drag.is_none());
+}
+
+#[test]
+fn help_scrollbar_drag_uses_text_offset_without_moving_pages() {
+    let (_home, mut s) = fixture(vec![]);
+    command(&mut s, "help");
+    render(&mut s, 100, 24);
+    let area = s.body_area.unwrap();
+    click(&mut s, area.right() - 1, area.y + 1);
+    assert_eq!(s.scroll, 0);
+    event(
+        &mut s,
+        MouseEventKind::Drag(MouseButton::Left),
+        0,
+        area.bottom() + 3,
+    );
+    render(&mut s, 100, 24);
+    assert!(s.scroll > 0);
+    event(
+        &mut s,
+        MouseEventKind::Drag(MouseButton::Left),
+        0,
+        area.y + 1,
+    );
+    render(&mut s, 100, 24);
+    assert_eq!(s.scroll, 0);
+    assert_eq!(s.page, Page::Help);
+    s.paste("/");
+    assert!(s.drag.is_none());
+}
+
+#[test]
+fn file_scrollbar_drag_preserves_each_group_offset_and_does_not_modify_index() {
+    let f = support::Fixture::create();
+    for n in 0..30 {
+        support::write(f.repo.join(format!("staged-{n:02}")), "staged\n");
+    }
+    support::git(&f.repo, &["add", "."]);
+    for n in 0..30 {
+        support::write(f.repo.join(format!("working-{n:02}")), "working\n");
+    }
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    s.key(
+        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
+    render(&mut s, 100, 32);
+    let area = s.body_area.unwrap();
+    let x = area.right() - 1;
+    let y = (area.y..area.bottom())
+        .find(|y| s.pointer.grab(Position::new(x, *y)).is_some())
+        .unwrap();
+    click(&mut s, x, y);
+    event(
+        &mut s,
+        MouseEventKind::Drag(MouseButton::Left),
+        0,
+        area.bottom() + 5,
+    );
+    render(&mut s, 100, 32);
+    let offsets = s.mode.file_session().unwrap().offsets;
+    assert!(offsets[0] > 0);
+    assert_eq!(offsets[1], 0);
+    event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y);
+    render(&mut s, 100, 32);
+    assert_eq!(s.mode.file_session().unwrap().offsets, [0; 2]);
+    event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y + 2);
+    render(&mut s, 100, 32);
+    let offsets = s.mode.file_session().unwrap().offsets;
+    event(&mut s, MouseEventKind::Up(MouseButton::Left), 0, y + 2);
+    render(&mut s, 100, 32);
+    assert_eq!(s.mode.file_session().unwrap().offsets, offsets);
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    s.shutdown();
+}

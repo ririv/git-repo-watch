@@ -35,13 +35,10 @@ pub(super) fn render(
     let symbol = session.symbol();
     for (area, focus) in areas(area, session) {
         match focus {
-            Focus::Files => files::render(
-                frame,
-                area,
-                &session.files,
-                &name(&session.files.snapshot.path),
-                hits,
-            ),
+            Focus::Files => {
+                let title = name(&session.files.snapshot.path);
+                files::render(frame, area, &mut session.files, &title, hits);
+            }
             Focus::Preview => match &mut session.preview {
                 Preview::Ready {
                     content, scroll, ..

@@ -20,6 +20,9 @@ fn file_groups_keep_independent_tracks_and_headers_when_navigating() {
     command(&mut s, "repo diff");
     wait(&mut s);
     for (width, height) in [(60, 24), (160, 32)] {
+        if let Mode::Changes(session) = &mut s.mode {
+            session.files.offsets = [0; 2];
+        }
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
         let Mode::Changes(session) = &s.mode else {

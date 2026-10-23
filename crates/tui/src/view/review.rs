@@ -55,6 +55,7 @@ pub(super) fn styled_text_view(
         area,
         inner,
         lines.saturating_sub(inner.height as usize),
+        *scroll,
         target,
     );
 }

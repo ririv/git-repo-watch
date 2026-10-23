@@ -3,13 +3,14 @@ use super::*;
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    session: &FileSession,
+    session: &mut FileSession,
     title: &str,
     hits: &mut crate::pointer::Map,
 ) {
     let border = block(title.to_owned());
     let inner = border.inner(area);
     frame.render_widget(border, area);
+    let mut offsets = session.offsets;
     let rows = session.rows();
     let unstaged = rows
         .iter()
@@ -70,6 +71,7 @@ pub(super) fn render(
             })
             .collect::<Vec<_>>();
         let mut state = ListState::default()
+            .with_offset(offsets[usize::from(staged)])
             .with_selected(indices.iter().position(|index| *index == session.cursor));
         frame.render_stateful_widget(
             List::new(items)
@@ -79,6 +81,7 @@ pub(super) fn render(
             parts[1],
             &mut state,
         );
+        offsets[usize::from(staged)] = state.offset();
         crate::scrollbar::vertical(frame, area, parts[1], changes.len(), state.offset());
         hits.list(
             area,
@@ -99,4 +102,5 @@ pub(super) fn render(
             hits.file_checkbox(checkbox, *index);
         }
     }
+    session.offsets = offsets;
 }

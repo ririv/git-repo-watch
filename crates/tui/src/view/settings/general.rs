@@ -226,6 +226,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         area,
         inner,
         row.saturating_sub(usize::from(inner.height)),
+        start,
         crate::pointer::ScrollTarget::Text,
     );
     crate::scrollbar::vertical(frame, area, inner, row, start);

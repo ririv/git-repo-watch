@@ -73,6 +73,7 @@ fn screen(service: Service) -> Screen {
         body_area: None,
         pointer: Default::default(),
         clicks: Default::default(),
+        drag: None,
         command_items: Vec::new(),
         breadcrumb_items: Vec::new(),
         filter: Filter::All,
@@ -705,6 +706,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
         cursor: 0,
         selected: BTreeSet::new(),
         query: "filter".into(),
+        offsets: [0; 2],
     });
     s.finish(
         Outcome::TerminalOpened(f.repo.clone()),

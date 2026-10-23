@@ -1,4 +1,5 @@
 //! Hit regions are emitted by the same layout pass that draws the visible content.
+pub(crate) mod drag;
 use ratatui::layout::{Position, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -22,6 +23,11 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    DragRows {
+        target: Target,
+        index: usize,
+        offset: usize,
+    },
     ToggleFile(usize),
     Select(Target, usize),
     Scroll(ScrollTarget, usize),
@@ -49,9 +55,10 @@ enum Region {
         area: Rect,
         axis: crate::scrollbar::Axis,
         values: Values,
+        offset: usize,
     },
 }
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 enum Values {
     Rows(Target, Vec<usize>),
     Offset(ScrollTarget, usize),
@@ -97,14 +104,23 @@ impl Map {
                 area: crate::scrollbar::vertical_area(panel, content),
                 axis: crate::scrollbar::Axis::Vertical,
                 values: Values::Rows(target, indices.to_vec()),
+                offset,
             });
         }
     }
-    pub fn vertical(&mut self, panel: Rect, content: Rect, maximum: usize, target: ScrollTarget) {
+    pub fn vertical(
+        &mut self,
+        panel: Rect,
+        content: Rect,
+        maximum: usize,
+        offset: usize,
+        target: ScrollTarget,
+    ) {
         self.track(
             crate::scrollbar::vertical_area(panel, content),
             crate::scrollbar::Axis::Vertical,
             maximum,
+            offset,
             target,
         );
     }
@@ -113,6 +129,7 @@ impl Map {
         area: Rect,
         axis: crate::scrollbar::Axis,
         maximum: usize,
+        offset: usize,
         target: ScrollTarget,
     ) {
         if maximum > 0 && !area.is_empty() {
@@ -120,6 +137,7 @@ impl Map {
                 area,
                 axis,
                 values: Values::Offset(target, maximum),
+                offset,
             });
         }
     }
@@ -131,7 +149,9 @@ impl Map {
             Region::Item(area, target, index) => {
                 area.contains(point).then_some(Hit::Item(*target, *index))
             }
-            Region::Track { area, axis, values } if area.contains(point) => {
+            Region::Track {
+                area, axis, values, ..
+            } if area.contains(point) => {
                 let (position, length) = match axis {
                     crate::scrollbar::Axis::Horizontal => (point.x - area.x, area.width),
                     crate::scrollbar::Axis::Vertical => (point.y - area.y, area.height),

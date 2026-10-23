@@ -72,7 +72,8 @@ fn active_branches(mode: &mut Mode) -> Option<&mut crate::branches::Session> {
     }
 }
 fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
-    if let Some(files) = active_files(&screen.mode) {
+    let spinner = screen.workspace.spinner();
+    if let Some(files) = active_files(&mut screen.mode) {
         super::files::render(
             frame,
             files_area,
@@ -80,8 +81,8 @@ fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
             i18n::tr!(Worktree),
             &mut screen.pointer,
         );
-    } else if let Some(session) = screen.workspace.session() {
-        match &session.files {
+    } else if let Some(session) = screen.workspace.session_mut() {
+        match &mut session.files {
             Panel::Ready(files) => super::files::render(
                 frame,
                 files_area,
@@ -93,11 +94,7 @@ fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
                 frame,
                 files_area,
                 Section::Worktree,
-                &format!(
-                    "{} {}",
-                    screen.workspace.spinner(),
-                    i18n::tr!(ReadRepositoryFiles)
-                ),
+                &format!("{} {}", spinner, i18n::tr!(ReadRepositoryFiles)),
             ),
             Panel::Failed(error) => {
                 placeholder(frame, files_area, Section::Worktree, &multiline(error))
@@ -135,10 +132,10 @@ fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
         }
     }
 }
-fn active_files(mode: &Mode) -> Option<&FileSession> {
+fn active_files(mode: &mut Mode) -> Option<&mut FileSession> {
     match mode {
         Mode::Files(files) => Some(files),
-        Mode::Busy(pending) => active_files(&pending.origin),
+        Mode::Busy(pending) => active_files(&mut pending.origin),
         _ => None,
     }
 }

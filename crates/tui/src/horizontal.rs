@@ -46,6 +46,7 @@ impl Viewport {
                 Rect::new(start, panel.bottom() - 1, end.saturating_sub(start), 1),
                 crate::scrollbar::Axis::Horizontal,
                 self.maximum,
+                self.offset,
                 target,
             );
             self.render(

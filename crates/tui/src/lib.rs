@@ -201,6 +201,7 @@ struct Screen {
     body_area: Option<ratatui::layout::Rect>,
     pointer: pointer::Map,
     clicks: input::clicks::Clicks,
+    drag: Option<pointer::drag::Grab>,
     command_items: Vec<(ratatui::layout::Rect, usize)>,
     breadcrumb_items: Vec<(ratatui::layout::Rect, navigation::breadcrumbs::Destination)>,
     filter: Filter,
@@ -249,6 +250,7 @@ impl Screen {
             body_area: None,
             pointer: Default::default(),
             clicks: Default::default(),
+            drag: None,
             command_items: Vec::new(),
             breadcrumb_items: Vec::new(),
             filter: Filter::All,
@@ -439,6 +441,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                     }
                     TerminalEvent::Resize(..) => {
                         screen.clicks.reset();
+                        screen.drag = None;
                         screen.graphics.refresh_metrics();
                         dirty = true;
                     }

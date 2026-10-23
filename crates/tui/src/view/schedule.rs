@@ -94,7 +94,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             })
         })
         .collect::<Vec<_>>();
-    let mut state = ListState::default().with_selected(Some(screen.setting_selected));
+    let mut state = ListState::default()
+        .with_offset(screen.scroll)
+        .with_selected(Some(screen.setting_selected));
     frame.render_stateful_widget(
         List::new(items)
             .highlight_style(selected_style())
@@ -102,6 +104,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         parts[1],
         &mut state,
     );
+    screen.scroll = state.offset();
     crate::scrollbar::vertical(frame, area, parts[1], actions.len(), state.offset());
     screen.pointer.list(
         area,

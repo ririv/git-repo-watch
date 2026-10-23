@@ -101,6 +101,7 @@ pub(super) fn render(
         area,
         body,
         cache.rows.len().saturating_sub(body.height as usize),
+        *scroll,
         crate::pointer::ScrollTarget::Diff,
     );
     for (index, row) in cache

@@ -4,6 +4,40 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        if matches!(event.kind, MouseEventKind::Up(_)) {
+            return Ok(self.drag.take().is_some());
+        }
+        if matches!(
+            event.kind,
+            MouseEventKind::Drag(crossterm::event::MouseButton::Left)
+        ) {
+            self.clicks.reset();
+            if !self.config.mouse.precise_click || !matches!(self.bar, bar::InputBar::Search(_)) {
+                self.drag = None;
+                return Ok(false);
+            }
+            let Some(grab) = self.drag.as_ref() else {
+                return Ok(false);
+            };
+            if !grab.valid(&self.pointer) {
+                self.drag = None;
+                return Ok(false);
+            }
+            let action = grab.action(Position::new(event.column, event.row));
+            self.scroll_input.keyboard(std::time::Instant::now());
+            self.view_revision += 1;
+            return Ok(action.is_some_and(|action| self.precise_action(action)));
+        }
+        if matches!(
+            event.kind,
+            MouseEventKind::Down(_)
+                | MouseEventKind::ScrollUp
+                | MouseEventKind::ScrollDown
+                | MouseEventKind::ScrollLeft
+                | MouseEventKind::ScrollRight
+        ) {
+            self.drag = None;
+        }
         let click = event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left);
         let wheel = matches!(
             event.kind,
@@ -121,6 +155,13 @@ impl Screen {
             }
             if let Some(hit) = hit {
                 self.scroll_input.keyboard(std::time::Instant::now());
+                if matches!(hit, crate::pointer::Hit::Scrollbar(_)) {
+                    self.drag = self.pointer.grab(Position::new(event.column, event.row));
+                    if self.drag.is_some() {
+                        self.clicks.reset();
+                        return Ok(true);
+                    }
+                }
                 let applied = self.precise_action(hit.action());
                 if applied
                     && let crate::pointer::Hit::Item(target, _) = hit

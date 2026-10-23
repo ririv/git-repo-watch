@@ -121,6 +121,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         area,
         inner,
         lines.saturating_sub(inner.height as usize),
+        start,
         crate::pointer::ScrollTarget::Text,
     );
     let paragraph = paragraph.block(panel);

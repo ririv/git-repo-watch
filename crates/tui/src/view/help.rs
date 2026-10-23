@@ -21,5 +21,11 @@ pub(super) fn render(
         area,
     );
     crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
-    hits.vertical(area, inner, max_scroll, crate::pointer::ScrollTarget::Text);
+    hits.vertical(
+        area,
+        inner,
+        max_scroll,
+        *scroll,
+        crate::pointer::ScrollTarget::Text,
+    );
 }

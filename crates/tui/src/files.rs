@@ -6,6 +6,7 @@ use std::collections::BTreeSet;
 pub(super) struct FileSession {
     pub snapshot: Files,
     pub cursor: usize,
+    pub offsets: [usize; 2],
     pub selected: BTreeSet<usize>,
     pub query: String,
 }
@@ -14,6 +15,7 @@ impl FileSession {
         Self {
             snapshot,
             cursor: 0,
+            offsets: [0; 2],
             selected: BTreeSet::new(),
             query: String::new(),
         }

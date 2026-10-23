@@ -134,6 +134,7 @@
 - Full errors appear in preview and repository details.
 
 ## Scrolling indicators
+- Scrollbars support clicking the track and dragging the thumb on both axes. Dragging stays with the original pane until release, including outside the track; the precise-click preference applies.
 - Vertical scrollbars sit in the right border over content rows only, excluding fixed headers. Unstaged and staged groups have separate tracks; content that fits has no scrollbar.
 - Use `Ctrl+S/D` to switch panes; arrow keys do not switch panes.
 - In a diff preview with empty input, ←→ scrolls long lines. Line numbers and change markers stay fixed; split columns pan together. Esc goes back. Overflowing content has a scrollbar embedded in the bottom border without taking a content row.

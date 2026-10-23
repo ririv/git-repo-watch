@@ -88,6 +88,7 @@ pub(super) fn render(
         parts[0],
         inner,
         lines.saturating_sub(inner.height as usize),
+        commit.scroll,
         crate::pointer::ScrollTarget::HistoryMessage,
     );
     let rows = commit.rows();

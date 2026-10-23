@@ -8,6 +8,58 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::DragRows {
+                target,
+                index,
+                offset,
+            } => {
+                if !self.precise_action(Action::Select(target, index)) {
+                    return false;
+                }
+                match target {
+                    Target::Repositories => *self.repository_viewport.offset_mut() = offset,
+                    Target::Files => {
+                        let files = match &mut self.mode {
+                            Mode::Files(files) => files,
+                            Mode::Changes(session) => &mut session.files,
+                            _ => return false,
+                        };
+                        let staged =
+                            files.rows()[files.cursor].area == engine::local::files::Area::Staged;
+                        files.offsets[usize::from(staged)] = offset;
+                    }
+                    Target::Branches => {
+                        if let Mode::Branches(view) = &mut self.mode
+                            && let branches::View::List(session) = view.as_mut()
+                        {
+                            *session.state.offset_mut() = offset;
+                        }
+                    }
+                    Target::Stashes => {
+                        if let Mode::Stashes(view) = &mut self.mode
+                            && let stashes::View::List(session) = view.as_mut()
+                        {
+                            *session.state.offset_mut() = offset;
+                        }
+                    }
+                    Target::History => {
+                        if let Mode::History(view) = &mut self.mode
+                            && let history::View::Graph(session) = view.as_mut()
+                        {
+                            *session.state.offset_mut() = offset;
+                        }
+                    }
+                    Target::HistoryFiles => {
+                        if let Mode::History(view) = &mut self.mode
+                            && let history::View::Commit(commit) = view.as_mut()
+                        {
+                            *commit.files.offset_mut() = offset;
+                        }
+                    }
+                    Target::Settings => self.scroll = offset,
+                }
+            }
+
             Action::ToggleFile(index) => {
                 let files = match &mut self.mode {
                     Mode::Files(files) => files,

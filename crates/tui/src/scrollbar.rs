@@ -8,7 +8,7 @@ use ratatui::{
 
 pub(crate) const THUMB_COLOR: Color = Color::Rgb(230, 160, 189);
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Axis {
     Horizontal,
     Vertical,
@@ -66,10 +66,53 @@ pub(crate) fn vertical_area(panel: Rect, content: Rect) -> Rect {
     Rect::new(panel.right() - 1, start, 1, end.saturating_sub(start))
 }
 
+/// Thumb cell range matching Ratatui's arrowless scrollbar geometry.
+pub(crate) fn thumb(length: usize, offset: usize, maximum: usize) -> std::ops::Range<usize> {
+    if length == 0 {
+        return 0..0;
+    }
+    let total = maximum.saturating_add(length);
+    let round = |n: usize| n.saturating_add(total / 2) / total;
+    let size = round(length.saturating_mul(length)).clamp(1, length);
+    let start = round(offset.min(maximum).saturating_mul(length)).min(length - size);
+    start..start + size
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use ratatui::{Terminal, backend::TestBackend, widgets::Block};
+
+    #[test]
+    fn thumb_hit_geometry_matches_rendered_cells_on_both_axes() {
+        for length in [1, 2, 5, 20] {
+            for maximum in [1, 5, 100] {
+                for offset in [0, maximum / 2, maximum] {
+                    for axis in [Axis::Horizontal, Axis::Vertical] {
+                        let area = match axis {
+                            Axis::Horizontal => Rect::new(0, 0, length, 1),
+                            Axis::Vertical => Rect::new(0, 0, 1, length),
+                        };
+                        let mut terminal =
+                            Terminal::new(TestBackend::new(area.width, area.height)).unwrap();
+                        terminal
+                            .draw(|frame| render(frame, area, axis, offset, maximum))
+                            .unwrap();
+                        for cell in 0..length {
+                            let position = match axis {
+                                Axis::Horizontal => (cell, 0),
+                                Axis::Vertical => (0, cell),
+                            };
+                            assert_eq!(
+                                terminal.backend().buffer()[position].fg == THUMB_COLOR,
+                                thumb(length as usize, offset, maximum).contains(&(cell as usize))
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
 
     #[test]
     fn vertical_track_excludes_headers_and_corners_and_hides_when_content_fits() {
