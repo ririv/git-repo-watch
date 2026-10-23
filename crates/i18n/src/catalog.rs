@@ -666,6 +666,14 @@ pub enum Message {
     Repositories,
     RepositoryDetails,
     Settings,
+    InteractionCommand,
+    InteractionApplicationCommand,
+    InteractionTextCommand,
+    InteractionApplication,
+    InteractionText,
+    InteractionSetting,
+    InteractionHint,
+    InteractionSaveFailed,
     Help,
     CheckingAlt,
     ScheduleNotLoaded,
@@ -2716,6 +2724,32 @@ impl Message {
             (Self::ShowHelp, Language::Chinese) => "查看帮助",
             (Self::Quit, Language::English) => "Quit",
             (Self::Quit, Language::Chinese) => "退出",
+            (Self::InteractionCommand, Language::English) => {
+                "Choose pointer interaction mode (Ctrl+G toggles)"
+            }
+            (Self::InteractionCommand, Language::Chinese) => "选择指针交互模式（Ctrl+G 切换）",
+            (Self::InteractionApplicationCommand, Language::English) => {
+                "Application handles clicks, scrolling and dragging"
+            }
+            (Self::InteractionApplicationCommand, Language::Chinese) => "程序处理点击、滚动和拖动",
+            (Self::InteractionTextCommand, Language::English) => {
+                "Terminal handles text selection, Copy and context menus"
+            }
+            (Self::InteractionTextCommand, Language::Chinese) => "终端处理选字、复制和右键菜单",
+            (Self::InteractionApplication, Language::English) => "Interactive",
+            (Self::InteractionApplication, Language::Chinese) => "交互模式",
+            (Self::InteractionText, Language::English) => "Text selection",
+            (Self::InteractionText, Language::Chinese) => "选字模式",
+            (Self::InteractionSetting, Language::English) => "Pointer mode",
+            (Self::InteractionSetting, Language::Chinese) => "指针模式",
+            (Self::InteractionHint, Language::English) => {
+                "Text selection releases pointer control to the terminal; keyboard stays active. Saved across restarts. Ctrl+G switches modes."
+            }
+            (Self::InteractionHint, Language::Chinese) => {
+                "选字时由终端接管指针，键盘操作保留；重启沿用。Ctrl+G 切换。"
+            }
+            (Self::InteractionSaveFailed, Language::English) => "Could not save interaction mode",
+            (Self::InteractionSaveFailed, Language::Chinese) => "交互模式保存失败",
             (Self::InteractiveTerminalRequired, Language::English) => {
                 concat!(
                     identity::command!(),

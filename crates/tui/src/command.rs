@@ -63,6 +63,8 @@ pub enum Action {
     EnableSchedule,
     DisableSchedule,
     Help,
+    InteractionMenu,
+    Interaction(engine::state::InteractionMode),
     Quit,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -495,6 +497,24 @@ pub const COMMANDS: &[Command] = &[
         action: StartupCheck,
         scope: Global,
         description: i18n::Message::CheckAllOnStartup,
+    },
+    Command {
+        name: "settings interaction",
+        action: InteractionMenu,
+        scope: Global,
+        description: i18n::Message::InteractionCommand,
+    },
+    Command {
+        name: "settings interaction interactive",
+        action: Interaction(engine::state::InteractionMode::Application),
+        scope: Global,
+        description: i18n::Message::InteractionApplicationCommand,
+    },
+    Command {
+        name: "settings interaction text",
+        action: Interaction(engine::state::InteractionMode::TextSelection),
+        scope: Global,
+        description: i18n::Message::InteractionTextCommand,
     },
     Command {
         name: "schedule apply",

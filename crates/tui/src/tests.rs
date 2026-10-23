@@ -25,6 +25,7 @@ mod schedule;
 mod scrollbars;
 mod settings_design;
 mod startup;
+mod text_selection;
 mod workspace;
 use super::*;
 use crate::repository_list::{Filter, Order};
@@ -64,6 +65,7 @@ fn screen(service: Service) -> Screen {
         page: Page::Repositories,
         history: vec![],
         mode: Mode::Browsing,
+        interaction_save: Default::default(),
         diff_preference: Default::default(),
         file_layout: Default::default(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
@@ -108,6 +110,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             max_concurrency: 4,
             check_on_startup: false,
             chinese_command_trigger: true,
+            interaction_mode: Default::default(),
             mouse: Default::default(),
         })
         .unwrap();
@@ -157,7 +160,8 @@ fn maximize_preview(s: &mut Screen) {
 fn wait(s: &mut Screen) {
     s.poll_changes();
     let started = Instant::now();
-    while matches!(s.mode, Mode::Busy(_))
+    while s.interaction_save.pending()
+        || matches!(s.mode, Mode::Busy(_))
         || matches!(s.mode, Mode::Panel(section) if section != crate::workspace::Section::Overview)
         || !s.repository_tasks.is_empty()
         || matches!(&s.mode, Mode::Changes(session) if session.pending())
@@ -167,6 +171,7 @@ fn wait(s: &mut Screen) {
             "工作线程没有结束"
         );
         s.poll(&Cancel::default());
+        s.poll_interaction();
         s.poll_workspace();
         s.poll_changes();
         thread::sleep(Duration::from_millis(5));
@@ -1351,7 +1356,13 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .iter()
             .map(|c| c.name)
             .collect::<Vec<_>>(),
-        ["settings concurrency", "settings startup-check"]
+        [
+            "settings concurrency",
+            "settings startup-check",
+            "settings interaction",
+            "settings interaction interactive",
+            "settings interaction text"
+        ]
     );
     assert_eq!(
         command::matches("repos check")

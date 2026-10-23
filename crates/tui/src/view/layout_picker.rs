@@ -43,6 +43,14 @@ fn effective(view: &document::View, area: Rect, preference: Preference) -> Optio
 }
 pub(super) fn annotation(action: Action, screen: &Screen, body: Rect) -> Option<String> {
     match action {
+        Action::InteractionMenu => Some(format!(
+            "{}: {}",
+            i18n::tr!(LayoutCurrent),
+            crate::interaction::label(screen.config.interaction_mode)
+        )),
+        Action::Interaction(mode) if mode == screen.config.interaction_mode => {
+            Some(format!("✓ {}", i18n::tr!(LayoutCurrent)))
+        }
         Action::FileLayoutMenu => Some(format!(
             "{}: {}",
             i18n::tr!(LayoutCurrent),

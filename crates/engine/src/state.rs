@@ -1,7 +1,9 @@
 //! Private, atomic persistence and cross-process coordination.
 mod configuration;
 mod database;
+mod interaction;
 pub use configuration::{Config, ConfigurationMigration, MouseConfig, MouseSetting};
+pub use interaction::InteractionMode;
 mod operation;
 use crate::cancel::Cancel;
 use anyhow::{Context, Result, ensure};

@@ -102,4 +102,5 @@ pub enum ConfigEdit {
     StartupCheck(bool),
     ChineseCommandTrigger(bool),
     Mouse(state::MouseSetting, bool),
+    Interaction(state::InteractionMode),
 }

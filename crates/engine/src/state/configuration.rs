@@ -22,6 +22,7 @@ impl Default for Config {
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,
+            interaction_mode: Default::default(),
             mouse: MouseConfig::default(),
         }
     }
@@ -47,6 +48,8 @@ pub struct Config {
     pub check_on_startup: bool,
     #[serde(default = "default_chinese_command_trigger")]
     pub chinese_command_trigger: bool,
+    #[serde(default)]
+    pub interaction_mode: super::InteractionMode,
     #[serde(default)]
     pub mouse: MouseConfig,
 }
@@ -136,7 +139,7 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 8] = [
+const FIELDS: [&str; 9] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
@@ -145,6 +148,7 @@ const FIELDS: [&str; 8] = [
     "check_on_startup",
     "chinese_command_trigger",
     "schedule_anchor",
+    "interaction_mode",
 ];
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -170,6 +174,14 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     let mut desired = toml_edit::ser::to_document(config)?;
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
     for key in FIELDS {
+        // 旧配置没有交互模式时沿用默认值，不因无关配置更新而补写字段。
+        if key == "interaction_mode"
+            && before
+                .as_ref()
+                .is_some_and(|before| before.get(key) == after.get(key))
+        {
+            continue;
+        }
         if key == "schedule_anchor" {
             if before
                 .as_ref()

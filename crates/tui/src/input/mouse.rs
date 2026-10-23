@@ -4,6 +4,9 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {
+            return Ok(false);
+        }
         if matches!(event.kind, MouseEventKind::Up(_)) {
             return Ok(self.drag.take().is_some());
         }

@@ -20,6 +20,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             max_concurrency: 4,
             check_on_startup: false,
             chinese_command_trigger: true,
+            interaction_mode: Default::default(),
             mouse: Default::default(),
         })
         .unwrap();

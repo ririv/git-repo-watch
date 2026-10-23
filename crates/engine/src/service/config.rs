@@ -24,7 +24,10 @@ impl Service {
         Ok(added)
     }
     pub fn configure(&self, operation: ConfigEdit) -> Result<()> {
-        let _lock = self.store.transaction(&Cancel::default())?;
+        self.configure_with_cancel(operation, &Cancel::default())
+    }
+    pub fn configure_with_cancel(&self, operation: ConfigEdit, cancel: &Cancel) -> Result<()> {
+        let _lock = self.store.transaction(cancel)?;
         let mut config = self.store.config()?;
         match operation {
             ConfigEdit::Remove(path) => {
@@ -57,6 +60,7 @@ impl Service {
             ConfigEdit::StartupCheck(value) => config.check_on_startup = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),
+            ConfigEdit::Interaction(mode) => config.interaction_mode = mode,
         }
         self.store.save_config(&config)
     }

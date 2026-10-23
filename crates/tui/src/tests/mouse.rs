@@ -188,7 +188,7 @@ fn settings_group_is_bilingual_and_each_toggle_persists_without_new_commands() {
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings");
         for width in [60, 140] {
-            let text = render(&mut s, width, 24);
+            let text = render(&mut s, width, 40);
             assert!(text.contains(i18n::tr!(MouseSettings)));
             assert!(text.contains(i18n::tr!(MouseScroll)));
         }

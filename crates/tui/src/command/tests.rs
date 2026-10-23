@@ -82,13 +82,16 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (query, expected) in [
-            ("终端", "repo terminal"),
             ("检查频率", "schedule interval"),
             ("LIVE DIFF", "repo diff"),
             ("CHECK SELECTED", "repo check"),
         ] {
             assert_eq!(names(query), [expected]);
         }
+        assert_eq!(
+            names("终端"),
+            ["repo terminal", "settings interaction text"]
+        );
         let staging = names("暂存");
         assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
@@ -125,6 +128,30 @@ fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() 
     assert_eq!(
         argument_input(input),
         Some((ArgumentAction::Add, "\"/example/中文 项目/终端\""))
+    );
+}
+
+#[test]
+fn interaction_is_nested_under_settings_and_uses_its_context() {
+    let expected = [
+        "settings interaction",
+        "settings interaction interactive",
+        "settings interaction text",
+    ];
+    assert_eq!(names("settings interaction"), expected);
+    assert_eq!(names("settings interaction "), expected[1..]);
+    assert!(
+        COMMANDS
+            .iter()
+            .all(|command| !command.name.starts_with("interaction"))
+    );
+    assert_eq!(
+        context::Context::Settings
+            .matches("interaction")
+            .iter()
+            .map(|command| command.name)
+            .collect::<Vec<_>>(),
+        expected
     );
 }
 

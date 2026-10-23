@@ -115,7 +115,16 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             .iter()
             .map(|c| c.name)
             .collect::<Vec<_>>();
-        assert_eq!(names, ["settings concurrency", "settings startup-check"]);
+        assert_eq!(
+            names,
+            [
+                "settings concurrency",
+                "settings startup-check",
+                "settings interaction",
+                "settings interaction interactive",
+                "settings interaction text"
+            ]
+        );
         assert!(command::argument_input("settings chinese-command-trigger false").is_none());
         assert!(command::matches("settings chinese-command-trigger").is_empty());
         if !visible {

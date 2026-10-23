@@ -230,3 +230,36 @@ fn mouse_preferences_default_independently_and_preserve_table_comments() {
     fs::write(store.config_path(), invalid).unwrap();
     assert!(store.config().is_err());
 }
+
+#[test]
+fn interaction_mode_defaults_without_rewriting_legacy_and_preserves_pointer_preferences() {
+    use engine::{
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+        state::InteractionMode,
+    };
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("interaction_mode = \"application\"\n", "");
+    fs::write(store.config_path(), &text).unwrap();
+    let config = store.config().unwrap();
+    assert_eq!(config.interaction_mode, InteractionMode::Application);
+    store.save_config(&config).unwrap();
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), text);
+    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let service = Service::new(store.clone(), manager);
+    for mode in [InteractionMode::TextSelection, InteractionMode::Application] {
+        service.configure(ConfigEdit::Interaction(mode)).unwrap();
+        let saved = store.config().unwrap();
+        assert_eq!(saved.interaction_mode, mode);
+        assert_eq!(saved.mouse, config.mouse);
+        assert_eq!(saved.repositories, config.repositories);
+    }
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("# 交互模式")
+    );
+}

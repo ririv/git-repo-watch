@@ -7,12 +7,14 @@ use engine::{cancel::Cancel, scheduler::Registration, service::ConfigEdit};
 pub(crate) enum Item {
     Command(Action),
     ChineseCommandTrigger,
+    Interaction,
     Mouse(engine::state::MouseSetting),
 }
 impl Item {
     pub fn description(self) -> &'static str {
         match self {
             Self::Command(action) => command::description(action),
+            Self::Interaction => i18n::tr!(InteractionSetting),
             Self::ChineseCommandTrigger => i18n::tr!(ChineseCommandTrigger),
             Self::Mouse(setting) => match setting {
                 engine::state::MouseSetting::PreciseClick => i18n::tr!(MousePreciseClick),
@@ -34,6 +36,7 @@ impl Configuration {
             items.push(Item::ChineseCommandTrigger);
         }
         if self == Self::General {
+            items.push(Item::Interaction);
             use engine::state::MouseSetting::*;
             items.extend([PreciseClick, Scroll, SelectPane].map(Item::Mouse));
         }
@@ -49,6 +52,10 @@ impl Screen {
                 crate::clipboard::Selection::None,
                 root,
             ),
+            Item::Interaction => {
+                self.interaction_menu();
+                Ok(false)
+            }
             Item::Mouse(setting) => {
                 let enabled = !self.config.mouse.enabled(setting);
                 self.start(

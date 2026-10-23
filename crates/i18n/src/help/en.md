@@ -6,6 +6,7 @@
 - `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
 
 ## Mouse & Trackpad
+- `Ctrl+G` toggles Interactive / Text selection; global `/settings interaction` opens choices (`//settings interaction` from a context). `/settings interaction interactive` and `/settings interaction text` switch directly. The preference persists across restarts and is also in Settings. Text selection releases pointer input to the terminal for selection, Copy and context menus; application clicks, scrolling and dragging are disabled without changing pointer preferences. Keyboard navigation, typing, paste and commands remain active; Esc goes back, Ctrl+C quits. Display updates and background tasks continue.
 - General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.
 - Single-click an item to select it; double-click to perform its Enter action, keeping existing confirmations. Scrollbar clicks only seek. Titles and blank space never activate Enter. Disabling precise clicks also disables double-clicks.
 - With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.

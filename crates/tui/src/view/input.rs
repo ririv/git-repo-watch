@@ -246,11 +246,19 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         Content::Editable { .. } | Content::Choices { .. } | Content::Layout { .. }
     );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
+    let accent = if screen.config.interaction_mode == engine::state::InteractionMode::TextSelection
+    {
+        GOOD
+    } else if active {
+        INPUT_ACCENT
+    } else {
+        MUTED
+    };
     let block = Block::bordered()
         .border_type(ratatui::widgets::BorderType::Rounded)
         .title(title)
-        .title_style(Style::default().fg(if active { INPUT_ACCENT } else { MUTED }))
-        .border_style(Style::default().fg(if active { INPUT_ACCENT } else { MUTED }))
+        .title_style(Style::default().fg(accent))
+        .border_style(Style::default().fg(accent))
         .style(input_style);
     let inner = block.inner(parts[1]);
     frame.render_widget(block, parts[1]);

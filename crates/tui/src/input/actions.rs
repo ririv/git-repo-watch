@@ -61,6 +61,8 @@ impl Screen {
             Action::Settings => self.open_configuration(Configuration::General),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
+            Action::InteractionMenu => self.interaction_menu(),
+            Action::Interaction(mode) => self.set_interaction(mode),
             Action::RepositoryRefresh => {
                 if self.repository_list_active() {
                     if let Err(error) = self.reload(root) {

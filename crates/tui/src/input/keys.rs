@@ -24,6 +24,9 @@ impl Screen {
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         self.clicks.reset();
         self.drag = None;
+        if self.interaction_key(key) {
+            return Ok(false);
+        }
         if matches!(
             key.code,
             KeyCode::Esc

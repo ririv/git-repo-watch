@@ -15,6 +15,7 @@ mod graphics;
 mod history;
 mod horizontal;
 mod input;
+mod interaction;
 mod layout_picker;
 mod markdown;
 mod mutations;
@@ -35,7 +36,7 @@ use anyhow::{Context, Result};
 use command::{Action, Configuration};
 use crossterm::{
     event::{self, Event as TerminalEvent, KeyEventKind},
-    event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture},
+    event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste},
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -191,6 +192,7 @@ struct Screen {
     page: Page,
     history: Vec<navigation::Visit>,
     mode: Mode,
+    interaction_save: interaction::Writer,
     diff_preference: diff::Preference,
     file_layout: files::Layout,
     graphics: graphics::Display,
@@ -239,6 +241,7 @@ impl Screen {
             page: Page::Repositories,
             history: Vec::new(),
             mode: Mode::Browsing,
+            interaction_save: Default::default(),
             diff_preference: Default::default(),
             file_layout: Default::default(),
             graphics: graphics::Display::new(graphics::Support::Unavailable(
@@ -349,18 +352,21 @@ impl Screen {
     }
 }
 
-struct TerminalGuard;
+struct TerminalGuard(engine::state::InteractionMode);
 impl TerminalGuard {
-    fn enter() -> Result<Self> {
+    fn enter(mode: engine::state::InteractionMode) -> Result<Self> {
         enable_raw_mode()?;
-        let guard = Self;
-        execute!(
-            io::stdout(),
-            EnterAlternateScreen,
-            EnableBracketedPaste,
-            EnableMouseCapture
-        )?;
+        let guard = Self(mode);
+        execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+        interaction::apply(mode, &mut io::stdout())?;
         Ok(guard)
+    }
+    fn sync(&mut self, mode: engine::state::InteractionMode) -> Result<()> {
+        if self.0 != mode {
+            interaction::apply(mode, &mut io::stdout())?;
+            self.0 = mode;
+        }
+        Ok(())
     }
 }
 impl Drop for TerminalGuard {
@@ -381,7 +387,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
         i18n::tr!(InteractiveTerminalRequired)
     );
     let mut screen = Screen::new(service, &root)?;
-    let _guard = TerminalGuard::enter()?;
+    let mut guard = TerminalGuard::enter(screen.config.interaction_mode)?;
     screen.graphics = graphics::Display::detect();
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
@@ -414,12 +420,14 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 | screen.poll_workspace()
                 | screen.poll_changes()
                 | screen.poll_clipboard()
+                | screen.poll_interaction()
                 | screen.workspace.animate()
                 | screen.animate_check()
                 | screen.animate_task()
                 | screen.graphics.poll();
             let changed =
                 changed | screen.overview.poll(&screen.service) | screen.overview.animate();
+            guard.sync(screen.config.interaction_mode)?;
             if dirty || changed {
                 terminal.draw(|frame| view::render(frame, &mut screen))?;
                 screen.graphics.finish_frame(&mut io::stdout())?;
@@ -429,10 +437,10 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 let event = event::read()?;
                 match event {
                     TerminalEvent::Key(key) if key.kind != KeyEventKind::Release => {
-                        dirty = true;
                         if screen.key(key, &root)? {
                             break;
                         }
+                        dirty = true;
                     }
                     TerminalEvent::Mouse(mouse) => {
                         dirty |= screen.mouse(mouse, &root)?;

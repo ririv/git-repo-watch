@@ -21,6 +21,10 @@ check_on_startup = true
 # 中文界面中输入 、 打开命令菜单；英文界面不启用。
 chinese_command_trigger = true
 
+# 交互模式：application 由程序处理指针，text_selection 由终端处理选字和右键。
+# 两种模式都保留键盘操作；Ctrl+G 切换并保存，下次启动沿用。
+interaction_mode = "application"
+
 # 鼠标能力独立开关；键盘操作不受影响。
 [mouse]
 # 点击具体条目或滚动条定位，不自动执行仓库写操作。

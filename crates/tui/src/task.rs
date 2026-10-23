@@ -232,6 +232,7 @@ impl Screen {
     }
     pub(super) fn shutdown(&mut self) {
         self.clipboard.shutdown();
+        self.interaction_save.shutdown();
         for task in self.repository_tasks.values() {
             task.cancel.cancel();
         }

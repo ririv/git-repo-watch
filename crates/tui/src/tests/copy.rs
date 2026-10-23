@@ -82,6 +82,7 @@ fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views
                 .commands()
                 .unwrap()
                 .iter()
+                .filter(|c| matches!(c.action, Action::Copy(_)))
                 .map(|c| c.name)
                 .collect::<Vec<_>>(),
             ["repo copy"]

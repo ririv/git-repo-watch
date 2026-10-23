@@ -21,6 +21,7 @@ impl Group {
 enum Value {
     Toggle(bool),
     Number(usize),
+    Interaction(engine::state::InteractionMode),
 }
 struct Entry {
     group: Group,
@@ -48,6 +49,12 @@ impl Entry {
                 i18n::tr!(SettingsChineseTrigger),
                 i18n::tr!(SettingsChineseTriggerHint),
                 Value::Toggle(screen.config.chinese_command_trigger),
+            ),
+            Item::Interaction => (
+                Group::Pointer,
+                i18n::tr!(InteractionSetting),
+                i18n::tr!(InteractionHint),
+                Value::Interaction(screen.config.interaction_mode),
             ),
             Item::Mouse(setting) => {
                 let (label, hint) = match setting {
@@ -93,11 +100,16 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .map(|item| item.label.width())
         .max()
         .unwrap_or(0);
-    let value_width = [i18n::tr!(TaskEnabled), i18n::tr!(TaskDisabled)]
-        .iter()
-        .map(|v| v.width() + 2)
-        .max()
-        .unwrap_or(0);
+    let value_width = [
+        i18n::tr!(TaskEnabled),
+        i18n::tr!(TaskDisabled),
+        i18n::tr!(InteractionApplication),
+        i18n::tr!(InteractionText),
+    ]
+    .iter()
+    .map(|v| v.width() + 2)
+    .max()
+    .unwrap_or(0);
     let inline = label_width + 4 + value_width <= usize::from(width);
     let mut lines = Vec::new();
     let mut rows = Vec::new();
@@ -140,6 +152,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         let (value, color) = match entry.value {
             Value::Toggle(true) => (format!("● {}", i18n::tr!(TaskEnabled)), GOOD),
             Value::Toggle(false) => (format!("○ {}", i18n::tr!(TaskDisabled)), Color::Gray),
+            Value::Interaction(mode) => {
+                (crate::interaction::label(mode).to_owned(), Color::LightCyan)
+            }
             Value::Number(value) => (value.to_string(), Color::LightCyan),
         };
         let mut label = vec![Span::styled(
