@@ -73,7 +73,7 @@ fn text_and_modified_arrows_stay_in_the_editor_instead_of_navigating() {
         assert_eq!(s.page, Page::Repositories);
         assert!(matches!(s.mode, Mode::Browsing));
     }
-    s.paste("//repo add ~/中文");
+    s.paste("//repos add ~/中文");
     let draft = s.bar.editor().text.clone();
     key(&mut s, KeyCode::Left);
     key(&mut s, KeyCode::Right);

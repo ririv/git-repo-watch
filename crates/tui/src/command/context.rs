@@ -8,17 +8,13 @@ pub(crate) enum DiffContext {
     History,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum RepositoryContext {
-    List,
-    Management,
-}
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Context {
     Diff(DiffContext),
     History,
     Branches,
     Stash,
-    Repositories(RepositoryContext),
+    Repository,
+    Repositories,
     Settings,
     Schedule,
     Error,
@@ -26,11 +22,12 @@ pub(crate) enum Context {
 impl Context {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Diff(_) => "diff",
-            Self::History => "log",
-            Self::Branches => "branch",
-            Self::Stash => "stash",
-            Self::Repositories(_) => "repo",
+            Self::Diff(_) => "repo diff",
+            Self::History => "repo log",
+            Self::Branches => "repo branch",
+            Self::Stash => "repo stash",
+            Self::Repository => "repo",
+            Self::Repositories => "repos",
             Self::Settings => "settings",
             Self::Schedule => "schedule",
             Self::Error => "error",
@@ -41,7 +38,7 @@ impl Context {
     }
     pub fn admits(self, command: &Command) -> bool {
         self.relative(command).is_some()
-            && !(self == Self::Repositories(RepositoryContext::Management)
+            && !(self == Self::Repositories
                 && matches!(
                     command.action,
                     Action::FilterMenu
@@ -112,14 +109,13 @@ impl Screen {
                 workspace::Section::Worktree => Some(Context::Diff(DiffContext::Worktree)),
                 workspace::Section::History => Some(Context::History),
                 workspace::Section::Branches => Some(Context::Branches),
-                workspace::Section::Overview => None,
+                workspace::Section::Overview => Some(Context::Repository),
             },
             Mode::Browsing => match self.page {
                 Page::Configuration(Configuration::General) => Some(Context::Settings),
-                Page::Repositories => Some(Context::Repositories(RepositoryContext::List)),
-                Page::Configuration(Configuration::Repositories) => {
-                    Some(Context::Repositories(RepositoryContext::Management))
-                }
+                Page::Repositories => None,
+                Page::Detail => Some(Context::Repository),
+                Page::Configuration(Configuration::Repositories) => Some(Context::Repositories),
                 Page::Configuration(Configuration::Schedule) => Some(Context::Schedule),
                 _ => None,
             },

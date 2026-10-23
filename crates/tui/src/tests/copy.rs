@@ -121,7 +121,7 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let rx = capture(&mut s);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     let Mode::Changes(session) = &s.mode else {
         panic!("changes expected")
@@ -179,7 +179,7 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
         &["diff", "--no-ext-diff", "--no-color", "--", &path],
     );
     for layout in ["split", "unified", "auto"] {
-        command(&mut s, &format!("diff layout {layout}"));
+        command(&mut s, &format!("repo diff layout {layout}"));
         key(&mut s, KeyCode::Char('/'));
         s.paste("copy");
         let text = render(&mut s, 60, 18);
@@ -208,7 +208,7 @@ fn history_and_branch_copy_follow_the_selected_object_and_historical_file() {
     let oid = support::git(&f.repo, &["rev-parse", "HEAD"]);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let rx = capture(&mut s);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     s.paste("copy");
@@ -232,7 +232,7 @@ fn history_and_branch_copy_follow_the_selected_object_and_historical_file() {
     local_copy(&mut s);
     let patch = copied(&mut s, &rx);
     assert_eq!(comparable_patch(&patch), comparable_patch(&expected));
-    command(&mut s, "branch");
+    command(&mut s, "repo branch");
     wait(&mut s);
     let Mode::Branches(view) = &s.mode else {
         panic!("branches expected")
@@ -309,7 +309,7 @@ fn clipboard_worker_keeps_navigation_responsive_and_reports_failures_without_ove
     assert_eq!(s.selected_path(), Some("/example/b".into()));
     command(&mut s, "repo copy");
     assert!(s.message.contains(i18n::tr!(ClipboardBusy)));
-    s.paste("//terminal");
+    s.paste("//repo terminal");
     let draft = s.bar.text();
     release.send(()).unwrap();
     let start = Instant::now();
@@ -328,7 +328,7 @@ fn unavailable_previews_never_copy_stale_or_partial_data() {
     support::write(f.repo.join("draft.rs"), "fn draft() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let rx = capture(&mut s);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     let document = engine::local::files::patch::Document::Patch {
@@ -364,7 +364,7 @@ fn image_file_paths_are_copyable_while_the_image_preview_reports_no_text_patch()
     std::fs::write(f.repo.join("中文 image.png"), bytes.into_inner()).unwrap();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let rx = capture(&mut s);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     local_copy(&mut s);
     assert_eq!(copied(&mut s, &rx), "中文 image.png");
@@ -390,7 +390,7 @@ fn file_paths_deduplicate_the_same_marked_file_across_staged_and_unstaged_groups
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let rx = capture(&mut s);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     s.key(
         KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
@@ -447,7 +447,7 @@ fn background_reads_cannot_replace_an_empty_scoped_command_or_its_copy_selection
         support::write(f.repo.join("pending.rs"), "fn pending() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let rx = capture(&mut s);
-        command(&mut s, "diff");
+        command(&mut s, "repo diff");
         wait(&mut s);
         let path = f.repo.clone();
         let (release, gate) = mpsc::channel();

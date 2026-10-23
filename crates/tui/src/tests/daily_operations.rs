@@ -22,9 +22,9 @@ fn accept(s: &mut Screen) {
 fn branch_parameter_review_returns_exact_draft_and_switches_only_after_acceptance() {
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "branch create feature/中文");
+    command(&mut s, "repo branch create feature/中文");
     wait(&mut s);
-    let draft = "/branch create feature/中文";
+    let draft = "/repo branch create feature/中文";
     assert_eq!(support::git(&f.repo, &["branch", "--show-current"]), "main");
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), draft);
@@ -40,7 +40,7 @@ fn branch_parameter_review_returns_exact_draft_and_switches_only_after_acceptanc
     }
     accept(&mut s);
     assert_eq!(support::git(&f.repo, &["branch", "--show-current"]), "main");
-    command(&mut s, "branch switch feature/中文");
+    command(&mut s, "repo branch switch feature/中文");
     wait(&mut s);
     accept(&mut s);
     assert_eq!(
@@ -58,11 +58,11 @@ fn stash_context_prefills_selected_identity_and_retains_selection_after_apply() 
     support::write(f.repo.join("tracked"), "changed\n");
     support::write(f.repo.join("未跟踪 file"), "new\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "stash save-all 保存当前工作");
+    command(&mut s, "repo stash save-all 保存当前工作");
     wait(&mut s);
     accept(&mut s);
     assert!(support::git(&f.repo, &["status", "--porcelain"]).is_empty());
-    command(&mut s, "stash");
+    command(&mut s, "repo stash");
     wait(&mut s);
     let Mode::Stashes(view) = &s.mode else {
         panic!("{:?}", s.mode)
@@ -79,7 +79,7 @@ fn stash_context_prefills_selected_identity_and_retains_selection_after_apply() 
     key(&mut s, KeyCode::Char('/'));
     s.paste("apply");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), format!("/stash apply {oid}"));
+    assert_eq!(s.bar.text(), format!("/repo stash apply {oid}"));
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     accept(&mut s);
@@ -99,7 +99,7 @@ fn stash_context_prefills_selected_identity_and_retains_selection_after_apply() 
     key(&mut s, KeyCode::Char('/'));
     s.paste("drop");
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.bar.text(), format!("/stash drop {oid}"));
+    assert_eq!(s.bar.text(), format!("/repo stash drop {oid}"));
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     accept(&mut s);
@@ -117,14 +117,14 @@ fn fetch_is_immediate_and_pull_reviews_then_fast_forwards_without_pushing() {
     f.advance();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
-    command(&mut s, "fetch");
+    command(&mut s, "repo fetch");
     assert!(!s.repository_tasks.is_empty());
     assert!(!matches!(s.mode, Mode::Confirm { .. } | Mode::Busy(_)));
     wait(&mut s);
     assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
-    command(&mut s, "stash");
+    command(&mut s, "repo stash");
     wait(&mut s);
-    command(&mut s, "pull");
+    command(&mut s, "repo pull");
     wait(&mut s);
     assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
     accept(&mut s);
@@ -132,7 +132,7 @@ fn fetch_is_immediate_and_pull_reviews_then_fast_forwards_without_pushing() {
         support::git(&f.repo, &["rev-parse", "HEAD"]),
         support::git(&f.repo, &["rev-parse", "origin/main"])
     );
-    command(&mut s, "pull");
+    command(&mut s, "repo pull");
     wait(&mut s);
     assert!(!matches!(s.mode, Mode::Confirm { .. } | Mode::Error { .. }));
     assert_eq!(s.message, i18n::tr!(PullCurrent));
@@ -145,7 +145,7 @@ fn pending_branch_review_never_overwrites_new_input_or_another_repository() {
     let other = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone(), other.repo.clone()]);
     s.focus(Some(f.repo.clone()));
-    command(&mut s, "branch create not-confirmed");
+    command(&mut s, "repo branch create not-confirmed");
     s.paste("x");
     let draft = s.bar.text();
     wait(&mut s);
@@ -167,7 +167,7 @@ fn mutation_readback_updates_files_without_replacing_a_new_scoped_command() {
     f.commit("file", "base\n");
     support::write(f.repo.join("file"), "changed\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     let plan = s
         .service

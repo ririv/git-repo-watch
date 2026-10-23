@@ -203,15 +203,17 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec!["/path/to/a".into(), "/path/to/b".into()]);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("/diff sta");
+    s.paste("/repo diff sta");
     key(&mut s, KeyCode::Tab);
-    assert!(matches!(&s.bar,crate::bar::InputBar::Command{input,..}if input.text()=="/diff stage"));
+    assert!(
+        matches!(&s.bar,crate::bar::InputBar::Command{input,..}if input.text()=="/repo diff stage")
+    );
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "check nope");
+    command(&mut s, "repo check nope");
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("/repo remove");
+    s.paste("/repos remove");
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
@@ -243,10 +245,10 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
         assert!(!text.contains("1 / 1"));
         key(&mut s, KeyCode::Char('/'));
         let text = render(&mut s, size.0, size.1);
-        assert!(text.contains("当前视图"));
-        assert!(text.contains(i18n::tr!(ContextCommandHint)));
+        assert!(text.contains("命令"));
+        assert!(text.contains("Tab 补全"));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "repo remove");
+        command(&mut s, "repos remove");
         let text = render(&mut s, size.0, size.1);
         assert!(text.contains("移除"));
         assert!(text.contains("Enter 确认"));
@@ -273,19 +275,19 @@ fn file_selection_commit_and_push_through_command_bar() {
         key(&mut s, KeyCode::Char('/'));
         key(&mut s, KeyCode::Esc);
         assert!(matches!(&s.mode,Mode::Files(session)if session.selected.len()==1));
-        command(&mut s, "diff stage");
+        command(&mut s, "repo diff stage");
         wait(&mut s);
         assert_eq!(
             support::git(&f.repo, &["diff", "--cached", "--name-only"]),
             "one.txt"
         );
-        command(&mut s, "diff unstage");
+        command(&mut s, "repo diff unstage");
         wait(&mut s);
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
         key(&mut s, KeyCode::Tab);
-        command(&mut s, "diff stage");
+        command(&mut s, "repo diff stage");
         wait(&mut s);
-        command(&mut s, "commit");
+        command(&mut s, "repo commit");
         wait(&mut s);
         assert!(matches!(s.mode, Mode::CommitMessage { .. }));
         s.paste("通过命令栏提交");
@@ -325,7 +327,7 @@ fn file_selection_commit_and_push_through_command_bar() {
             "已提交"
         }));
         assert!(support::git(&f.repo, &["status", "--porcelain"]).contains("two.txt"));
-        command(&mut s, "push");
+        command(&mut s, "repo push");
         wait(&mut s);
         assert!(matches!(s.mode, Mode::PushConfirm { .. }));
         let remote_before = support::git(&f.remote, &["rev-parse", "main"]);
@@ -336,7 +338,7 @@ fn file_selection_commit_and_push_through_command_bar() {
             remote_before,
             support::git(&f.remote, &["rev-parse", "main"])
         );
-        command(&mut s, "push");
+        command(&mut s, "repo push");
         wait(&mut s);
         key(&mut s, KeyCode::Right);
         key(&mut s, KeyCode::BackTab);
@@ -414,11 +416,11 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::General));
-    s.paste("//push");
+    s.paste("//repo push");
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Delete);
     assert!(matches!(s.bar, crate::bar::InputBar::Search(_)));
-    assert_eq!(s.query, "push");
+    assert_eq!(s.query, "repo push");
     assert_eq!(s.page, Page::Repositories);
 }
 #[test]
@@ -440,13 +442,11 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
         let during = render(&mut s, w, h);
         let during_lines = during.lines().collect::<Vec<_>>();
         assert!(during_lines[list_line].contains("仓库 · 1"));
-        assert!(
-            during_lines[input_line].contains("/repo") && during_lines[input_line].contains("›")
-        );
-        assert!(during.contains("当前视图"));
+        assert!(during_lines[input_line].contains("/") && during_lines[input_line].contains("›"));
+        assert!(during.contains("命令"));
         let top = during_lines
             .iter()
-            .position(|line| line.contains("/repo ·"))
+            .position(|line| line.starts_with('┌') && line.contains("命令"))
             .unwrap();
         assert!(during_lines[top].starts_with('┌'));
         assert!(during_lines[top].ends_with('┐'));
@@ -460,7 +460,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
             key(&mut s, KeyCode::Down);
         }
         let scrolled = render(&mut s, w, h);
-        assert!(scrolled.contains("import <path>"));
+        assert!(scrolled.contains("/quit"));
         s.paste("nonexistent");
         assert!(render(&mut s, w, h).contains("没有匹配命令"));
 
@@ -483,7 +483,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
     assert!(
         matches!(&s.mode,Mode::Files(session)if session.rows().len()==2&&session.selected.len()==1)
     );
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     wait(&mut s);
     assert_eq!(
         support::git(&f.repo, &["diff", "--cached", "--name-only"]),
@@ -502,9 +502,9 @@ fn numeric_search_and_list_commands_do_not_conflict() {
     assert_eq!(s.filter, Filter::All);
     assert_eq!(s.rows().len(), 1);
     for (name, expected) in [
-        ("repo filter problems", Filter::Problems),
-        ("repo filter unchecked", Filter::Unchecked),
-        ("repo filter all", Filter::All),
+        ("repos filter problems", Filter::Problems),
+        ("repos filter unchecked", Filter::Unchecked),
+        ("repos filter all", Filter::All),
     ] {
         key(&mut s, KeyCode::Char('/'));
         s.paste(&format!("/{name}"));
@@ -605,7 +605,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         let candidates = render(&mut s, width, height);
         assert!(candidates.contains("Current repo"));
         assert!(candidates.contains("Tab complete"));
-        assert!(candidates.contains("/diff"));
+        assert!(candidates.contains("/repo"));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings concurrency");
         let input = render(&mut s, width, height);
@@ -652,9 +652,9 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         ]);
         s.paste("//te");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/terminal");
+        assert_eq!(s.bar.text(), "/repo terminal");
         assert_eq!(
-            command::matches("terminal")
+            command::matches("repo terminal")
                 .first()
                 .map(|command| command.action),
             Some(Action::Terminal)
@@ -678,7 +678,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
 fn terminal_requires_selection_and_preserves_origin_on_success() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, mut empty) = fixture(vec![]);
-    command(&mut empty, "terminal");
+    command(&mut empty, "repo terminal");
     assert!(matches!(empty.mode, Mode::Browsing));
     assert_eq!(empty.message, "Select a repository first");
     let f = support::Fixture::create();
@@ -706,27 +706,18 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
         let _language = i18n::using(language);
         let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
         for (width, height) in [(60, 24), (100, 28), (150, 32)] {
-            s.paste("//");
+            s.paste("/repo");
             let text = render(&mut s, width, height);
-            let visible = |text: &str| {
-                text.lines()
-                    .filter(|line| {
-                        command::COMMANDS
-                            .iter()
-                            .any(|item| line.contains(&format!("/{:<13}", item.name)))
-                    })
-                    .count()
-            };
-            assert_eq!(visible(&text), 8, "{text}");
-            for item in command::matches("").into_iter().take(8) {
-                assert!(text.contains(&format!("/{:<13}", item.name)));
+            assert_eq!(s.command_items.len(), 8, "{text}");
+            for item in s.bar.commands().unwrap().into_iter().take(8) {
+                assert!(text.contains(&format!("/{}", item.name)));
             }
             for _ in 0..command::COMMANDS.len() {
                 key(&mut s, KeyCode::Down);
             }
             let last = render(&mut s, width, height);
-            assert_eq!(visible(&last), 8);
-            assert!(last.contains("/quit"));
+            assert_eq!(s.command_items.len(), 8);
+            assert!(last.contains("/repo copy"));
             key(&mut s, KeyCode::Esc);
         }
     }
@@ -869,7 +860,7 @@ fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_li
         _ => panic!("command mode expected"),
     }
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo remove");
+    command(&mut s, "repos remove");
     render(&mut s, 90, 24);
     assert!(!wheel(&mut s, ScrollDown, area.x + 2, area.y + 3));
     assert_eq!(s.selected(), 0);
@@ -1061,7 +1052,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     std::fs::remove_file(first.repo.join("untracked")).unwrap();
     std::fs::remove_file(second.repo.join("untracked")).unwrap();
     let gate = FetchGate::install(&second);
-    command(&mut s, "check all");
+    command(&mut s, "repos check");
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.check_task.is_some());
     assert!(matches!(
@@ -1099,7 +1090,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     command(&mut s, "help");
     assert_eq!(s.page, Page::Help);
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     assert!(s.repository_tasks.contains_key(&second.repo));
     assert!(matches!(s.mode, Mode::Browsing));
     command(&mut s, "cancel");
@@ -1128,7 +1119,7 @@ fn background_completion_preserves_the_current_detail_page_and_search() {
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     let gate = FetchGate::install(&second);
-    command(&mut s, "check all");
+    command(&mut s, "repos check");
     poll_background_until(&mut s, |_| gate.started.exists());
     for c in "repo".chars() {
         key(&mut s, KeyCode::Char(c));
@@ -1154,7 +1145,7 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.focus(Some(first.repo.clone()));
     key(&mut s, KeyCode::Char('/'));
-    s.paste("/check");
+    s.paste("/repo check");
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
     assert!(!s.repository_tasks.is_empty());
@@ -1193,17 +1184,17 @@ fn checks_started_from_files_leave_the_panel_interactive_and_serialize_writes() 
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     let gate = FetchGate::install(&f);
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     assert!(matches!(s.mode, Mode::Files(_)));
     poll_background_until(&mut s, |_| gate.started.exists());
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     assert!(matches!(s.mode, Mode::Files(_)));
     assert!(s.message.contains("already running"));
     assert!(support::git(&f.repo, &["diff", "--cached", "--name-only"]).is_empty());
     gate.release();
     poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
     assert!(matches!(s.mode, Mode::Files(_)));
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     wait(&mut s);
     assert_eq!(
         support::git(&f.repo, &["diff", "--cached", "--name-only"]),
@@ -1219,7 +1210,7 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     s.config.push_policy = PushPolicy::FastForward;
     s.service.store.save_config(&s.config).unwrap();
     let gate = FetchGate::install(&f);
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");
     poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
@@ -1263,7 +1254,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
         for (width, height) in [(60, 18), (80, 24), (150, 32)] {
             let (_home, mut s) = fixture(vec!["/example/repository".into()]);
             render(&mut s, width, height);
-            command(&mut s, "repo remove");
+            command(&mut s, "repos remove");
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let body = s.body_area;
@@ -1300,7 +1291,8 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
 fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
     let root = command::matches("");
     assert!(root.iter().all(|command| !command.name.contains(' ')));
-    assert!(root.iter().any(|command| command.name == "log"));
+    assert!(root.iter().any(|command| command.name == "repo"));
+    assert!(root.iter().any(|command| command.name == "repos"));
     for removed in [
         "interval",
         "autopush",
@@ -1340,22 +1332,22 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
         ["settings concurrency", "settings startup-check"]
     );
     assert_eq!(
-        command::matches("check ")
+        command::matches("repos check")
             .iter()
             .map(|c| c.name)
             .collect::<Vec<_>>(),
-        ["check all"]
+        ["repos check"]
     );
-    assert_eq!(command::matches("repo ").len(), 22);
+    assert_eq!(command::matches("repos ").len(), 22);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
-        command::matches("check")
+        command::matches("repo check")
             .first()
             .map(|command| command.action),
         Some(Action::Check)
     );
     assert_eq!(
-        command::matches("check all")
+        command::matches("repos check")
             .first()
             .map(|command| command.action),
         Some(Action::CheckAll)
@@ -1394,7 +1386,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         assert!(matches!(s.mode, Mode::Browsing));
         assert!(s.bar.text().starts_with("/settings concurrency "));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "repo manage");
+        command(&mut s, "repos manage");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         let text = render(&mut s, 100, 28);
         assert!(text.contains("/example/excluded"));
@@ -1406,13 +1398,13 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
 fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("/repo");
+    s.paste("/repos");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "/repo");
+    assert_eq!(s.bar.text(), "/repos");
     s.select(1);
     s.paste(" rem");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "/repo remove");
+    assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
         matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == &PathBuf::from("/example/alpha"))
@@ -1555,13 +1547,13 @@ fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
-        command(&mut s, "repo manage");
-        s.paste("//repo a");
+        command(&mut s, "repos manage");
+        s.paste("//repos a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
-            assert!(render(&mut s, width, height).contains("/repo add <path>"));
+            assert!(render(&mut s, width, height).contains("/repos add <path>"));
         }
         key(&mut s, KeyCode::Enter);
-        assert_eq!(s.bar.text(), "/repo add ");
+        assert_eq!(s.bar.text(), "/repos add ");
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Enter);
@@ -1580,8 +1572,8 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     std::fs::rename(&f.repo, &renamed).unwrap();
     f.repo = std::fs::canonicalize(renamed).unwrap();
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "repo manage");
-    let input = format!("repo add \"{}\"", f.repo.display());
+    command(&mut s, "repos manage");
+    let input = format!("repos add \"{}\"", f.repo.display());
     command(&mut s, &input);
     assert!(
         matches!(&s.mode, Mode::Confirm { operation: Confirmation::Configure { command: command::ConfigArgument::Add, value, .. }, .. } if value == &f.repo.to_string_lossy())
@@ -1602,10 +1594,10 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
 fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchanged() {
     let (_home, mut s) = fixture(vec![]);
     for input in [
-        "repo add ",
-        "repo add relative",
-        "repo add ~someone/Proj",
-        "repo add \"/unterminated",
+        "repos add ",
+        "repos add relative",
+        "repos add ~someone/Proj",
+        "repos add \"/unterminated",
         "schedule interval zero",
         "schedule interval 0s",
         "schedule autopush invalid",

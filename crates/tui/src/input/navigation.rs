@@ -50,11 +50,8 @@ impl Screen {
                     KeyCode::Home => self.select(0),
                     KeyCode::End => self.select(count.saturating_sub(1)),
                     KeyCode::Enter | KeyCode::Right if count > 0 => {
-                        self.history.push(self.page);
-                        self.page = Page::Detail;
-                        self.scroll = 0;
                         if let Some(path) = self.selected_path() {
-                            self.enter_repository(path);
+                            self.open_repository(path);
                         }
                     }
                     _ => {}

@@ -50,9 +50,9 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
         for removed in [
             "stage",
             "unstage",
-            "diff auto",
-            "diff split",
-            "diff unified",
+            "repo diff auto",
+            "repo diff split",
+            "repo diff unified",
         ] {
             assert!(
                 command::COMMANDS
@@ -61,37 +61,37 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
             );
         }
         assert_eq!(
-            command::matches("diff ")
+            command::matches("repo diff ")
                 .iter()
                 .map(|command| command.name)
                 .collect::<Vec<_>>(),
             [
-                "diff stage",
-                "diff unstage",
-                "diff layout",
-                "diff layout auto",
-                "diff layout split",
-                "diff layout unified",
-                "diff refresh",
-                "diff copy"
+                "repo diff stage",
+                "repo diff unstage",
+                "repo diff layout",
+                "repo diff layout auto",
+                "repo diff layout split",
+                "repo diff layout unified",
+                "repo diff refresh",
+                "repo diff copy"
             ]
         );
         assert_eq!(
-            command::matches("diff layout ")
+            command::matches("repo diff layout ")
                 .iter()
                 .map(|command| command.name)
                 .collect::<Vec<_>>(),
             [
-                "diff layout auto",
-                "diff layout split",
-                "diff layout unified"
+                "repo diff layout auto",
+                "repo diff layout split",
+                "repo diff layout unified"
             ]
         );
-        command(&mut s, "diff stage");
+        command(&mut s, "repo diff stage");
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(s.message, i18n::tr!(ChangesSelectionRequired));
         assert!(s.repository_tasks.is_empty());
-        command(&mut s, "diff layout");
+        command(&mut s, "repo diff layout");
         assert!(matches!(
             s.bar,
             crate::bar::InputBar::Layout {
@@ -117,7 +117,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         s.paste("//di");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/diff");
+        assert_eq!(s.bar.text(), "/repo diff");
         assert_eq!(s.bar.commands().unwrap().len(), 8);
         let text = render(&mut s, 180, 36);
         for command in s.bar.commands().unwrap() {
@@ -129,13 +129,13 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.bar, crate::bar::InputBar::Layout { .. }));
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), "/diff");
+        assert_eq!(s.bar.text(), "/repo diff");
         assert!(matches!(
             s.bar,
             crate::bar::InputBar::Command { selected: 3, .. }
         ));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "diff");
+        command(&mut s, "repo diff");
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Changes(_)));
         assert!(s.repository_tasks.is_empty());
@@ -155,7 +155,7 @@ fn combined_view_previews_exact_sides_and_keeps_both_groups_visible_after_naviga
         support::write(f.repo.join("other.rs"), "fn other() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-        command(&mut s, "diff");
+        command(&mut s, "repo diff");
         wait(&mut s);
         assert_eq!(review(&s).focus, Focus::Files);
         choose(&mut s, "双重.ts", Area::Unstaged);
@@ -213,7 +213,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     support::write(f.repo.join("alpha"), "alpha");
     support::write(f.repo.join("beta"), "beta");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     choose(&mut s, "alpha", Area::Untracked);
     alt(&mut s, 's');
@@ -231,7 +231,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     );
     ctrl(&mut s, 'a');
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     assert_eq!(s.message, i18n::tr!(ChangesWrongArea));
     assert!(s.repository_tasks.is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -256,7 +256,7 @@ fn selection_changes_coalesce_to_the_latest_file_and_refresh_recovers_stale_snap
         );
     }
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     for _ in 0..30 {
         key(&mut s, KeyCode::Down);
@@ -270,7 +270,7 @@ fn selection_changes_coalesce_to_the_latest_file_and_refresh_recovers_stale_snap
     wait(&mut s);
     assert!(matches!(&review(&s).preview, Preview::Failed { .. }));
     assert!(render(&mut s, 180, 32).contains("a.rs"));
-    command(&mut s, "refresh");
+    command(&mut s, "repo refresh");
     wait(&mut s);
     choose(&mut s, "a.rs", Area::Staged);
     assert_eq!(
@@ -285,7 +285,7 @@ fn completing_a_write_refreshes_only_files_and_preserves_a_new_command_draft() {
     let f = support::Fixture::create();
     support::write(f.repo.join("new.rs"), "fn new_file() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     let session = review(&s).files.clone();
     let (release, gate) = mpsc::channel();
@@ -303,10 +303,10 @@ fn completing_a_write_refreshes_only_files_and_preserves_a_new_command_draft() {
             )?))
         },
     );
-    s.paste("//diff layout sp");
+    s.paste("//repo diff layout sp");
     release.send(()).unwrap();
     wait(&mut s);
-    assert_eq!(s.bar.text(), "/diff layout sp");
+    assert_eq!(s.bar.text(), "/repo diff layout sp");
     assert_eq!(review(&s).files.rows()[0].area, Area::Staged);
     assert_eq!(
         review(&s).content().labels(),

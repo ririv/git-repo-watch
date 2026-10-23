@@ -46,7 +46,7 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let config = std::fs::read(s.service.store.config_path()).unwrap();
-        command(&mut s, "log");
+        command(&mut s, "repo log");
         assert!(!s.repository_tasks.is_empty());
         assert!(!matches!(s.mode, Mode::Busy(_)));
         wait(&mut s);
@@ -109,7 +109,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         );
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        command(&mut s, "log");
+        command(&mut s, "repo log");
         wait(&mut s);
         let selected = graph(&s).selected().unwrap().oid;
         key(&mut s, KeyCode::Right);
@@ -159,9 +159,9 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
                 .collect();
             assert!(colors.len() >= 3);
         }
-        command(&mut s, "diff layout unified");
+        command(&mut s, "repo diff layout unified");
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
-        command(&mut s, "diff");
+        command(&mut s, "repo diff");
         wait(&mut s);
         assert!(
             matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
@@ -193,7 +193,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
 fn search_locates_hash_subject_author_and_refs_without_hiding_graph_nodes() {
     let f = merged();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     let count = graph(&s).records.len();
     s.paste("feature");
@@ -243,7 +243,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
             .unwrap();
     }
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     assert_eq!(graph(&s).records.len(), 100);
     let route = graph(&s).records[99].route.clone();
@@ -260,7 +260,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
     assert_eq!(graph(&s).records[99].route, route);
     key(&mut s, KeyCode::Down);
     assert_eq!(graph(&s).state.selected(), Some(100));
-    command(&mut s, "log more");
+    command(&mut s, "repo log more");
     assert!(s.message.contains(i18n::tr!(HistoryNoMore)));
     key(&mut s, KeyCode::Char('/'));
     key(&mut s, KeyCode::Char('/'));
@@ -286,7 +286,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
 fn historical_file_search_and_diff_back_navigation_preserve_the_graph() {
     let f = merged();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     let oid = graph(&s).selected().unwrap().oid;
     key(&mut s, KeyCode::Enter);
@@ -312,7 +312,7 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     support::init(temp.path());
     let path = std::fs::canonicalize(temp.path()).unwrap();
     let (_home, mut s) = fixture(vec![path]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     assert!(graph(&s).records.is_empty());
     assert!(render(&mut s, 60, 18).contains(i18n::tr!(HistoryEmpty)));
@@ -320,7 +320,7 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     assert!(matches!(s.mode, Mode::History(_)));
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);

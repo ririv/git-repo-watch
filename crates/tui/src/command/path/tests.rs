@@ -14,7 +14,7 @@ fn directories(names: &[&str]) -> TempDir {
     temp
 }
 fn editor(temp: &TempDir, argument: &str) -> Editor {
-    Editor::new(format!("/repo add {}/{argument}", temp.path().display()))
+    Editor::new(format!("/repos add {}/{argument}", temp.path().display()))
 }
 fn parsed(editor: &Editor) -> String {
     let (_, value) = super::super::argument_input(editor.text.strip_prefix('/').unwrap()).unwrap();
@@ -42,14 +42,14 @@ fn quoted_paths_keep_the_quote_style_and_cursor_inside_the_quotes() {
     for quote in ['\'', '"'] {
         for closing in ["", &quote.to_string()] {
             let mut input = Editor::new(format!(
-                "/repo scan {quote}{}/中{closing}",
+                "/repos scan {quote}{}/中{closing}",
                 temp.path().display()
             ));
             complete(&mut input).unwrap();
             assert_eq!(
                 input.text,
                 format!(
-                    "/repo scan {quote}{}/中文 with spaces/{quote}",
+                    "/repos scan {quote}{}/中文 with spaces/{quote}",
                     temp.path().display()
                 )
             );
@@ -145,7 +145,7 @@ fn errors_preserve_the_editor_and_non_path_arguments_do_not_touch_the_filesystem
     for text in [
         "/settings concurrency 4",
         "/schedule interval 6h",
-        "/repo add",
+        "/repos add",
     ] {
         let mut input = Editor::new(text.into());
         assert!(matches!(complete(&mut input).unwrap(), Menu::Commands));
@@ -156,7 +156,7 @@ fn errors_preserve_the_editor_and_non_path_arguments_do_not_touch_the_filesystem
 #[test]
 fn empty_path_starts_at_root_but_relative_paths_are_rejected() {
     let input = PathInput::at(
-        &Editor::new("/repo add ".into()),
+        &Editor::new("/repos add ".into()),
         Path::new("/example/user-home"),
     )
     .unwrap()
@@ -165,12 +165,12 @@ fn empty_path_starts_at_root_but_relative_paths_are_rejected() {
     assert!(input.prefix.is_empty());
     assert!(
         PathInput::at(
-            &Editor::new("/repo add relative".into()),
+            &Editor::new("/repos add relative".into()),
             Path::new("/example/user-home")
         )
         .is_err()
     );
-    let mut editor = Editor::new("/repo add /".into());
+    let mut editor = Editor::new("/repos add /".into());
     editor.cursor -= 1;
     assert!(
         PathInput::at(&editor, Path::new("/example/user-home"))
@@ -234,7 +234,7 @@ fn non_utf8_directory_names_are_reported_without_lossy_conversion() {
 fn a_space_in_the_typed_prefix_is_literal_even_before_closing_a_quote() {
     let temp = directories(&["work", "work space"]);
     for quote in ["", "\"", "'"] {
-        let mut input = Editor::new(format!("/repo add {quote}{}/work ", temp.path().display()));
+        let mut input = Editor::new(format!("/repos add {quote}{}/work ", temp.path().display()));
         assert!(matches!(complete(&mut input).unwrap(), Menu::Commands));
         assert_eq!(
             parsed(&input),
@@ -248,12 +248,12 @@ fn tilde_completion_keeps_the_short_form_and_quotes_but_looks_in_the_explicit_ho
     let temp = directories(&["中文 目录", "Proj"]);
     for (typed, completed) in [("~/中", "~/中文 目录/"), ("~/Pr", "~/Proj/")] {
         for quote in ["", "'", "\""] {
-            let mut input = Editor::new(format!("/repo add {quote}{typed}{quote}"));
+            let mut input = Editor::new(format!("/repos add {quote}{typed}{quote}"));
             assert!(matches!(
                 super::complete(&mut input, temp.path()).unwrap(),
                 Menu::Commands
             ));
-            assert_eq!(input.text, format!("/repo add {quote}{completed}{quote}"));
+            assert_eq!(input.text, format!("/repos add {quote}{completed}{quote}"));
             assert_eq!(input.cursor, input.text.len() - quote.len());
             let (_, value) =
                 super::super::argument_input(input.text.strip_prefix('/').unwrap()).unwrap();
@@ -270,20 +270,20 @@ fn tilde_completion_keeps_the_short_form_and_quotes_but_looks_in_the_explicit_ho
 fn bare_tilde_and_ambiguous_components_complete_from_home_without_losing_the_suffix() {
     let temp = directories(&["仓库 甲", "仓库 乙"]);
     for typed in ["~", "~/"] {
-        let mut input = Editor::new(format!("/repo scan {typed}"));
+        let mut input = Editor::new(format!("/repos scan {typed}"));
         let Menu::Directories(menu) = super::complete(&mut input, temp.path()).unwrap() else {
             panic!("ambiguous home children")
         };
-        assert_eq!(input.text, "/repo scan ~/仓库 ");
-        assert!(menu.choose().text.starts_with("/repo scan ~/仓库 "));
+        assert_eq!(input.text, "/repos scan ~/仓库 ");
+        assert!(menu.choose().text.starts_with("/repos scan ~/仓库 "));
     }
-    let mut input = Editor::new("/repo scan \"~/仓wrong/保留 后缀\"".into());
+    let mut input = Editor::new("/repos scan \"~/仓wrong/保留 后缀\"".into());
     input.cursor = input.text.find("wrong").unwrap();
     let Menu::Directories(menu) = super::complete(&mut input, temp.path()).unwrap() else {
         panic!("ambiguous path component")
     };
     let chosen = menu.choose();
-    assert_eq!(chosen.text, "/repo scan \"~/仓库 乙/保留 后缀\"");
+    assert_eq!(chosen.text, "/repos scan \"~/仓库 乙/保留 后缀\"");
     assert_eq!(&chosen.text[chosen.cursor..], "保留 后缀\"");
     assert!(chosen.text.is_char_boundary(chosen.cursor));
 }
@@ -292,7 +292,7 @@ fn bare_tilde_and_ambiguous_components_complete_from_home_without_losing_the_suf
 fn tilde_errors_preserve_the_draft_instead_of_using_another_directory() {
     let temp = directories(&[]);
     for typed in ["~someone/Proj", "~someone", "~/missing/", "~/unknown"] {
-        let mut input = Editor::new(format!("/repo import {typed}"));
+        let mut input = Editor::new(format!("/repos import {typed}"));
         let before = input.text.clone();
         assert!(super::complete(&mut input, temp.path()).is_err());
         assert_eq!(input.text, before);
@@ -302,7 +302,7 @@ fn tilde_errors_preserve_the_draft_instead_of_using_another_directory() {
 #[test]
 fn tab_before_the_home_separator_does_not_replace_the_home_marker_or_the_suffix() {
     let temp = directories(&["Proj"]);
-    let mut input = Editor::new("/repo add ~/Proj".into());
+    let mut input = Editor::new("/repos add ~/Proj".into());
     input.cursor = input.text.find("~/").unwrap() + 1;
     let before = input.text.clone();
     assert!(matches!(

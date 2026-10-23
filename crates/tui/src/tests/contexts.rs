@@ -21,7 +21,7 @@ fn locked_prefix_selects_before_removal_and_never_executes_on_focus_return() {
     input
         .editor_mut()
         .key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
-    assert_eq!(input.text(), "/diff layout 中文");
+    assert_eq!(input.text(), "/repo diff layout 中文");
     input
         .editor_mut()
         .key(KeyEvent::new(KeyCode::End, KeyModifiers::NONE));
@@ -62,7 +62,7 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         support::write(f.repo.join("source.ts"), "export const value = 1;\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-        command(&mut s, "diff");
+        command(&mut s, "repo diff");
         wait(&mut s);
         s.paste("source");
         key(&mut s, KeyCode::Home);
@@ -73,18 +73,18 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
                 .commands()
                 .unwrap()
                 .iter()
-                .all(|c| c.name.starts_with("diff "))
+                .all(|c| c.name.starts_with("repo diff "))
         );
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
-            assert!(text.contains("/diff"), "{text}");
-            assert!(!text.contains("/diff stage"), "{text}");
+            assert!(text.contains("/repo diff"), "{text}");
+            assert!(!text.contains("/repo diff stage"), "{text}");
             assert!(
                 text.contains(i18n::tr!(ContextCommandPlaceholder)),
                 "{text}"
             );
         }
-        s.paste("terminal");
+        s.paste("repo terminal");
         key(&mut s, KeyCode::Enter);
         assert!(s.bar.commands().unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
@@ -128,13 +128,13 @@ fn stage_uses_local_suffix_and_preserves_the_existing_git_workflow() {
     let f = support::Fixture::create();
     support::write(f.repo.join("new-source"), "content\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     s.paste("sta");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.editor().text, "stage");
-    assert_eq!(s.bar.text(), "/diff stage");
+    assert_eq!(s.bar.text(), "/repo diff stage");
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(
@@ -152,7 +152,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     support::write(f.repo.join("source.rs"), "fn after() {}\n");
     support::git(&f.repo, &["commit", "-am", "after"]);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "log");
+    command(&mut s, "repo log");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::History));
@@ -161,7 +161,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
             .commands()
             .unwrap()
             .iter()
-            .all(|c| c.name.starts_with("log "))
+            .all(|c| c.name.starts_with("repo log "))
     );
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), None);
@@ -187,11 +187,11 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     assert!(s.bar.commands().unwrap().is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "branch");
+    command(&mut s, "repo branch");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Branches));
-    assert_eq!(s.bar.commands().unwrap()[0].name, "branch refresh");
+    assert_eq!(s.bar.commands().unwrap()[0].name, "repo branch refresh");
 }
 
 #[test]
@@ -199,14 +199,9 @@ fn configuration_scope_preserves_tilde_completion_unicode_and_confirmation_curso
     let (_home, mut s) = fixture(vec![]);
     std::fs::create_dir(s.service.scheduler.user_home().join("中文 目录")).unwrap();
     let config = std::fs::read(s.service.store.config_path()).unwrap();
-    command(&mut s, "repo manage");
+    command(&mut s, "repos manage");
     key(&mut s, KeyCode::Char('/'));
-    assert_eq!(
-        context(&s),
-        Some(Context::Repositories(
-            crate::command::context::RepositoryContext::Management
-        ))
-    );
+    assert_eq!(context(&s), Some(Context::Repositories));
     s.paste("add \"~/中文\"");
     key(&mut s, KeyCode::Left);
     key(&mut s, KeyCode::Tab);
@@ -215,12 +210,7 @@ fn configuration_scope_preserves_tilde_completion_unicode_and_confirmation_curso
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Confirm { .. }));
     key(&mut s, KeyCode::Esc);
-    assert_eq!(
-        context(&s),
-        Some(Context::Repositories(
-            crate::command::context::RepositoryContext::Management
-        ))
-    );
+    assert_eq!(context(&s), Some(Context::Repositories));
     assert_eq!(s.bar.editor().cursor, cursor);
     assert_eq!(s.bar.editor().text, "add \"~/中文 目录/\"");
     assert_eq!(
@@ -244,13 +234,13 @@ fn changing_command_namespace_keeps_the_original_repository_scope() {
     support::write(f.repo.join("draft"), "content");
     let (_home, mut s) = fixture(vec![f.repo.clone(), other.repo.clone()]);
     s.focus(Some(f.repo.clone()));
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     s.focus(Some(other.repo.clone()));
     assert_eq!(context(&s), Some(Context::Diff(DiffContext::Worktree)));
     key(&mut s, KeyCode::Char('/'));
-    s.paste("repo remove");
+    s.paste("repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
         matches!(&s.mode,Mode::Confirm { operation: Confirmation::Remove(path),.. } if path==&f.repo)
@@ -260,79 +250,28 @@ fn changing_command_namespace_keeps_the_original_repository_scope() {
 
 #[test]
 fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_escape() {
-    use crate::command::context::RepositoryContext;
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         key(&mut s, KeyCode::Char('/'));
-        assert_eq!(
-            context(&s),
-            Some(Context::Repositories(RepositoryContext::List))
-        );
+        assert_eq!(context(&s), None);
+        assert_eq!(s.bar.text(), "/");
         let commands = s.bar.commands().unwrap();
-        assert!(commands.iter().all(|c| c.name.starts_with("repo ")));
-        for name in [
-            "repo filter",
-            "repo sort",
-            "repo refresh",
-            "repo manage",
-            "repo copy",
-            "repo add",
-        ] {
-            assert!(commands.iter().any(|c| c.name == name));
-        }
+        assert!(commands.iter().all(|c| !c.name.contains(' ')));
+        assert!(commands.iter().any(|c| c.action == Action::OpenRepository));
+        assert!(commands.iter().any(|c| c.action == Action::Repositories));
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
-            assert!(text.contains("/repo"), "{text}");
-            assert!(
-                text.contains(i18n::tr!(ContextCommandPlaceholder)),
-                "{text}"
-            );
+            assert!(text.contains("/repos"), "{text}");
         }
-        control(&mut s, 'u');
-        s.paste("sort name");
+        s.paste("repos sort name");
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.order, Order::Name);
-        key(&mut s, KeyCode::Char('/'));
-        key(&mut s, KeyCode::Backspace);
-        assert!(s.bar.command_input().unwrap().prefix_selected());
-        key(&mut s, KeyCode::Backspace);
-        assert!(matches!(s.bar, bar::InputBar::Search(_)));
-        key(&mut s, KeyCode::Char('/'));
-        key(&mut s, KeyCode::Char('/'));
-        assert_eq!(context(&s), None);
-        assert!(
-            s.bar
-                .commands()
-                .unwrap()
-                .iter()
-                .all(|c| !c.name.contains(' '))
-        );
-        assert!(
-            s.bar
-                .commands()
-                .unwrap()
-                .iter()
-                .any(|c| c.action == Action::Repositories)
-        );
-        assert!(
-            !s.bar
-                .commands()
-                .unwrap()
-                .iter()
-                .any(|c| matches!(c.action, Action::FilterMenu | Action::SortMenu))
-        );
-        key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Char('/'));
-        s.paste("manage");
-        key(&mut s, KeyCode::Enter);
+        command(&mut s, "repos manage");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Char('/'));
-        assert_eq!(
-            context(&s),
-            Some(Context::Repositories(RepositoryContext::Management))
-        );
+        assert_eq!(context(&s), Some(Context::Repositories));
         assert!(s.bar.commands().unwrap().iter().all(|c| !matches!(
             c.action,
             Action::FilterMenu
@@ -343,7 +282,7 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
                 | Action::RepositoryRefresh
         )));
         key(&mut s, KeyCode::Esc);
-        command(&mut s, "repo");
+        command(&mut s, "repos");
         assert_eq!(s.page, Page::Repositories);
         assert!(s.history.is_empty());
         assert_eq!(s.order, Order::Name);
@@ -367,7 +306,7 @@ fn repository_command_returns_from_a_repository_to_the_same_filtered_searched_li
     key(&mut s, KeyCode::Enter);
     wait_workspace(&mut s);
     assert_eq!(s.page, Page::Detail);
-    command(&mut s, "repo");
+    command(&mut s, "repos");
     assert_eq!(s.page, Page::Repositories);
     assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(s.selected_path(), Some(f.repo));
@@ -382,15 +321,15 @@ fn repository_refresh_only_reloads_cached_reports_and_keeps_other_views_explicit
     let f = support::Fixture::create();
     support::write(f.repo.join("untracked"), "content\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff");
+    command(&mut s, "repo diff");
     wait(&mut s);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "repo refresh");
+    command(&mut s, "repos refresh");
     assert!(matches!(s.mode, Mode::Changes(_)));
     assert_eq!(s.message, i18n::tr!(RepositoryListOnly));
     assert!(s.repository_tasks.is_empty());
-    command(&mut s, "repo");
-    command(&mut s, "repo refresh");
+    command(&mut s, "repos");
+    command(&mut s, "repos refresh");
     assert_eq!(s.page, Page::Repositories);
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.repository_tasks.is_empty() && s.check_task.is_none());
@@ -402,4 +341,66 @@ fn repository_refresh_only_reloads_cached_reports_and_keeps_other_views_explicit
         "content\n"
     );
     s.shutdown();
+}
+
+#[test]
+fn repository_entry_freezes_its_target_and_nested_views_keep_full_context_paths() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let first = support::Fixture::create();
+        let second = support::Fixture::create();
+        support::write(first.repo.join("中文 file.ts"), "export const value = 1;\n");
+        let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+        let config = std::fs::read(s.service.store.config_path()).unwrap();
+        let index = std::fs::read(first.repo.join(".git/index")).unwrap();
+        s.focus(Some(first.repo.clone()));
+        key(&mut s, KeyCode::Char('/'));
+        assert_eq!(s.bar.text(), "/");
+        s.paste("repo");
+        s.focus(Some(second.repo.clone()));
+        key(&mut s, KeyCode::Enter);
+        wait_workspace(&mut s);
+        assert_eq!(s.page, Page::Detail);
+        assert_eq!(s.workspace.path(), Some(first.repo.as_path()));
+        key(&mut s, KeyCode::Char('/'));
+        assert_eq!(s.bar.text(), "/repo ");
+        assert_eq!(context(&s), Some(Context::Repository));
+        assert!(
+            s.bar
+                .commands()
+                .unwrap()
+                .iter()
+                .all(|c| c.name.starts_with("repo "))
+        );
+        s.paste("diff");
+        key(&mut s, KeyCode::Enter);
+        wait(&mut s);
+        key(&mut s, KeyCode::Char('/'));
+        assert_eq!(s.bar.text(), "/repo diff ");
+        s.paste("layout split");
+        key(&mut s, KeyCode::Enter);
+        assert_eq!(s.diff_preference, crate::diff::Preference::Split);
+        command(&mut s, "repo");
+        wait_workspace(&mut s);
+        assert_eq!(s.command_context(), Some(Context::Repository));
+        command(&mut s, "repos");
+        assert_eq!(s.page, Page::Repositories);
+        assert_eq!(s.command_context(), None);
+        assert_eq!(s.selected_path(), Some(first.repo.clone()));
+        assert_eq!(
+            std::fs::read(s.service.store.config_path()).unwrap(),
+            config
+        );
+        assert_eq!(std::fs::read(first.repo.join(".git/index")).unwrap(), index);
+        s.shutdown();
+    }
+}
+
+#[test]
+fn repository_entry_requires_a_selection() {
+    let (_home, mut s) = fixture(vec![]);
+    command(&mut s, "repo");
+    assert_eq!(s.page, Page::Repositories);
+    assert_eq!(s.message, i18n::tr!(SelectARepositoryFirst));
+    assert!(s.workspace.session().is_none());
 }

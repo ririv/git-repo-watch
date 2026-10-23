@@ -97,7 +97,7 @@ fn supported_formats_use_content_detection_and_history_never_reads_current_image
         support::git(&f.repo, &["add", "."]);
         std::fs::write(&path, image_bytes([255, 255, 0, 255], format)).unwrap();
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        command(&mut s, "log");
+        command(&mut s, "repo log");
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);

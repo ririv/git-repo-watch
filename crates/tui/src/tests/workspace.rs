@@ -326,12 +326,12 @@ fn successful_commit_refreshes_inactive_file_and_history_snapshots() {
     key(&mut s, KeyCode::Enter);
     focus(&mut s, crate::workspace::Section::Worktree);
     key(&mut s, KeyCode::Char(' '));
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     wait(&mut s);
     focus(&mut s, crate::workspace::Section::History);
     assert!(matches!(&s.mode, Mode::History(view) if view.session().records.len()==1));
     focus(&mut s, crate::workspace::Section::Overview);
-    command(&mut s, "commit");
+    command(&mut s, "repo commit");
     wait(&mut s);
     assert!(matches!(s.mode, Mode::CommitMessage { .. }));
     s.paste("workspace commit");

@@ -7,7 +7,7 @@
 
 ## Repository panes
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
-- `/branch` opens branches independently or focuses the branch pane. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
+- `/repo branch` opens branches independently or focuses the branch pane. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
 - `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it.
 - `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
@@ -18,17 +18,17 @@
 - Type to search repositories, or files in the file panel. Input is always active.
 - With empty search, `/` opens this view's full-width command menu. `↑↓` selects, `Tab` completes, Enter opens. `//` opens global commands directly.
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.
-- The global menu shows top-level entries. A prefix such as `/diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
-- Parameter commands stay in the input: `/repo add <path>`, `/settings concurrency <count>`.
+- The global menu shows top-level entries. A prefix such as `/repo diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
+- Parameter commands stay in the input: `/repos add <path>`, `/settings concurrency <count>`.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
-- On the repository home page, `/repo filter` and `/repo sort` open their options: ↑↓ selects, Enter applies, Esc closes. ✓ marks the current option.
+- On the repository home page, `/repos filter` and `/repos sort` open their options: ↑↓ selects, Enter applies, Esc closes. ✓ marks the current option.
 - Filters: all, problems (attention or failed), clean, failed, unchecked, no-upstream, pushes (recorded successes or failures).
-- Sorting: priority, name (A to Z), path (ascending), updated (latest state first; unchecked last). Direct commands work too, e.g. `/repo sort name`.
+- Sorting: priority, name (A to Z), path (ascending), updated (latest state first; unchecked last). Direct commands work too, e.g. `/repos sort name`.
 - Filtering combines with search. Press `/` on the home page to open commands while keeping an existing search; applying or closing returns to that search and keeps the selected repository when visible. Options apply only to this session and do not check repositories or change reports.
 - `Ctrl+R` reloads the report or refreshes the file panel. The mouse wheel scrolls three rows in the repository list.
 
 ## Context prefixes
-- The view prefix is a separate locked token: /diff for files and diffs, /log for history, /branch for branches, and /repo, /settings, /schedule for management pages. Home uses /repo; overview uses global commands.
+- The view prefix is a separate locked token: /repo diff for files and diffs, /repo log for history, /repo branch for branches, and /repos, /settings, /schedule for management pages. Home opens global / commands; overview uses /repo and stash uses /repo stash.
 - Type only the operation suffix, e.g. stage, unstage, layout or refresh in a worktree diff. Name and bilingual description matching stay within the current group.
 - With an empty suffix, Backspace selects the whole prefix, using its original selection colors. Candidates match the global / menu; use ↑↓ to select, Tab to complete or click a candidate to replace the prefix. Typing or pasting replaces it with a global command while retaining one leading /. Enter or → keeps the original prefix without running a command; a second Backspace closes commands and restores the current view’s search. Esc closes commands and restores search.
 - Another / with an empty command suffix switches to global commands too; typing //settings from search opens global settings directly.
@@ -38,10 +38,10 @@
 
 ## Copy the current selection
 - Press `/` in a view and type `copy`. Candidate labels identify the content. There is no global copy group; `/repo copy` copies the selected repository's full path from home.
-- In file lists, `/diff copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
-- In a focused diff preview, `/diff copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
-- `/log copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/diff copy`.
-- `/branch copy` copies the selected branch name. In operation errors, `/` opens /error and copy copies complete error details.
+- In file lists, `/repo diff copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
+- In a focused diff preview, `/repo diff copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
+- `/repo log copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/repo diff copy`.
+- `/repo branch copy` copies the selected branch name. In operation errors, `/` opens /error and copy copies complete error details.
 - Combined panes follow focus. Failed previews or panes copy their error details. Opening commands freezes the repository and selection; background refresh cannot replace the target.
 - Images, loading, empty and truncated patches report explicit errors. Clipboard writes run independently, report success after the system accepts them and preserve navigation and new drafts.
 - Linux needs X11 or a Wayland session supporting data-control. Content retention after exit depends on the desktop clipboard manager. Error pages accept only copy and quit commands.
@@ -55,53 +55,53 @@
 > A path is the entire remaining argument. No variable, wildcard or shell escape expansion occurs. Named-user paths such as ~user are unsupported.
 
 ## Branches, fetching and stashes
-- `/branch create <name>` creates a local branch at the current commit without switching. `/branch switch <name>` switches to an existing local branch. Tracked files must be clean; untracked files are protected, and branches checked out in another worktree are refused.
-- `/fetch` fetches configured remote-tracking branches immediately in the background, honoring refspecs, exclusions and skipFetchAll. It does not change the worktree or push.
-- `/pull` fetches once and reviews a pinned upstream commit. Confirmation allows fast-forward only; divergence and dirty worktrees are explicit errors. No automatic merge, rebase or stash.
-- `/stash` opens a searchable list. Use ↑↓ to select, Enter for details, and ←/Esc to return. Slash commands use the /stash context; search matches messages and object IDs.
-- `/stash save <message>` saves tracked changes; `/stash save-all <message>` also includes untracked files. Ignored files are excluded.
-- `/stash apply <stash-id>` restores and retains the entry. `/stash pop <stash-id>` removes the entry only after successful restoration. `/stash drop <stash-id>` removes it without restoring. Completing these commands from the list fills the selected full object ID for review.
-- `/stash copy` copies the selected full object ID; `/stash refresh` reloads the list. Restore conflicts are reported as failures and retain the original stash and actual conflict state.
+- `/repo branch create <name>` creates a local branch at the current commit without switching. `/repo branch switch <name>` switches to an existing local branch. Tracked files must be clean; untracked files are protected, and branches checked out in another worktree are refused.
+- `/repo fetch` fetches configured remote-tracking branches immediately in the background, honoring refspecs, exclusions and skipFetchAll. It does not change the worktree or push.
+- `/repo pull` fetches once and reviews a pinned upstream commit. Confirmation allows fast-forward only; divergence and dirty worktrees are explicit errors. No automatic merge, rebase or stash.
+- `/repo stash` opens a searchable list. Use ↑↓ to select, Enter for details, and ←/Esc to return. Slash commands use the /repo stash context; search matches messages and object IDs.
+- `/repo stash save <message>` saves tracked changes; `/repo stash save-all <message>` also includes untracked files. Ignored files are excluded.
+- `/repo stash apply <stash-id>` restores and retains the entry. `/repo stash pop <stash-id>` removes the entry only after successful restoration. `/repo stash drop <stash-id>` removes it without restoring. Completing these commands from the list fills the selected full object ID for review.
+- `/repo stash copy` copies the selected full object ID; `/repo stash refresh` reloads the list. Restore conflicts are reported as failures and retain the original stash and actual conflict state.
 - Writes require review and confirmation; returning to edit preserves the draft. HEAD, index, worktree and target references are revalidated. Stash operations also validate reflog order; external changes require a new review.
 
 ## Files, commits and pushes
-- `/diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.
+- `/repo diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.
 - Wide windows show files beside the preview; narrow windows stack them. `Tab` / `Ctrl+S` / `Ctrl+D` switches focus; `Enter` / `→` focuses the preview, and `Ctrl+F` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Both sides scroll together and align wrapped lines.
-- `/diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
+- `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
-- `/diff layout auto`, `/diff layout split`, `/diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
+- `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
 - `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
-- `/diff stage` / `Alt+S` stages marked files or the cursor file; `/diff unstage` / `Alt+U` unstages them. These actions require an explicit file selection and never open a page.
+- `/repo diff stage` / `Alt+S` stages marked files or the cursor file; `/repo diff unstage` / `Alt+U` unstages them. These actions require an explicit file selection and never open a page.
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
-- `/commit` previews staged contents, then takes a message and confirms. Git hooks and signing are preserved.
-- `/push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
-- `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
+- `/repo commit` previews staged contents, then takes a message and confirms. Git hooks and signing are preserved.
+- `/repo push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
+- `/repo terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
 ## Image previews
-- Selecting a PNG, JPEG or WebP in `/diff` automatically previews both versions; in commit details, press `Enter` to compare. Content detection does not require an extension.
+- Selecting a PNG, JPEG or WebP in `/repo diff` automatically previews both versions; in commit details, press `Enter` to compare. Content detection does not require an extension.
 - Wide windows show versions side by side; narrow windows with sufficient height stack them. Short panes retain side-by-side images. Images keep their aspect ratio and use a checkerboard for transparency.
 - `Esc` returns; resizing fits images to the pane. Missing versions, corrupt images and unavailable pixel support are explicit.
 - Index and historical images come from Git objects, never from current worktree contents.
 
 ## Commit graph
-- `/log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
+- `/repo log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
 - `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `←` goes back.
-- Each page contains up to 100 commits; `↓` at the bottom or `/log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
+- Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
 - Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `Tab` / `Shift+Tab` selects the next / previous match.
 - `Alt+←→` pans a wide graph. Wide terminals show a metadata preview.
 - In commit details, type to filter files, `Tab` switches merge parents and `PgUp` / `PgDn` scrolls metadata and message.
-- Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/diff` layout commands also apply.
+- Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.
 > Graph and historical diff reads do not stage, commit, fetch, push or change reports.
 
 ## Checks and configuration
-- `/check` checks the selected repository; `/check all` checks every registered repository. Both start directly without pushing.
+- `/repo check` checks the selected repository; `/repos check` checks every registered repository. Both start directly without pushing.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
 - `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
-- `/repo` returns to the repository list; `/repo manage` opens registration and exclusion settings. Direct commands: `/repo add <path>`, `/repo remove`, `/repo exclude <path>`, `/repo unexclude <path>`.
-- `/repo scan <path>` previews discovery; `/repo import <path>` registers discovered repositories. Scanning follows Git ignore rules.
+- `/repo` opens the selected repository overview. All repository views and operations live under it. `/repos` returns to the repository list; `/repos manage` opens registration and exclusion settings. Direct commands: `/repos add <path>`, `/repos remove`, `/repos exclude <path>`, `/repos unexclude <path>`.
+- `/repos scan <path>` previews discovery; `/repos import <path>` registers discovered repositories. Scanning follows Git ignore rules.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
 - `/settings startup-check <true|false>` controls startup checks of all repositories; default true, effective next launch.
 - `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.

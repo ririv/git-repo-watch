@@ -89,7 +89,7 @@ impl Screen {
             Menu::Filter => ("filter", Action::Filter(self.filter)),
             Menu::Sort => ("sort", Action::Sort(self.order)),
         };
-        let input = format!("repo {name} ");
+        let input = format!("repos {name} ");
         let selected = crate::command::matches(&input)
             .iter()
             .position(|command| command.action == current)

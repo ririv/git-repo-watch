@@ -326,6 +326,7 @@ pub enum Message {
     PolicyAppliesNextRun,
 
     GeneralSettings,
+    OpenRepositoryOverview,
     ManageRepositories,
     RepositoryManagementSettings,
     RefreshRepositoryReport,
@@ -1076,22 +1077,18 @@ impl Message {
             (Self::RepositoryOrderUpdated, Language::English) => "Recently updated",
             (Self::RepositoryOrderUpdated, Language::Chinese) => "最近更新",
             (Self::RepositoryListOnly, Language::English) => {
-                "Use /repo filter and /repo sort on the repository home page"
+                "Use /repos filter and /repos sort on the repository home page"
             }
             (Self::RepositoryListOnly, Language::Chinese) => {
-                "请在仓库首页使用 /repo filter 和 /repo sort"
+                "请在仓库首页使用 /repos filter 和 /repos sort"
             }
-            (Self::RepositoryListHint, Language::English) => {
-                "↑↓ select · →/Enter open · /repo commands"
-            }
-            (Self::RepositoryListHint, Language::Chinese) => {
-                "↑↓选择 · →/Enter 打开 · /repo 仓库命令"
-            }
+            (Self::RepositoryListHint, Language::English) => "↑↓ select · →/Enter open",
+            (Self::RepositoryListHint, Language::Chinese) => "↑↓选择 · →/Enter 打开",
             (Self::RepositoryListNoMatches, Language::English) => {
-                "No matches; edit search or /repo filter"
+                "No matches; edit search or /repos filter"
             }
             (Self::RepositoryListNoMatches, Language::Chinese) => {
-                "没有匹配仓库，请修改搜索或 /repo filter 筛选"
+                "没有匹配仓库，请修改搜索或 /repos filter 筛选"
             }
             (Self::InvalidScheduleAnchor, Language::English) => {
                 "Use HH:MM[:SS], YYYY-MM-DD HH:MM[:SS], or auto"
@@ -1165,10 +1162,10 @@ impl Message {
             }
             (Self::ChangesSelectFile, Language::Chinese) => "选择变更文件以预览差异",
             (Self::ChangesSelectionRequired, Language::English) => {
-                "Open /diff and select files before staging or unstaging"
+                "Open /repo diff and select files before staging or unstaging"
             }
             (Self::ChangesSelectionRequired, Language::Chinese) => {
-                "请先打开 /diff 并选择文件，再暂存或取消暂存"
+                "请先打开 /repo diff 并选择文件，再暂存或取消暂存"
             }
             (Self::ChangesWrongArea, Language::English) => {
                 "Stage requires only unstaged files; unstage requires only staged files. Review the selected groups."
@@ -1467,9 +1464,9 @@ impl Message {
             (Self::HistoryEnd, Language::English) => "End of history",
             (Self::HistoryEnd, Language::Chinese) => "已到历史末尾",
             (Self::HistoryMore, Language::English) => {
-                "More commits · Down at the bottom or /log more"
+                "More commits · Down at the bottom or /repo log more"
             }
-            (Self::HistoryMore, Language::Chinese) => "还有提交 · 在末尾按 ↓ 或执行 /log more",
+            (Self::HistoryMore, Language::Chinese) => "还有提交 · 在末尾按 ↓ 或执行 /repo log more",
             (Self::HistoryLoaded, Language::English) => "Loaded",
             (Self::HistoryLoaded, Language::Chinese) => "已加载",
             (Self::HistoryScope, Language::English) => {
@@ -1478,8 +1475,8 @@ impl Message {
             (Self::HistoryScope, Language::Chinese) => "本地分支 · 远程跟踪分支 · 标签",
             (Self::HistoryNoMore, Language::English) => "All commits in this snapshot are loaded",
             (Self::HistoryNoMore, Language::Chinese) => "当前快照的提交已全部加载",
-            (Self::HistoryRequiresOpen, Language::English) => "Open /log first",
-            (Self::HistoryRequiresOpen, Language::Chinese) => "请先打开 /log",
+            (Self::HistoryRequiresOpen, Language::English) => "Open /repo log first",
+            (Self::HistoryRequiresOpen, Language::Chinese) => "请先打开 /repo log",
             (Self::HistorySearch, Language::English) => "Locate commits",
             (Self::HistorySearch, Language::Chinese) => "定位提交",
             (Self::HistorySearchHint, Language::English) => {
@@ -1500,15 +1497,17 @@ impl Message {
             (Self::HistoryCommitInputHint, Language::Chinese) => {
                 "↑↓文件 · Enter 差异 · Tab 父提交 · PgUp/PgDn说明 · ←返回"
             }
-            (Self::HistoryDiffHint, Language::English) => "↑↓ scroll · ←/Esc commit · /diff layout",
+            (Self::HistoryDiffHint, Language::English) => {
+                "↑↓ scroll · ←/Esc commit · /repo diff layout"
+            }
             (Self::HistoryDiffHint, Language::Chinese) => {
-                "↑↓滚动 · ←/Esc 提交详情 · /diff layout 布局"
+                "↑↓滚动 · ←/Esc 提交详情 · /repo diff layout 布局"
             }
             (Self::HistoryNoMatch, Language::English) => {
-                "No match in loaded commits; /log more loads older history"
+                "No match in loaded commits; /repo log more loads older history"
             }
             (Self::HistoryNoMatch, Language::Chinese) => {
-                "已加载提交中无匹配；/log more 可加载更早历史"
+                "已加载提交中无匹配；/repo log more 可加载更早历史"
             }
             (Self::HistoryHash, Language::English) => "Commit",
             (Self::HistoryHash, Language::Chinese) => "提交",
@@ -1589,10 +1588,10 @@ impl Message {
             (Self::DiffAfter, Language::English) => "After · {}",
             (Self::DiffAfter, Language::Chinese) => "新版 · {}",
             (Self::DiffTooNarrow, Language::English) => {
-                "This diff layout needs at least {} columns. Enlarge the window or use /diff layout auto."
+                "This diff layout needs at least {} columns. Enlarge the window or use /repo diff layout auto."
             }
             (Self::DiffTooNarrow, Language::Chinese) => {
-                "此差异布局至少需要 {} 列。请扩大窗口或使用 /diff layout auto。"
+                "此差异布局至少需要 {} 列。请扩大窗口或使用 /repo diff layout auto。"
             }
             (Self::InvalidDiffStructure, Language::English) => {
                 "Invalid diff structure returned by libgit2"
@@ -1657,10 +1656,10 @@ impl Message {
             }
             (Self::InvalidRepositoryCheckReport, Language::Chinese) => "单仓库检查报告格式无效",
             (Self::CheckSelectedRepository, Language::English) => {
-                "Check selected repository; use /check all for all"
+                "Check selected repository; use /repos check for all"
             }
             (Self::CheckSelectedRepository, Language::Chinese) => {
-                "检查当前仓库；/check all 检查全部"
+                "检查当前仓库；/repos check 检查全部"
             }
             (Self::CheckAlreadyRunning, Language::English) => {
                 "A check is already running; use /cancel to cancel it"
@@ -3103,10 +3102,10 @@ impl Message {
             (Self::Remote, Language::English) => "Remote",
             (Self::Remote, Language::Chinese) => "远程",
             (Self::NoRepositoriesMatchAddToAddOne, Language::English) => {
-                "No repositories match; /repo add to add one"
+                "No repositories match; /repos add to add one"
             }
             (Self::NoRepositoriesMatchAddToAddOne, Language::Chinese) => {
-                "当前筛选没有仓库；/repo add 添加仓库"
+                "当前筛选没有仓库；/repos add 添加仓库"
             }
             (Self::Path, Language::English) => "Path",
             (Self::Path, Language::Chinese) => "路径",
@@ -3199,10 +3198,10 @@ impl Message {
                 "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选 · Tab 区域"
             }
             (Self::ScrollEscFilesCommands, Language::English) => {
-                "↑↓ scroll · ←/Esc files · /diff layout"
+                "↑↓ scroll · ←/Esc files · /repo diff layout"
             }
             (Self::ScrollEscFilesCommands, Language::Chinese) => {
-                "↑↓滚动 · ←/Esc 返回 · /diff layout 布局"
+                "↑↓滚动 · ←/Esc 返回 · /repo diff layout 布局"
             }
             (Self::SelectEnterEditTabReposCommands, Language::English) => {
                 "↑↓ select · →/Enter edit · ←/Esc back · Tab pages"
@@ -3238,6 +3237,10 @@ impl Message {
             (Self::EnterConfirmEscCancelPgupPgdnReview, Language::Chinese) => {
                 "Enter 确认 · Esc 取消 · PgUp/PgDn 查看"
             }
+            (Self::OpenRepositoryOverview, Language::English) => {
+                "Open the selected repository overview"
+            }
+            (Self::OpenRepositoryOverview, Language::Chinese) => "打开选中仓库的概览面板",
             (Self::ManageRepositories, Language::English) => "Repository list and management",
             (Self::RepositoryManagementSettings, Language::English) => {
                 "Manage repository registration and exclusions"
@@ -3420,8 +3423,8 @@ macro_rules! tf {
         $crate::Language::Chinese => format!("新版 · {}" $(, $($args)*)?),
     } };
     (DiffTooNarrow $(, $($args:tt)*)?) => { match $crate::language() {
-        $crate::Language::English => format!("This diff layout needs at least {} columns. Enlarge the window or use /diff layout auto." $(, $($args)*)?),
-        $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /diff layout auto。" $(, $($args)*)?),
+        $crate::Language::English => format!("This diff layout needs at least {} columns. Enlarge the window or use /repo diff layout auto." $(, $($args)*)?),
+        $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /repo diff layout auto。" $(, $($args)*)?),
     } };
     (StartupCheckStatus $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Check all on TUI startup: {}\n" $(, $($args)*)?),

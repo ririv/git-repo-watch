@@ -96,18 +96,18 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        s.paste("//diff layout ");
+        s.paste("//repo diff layout ");
         let menu = render(&mut s, 160, 32);
         for name in [
-            "diff layout auto",
-            "diff layout split",
-            "diff layout unified",
+            "repo diff layout auto",
+            "repo diff layout split",
+            "repo diff layout unified",
         ] {
             assert!(menu.contains(name));
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/diff layout split");
+        assert_eq!(s.bar.text(), "/repo diff layout split");
         support::write(f.repo.join("one.rs"), "fn changed_after_snapshot() {}\n");
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Changes(_)));
@@ -116,11 +116,11 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         assert!(narrow.contains("cached_new"), "{narrow}");
         assert!(!narrow.contains("changed_after_snapshot"));
         assert!(narrow.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))));
-        command(&mut s, "diff layout unified");
+        command(&mut s, "repo diff layout unified");
         assert!(matches!(s.mode, Mode::Changes(_)));
         let wide = render(&mut s, 160, 32);
         assert!(wide.contains(&format!("{} → {}", i18n::tr!(Index), i18n::tr!(Worktree))));
-        command(&mut s, "diff layout auto");
+        command(&mut s, "repo diff layout auto");
         let narrow = render(&mut s, 80, 28);
         assert!(narrow.contains(&format!(
             "{}: {}",
@@ -132,7 +132,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        command(&mut s, "diff layout unified");
+        command(&mut s, "repo diff layout unified");
         key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Down);
@@ -159,7 +159,7 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only(
     support::git(&f.repo, &["add", "stage.rs"]);
     support::write(f.repo.join("stage.rs"), "fn worktree() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "diff layout split");
+    command(&mut s, "repo diff layout split");
     assert!(matches!(s.mode, Mode::Browsing));
     open_files(&mut s);
     key(&mut s, KeyCode::Tab);
@@ -194,7 +194,7 @@ fn narrow_forced_split_is_explicit_and_restores_the_view_when_enlarged() {
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    command(&mut s, "diff layout split");
+    command(&mut s, "repo diff layout split");
     assert!(render(&mut s, 160, 32).contains("visible_again"));
     let narrow = render(&mut s, 12, 18);
     assert!(narrow.contains("resize"), "{narrow}");

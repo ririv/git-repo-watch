@@ -154,6 +154,19 @@ impl Workspace {
     }
 }
 impl Screen {
+    pub(crate) fn open_repository(&mut self, path: PathBuf) {
+        if self.page == Page::Detail {
+            self.park_workspace();
+        } else {
+            self.history.push(self.page);
+        }
+        self.focus(Some(path.clone()));
+        self.page = Page::Detail;
+        self.mode = Mode::Browsing;
+        self.scroll = 0;
+        self.enter_repository(path);
+        self.sync_bar();
+    }
     pub(super) fn enter_repository(&mut self, path: PathBuf) {
         self.workspace.open(path.clone(), &self.service);
         self.overview.open(path, &self.service);

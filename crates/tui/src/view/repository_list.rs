@@ -13,8 +13,8 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
 
 pub(super) fn menu_title(screen: &Screen) -> Option<&'static str> {
     match screen.bar.text().to_ascii_lowercase().as_str() {
-        "/repo filter " => Some(i18n::tr!(RepositoryFilterCommand)),
-        "/repo sort " => Some(i18n::tr!(RepositorySortCommand)),
+        "/repos filter " => Some(i18n::tr!(RepositoryFilterCommand)),
+        "/repos sort " => Some(i18n::tr!(RepositorySortCommand)),
         _ => None,
     }
 }

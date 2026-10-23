@@ -26,8 +26,8 @@ fn slow_commit_keeps_navigation_commands_and_other_repository_operations_availab
     );
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(render(&mut s, 140, 30).contains("delayed commit"));
-    command(&mut s, "repo sort name");
-    command(&mut s, "repo filter all");
+    command(&mut s, "repos sort name");
+    command(&mut s, "repos filter all");
     assert_eq!(s.order, Order::Name);
     assert_eq!(s.selected_path(), Some(first.repo.clone()));
     assert!(s.repository_tasks.contains_key(&first.repo));
@@ -38,7 +38,7 @@ fn slow_commit_keeps_navigation_commands_and_other_repository_operations_availab
     open_files(&mut s);
     poll_background_until(&mut s, |s| !s.repository_tasks.contains_key(&second.repo));
     assert!(matches!(&s.mode, Mode::Files(session) if session.snapshot.path == second.repo));
-    command(&mut s, "diff stage");
+    command(&mut s, "repo diff stage");
     poll_background_until(&mut s, |s| !s.repository_tasks.contains_key(&second.repo));
     assert_eq!(
         support::git(&second.repo, &["diff", "--cached", "--name-only"]),
@@ -72,7 +72,7 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     let gate = FetchGate::install(&second);
-    command(&mut s, "check all");
+    command(&mut s, "repos check");
     poll_background_until(&mut s, |s| {
         gate.started.exists()
             && matches!(
@@ -89,7 +89,7 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
     s.focus(Some(first.repo.clone()));
     s.start_repository(
         first.repo.clone(),
-        "commit",
+        "repo commit",
         Effect::Commit,
         move |service, cancel, _| Ok(Outcome::Committed(service.commit(&plan, "new", &cancel)?)),
     );
@@ -131,14 +131,14 @@ fn two_single_repository_checks_overlap_and_same_repository_commands_do_not_star
     let gate_b = FetchGate::install(&second);
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.focus(Some(first.repo.clone()));
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     s.focus(Some(second.repo.clone()));
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     poll_background_until(&mut s, |_| {
         gate_a.started.exists() && gate_b.started.exists()
     });
     assert_eq!(s.repository_tasks.len(), 2);
-    command(&mut s, "commit");
+    command(&mut s, "repo commit");
     assert_eq!(s.repository_tasks.len(), 2);
     assert!(s.message.contains("already running"));
     gate_a.release();
@@ -155,7 +155,7 @@ fn cancelled_repository_task_does_not_take_over_the_current_view() {
     let f = support::Fixture::create();
     let gate = FetchGate::install(&f);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "check");
+    command(&mut s, "repo check");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");
     wait(&mut s);

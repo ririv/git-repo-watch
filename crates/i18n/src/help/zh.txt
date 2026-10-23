@@ -7,7 +7,7 @@
 
 ## 仓库面板
 - 进入仓库后，同时显示概览、分支、工作区文件和提交历史图。
-- `/branch` 独立查看分支或聚焦分支面板；输入名称搜索，`Tab` / `Shift+Tab` 筛选全部／本地／远程。
+- `/repo branch` 独立查看分支或聚焦分支面板；输入名称搜索，`Tab` / `Shift+Tab` 筛选全部／本地／远程。
 - 分支中 `Enter` 查看引用、提交和上游详情；`*` 标记当前分支，领先／落后基于本地引用，不执行 fetch 或分支写入。
 - `Ctrl+S` / `Ctrl+D` 聚焦上个／下个面板，也可点击或在面板内滚动来聚焦。
 - `Ctrl+F` 切换当前面板全屏与组合布局。
@@ -18,17 +18,17 @@
 - 直接打字搜索仓库；文件面板中搜索文件，输入框始终可用。
 - 搜索栏为空时 `/` 打开当前视图的全宽命令菜单，`↑↓` 选择、`Tab` 补全、`Enter` 进入；`//` 直接打开全局命令。
 - 命令支持按名称或中英文提示说明筛选，英文不区分大小写，如 `/终端`、`/频率`、`/live diff`；名称匹配优先，Tab 补全选中项的实际命令。
-- 全局菜单只展示顶层命令；输入 `/diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
-- 带参数命令直接在输入栏填写，如 `/repo add <path>`、`/settings concurrency <count>`。
+- 全局菜单只展示顶层命令；输入 `/repo diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
+- 带参数命令直接在输入栏填写，如 `/repos add <path>`、`/settings concurrency <count>`。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
-- 仓库首页用 `/repo filter` 筛选、`/repo sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
+- 仓库首页用 `/repos filter` 筛选、`/repos sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
-- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repo sort name`。
+- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`。
 - 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。只影响当前会话，不检查仓库或修改报告。
 - `Ctrl+R` 重新读取报告或刷新文件面板；仓库主列表中的滚轮每次移动三项。
 
 ## 上下文前缀
-- 当前视图前缀独立显示且不能作为文字删除：文件／差异为 /diff，历史为 /log，分支为 /branch，管理页为 /repo、/settings、/schedule。首页使用 /repo，概览使用全局入口。
+- 当前视图前缀独立显示且不能作为文字删除：文件／差异为 /repo diff，历史为 /repo log，分支为 /repo branch，管理页为 /repos、/settings、/schedule。首页使用全局 /，概览使用 /repo，stash 使用 /repo stash。
 - 只输入前缀后的操作，如 diff 中的 stage、unstage、layout、refresh；候选只在当前范围内按名称或中英文说明筛选。
 - 后缀为空时，第一次 Backspace 选中整个前缀，沿用原来的反色显示，上方候选与全局 / 菜单一致；上下键选择、Tab 补全或点击候选可替换前缀。此时键入或粘贴直接替换为全局命令，保留一个 /；Enter 或 → 保留原前缀，不执行候选。第二次 Backspace 关闭命令并恢复当前视图的搜索；Esc 关闭命令并恢复搜索。
 - 空命令后缀再按 / 也会切到全局；从搜索状态输入 //settings 可直接打开全局设置。
@@ -38,10 +38,10 @@
 
 ## 复制当前选择
 - 当前范围按 `/` 后输入 `copy`；候选标签显示实际内容。没有全局复制分组，仓库列表可输入 `/repo copy` 复制仓库完整路径。
-- 文件列表的 `/diff copy` 复制勾选路径，未勾选则复制当前行；多项按行分隔、路径去重，使用相对路径并保留中文与空格。
-- diff 预览的 `/diff copy` 复制当前文件的原始补丁；不包含展示行号、颜色或布局换行，不重新读取 Git。
-- 历史图的 `/log copy` 复制完整提交 ID；提交详情中则复制当前历史文件路径，进入历史 diff 后使用 `/diff copy`。
-- 分支中的 `/branch copy` 复制选中分支名称；错误页按 `/` 显示 /error，执行 copy 复制完整错误。
+- 文件列表的 `/repo diff copy` 复制勾选路径，未勾选则复制当前行；多项按行分隔、路径去重，使用相对路径并保留中文与空格。
+- diff 预览的 `/repo diff copy` 复制当前文件的原始补丁；不包含展示行号、颜色或布局换行，不重新读取 Git。
+- 历史图的 `/repo log copy` 复制完整提交 ID；提交详情中则复制当前历史文件路径，进入历史 diff 后使用 `/repo diff copy`。
+- 分支中的 `/repo branch copy` 复制选中分支名称；错误页按 `/` 显示 /error，执行 copy 复制完整错误。
 - 组合面板跟随焦点；读取失败的预览或面板复制其错误详情。打开命令时固定仓库和选择，后台刷新不会改变复制目标。
 - 图片、尚未加载、空白或已截断的补丁明确报错；剪贴板后台写入，成功后才提示，不阻塞导航，也不覆盖新命令。
 - Linux 需 X11 或支持 data-control 的 Wayland 会话；退出后保留剪贴板内容取决于桌面剪贴板管理器。错误页只开放复制与退出命令。
@@ -55,53 +55,53 @@
 > 路径是命令后的整段参数。不展开变量、通配符或 Shell 转义；不支持 ~user 用户路径。
 
 ## 分支、拉取与 stash
-- `/branch create <name>` 在当前提交创建本地分支，不切换；`/branch switch <name>` 切换已有本地分支。切换前要求已跟踪文件干净，不覆盖未跟踪文件，也不切换其他 worktree 占用的分支。
-- `/fetch` 立即在后台获取已配置的远程跟踪分支，遵守 refspec、排除与 skipFetchAll 设置，不改工作区或推送。
-- `/pull` 获取一次远程，预览固定的上游提交，确认后仅快进；分叉或脏工作区明确报错，不自动 merge、rebase 或 stash。
-- `/stash` 打开独立列表；↑↓选择、Enter 查看详情、←/Esc 返回。进入后 `/` 使用 /stash 上下文，列表可搜索消息和对象 ID。
-- `/stash save <message>` 保存已跟踪变更；`/stash save-all <message>` 也包含未跟踪文件，均不包含忽略文件。
-- `/stash apply <stash-id>` 恢复并保留；`/stash pop <stash-id>` 恢复成功后删除；`/stash drop <stash-id>` 只删除，不恢复。选中列表项后补全这些命令会填入其完整对象 ID，仍需确认。
-- `/stash copy` 复制选中 stash 的完整对象 ID；`/stash refresh` 刷新列表。恢复发生冲突时报告失败，保留原 stash 与实际冲突状态。
+- `/repo branch create <name>` 在当前提交创建本地分支，不切换；`/repo branch switch <name>` 切换已有本地分支。切换前要求已跟踪文件干净，不覆盖未跟踪文件，也不切换其他 worktree 占用的分支。
+- `/repo fetch` 立即在后台获取已配置的远程跟踪分支，遵守 refspec、排除与 skipFetchAll 设置，不改工作区或推送。
+- `/repo pull` 获取一次远程，预览固定的上游提交，确认后仅快进；分叉或脏工作区明确报错，不自动 merge、rebase 或 stash。
+- `/repo stash` 打开独立列表；↑↓选择、Enter 查看详情、←/Esc 返回。进入后 `/` 使用 /repo stash 上下文，列表可搜索消息和对象 ID。
+- `/repo stash save <message>` 保存已跟踪变更；`/repo stash save-all <message>` 也包含未跟踪文件，均不包含忽略文件。
+- `/repo stash apply <stash-id>` 恢复并保留；`/repo stash pop <stash-id>` 恢复成功后删除；`/repo stash drop <stash-id>` 只删除，不恢复。选中列表项后补全这些命令会填入其完整对象 ID，仍需确认。
+- `/repo stash copy` 复制选中 stash 的完整对象 ID；`/repo stash refresh` 刷新列表。恢复发生冲突时报告失败，保留原 stash 与实际冲突状态。
 - 写操作先预览再确认，返回编辑保留完整草稿。确认时重新核验 HEAD、索引、工作区和目标引用；stash 还核验列表顺序，外部变更会要求重新预览。
 
 ## 文件、提交与推送
-- `/diff` 打开统一变更界面，同时显示未暂存、已暂存文件及文本／图片预览；选择文件后在后台读取对应版本。
+- `/repo diff` 打开统一变更界面，同时显示未暂存、已暂存文件及文本／图片预览；选择文件后在后台读取对应版本。
 - 宽屏左右排列，窄屏上下排列；`Tab` / `Ctrl+S` / `Ctrl+D` 切换焦点，`Enter` / `→` 聚焦预览，`Ctrl+F` 放大当前面板。
 - `Esc` 先清空输入，再恢复放大布局、返回文件焦点；再次按下返回仓库工作区或仓库列表。
 - 差异默认在宽屏使用左右对比，窄屏使用统一视图；两侧同步滚动，长行换行后仍保持对应。
-- `/diff layout` 打开横向选择器并定位当前设置；`←→` / `Tab` / `Shift+Tab` 切换候选，`Enter` 应用，`Esc` 返回命令草稿。鼠标点击选项只移动候选，仍按 Enter 应用。
+- `/repo diff layout` 打开横向选择器并定位当前设置；`←→` / `Tab` / `Shift+Tab` 切换候选，`Enter` 应用，`Esc` 返回命令草稿。鼠标点击选项只移动候选，仍按 Enter 应用。
 - 命令列表标记当前选项，自动模式还显示当前实际的统一／双栏视图，并随窗口大小更新；可点击候选行或按 `Enter` 进入。
-- `/diff layout auto`、`/diff layout split`、`/diff layout unified` 立即切换布局，本次 TUI 会话生效；`Tab` 可补全子命令。
+- `/repo diff layout auto`、`/repo diff layout split`、`/repo diff layout unified` 立即切换布局，本次 TUI 会话生效；`Tab` 可补全子命令。
 - 空输入时 `Space` 勾选，`Insert` 始终勾选，`Ctrl+A` 勾选全部可见项；筛选隐藏文件时保留勾选。
-- `/diff stage` / `Alt+S` 暂存全部勾选项，`/diff unstage` / `Alt+U` 取消暂存；未勾选时作用于光标文件。必须先明确选择文件，操作命令不再兼任打开页面。
+- `/repo diff stage` / `Alt+S` 暂存全部勾选项，`/repo diff unstage` / `Alt+U` 取消暂存；未勾选时作用于光标文件。必须先明确选择文件，操作命令不再兼任打开页面。
 - 暂存仅接受未暂存项，取消暂存仅接受已暂存项；跨组勾选会明确报错，不修改索引。完成后只刷新当前仓库，保留焦点和新命令草稿。
 - 取消暂存保留工作区内容，Git 忽略的文件不列出。
-- `/commit` 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。
-- `/push` 获取远程并核验上游，确认后仅推送预览过的当前分支快照。
-- `/terminal` 在选中仓库打开系统默认终端，可输入 `/te` 后按 `Tab` 补全。
+- `/repo commit` 预览暂存内容，输入说明并确认；保留 Git 钩子和签名。
+- `/repo push` 获取远程并核验上游，确认后仅推送预览过的当前分支快照。
+- `/repo terminal` 在选中仓库打开系统默认终端，可输入 `/te` 后按 `Tab` 补全。
 
 ## 图片预览
-- 在 `/diff` 中选中 PNG、JPEG、WebP 即预览前后版本；历史详情仍按 `Enter` 查看。按内容识别，不依赖扩展名。
+- 在 `/repo diff` 中选中 PNG、JPEG、WebP 即预览前后版本；历史详情仍按 `Enter` 查看。按内容识别，不依赖扩展名。
 - 宽屏左右对照，窄屏且高度足够时上下排列；较矮面板保留左右对照。保持比例；透明部分显示棋盘背景。
 - `Esc` 返回，窗口缩放自动调整；缺失版本、损坏图片和终端不支持像素会明确提示。
 - 暂存区与历史图片读取 Git 对象，不用当前磁盘内容代替历史版本。
 
 ## 提交历史图
-- `/log` 读取本地分支、远程跟踪分支、标签和 HEAD，不进行 fetch。
+- `/repo log` 读取本地分支、远程跟踪分支、标签和 HEAD，不进行 fetch。
 - `↑↓` / `PgUp` / `PgDn` 选择；`Enter` 进入提交详情，再进入历史文件差异；空输入时 `←` 返回。
-- 每页最多 100 个提交，在末尾按 `↓` 或执行 `/log more` 继续加载；`Ctrl+R` 更新引用快照。
+- 每页最多 100 个提交，在末尾按 `↓` 或执行 `/repo log more` 继续加载；`Ctrl+R` 更新引用快照。
 - 输入哈希、标题、作者或引用名称定位已加载提交；图节点始终保留，`Tab` / `Shift+Tab` 选择下个／上个匹配。
 - `Alt+←→` 平移过宽的图；宽屏显示提交元数据预览。
 - 详情中输入文字筛选文件，`Tab` 切换合并提交的父提交，`PgUp` / `PgDn` 滚动提交信息和说明。
-- 根提交与空树比较，其他差异明确标出父提交和当前提交；`/diff` 布局命令同样生效。
+- 根提交与空树比较，其他差异明确标出父提交和当前提交；`/repo diff` 布局命令同样生效。
 > 图和历史差异读取不暂存、不提交、不 fetch、不推送，也不改变检查报告。
 
 ## 检查与配置
-- `/check` 检查当前仓库，`/check all` 检查全部注册仓库；直接开始，无需确认，也不推送。
+- `/repo check` 检查当前仓库，`/repos check` 检查全部注册仓库；直接开始，无需确认，也不推送。
 - 检查在后台进行，可继续浏览、搜索和查看文件；旋转标记指示正在检查的仓库，未完成的保留上轮状态。
 - `/cancel` 优先取消当前仓库任务，无当前任务时取消整轮检查；独立仓库并行，共享 Git 存储的操作串行。配置读改写使用短事务。
-- `/repo` 返回仓库列表，`/repo manage` 查看注册和排除配置；也可直接使用：`/repo add <path>`、`/repo remove`、`/repo exclude <path>`、`/repo unexclude <path>`。
-- `/repo scan <path>` 预览发现结果，`/repo import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
+- `/repo` 打开选中仓库的概览，所有仓库视图和操作归入其下；`/repos` 返回仓库列表，`/repos manage` 查看注册和排除配置；也可直接使用：`/repos add <path>`、`/repos remove`、`/repos exclude <path>`、`/repos unexclude <path>`。
+- `/repos scan <path>` 预览发现结果，`/repos import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
 - `/settings startup-check <true|false>` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
 - `/schedule` 打开任务管理页，查看状态和待应用间隔、修改配置并启停任务。

@@ -25,7 +25,7 @@ fn branch_command_lists_filters_and_inspects_real_branches_without_changing_the_
         let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
         s.paste("//bra");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/branch");
+        assert_eq!(s.bar.text(), "/repo branch");
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Branches(_)));
@@ -84,7 +84,7 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
     }
     control(&mut s, 'd');
     assert_eq!(Section::of(&s.mode), Section::Worktree);
-    command(&mut s, "branch");
+    command(&mut s, "repo branch");
     assert!(matches!(&s.mode,Mode::Branches(view) if view.session().filter==BranchFilter::Local));
     control(&mut s, 'f');
     key(&mut s, KeyCode::Enter);
@@ -110,7 +110,7 @@ fn branch_refresh_observes_external_changes_and_drafts_survive_passive_loading()
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
-    command(&mut s, "branch");
+    command(&mut s, "repo branch");
     s.paste("//comm");
     wait_workspace(&mut s);
     assert_eq!(s.bar.text(), "/comm");

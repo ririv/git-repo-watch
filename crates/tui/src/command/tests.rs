@@ -7,25 +7,25 @@ fn names(input: &str) -> Vec<&'static str> {
 #[test]
 fn prefixes_include_all_descendants_without_a_trailing_space() {
     let expected = [
-        "diff",
-        "diff stage",
-        "diff unstage",
-        "diff layout",
-        "diff layout auto",
-        "diff layout split",
-        "diff layout unified",
-        "diff refresh",
-        "diff copy",
+        "repo diff",
+        "repo diff stage",
+        "repo diff unstage",
+        "repo diff layout",
+        "repo diff layout auto",
+        "repo diff layout split",
+        "repo diff layout unified",
+        "repo diff refresh",
+        "repo diff copy",
     ];
-    for input in ["di", "diff", "  diff"] {
+    for input in ["di", "repo diff", "  diff"] {
         assert_eq!(&names(input)[..expected.len()], expected);
     }
-    assert_eq!(names("diff "), expected[1..]);
-    assert_eq!(names("diff lay"), expected[3..7]);
-    assert_eq!(names("diff layout"), expected[3..7]);
-    assert_eq!(names("diff layout "), expected[4..7]);
-    assert_eq!(names("diff layout s"), ["diff layout split"]);
-    assert!(names("diff unknown").is_empty());
+    assert_eq!(names("repo diff "), expected[1..]);
+    assert_eq!(names("repo diff lay"), expected[3..7]);
+    assert_eq!(names("repo diff layout"), expected[3..7]);
+    assert_eq!(names("repo diff layout "), expected[4..7]);
+    assert_eq!(names("repo diff layout s"), ["repo diff layout split"]);
+    assert!(names("repo diff unknown").is_empty());
 }
 
 #[test]
@@ -51,7 +51,7 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
                 .any(|candidate| candidate.name == child.name)
         }));
     }
-    assert_eq!(names("repo r"), ["repo refresh", "repo remove"]);
+    assert_eq!(names("repos r"), ["repos refresh", "repos remove"]);
     assert_eq!(
         names("schedule a"),
         ["schedule anchor", "schedule autopush", "schedule apply"]
@@ -67,8 +67,8 @@ fn argument_values_remain_arguments_when_they_contain_spaces_or_command_names() 
         "\"/example/中文 项目/diff layout\"",
         "/example/repo add",
     ] {
-        let input = format!("repo add {value}");
-        assert_eq!(names(&input), ["repo add"]);
+        let input = format!("repos add {value}");
+        assert_eq!(names(&input), ["repos add"]);
         assert_eq!(argument_input(&input), Some((ArgumentAction::Add, value)));
     }
     assert_eq!(names("schedule interval 6h"), ["schedule interval"]);
@@ -79,24 +79,24 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (query, expected) in [
-            ("终端", "terminal"),
+            ("终端", "repo terminal"),
             ("检查频率", "schedule interval"),
-            ("LIVE DIFF", "diff"),
-            ("CHECK SELECTED", "check"),
+            ("LIVE DIFF", "repo diff"),
+            ("CHECK SELECTED", "repo check"),
         ] {
             assert_eq!(names(query), [expected]);
         }
         let staging = names("暂存");
-        assert!(staging.contains(&"diff stage") && staging.contains(&"diff unstage"));
+        assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
-        assert_eq!(names("DIFF"), names("diff"));
+        assert_eq!(names("DIFF"), names("repo diff"));
     }
 }
 
 #[test]
 fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() {
     let checks = names("check");
-    assert_eq!(&checks[..2], ["check", "check all"]);
+    assert_eq!(&checks[..2], ["repo check", "repos check"]);
     assert!(checks.contains(&"schedule interval"));
     assert_eq!(
         checks
@@ -106,14 +106,54 @@ fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() 
             .len(),
         checks.len()
     );
-    assert_eq!(&names("stage")[..2], ["diff stage", "diff unstage"]);
-    assert!(names("stage").contains(&"commit"));
-    assert_eq!(names("DIFF "), names("diff "));
-    assert!(names("diff ").iter().all(|name| name.starts_with("diff ")));
-    let input = "REPO ADD \"/example/中文 项目/终端\"";
-    assert_eq!(names(input), ["repo add"]);
+    assert_eq!(
+        &names("stage")[..2],
+        ["repo diff stage", "repo diff unstage"]
+    );
+    assert!(names("stage").contains(&"repo commit"));
+    assert_eq!(names("REPO DIFF "), names("repo diff "));
+    assert!(
+        names("repo diff ")
+            .iter()
+            .all(|name| name.starts_with("repo diff "))
+    );
+    let input = "REPOS ADD \"/example/中文 项目/终端\"";
+    assert_eq!(names(input), ["repos add"]);
     assert_eq!(
         argument_input(input),
         Some((ArgumentAction::Add, "\"/example/中文 项目/终端\""))
     );
+}
+
+#[test]
+fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canonical_names() {
+    assert_eq!(
+        names(""),
+        [
+            "repo", "repos", "cancel", "schedule", "settings", "help", "quit"
+        ]
+    );
+    for group in ["repo", "repos"] {
+        let candidates = matches(group);
+        assert_eq!(candidates[0].name, group);
+        assert!(
+            candidates
+                .iter()
+                .all(|c| c.name == group || c.name.starts_with(&format!("{group} ")))
+        );
+    }
+    for (query, expected) in [
+        ("diff", "repo diff"),
+        ("log", "repo log"),
+        ("branch", "repo branch"),
+        ("stash", "repo stash"),
+        ("push", "repo push"),
+        ("te", "repo terminal"),
+    ] {
+        assert_eq!(matches(query)[0].name, expected);
+        assert_eq!(matches(query)[0].completion(), format!("/{expected}"));
+        assert!(!COMMANDS.iter().any(|c| c.name == query));
+    }
+    assert_eq!(matches("repos check")[0].action, Action::CheckAll);
+    assert_eq!(matches("repo check")[0].action, Action::Check);
 }

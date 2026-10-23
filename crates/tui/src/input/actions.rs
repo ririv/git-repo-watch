@@ -46,6 +46,13 @@ impl Screen {
                 }
             }
             Action::Quit => return Ok(true),
+            Action::OpenRepository => {
+                if let Some(path) = path {
+                    self.open_repository(path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
             Action::Repositories => self.open_repository_list(path),
             Action::RepositorySettings => {
                 self.focus(path);
@@ -116,7 +123,7 @@ impl Screen {
             Action::DiffLayoutMenu => {
                 self.open_layout_picker(
                     crate::bar::CommandDraft {
-                        input: command::Input::global(Editor::new("/diff layout".into())),
+                        input: command::Input::global(Editor::new("/repo diff layout".into())),
                         path,
                         selection,
                     },

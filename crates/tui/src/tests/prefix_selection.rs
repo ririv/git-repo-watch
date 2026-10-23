@@ -1,7 +1,9 @@
 use super::*;
-use crate::command::{Context, context::RepositoryContext};
+use crate::command::Context;
 
 fn select_prefix(s: &mut Screen) {
+    s.page = Page::Configuration(Configuration::Repositories);
+    key(s, KeyCode::Home);
     key(s, KeyCode::Char('/'));
     key(s, KeyCode::Backspace);
     assert!(s.bar.command_input().unwrap().prefix_selected());
@@ -33,12 +35,12 @@ fn selected_prefix_is_replaced_by_typing_including_shift_and_unicode() {
         assert_eq!(input.editor().cursor, input.editor().text.len());
         assert!(!s.bar.commands().unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
-        assert_eq!(s.page, Page::Repositories);
+        assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(
             s.bar.command_input().unwrap().context(),
-            Some(Context::Repositories(RepositoryContext::List))
+            Some(Context::Repositories)
         );
     }
 }
@@ -48,7 +50,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
         ("diff", "/diff"),
         ("/diff", "/diff"),
         ("//diff", "/diff"),
-        ("repo add \"~/中文 空格\"", "/repo add \"~/中文 空格\""),
+        ("repos add \"~/中文 空格\"", "/repos add \"~/中文 空格\""),
         ("\n/终端\r", "/终端"),
     ] {
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
@@ -61,11 +63,11 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
         assert_eq!(
             s.bar.commands().unwrap()[0].name,
             if expected.contains(" add ") {
-                "repo add"
+                "repos add"
             } else if expected == "/终端" {
-                "terminal"
+                "repo terminal"
             } else {
-                "diff"
+                "repo diff"
             }
         );
     }
@@ -85,12 +87,9 @@ fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() 
         key(&mut s, restore);
         let input = s.bar.command_input().unwrap();
         assert!(!input.prefix_selected());
-        assert_eq!(
-            input.context(),
-            Some(Context::Repositories(RepositoryContext::List))
-        );
+        assert_eq!(input.context(), Some(Context::Repositories));
         assert_eq!(input.editor().text, "");
-        assert_eq!(s.bar.text(), "/repo ");
+        assert_eq!(s.bar.text(), "/repos ");
         assert_eq!(s.filter, Filter::All);
         assert_eq!(s.query, "alpha");
         assert!(s.repository_tasks.is_empty());
@@ -117,20 +116,21 @@ fn typing_slash_over_a_selected_prefix_opens_the_global_menu() {
     );
     assert!(s.repository_tasks.is_empty());
     let (_home, mut s) = fixture(vec![]);
+    s.page = Page::Configuration(Configuration::Repositories);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("sort name");
+    s.paste("scan /example");
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Backspace);
     assert!(!s.bar.command_input().unwrap().prefix_selected());
-    assert_eq!(s.bar.text(), "/repo sort name");
+    assert_eq!(s.bar.text(), "/repos scan /example");
 }
 #[test]
 fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
     select_prefix(&mut s);
     s.focus(Some("/example/beta".into()));
-    type_text(&mut s, "repo remove");
-    assert_eq!(s.bar.text(), "/repo remove");
+    type_text(&mut s, "repos remove");
+    assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
         matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove(path),..} if path==std::path::Path::new("/example/alpha"))
@@ -145,6 +145,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
         let _language = i18n::using(language);
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+            s.page = Page::Configuration(Configuration::Repositories);
             key(&mut s, KeyCode::Char('/'));
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|f| view::render(f, &mut s)).unwrap();
@@ -166,7 +167,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             assert!(selected.modifier.contains(Modifier::BOLD));
             assert!(!selected.modifier.contains(Modifier::UNDERLINED));
             assert!(!terminal.backend().cursor_visible());
-            assert!(!selected_text.contains("[ /repo ]"));
+            assert!(!selected_text.contains("[ /repos ]"));
             assert!(selected_text.contains(i18n::tr!(CommandsAlt).trim()));
             let selected_input = s.bar.command_input().unwrap().clone();
             if let bar::InputBar::Command { input, .. } = &mut s.bar {
@@ -220,7 +221,7 @@ fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/schedule");
     assert_eq!(s.bar.command_input().unwrap().context(), None);
-    assert_eq!(s.page, Page::Repositories);
+    assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert!(s.repository_tasks.is_empty());
@@ -274,11 +275,12 @@ fn deleting_a_selected_prefix_closes_commands_and_restores_search() {
         assert_eq!(s.bar.text(), query);
         assert_eq!(s.query, query);
         assert_eq!(s.selected_path(), path);
-        assert_eq!(s.page, Page::Repositories);
+        assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         assert!(s.repository_tasks.is_empty());
         assert!(s.bar.commands().is_none());
+        key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Char('/'));
-        assert_eq!(s.bar.text(), "/repo ");
+        assert_eq!(s.bar.text(), "/repos ");
         assert!(!s.bar.command_input().unwrap().prefix_selected());
     }
 }

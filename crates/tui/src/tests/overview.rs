@@ -87,7 +87,7 @@ fn compact_overview_keeps_navigation_visible_while_scrolling_and_resizing() {
     key(&mut s, KeyCode::Right);
     wait_overview(&mut s);
     let text = render(&mut s, 60, 18);
-    assert!(text.contains("repo"));
+    assert!(text.contains("repos"));
     assert!(text.contains(i18n::tr!(Branch)));
     let mut seen = String::new();
     for _ in 0..20 {

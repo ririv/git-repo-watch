@@ -7,8 +7,8 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
         std::fs::create_dir(temp.path().join(name)).unwrap();
     }
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "repo manage");
-    s.paste(&format!("//repo add \"{}/仓\"", temp.path().display()));
+    command(&mut s, "repos manage");
+    s.paste(&format!("//repos add \"{}/仓\"", temp.path().display()));
     key(&mut s, KeyCode::Tab);
     assert!(matches!(
         &s.bar,
@@ -53,11 +53,11 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
     }
     let (_home, mut s) = fixture(vec![]);
     for input in [
-        "repo add",
-        "repo exclude",
-        "repo unexclude",
-        "repo scan",
-        "repo import",
+        "repos add",
+        "repos exclude",
+        "repos unexclude",
+        "repos scan",
+        "repos import",
     ] {
         s.paste(&format!("/{input} {}/o", temp.path().display()));
         key(&mut s, KeyCode::Tab);
@@ -78,7 +78,7 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
         assert!(s.bar.text().ends_with("/one/"));
         key(&mut s, KeyCode::Esc);
     }
-    s.paste(&format!("//repo add {}/o", temp.path().display()));
+    s.paste(&format!("//repos add {}/o", temp.path().display()));
     key(&mut s, KeyCode::Tab);
     s.paste("ne");
     assert!(matches!(
@@ -108,7 +108,7 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
-        s.paste(&format!("//repo add {}/目", temp.path().display()));
+        s.paste(&format!("//repos add {}/目", temp.path().display()));
         key(&mut s, KeyCode::Tab);
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let rendered = render(&mut s, width, height);
@@ -135,7 +135,7 @@ fn all_path_commands_expand_tilde_in_review_and_return_to_the_original_draft() {
     let (home, mut s) = fixture(vec![]);
     for name in ["add", "exclude", "unexclude", "scan", "import"] {
         for quote in ["", "'", "\""] {
-            let draft = format!("repo {name} {quote}~/中文 空格/{quote}");
+            let draft = format!("repos {name} {quote}~/中文 空格/{quote}");
             command(&mut s, &draft);
             assert!(matches!(&s.mode, Mode::Confirm {
                 operation: Confirmation::Configure { value, .. }, ..
@@ -145,7 +145,7 @@ fn all_path_commands_expand_tilde_in_review_and_return_to_the_original_draft() {
             assert!(s.service.store.config().unwrap().repositories.is_empty());
         }
     }
-    command(&mut s, "repo exclude ~");
+    command(&mut s, "repos exclude ~");
     assert!(matches!(&s.mode, Mode::Confirm {
         operation: Confirmation::Configure { value, .. }, ..
     } if std::path::Path::new(value) == home.path()));
@@ -156,9 +156,9 @@ fn tilde_completed_repository_add_executes_with_the_same_home_and_saves_an_absol
     let (home, mut s) = fixture(vec![]);
     let repository = home.path().join("仓库 空格");
     support::git(home.path(), &["init", "仓库 空格"]);
-    s.paste("//repo add \"~/仓\"");
+    s.paste("//repos add \"~/仓\"");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "/repo add \"~/仓库 空格/\"");
+    assert_eq!(s.bar.text(), "/repos add \"~/仓库 空格/\"");
     assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Enter);
     assert!(matches!(&s.mode, Mode::Confirm {
