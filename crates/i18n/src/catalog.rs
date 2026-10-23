@@ -98,6 +98,7 @@ pub enum Message {
     ContextCommandHint,
     ContextPrefixHint,
     RepositoryFilterCommand,
+    RepositoryFilterLabel,
     RepositoryFilterAll,
     RepositoryFilterProblems,
     RepositoryFilterClean,
@@ -106,6 +107,7 @@ pub enum Message {
     RepositoryFilterNoUpstream,
     RepositoryFilterPushes,
     RepositorySortCommand,
+    RepositorySortLabel,
     RepositorySortPriority,
     RepositorySortName,
     RepositorySortPath,
@@ -1106,6 +1108,8 @@ impl Message {
             (Self::ContextPrefixHint, Language::Chinese) => "输入替换 · Enter/→ 保留 · ⌫/Esc 关闭",
             (Self::RepositoryFilterCommand, Language::English) => "Filter repositories",
             (Self::RepositoryFilterCommand, Language::Chinese) => "筛选仓库",
+            (Self::RepositoryFilterLabel, Language::English) => "Filter",
+            (Self::RepositoryFilterLabel, Language::Chinese) => "筛选",
             (Self::RepositoryFilterAll, Language::English) => "All registered repositories",
             (Self::RepositoryFilterAll, Language::Chinese) => "全部已注册仓库",
             (Self::RepositoryFilterProblems, Language::English) => {
@@ -1128,6 +1132,8 @@ impl Message {
             (Self::RepositoryFilterPushes, Language::Chinese) => "有推送成功或失败记录的仓库",
             (Self::RepositorySortCommand, Language::English) => "Sort repositories",
             (Self::RepositorySortCommand, Language::Chinese) => "仓库排序",
+            (Self::RepositorySortLabel, Language::English) => "Sort",
+            (Self::RepositorySortLabel, Language::Chinese) => "排序",
             (Self::RepositorySortPriority, Language::English) => {
                 "Failed, attention, unchecked, clean"
             }

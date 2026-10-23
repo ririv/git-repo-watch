@@ -60,6 +60,52 @@ fn repository_clicks_use_visible_offsets_and_ignore_headers_blanks_and_disabled_
 }
 
 #[test]
+fn repository_options_resize_without_covering_headers_clicks_or_scroll_tracks() {
+    let _language = i18n::using(i18n::Language::English);
+    let (_home, mut s) = fixture(
+        (0..30)
+            .map(|i| PathBuf::from(format!("/example/repository-{i:02}")))
+            .collect(),
+    );
+    s.filter = Filter::Unchecked;
+    s.order = Order::Updated;
+    for (width, height) in [(80, 24), (60, 18), (160, 32), (60, 24)] {
+        // 各尺寸分别模拟新手势，避免上一轮惯性事件的抑制影响本轮。
+        s.scroll_input = Default::default();
+        key(&mut s, KeyCode::End);
+        let text = render(&mut s, width, height);
+        let area = s.repository_area.unwrap();
+        let header = text
+            .lines()
+            .position(|line| line.contains("Worktree") && line.contains("Sync"))
+            .unwrap() as u16;
+        let options = text
+            .lines()
+            .position(|line| line.contains("Filter: Unchecked · Sort: Recently updated"))
+            .unwrap() as u16;
+        assert_eq!(options, area.y + u16::from(width == 60));
+        assert_eq!(header, area.y + if width == 60 { 2 } else { 1 });
+        let first = header + 1;
+        let offset = s.repository_viewport.offset();
+        click(&mut s, area.x + 3, first + 1);
+        assert_eq!(s.selected(), offset + 1);
+        for y in [area.y, options, header] {
+            assert!(!click(&mut s, area.x + 3, y));
+            assert_eq!(s.selected(), offset + 1);
+        }
+        assert!(!click(&mut s, area.x + 1, first));
+        click(&mut s, area.right() - 1, area.bottom() - 2);
+        assert_eq!(s.selected(), 29);
+        render(&mut s, width, height);
+        click(&mut s, area.right() - 1, first);
+        assert_eq!(s.selected(), 0);
+        render(&mut s, width, height);
+        event(&mut s, MouseEventKind::ScrollDown, area.x + 3, first);
+        assert_eq!(s.selected(), 3);
+    }
+}
+
+#[test]
 fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() {
     let f = support::Fixture::create();
     for i in 0..20 {

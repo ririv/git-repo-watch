@@ -646,7 +646,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         let text = render(&mut s, width, height);
         assert!(text.contains("Search repositories"));
         assert!(text.contains("Type to search"));
-        assert!(text.contains("filter All · sort Priority"));
+        assert!(text.contains("Filter: All · Sort: Priority"));
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         s.paste("//");
         let candidates = render(&mut s, width, height);

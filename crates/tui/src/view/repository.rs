@@ -1,26 +1,9 @@
+mod heading;
 use super::*;
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(3)]).split(area);
-    // 与面板标题的起点对齐，保留一格左边距。
-    let options = Rect::new(
-        parts[0].x + 1,
-        parts[0].y,
-        parts[0].width.saturating_sub(2),
-        parts[0].height,
-    );
-    frame.render_widget(
-        Paragraph::new(Line::from(vec![
-            Span::styled("filter ", Style::default().fg(MUTED)),
-            Span::styled(screen.filter.label(), Style::default().fg(ACCENT)),
-            Span::styled(" · sort ", Style::default().fg(MUTED)),
-            Span::styled(screen.order.label(), Style::default().fg(ACCENT)),
-        ])),
-        options,
-    );
-    let body = parts[1];
     if area.width >= 120 && area.height >= 19 {
         let columns = Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)])
-            .split(body);
+            .split(area);
         repository_table(frame, screen, columns[0]);
         let rows = screen.rows();
         let selected = rows.get(screen.selected());
@@ -37,7 +20,7 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             columns[1],
         );
     } else {
-        repository_table(frame, screen, body)
+        repository_table(frame, screen, area)
     }
 }
 struct Badges {
@@ -180,9 +163,13 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .style(Style::default().fg(b.color))
         })
         .collect::<Vec<_>>();
-    let border = block(format!("{} · {}", i18n::tr!(Repositories), rows.len()))
-        .padding(ratatui::widgets::Padding::left(1));
-    let content = border.inner(area);
+    let content = heading::render(
+        frame,
+        format!("{} · {}", i18n::tr!(Repositories), rows.len()),
+        screen.filter,
+        screen.order,
+        area,
+    );
     let table = Table::new(
         data,
         [
@@ -199,11 +186,10 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ])
         .style(Style::default().fg(MUTED)),
     )
-    .block(border)
     .row_highlight_style(selected_style())
     .column_spacing(1);
     screen.repository_area = Some(area);
-    frame.render_stateful_widget(table, area, &mut screen.repository_viewport);
+    frame.render_stateful_widget(table, content, &mut screen.repository_viewport);
     let inner = Rect::new(
         content.x,
         content.y + 1,
