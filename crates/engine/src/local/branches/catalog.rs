@@ -21,13 +21,13 @@ pub struct Entry {
     pub author: String,
     pub time: i64,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Head {
     Branch(String),
     Detached(Oid),
     Unborn(String),
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Snapshot {
     pub path: PathBuf,
     pub head: Head,

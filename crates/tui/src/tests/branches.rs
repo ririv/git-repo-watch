@@ -86,20 +86,19 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
     assert_eq!(Section::of(&s.mode), Section::Worktree);
     command(&mut s, "repo branch");
     assert!(matches!(&s.mode,Mode::Branches(view) if view.session().filter==BranchFilter::Local));
-    control(&mut s, 'f');
+    assert_eq!(s.page, Page::View(crate::navigation::View::Branches));
+    render(&mut s, 120, 32);
+    assert!(s.workspace_areas.is_empty());
     key(&mut s, KeyCode::Enter);
     assert!(matches!(&s.mode,Mode::Branches(view) if matches!(view.as_ref(),View::Detail{..})));
     key(&mut s, KeyCode::Esc);
-    assert_eq!(
-        s.workspace.session().unwrap().arrangement,
-        Arrangement::Maximized
-    );
     key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Detail);
+    assert_eq!(Section::of(&s.mode), Section::Worktree);
     assert_eq!(
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
     );
-    control(&mut s, 'd');
     control(&mut s, 'd');
     control(&mut s, 'd');
     assert_eq!(Section::of(&s.mode), Section::Overview);
@@ -113,8 +112,12 @@ fn branch_refresh_observes_external_changes_and_drafts_survive_passive_loading()
     command(&mut s, "repo branch");
     s.paste("//comm");
     wait_workspace(&mut s);
+    wait(&mut s);
     assert_eq!(s.bar.text(), "/comm");
+    assert_eq!(s.page, Page::Detail);
     key(&mut s, KeyCode::Esc);
+    command(&mut s, "repo branch");
+    wait(&mut s);
     support::git(&f.repo, &["branch", "new-branch"]);
     control(&mut s, 'r');
     wait_workspace(&mut s);

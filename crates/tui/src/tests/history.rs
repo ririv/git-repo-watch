@@ -163,6 +163,9 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
         command(&mut s, "repo diff");
         wait(&mut s);
+        assert_eq!(s.page, Page::View(crate::navigation::View::Diff));
+        assert!(matches!(s.mode, Mode::Changes(_)));
+        key(&mut s, KeyCode::Esc);
         assert!(
             matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
         );

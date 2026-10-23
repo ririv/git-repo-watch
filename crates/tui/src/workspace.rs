@@ -116,10 +116,18 @@ impl Workspace {
             return;
         };
         match mode {
-            Mode::Branches(view) => session.branches = Panel::Ready(view.session().clone()),
-            Mode::Files(files) => session.files = Panel::Ready(files),
-            Mode::Changes(view) => session.files = Panel::Ready(view.files),
-            Mode::History(view) => session.history = Panel::Ready(view.session().clone()),
+            Mode::Branches(view) if view.session().snapshot.path == session.path => {
+                session.branches = Panel::Ready(view.session().clone())
+            }
+            Mode::Files(files) if files.snapshot.path == session.path => {
+                session.files = Panel::Ready(files)
+            }
+            Mode::Changes(view) if view.files.snapshot.path == session.path => {
+                session.files = Panel::Ready(view.files)
+            }
+            Mode::History(view) if view.session().references.path == session.path => {
+                session.history = Panel::Ready(view.session().clone())
+            }
             Mode::Confirm {
                 operation:
                     crate::Confirmation::Configure { origin, .. }
@@ -158,7 +166,8 @@ impl Screen {
         if self.page == Page::Detail {
             self.park_workspace();
         } else {
-            self.history.push(self.page);
+            let origin = self.take_mode();
+            self.remember_view(origin);
         }
         self.focus(Some(path.clone()));
         self.page = Page::Detail;
@@ -337,8 +346,8 @@ impl Screen {
         self.workspace.save(mode);
     }
     pub(super) fn refresh_workspace(&mut self) {
-        if self.page == Page::Detail {
-            self.refresh_overview();
+        if let Some(path) = self.workspace.path().map(std::path::Path::to_owned) {
+            self.overview.open(path, &self.service);
             self.workspace.reload(&self.service);
         }
     }

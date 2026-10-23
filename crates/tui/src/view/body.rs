@@ -116,6 +116,9 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             );
         }
         _ => match screen.page {
+            Page::View(view) => {
+                frame.render_widget(Paragraph::new(view.title()), area);
+            }
             Page::Repositories => repositories(frame, screen, area),
             Page::Detail => overview::render(frame, screen, area),
             Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),

@@ -6,19 +6,11 @@ impl Screen {
     pub(crate) fn navigate(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         match key.code {
             KeyCode::F(1) => {
-                self.history.push(self.page);
-                self.page = Page::Help;
-                self.scroll = 0;
+                self.open_page(Page::Help);
                 return Ok(false);
             }
             KeyCode::Esc | KeyCode::Left => {
-                if let Some(page) = self.history.pop() {
-                    self.page = page
-                } else {
-                    self.page = Page::Repositories
-                }
-                self.scroll = 0;
-                self.sync_bar();
+                self.return_to_view();
                 return Ok(false);
             }
             KeyCode::Tab => {
@@ -91,6 +83,7 @@ impl Screen {
                 }
                 _ => scroll_key(&mut self.scroll, key),
             },
+            Page::View(_) => {}
             Page::Help => scroll_key(&mut self.scroll, key),
         }
         Ok(false)

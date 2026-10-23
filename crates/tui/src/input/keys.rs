@@ -107,6 +107,10 @@ impl Screen {
                 match view.as_mut() {
                     history::View::Graph(session) => match key.code {
                         KeyCode::Esc | KeyCode::Left => {
+                            if matches!(self.page, Page::View(_)) {
+                                self.return_to_view();
+                                return Ok(false);
+                            }
                             if self.page == Page::Detail {
                                 self.workspace.save(Mode::History(view));
                             }
@@ -196,6 +200,9 @@ impl Screen {
                         Confirmation::Schedule(_) | Confirmation::Remove(_) => Mode::Browsing,
                     };
                     self.message.clear();
+                    if matches!(self.page, Page::View(_)) && matches!(self.mode, Mode::Browsing) {
+                        self.return_to_view();
+                    }
                     self.sync_bar();
                 }
                 confirmation::Input::Pending => self.mode = Mode::Confirm { operation, choice },
@@ -257,6 +264,9 @@ impl Screen {
             } => {
                 match key.code {
                     KeyCode::Esc => {
+                        if matches!(self.page, Page::View(_)) {
+                            self.return_to_view();
+                        }
                         self.sync_bar();
                         return Ok(false);
                     }
@@ -342,6 +352,9 @@ impl Screen {
                     }
                     confirmation::Input::Return => {
                         self.message = i18n::tr!(Cancelled).into();
+                        if matches!(self.page, Page::View(_)) {
+                            self.return_to_view();
+                        }
                         self.sync_bar();
                         return Ok(false);
                     }
@@ -362,6 +375,10 @@ impl Screen {
                 match key.code {
                     KeyCode::Esc | KeyCode::Enter => {
                         self.mode = *origin;
+                        if matches!(self.page, Page::View(_)) && matches!(self.mode, Mode::Browsing)
+                        {
+                            self.return_to_view();
+                        }
                         self.sync_bar();
                         return Ok(false);
                     }

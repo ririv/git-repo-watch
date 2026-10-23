@@ -17,7 +17,7 @@ impl Screen {
         match action {
             Action::Stashes => {
                 if let Some(path) = path {
-                    self.read_stashes(path);
+                    self.open_view(crate::navigation::View::Stashes, path);
                 } else {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
@@ -40,7 +40,7 @@ impl Screen {
             Action::Sort(order) => self.sort_repositories(order),
             Action::Branches => {
                 if let Some(path) = path {
-                    self.open_branches(path);
+                    self.open_view(crate::navigation::View::Branches, path);
                 } else {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
@@ -60,15 +60,7 @@ impl Screen {
             }
             Action::Settings => self.open_configuration(Configuration::General),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
-            Action::Help => {
-                if self.page == Page::Detail {
-                    self.park_workspace();
-                }
-                self.history.push(self.page);
-                self.page = Page::Help;
-                self.mode = Mode::Browsing;
-                self.scroll = 0
-            }
+            Action::Help => self.open_page(Page::Help),
             Action::RepositoryRefresh => {
                 if self.repository_list_active() {
                     if let Err(error) = self.reload(root) {
@@ -114,7 +106,7 @@ impl Screen {
             }
             Action::Log => {
                 if let Some(path) = path {
-                    self.open_history(path);
+                    self.open_view(crate::navigation::View::History, path);
                 } else {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
@@ -138,21 +130,8 @@ impl Screen {
                 });
             }
             Action::Diff => {
-                if matches!(self.mode, Mode::History(_)) {
-                    self.show_history_diff();
-                } else if matches!(self.mode, Mode::Changes(_)) {
-                    // 入口重复执行不改变选择、焦点或已加载的差异。
-                } else if self.mode.file_session().is_some() {
-                    self.show_diff();
-                } else if let Some(path) = path {
-                    self.start_repository(
-                        path.clone(),
-                        i18n::tr!(ReadRepositoryFiles),
-                        Effect::ReadOnly,
-                        move |service, cancel, _| {
-                            Ok(Outcome::Changes(service.files(&path, &cancel)?))
-                        },
-                    );
+                if let Some(path) = path {
+                    self.open_view(crate::navigation::View::Diff, path);
                 } else {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
@@ -283,16 +262,7 @@ impl Screen {
         self.message.clear();
     }
     fn open_configuration(&mut self, section: Configuration) {
-        if self.page == Page::Detail {
-            self.park_workspace();
-        }
-        if self.page != Page::Configuration(section) {
-            self.history.push(self.page);
-        }
-        self.page = Page::Configuration(section);
-        self.setting_selected = 0;
-        self.mode = Mode::Browsing;
-        self.scroll = 0;
+        self.open_page(Page::Configuration(section));
     }
     pub(crate) fn read_files(&mut self, path: PathBuf) {
         self.start_repository(

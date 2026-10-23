@@ -458,7 +458,9 @@ fn background_reads_cannot_replace_an_empty_scoped_command_or_its_copy_selection
             move |service, cancel, _| {
                 gate.recv_timeout(Duration::from_secs(8)).unwrap();
                 if succeeds {
-                    Ok(Outcome::Changes(service.files(&path, &cancel)?))
+                    Ok(Outcome::Opened(Box::new(crate::navigation::Content::Diff(
+                        FileSession::new(service.files(&path, &cancel)?),
+                    ))))
                 } else {
                     anyhow::bail!("read failed after opening the command")
                 }

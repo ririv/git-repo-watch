@@ -110,22 +110,6 @@ impl View {
     }
 }
 impl crate::Screen {
-    pub(super) fn open_branches(&mut self, path: std::path::PathBuf) {
-        if self.page == crate::Page::Detail && self.workspace.path() == Some(&path) {
-            if matches!(&self.mode, crate::Mode::Branches(view) if matches!(view.as_ref(), View::Detail { .. }))
-            {
-                let crate::Mode::Branches(view) = self.take_mode() else {
-                    unreachable!()
-                };
-                self.mode = crate::Mode::Branches(Box::new(View::List(view.session().clone())));
-                self.sync_bar();
-            } else {
-                self.switch_repository_section(crate::workspace::Section::Branches);
-            }
-            return;
-        }
-        self.read_branches(path);
-    }
     pub(super) fn read_branches(&mut self, path: std::path::PathBuf) {
         self.start_repository(
             path.clone(),

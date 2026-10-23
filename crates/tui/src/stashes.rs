@@ -111,8 +111,8 @@ impl crate::Screen {
         match view.as_mut() {
             View::List(session) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {
-                    self.mode = crate::Mode::Browsing;
-                    self.sync_bar();
+                    self.mode = crate::Mode::Stashes(view);
+                    self.return_to_view();
                     return;
                 }
                 KeyCode::Up => session.advance(-1),

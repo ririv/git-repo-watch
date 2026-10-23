@@ -92,8 +92,11 @@ impl Screen {
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
-        self.scroll = 0;
+        if !matches!(outcome, Outcome::Opened(_)) {
+            self.scroll = 0;
+        }
         match outcome {
+            Outcome::Opened(content) => self.enter_view(*content, origin),
             Outcome::Stashes(snapshot) => {
                 let session = match &origin {
                     Mode::Stashes(view) => view.session().refreshed(snapshot),
@@ -154,18 +157,6 @@ impl Screen {
                     self.mode = Mode::Files(next);
                 }
             },
-            Outcome::Changes(snapshot) => {
-                self.workspace.save(origin);
-                self.mode = Mode::Changes(Box::new(changes::Session::new(
-                    FileSession::new(snapshot),
-                    if self.page == Page::Detail {
-                        changes::ReturnTo::Files
-                    } else {
-                        changes::ReturnTo::Repositories
-                    },
-                )));
-                self.poll_changes();
-            }
             Outcome::CommitPrepared(plan) => {
                 self.workspace.save(origin);
                 self.mode = Mode::CommitMessage {
@@ -223,6 +214,9 @@ impl Screen {
             }
         }
         if matches!(self.mode, Mode::Browsing) {
+            if matches!(self.page, Page::View(_)) {
+                self.return_to_view();
+            }
             self.refresh_overview();
         }
         self.sync_bar();

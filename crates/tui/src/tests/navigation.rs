@@ -7,7 +7,7 @@ fn empty_input_arrows_open_details_and_return_without_losing_selection_or_histor
     key(&mut s, KeyCode::Right);
     assert_eq!(s.page, Page::Detail);
     assert_eq!(s.selected(), 1);
-    assert_eq!(s.history, vec![Page::Repositories]);
+    assert_eq!(s.history.len(), 1);
     key(&mut s, KeyCode::F(1));
     assert_eq!(s.page, Page::Help);
     key(&mut s, KeyCode::Left);
@@ -128,4 +128,139 @@ fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation(
         std::fs::read(s.service.store.config_path()).unwrap(),
         before
     );
+}
+
+#[test]
+fn view_commands_open_full_views_and_return_to_the_focused_pane() {
+    use crate::{
+        navigation::View,
+        workspace::{Arrangement, Section},
+    };
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        support::write(f.repo.join("a.ts"), "export const a = 1;\n");
+        support::write(f.repo.join("b.ts"), "export const b = 2;\n");
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        key(&mut s, KeyCode::Enter);
+        wait_workspace(&mut s);
+        s.switch_repository_section(Section::Worktree);
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Char(' '));
+        let original = s.mode.file_session().unwrap().clone();
+        for (name, view, prefix) in [
+            ("repo diff", View::Diff, "/repo diff "),
+            ("repo log", View::History, "/repo log "),
+            ("repo branch", View::Branches, "/repo branch "),
+            ("repo stash", View::Stashes, "/repo stash "),
+        ] {
+            key(&mut s, KeyCode::Char('/'));
+            assert_eq!(s.bar.text(), "/repo diff ");
+            render(&mut s, 120, 32);
+            assert_eq!(s.workspace_areas.len(), 4);
+            key(&mut s, KeyCode::Esc);
+            command(&mut s, name);
+            wait(&mut s);
+            assert_eq!(s.page, Page::View(view));
+            for (width, height) in [(60, 18), (120, 32)] {
+                render(&mut s, width, height);
+                assert!(s.workspace_areas.is_empty());
+            }
+            key(&mut s, KeyCode::Char('/'));
+            assert_eq!(s.bar.text(), prefix);
+            key(&mut s, KeyCode::Esc);
+            let depth = s.history.len();
+            command(&mut s, name);
+            wait(&mut s);
+            assert_eq!(s.history.len(), depth);
+            key(&mut s, KeyCode::Esc);
+            assert_eq!(s.page, Page::Detail);
+            assert_eq!(Section::of(&s.mode), Section::Worktree);
+            let restored = s.mode.file_session().unwrap();
+            assert_eq!(restored.cursor, original.cursor);
+            assert_eq!(restored.selected, original.selected);
+            assert_eq!(
+                s.workspace.session().unwrap().arrangement,
+                Arrangement::Tiled
+            );
+        }
+        s.shutdown();
+    }
+}
+
+#[test]
+fn application_pages_restore_the_full_view_and_pane_search() {
+    let f = support::Fixture::create();
+    support::write(f.repo.join("source.ts"), "export const value = 1;\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    s.paste("source");
+    for name in ["settings", "schedule", "repos manage", "help"] {
+        s.paste(&format!("//{name}"));
+        key(&mut s, KeyCode::Enter);
+        assert!(matches!(s.mode, Mode::Browsing));
+        key(&mut s, KeyCode::Esc);
+        if !matches!(s.mode, Mode::Changes(_)) {
+            key(&mut s, KeyCode::Esc);
+        }
+        assert_eq!(s.page, Page::View(crate::navigation::View::Diff));
+        assert_eq!(s.mode.file_session().unwrap().query, "source");
+        assert_eq!(s.bar.text(), "source");
+    }
+    s.shutdown();
+}
+
+#[test]
+fn staging_in_full_diff_returns_updated_files_to_the_original_pane() {
+    let f = support::Fixture::create();
+    support::write(f.repo.join("stage.ts"), "export const value = 1;\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+    s.switch_repository_section(crate::workspace::Section::Worktree);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    command(&mut s, "repo diff stage");
+    wait(&mut s);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Detail);
+    let files = s.mode.file_session().unwrap();
+    assert!(files.rows().iter().any(|row| row.area == Area::Staged));
+    s.shutdown();
+}
+
+#[test]
+fn background_index_updates_reach_a_saved_view_without_replacing_settings() {
+    let f = support::Fixture::create();
+    support::write(f.repo.join("late.ts"), "export const value = 1;\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    command(&mut s, "repo diff stage");
+    command(&mut s, "settings");
+    wait(&mut s);
+    assert_eq!(s.page, Page::Configuration(Configuration::General));
+    assert!(matches!(s.mode, Mode::Browsing));
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::View(crate::navigation::View::Diff));
+    let files = s.mode.file_session().unwrap();
+    assert!(files.rows().iter().any(|row| row.area == Area::Staged));
+    assert!(s.repository_tasks.is_empty());
+    s.shutdown();
+}
+
+#[test]
+fn returning_to_a_loading_pane_uses_the_completed_snapshot() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    s.switch_repository_section(crate::workspace::Section::Branches);
+    assert!(matches!(s.mode, Mode::Panel(_)));
+    command(&mut s, "settings");
+    wait_workspace(&mut s);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Detail);
+    assert!(matches!(s.mode, Mode::Branches(_)));
+    s.shutdown();
 }

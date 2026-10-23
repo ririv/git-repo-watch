@@ -58,6 +58,11 @@ impl Screen {
             } else if session.focus == Focus::Preview {
                 session.focus = Focus::Files;
             } else {
+                if matches!(self.page, crate::Page::View(_)) {
+                    self.mode = Mode::Changes(session);
+                    self.return_to_view();
+                    return;
+                }
                 self.mode = match session.return_to {
                     crate::changes::ReturnTo::Files => Mode::Files(session.files),
                     crate::changes::ReturnTo::Repositories => Mode::Browsing,

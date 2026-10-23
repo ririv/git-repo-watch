@@ -23,6 +23,7 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
             Mode::PushConfirm { .. } => i18n::tr!(PushCurrentBranch),
             Mode::Error { title, .. } => title.as_str(),
             _ => match screen.page {
+                Page::View(view) => view.title(),
                 Page::Repositories => i18n::tr!(Repositories),
                 Page::Detail => i18n::tr!(OverviewTitle),
                 Page::Configuration(section) => section.title(),

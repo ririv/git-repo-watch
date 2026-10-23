@@ -189,15 +189,9 @@ impl Screen {
                 self.refresh_repository_panes(&path);
             }
             if !same_view && let Ok(Outcome::Files(snapshot)) = &completion.outcome {
-                match &mut self.mode {
-                    Mode::Changes(session) if session.files.snapshot.path == snapshot.path => {
-                        session.refreshed(snapshot.clone())
-                    }
-                    Mode::Files(session) if session.snapshot.path == snapshot.path => {
-                        *session = session.refreshed(snapshot.clone())
-                    }
-                    _ => {}
-                }
+                self.merge_mutation_view(crate::mutations::readback::Readback::Files(
+                    snapshot.clone(),
+                ));
             }
             match completion.outcome {
                 Ok(outcome) => {
@@ -248,7 +242,7 @@ impl Screen {
         changed
     }
     pub(super) fn refresh_repository_panes(&mut self, path: &Path) {
-        if self.page != Page::Detail || self.workspace.path() != Some(path) {
+        if self.workspace.path() != Some(path) {
             return;
         }
         // 只刷新发生变更的仓库；不跳转其他仓库，也不覆盖正在编辑的提交消息。

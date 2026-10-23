@@ -7,7 +7,7 @@
 
 ## Repository panes
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
-- `/repo branch` opens branches independently or focuses the branch pane. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
+- `/repo branch` always opens the full branch view. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
 - `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it.
 - `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
@@ -28,6 +28,7 @@
 - `Ctrl+R` reloads the report or refreshes the file panel. The mouse wheel scrolls three rows in the repository list.
 
 ## Context prefixes
+- `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings, schedule and help also restore their origin on return.
 - The view prefix is a separate locked token: /repo diff for files and diffs, /repo log for history, /repo branch for branches, and /repos, /settings, /schedule for management pages. Home opens global / commands; overview uses /repo and stash uses /repo stash.
 - Type only the operation suffix, e.g. stage, unstage, layout or refresh in a worktree diff. Name and bilingual description matching stay within the current group.
 - With an empty suffix, Backspace selects the whole prefix, using its original selection colors. Candidates match the global / menu; use ↑↓ to select, Tab to complete or click a candidate to replace the prefix. Typing or pasting replaces it with a global command while retaining one leading /. Enter or → keeps the original prefix without running a command; a second Backspace closes commands and restores the current view’s search. Esc closes commands and restores search.

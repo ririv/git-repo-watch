@@ -6,6 +6,11 @@ impl Screen {
         match view.as_mut() {
             View::List(session) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {
+                    if matches!(self.page, Page::View(_)) {
+                        self.mode = Mode::Branches(view);
+                        self.return_to_view();
+                        return;
+                    }
                     if self.page == Page::Detail {
                         self.workspace.save(Mode::Branches(view));
                     }

@@ -15,6 +15,7 @@ mod history;
 mod input;
 mod layout_picker;
 mod mutations;
+mod navigation;
 mod overview;
 mod preview;
 mod repository_list;
@@ -57,6 +58,7 @@ use std::{
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Page {
+    View(navigation::View),
     Repositories,
     Detail,
     Configuration(Configuration),
@@ -157,6 +159,7 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    Opened(Box<navigation::Content>),
     Checked(domain::Report),
     Branches(Box<branches::View>),
     Stashes(engine::local::stash::Snapshot),
@@ -167,7 +170,6 @@ enum Outcome {
     MutationCompleted(engine::operations::mutation::Change),
     TerminalOpened(PathBuf),
     Files(Files),
-    Changes(Files),
     History(Box<history::View>),
     CommitPrepared(CommitPlan),
     PushPrepared(PushPlan),
@@ -180,7 +182,7 @@ struct Screen {
     snapshot: Snapshot,
     config: Config,
     page: Page,
-    history: Vec<Page>,
+    history: Vec<navigation::Visit>,
     mode: Mode,
     diff_preference: diff::Preference,
     graphics: graphics::Display,
