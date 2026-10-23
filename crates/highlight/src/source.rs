@@ -50,25 +50,39 @@ pub fn highlight(
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Source> {
     checkpoint()?;
-    let limited = if text.len() > MAX_SOURCE_BYTES {
-        Some(Limit::SourceBytes)
-    } else if text
-        .split_inclusive('\n')
-        .any(|line| line.len() > MAX_LINE_BYTES)
-    {
-        Some(Limit::LineBytes)
-    } else if text.lines().count() > MAX_LINES {
-        Some(Limit::LineCount)
-    } else {
-        None
-    };
-    if let Some(limit) = limited {
+    if let Some(limit) = limit(text) {
         return Ok(Source::Limited(limit));
     }
     let syntaxes = syntax::set();
     let Some(syntax) = syntax::detect(syntaxes, path, text.lines().next())? else {
         return Ok(Source::UnknownLanguage);
     };
+    highlight_syntax(syntax, text, requested, checkpoint)
+}
+
+/// Highlight a fenced code block using its explicit language token.
+pub fn highlight_code(
+    language: &str,
+    text: &str,
+    requested: &BTreeSet<NonZeroU32>,
+) -> Result<Source> {
+    if let Some(limit) = limit(text) {
+        return Ok(Source::Limited(limit));
+    }
+    let syntaxes = syntax::set();
+    let Some(syntax) = syntaxes.find_syntax_by_token(language) else {
+        return Ok(Source::UnknownLanguage);
+    };
+    highlight_syntax(syntax, text, requested, || Ok(()))
+}
+
+fn highlight_syntax(
+    syntax: &syntect::parsing::SyntaxReference,
+    text: &str,
+    requested: &BTreeSet<NonZeroU32>,
+    mut checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Source> {
+    let syntaxes = syntax::set();
     let theme = THEMES
         .themes
         .get("base16-ocean.dark")
@@ -120,4 +134,19 @@ pub fn highlight(
         language: syntax.name.clone(),
         lines,
     })
+}
+
+fn limit(text: &str) -> Option<Limit> {
+    if text.len() > MAX_SOURCE_BYTES {
+        Some(Limit::SourceBytes)
+    } else if text
+        .split_inclusive('\n')
+        .any(|line| line.len() > MAX_LINE_BYTES)
+    {
+        Some(Limit::LineBytes)
+    } else if text.lines().count() > MAX_LINES {
+        Some(Limit::LineCount)
+    } else {
+        None
+    }
 }

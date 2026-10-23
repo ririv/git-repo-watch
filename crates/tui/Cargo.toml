@@ -24,6 +24,7 @@ libc.workspace = true
 strip-ansi-escapes.workspace = true
 unicode-width.workspace = true
 vte.workspace = true
+pulldown-cmark.workspace = true
 
 [dev-dependencies]
 serde_json.workspace = true

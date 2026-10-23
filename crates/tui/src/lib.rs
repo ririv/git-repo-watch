@@ -16,6 +16,7 @@ mod history;
 mod horizontal;
 mod input;
 mod layout_picker;
+mod markdown;
 mod mutations;
 mod navigation;
 mod overview;

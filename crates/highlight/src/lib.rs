@@ -3,7 +3,7 @@ mod source;
 mod syntax;
 #[cfg(test)]
 mod tests;
-pub use source::{Highlighted, Limit, Source, Token, highlight};
+pub use source::{Highlighted, Limit, Source, Token, highlight, highlight_code};
 use std::sync::LazyLock;
 use syntect::highlighting::ThemeSet;
 
