@@ -22,17 +22,20 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    ToggleFile(usize),
     Select(Target, usize),
     Scroll(ScrollTarget, usize),
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Hit {
+    FileCheckbox(usize),
     Item(Target, usize),
     Scrollbar(Action),
 }
 impl Hit {
     pub fn action(self) -> Action {
         match self {
+            Self::FileCheckbox(index) => Action::ToggleFile(index),
             Self::Item(target, index) => Action::Select(target, index),
             Self::Scrollbar(action) => action,
         }
@@ -40,6 +43,7 @@ impl Hit {
 }
 #[derive(Debug, Clone)]
 enum Region {
+    FileCheckbox(Rect, usize),
     Item(Rect, Target, usize),
     Track {
         area: Rect,
@@ -55,6 +59,11 @@ enum Values {
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Map(Vec<Region>);
 impl Map {
+    pub fn file_checkbox(&mut self, area: Rect, index: usize) {
+        if !area.is_empty() {
+            self.0.push(Region::FileCheckbox(area, index));
+        }
+    }
     pub fn clear(&mut self) {
         self.0.clear();
     }
@@ -116,6 +125,9 @@ impl Map {
     }
     pub fn hit(&self, point: Position) -> Option<Hit> {
         self.0.iter().rev().find_map(|region| match region {
+            Region::FileCheckbox(area, index) if area.contains(point) => {
+                Some(Hit::FileCheckbox(*index))
+            }
             Region::Item(area, target, index) => {
                 area.contains(point).then_some(Hit::Item(*target, *index))
             }

@@ -87,5 +87,16 @@ pub(super) fn render(
             state.offset(),
             crate::pointer::Target::Files,
         );
+        // 复选框单独命中，点击文件名仍只定位；复选框不参与双击进入。
+        for (row, index) in indices
+            .iter()
+            .skip(state.offset())
+            .take(parts[1].height as usize)
+            .enumerate()
+        {
+            let checkbox =
+                Rect::new(parts[1].x + 2, parts[1].y + row as u16, 3, 1).intersection(parts[1]);
+            hits.file_checkbox(checkbox, *index);
+        }
     }
 }

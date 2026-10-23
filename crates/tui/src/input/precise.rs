@@ -8,6 +8,25 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::ToggleFile(index) => {
+                let files = match &mut self.mode {
+                    Mode::Files(files) => files,
+                    Mode::Changes(session) => &mut session.files,
+                    _ => return false,
+                };
+                let Some(change) = files.rows().get(index).copied() else {
+                    return false;
+                };
+                let identity = files.change_index(change);
+                files.cursor = index;
+                if !files.selected.remove(&identity) {
+                    files.selected.insert(identity);
+                }
+                if matches!(self.mode, Mode::Changes(_)) {
+                    self.poll_changes();
+                }
+            }
+
             Action::Select(target, index) => match target {
                 Target::Repositories if self.page == Page::Repositories => self.select(index),
                 Target::Settings if matches!(self.page, Page::Configuration(_)) => {

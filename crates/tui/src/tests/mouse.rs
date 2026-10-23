@@ -86,7 +86,7 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
             .lines()
             .position(|line| line.contains("staged-18.rs") && !line.contains("unstaged"))
             .unwrap() as u16;
-        assert!(click(&mut s, 5, y));
+        assert!(click(&mut s, 8, y));
         let Mode::Changes(session) = &s.mode else {
             panic!("changes");
         };
@@ -327,5 +327,65 @@ fn history_clicks_select_the_commit_at_the_drawn_row_after_scrolling() {
     };
     assert_eq!(session.selected().unwrap().oid, expected);
     assert!(!click(&mut s, area.x + 10, area.y + 1));
+    s.shutdown();
+}
+
+#[test]
+fn file_checkboxes_toggle_filtered_staged_and_unstaged_rows_without_entering_or_writing() {
+    let f = support::Fixture::create();
+    f.commit("a.txt", "head\n");
+    support::write(f.repo.join("a.txt"), "index\n");
+    support::git(&f.repo, &["add", "a.txt"]);
+    support::write(f.repo.join("a.txt"), "working\n");
+    support::write(f.repo.join("b.txt"), "other\n");
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    s.paste("a.txt");
+    for width in [60, 160] {
+        render(&mut s, width, 32);
+        let points = (0..32)
+            .flat_map(|y| (0..width).map(move |x| Position::new(x, y)))
+            .filter_map(|point| match s.pointer.hit(point) {
+                Some(crate::pointer::Hit::FileCheckbox(row)) => Some((row, point)),
+                _ => None,
+            })
+            .collect::<std::collections::BTreeMap<_, _>>();
+        assert_eq!(points.len(), 2);
+        for point in points.values() {
+            click(&mut s, point.x, point.y);
+            render(&mut s, width, 32);
+        }
+        let Mode::Changes(session) = &s.mode else {
+            panic!("changes");
+        };
+        assert_eq!(session.files.selected.len(), 2);
+        assert_eq!(session.focus, crate::changes::Focus::Files);
+        for point in points.values() {
+            click(&mut s, point.x, point.y);
+            click(&mut s, point.x, point.y);
+        }
+        let Mode::Changes(session) = &s.mode else {
+            panic!("changes");
+        };
+        assert_eq!(session.files.selected.len(), 2);
+        assert_eq!(session.focus, crate::changes::Focus::Files);
+        s.config.mouse.precise_click = false;
+        for point in points.values() {
+            click(&mut s, point.x, point.y);
+        }
+        assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
+        s.config.mouse.precise_click = true;
+        for point in points.values() {
+            click(&mut s, point.x, point.y);
+        }
+        assert!(s.mode.file_session().unwrap().selected.is_empty());
+    }
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("a.txt")).unwrap(),
+        "working\n"
+    );
     s.shutdown();
 }
