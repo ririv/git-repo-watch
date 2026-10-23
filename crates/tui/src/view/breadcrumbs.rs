@@ -4,6 +4,9 @@ use crate::navigation::breadcrumbs::Crumb;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
 fn shorten(text: &str, width: usize) -> String {
+    if width == 0 {
+        return String::new();
+    }
     if text.width() <= width {
         return text.into();
     }
@@ -76,9 +79,10 @@ pub(super) fn render(screen: &mut Screen, area: Rect) -> Line<'static> {
         }
         let width = crumb.label.width() as u16;
         if let Some(destination) = crumb.destination {
-            screen
-                .breadcrumb_items
-                .push((Rect::new(x, area.y, width, 1), destination));
+            let hit = Rect::new(x, area.y, width, 1).intersection(area);
+            if !hit.is_empty() {
+                screen.breadcrumb_items.push((hit, destination));
+            }
         }
         spans.push(Span::styled(
             crumb.label,

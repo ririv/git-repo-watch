@@ -10,6 +10,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .expect("open repository")
         .arrangement
     {
+        Arrangement::Tiled if area.width < 60 || area.height < 10 => vec![(area, focused)],
         Arrangement::Tiled => tiled_areas(area),
         Arrangement::Maximized => vec![(area, focused)],
     };

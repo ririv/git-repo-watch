@@ -6,7 +6,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let panel = block(i18n::tr!(ScheduleSettings));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
-    let parts = Layout::vertical([Constraint::Length(8), Constraint::Min(1)]).split(inner);
+    let parts = Layout::vertical([
+        Constraint::Length(8.min(inner.height.saturating_sub(3))),
+        Constraint::Min(1),
+    ])
+    .split(inner);
     let (status, color) = match screen.snapshot.registration {
         Registration::Loaded => (i18n::tr!(TaskEnabled), GOOD),
         Registration::NotLoaded => match screen.snapshot.schedule {

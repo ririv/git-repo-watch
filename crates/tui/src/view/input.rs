@@ -3,6 +3,27 @@ use super::*;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
+fn regions(area: Rect) -> [Rect; 3] {
+    let heights = match area.height {
+        5.. => [1, 3, 1],
+        3.. => [0, 3, 0],
+        _ => [0, area.height.min(1), 0],
+    };
+    let parts = Layout::vertical(heights.map(Constraint::Length)).split(area);
+    [parts[0], parts[1], parts[2]]
+}
+fn editor_block(area: Rect) -> Block<'static> {
+    if area.height >= 3 {
+        Block::bordered().border_type(ratatui::widgets::BorderType::Rounded)
+    } else {
+        Block::default()
+    }
+}
+pub(crate) fn content_area(area: Rect) -> Rect {
+    let editor = regions(area)[1];
+    editor_block(editor).inner(editor)
+}
+
 enum Content<'a> {
     Editable {
         editor: &'a Editor,
@@ -216,12 +237,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             ),
         }
     };
-    let parts = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(3),
-        Constraint::Length(1),
-    ])
-    .split(area);
+    let parts = regions(area);
     frame.render_widget(
         Paragraph::new(truncate(
             &safe(&if matches!(content, Content::Layout { .. }) {
@@ -254,12 +270,13 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     } else {
         MUTED
     };
-    let block = Block::bordered()
-        .border_type(ratatui::widgets::BorderType::Rounded)
-        .title(format!(" {} ", title.trim()))
+    let mut block = editor_block(parts[1])
         .title_style(Style::default().fg(accent))
         .border_style(Style::default().fg(accent))
         .style(input_style);
+    if parts[1].height >= 3 {
+        block = block.title(format!(" {} ", title.trim()));
+    }
     let inner = block.inner(parts[1]);
     frame.render_widget(block, parts[1]);
     match content {
@@ -270,7 +287,16 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             let command = screen.bar.command_input();
             let prefix = command
                 .and_then(|input| input.context())
-                .map(|context| format!(" /{} ", context.name()));
+                .map(|context| {
+                    let prefix = format!(" /{} ", context.name());
+                    let budget = inner.width.saturating_sub(4) as usize;
+                    if unicode_width::UnicodeWidthStr::width(prefix.as_str()) <= budget {
+                        prefix
+                    } else {
+                        truncate(&prefix, budget)
+                    }
+                })
+                .filter(|prefix| !prefix.is_empty());
             let prefix_width = prefix.as_deref().map_or(0, |prefix| {
                 unicode_width::UnicodeWidthStr::width(prefix) as u16 + 1
             });
@@ -302,8 +328,11 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
             spans.push(value);
             frame.render_widget(Paragraph::new(Line::from(spans)).style(input_style), inner);
-            if !command.is_some_and(|input| input.prefix_selected()) {
-                frame.set_cursor_position((inner.x + prefix_width + 2 + cursor, inner.y));
+            if !inner.is_empty() && !command.is_some_and(|input| input.prefix_selected()) {
+                frame.set_cursor_position((
+                    (inner.x + prefix_width + 2 + cursor).min(inner.right() - 1),
+                    inner.y,
+                ));
             }
         }
         Content::Layout { selected } => {

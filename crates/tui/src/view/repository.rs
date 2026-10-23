@@ -138,31 +138,6 @@ fn failure_label(error: &str) -> &'static str {
 }
 fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let rows = screen.rows();
-    let data = rows
-        .iter()
-        .map(|row| {
-            let b = badges(row.result.as_ref());
-            TableRow::new(vec![
-                Cell::from(format!(
-                    "{} {}",
-                    screen
-                        .check_task
-                        .as_ref()
-                        .filter(|task| task.checking(&row.path))
-                        .map(|task| task.spinner())
-                        .or_else(|| screen
-                            .repository_tasks
-                            .get(&row.path)
-                            .map(|task| task.animation.symbol()))
-                        .unwrap_or(b.overall),
-                    name(&row.path)
-                )),
-                Cell::from(b.workspace),
-                Cell::from(b.sync.label()),
-            ])
-            .style(Style::default().fg(b.color))
-        })
-        .collect::<Vec<_>>();
     let content = heading::render(
         frame,
         format!("{} · {}", i18n::tr!(Repositories), rows.len()),
@@ -170,31 +145,67 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         screen.order,
         area,
     );
-    let table = Table::new(
-        data,
-        [
+    let columns = match content.width {
+        41.. => vec![
             Constraint::Min(12),
             Constraint::Length(9),
             Constraint::Length(18),
         ],
-    )
-    .header(
-        TableRow::new([
-            i18n::tr!(Repositories),
-            i18n::tr!(Worktree),
-            i18n::tr!(SyncColumn),
-        ])
-        .style(Style::default().fg(MUTED)),
-    )
-    .row_highlight_style(selected_style())
-    .column_spacing(1);
+        25.. => vec![Constraint::Min(12), Constraint::Length(9)],
+        _ => vec![Constraint::Min(1)],
+    };
+    let column_count = columns.len();
+    let data = rows
+        .iter()
+        .map(|row| {
+            let b = badges(row.result.as_ref());
+            TableRow::new(
+                [
+                    Cell::from(format!(
+                        "{} {}",
+                        screen
+                            .check_task
+                            .as_ref()
+                            .filter(|task| task.checking(&row.path))
+                            .map(|task| task.spinner())
+                            .or_else(|| screen
+                                .repository_tasks
+                                .get(&row.path)
+                                .map(|task| task.animation.symbol()))
+                            .unwrap_or(b.overall),
+                        name(&row.path)
+                    )),
+                    Cell::from(b.workspace),
+                    Cell::from(b.sync.label()),
+                ]
+                .into_iter()
+                .take(column_count),
+            )
+            .style(Style::default().fg(b.color))
+        })
+        .collect::<Vec<_>>();
+    let headings = [
+        i18n::tr!(Repositories),
+        i18n::tr!(Worktree),
+        i18n::tr!(SyncColumn),
+    ];
+    let heading = u16::from(content.height > 1);
+    let mut table = Table::new(data, columns)
+        .row_highlight_style(selected_style())
+        .column_spacing(1);
+    if heading > 0 {
+        table = table.header(
+            TableRow::new(headings.into_iter().take(column_count))
+                .style(Style::default().fg(MUTED)),
+        );
+    }
     screen.repository_area = Some(area);
     frame.render_stateful_widget(table, content, &mut screen.repository_viewport);
     let inner = Rect::new(
         content.x,
-        content.y + 1,
+        content.y + heading,
         content.width,
-        content.height.saturating_sub(1),
+        content.height.saturating_sub(heading),
     );
     crate::scrollbar::vertical(
         frame,

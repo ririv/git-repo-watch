@@ -195,9 +195,11 @@ fn narrow_forced_split_is_explicit_and_restores_the_view_when_enlarged() {
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     command(&mut s, "repo diff layout split");
+    maximize_preview(&mut s);
     assert!(render(&mut s, 160, 32).contains("visible_again"));
     let narrow = render(&mut s, 12, 18);
-    assert!(narrow.contains("resize"), "{narrow}");
+    assert!(narrow.contains("needs"), "{narrow}");
+    assert_eq!(s.diff_preference, crate::diff::Preference::Split);
     assert!(matches!(s.mode, Mode::Changes(_)));
     assert!(render(&mut s, 160, 32).contains("visible_again"));
 }

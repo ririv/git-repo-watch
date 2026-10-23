@@ -82,14 +82,9 @@ impl Screen {
         if matches!(self.bar, bar::InputBar::Layout { .. }) {
             if precise
                 && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
-                && let Some(body) = self.body_area
+                && let Some(input) = self.input_area
             {
-                let inner = ratatui::layout::Rect::new(
-                    body.x + 1,
-                    body.bottom() + 2,
-                    body.width.saturating_sub(2),
-                    1,
-                );
+                let inner = crate::view::input::content_area(input);
                 let choice = crate::view::layout_picker::options(inner, self.diff_preference)
                     .into_iter()
                     .find(|(area, _, _)| area.contains(Position::new(event.column, event.row)))

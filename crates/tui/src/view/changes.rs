@@ -6,7 +6,7 @@ use crate::{
 };
 
 pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
-    if session.arrangement == Arrangement::Maximized {
+    if session.arrangement == Arrangement::Maximized || area.width < 60 || area.height < 8 {
         return vec![(area, session.focus)];
     }
     let parts = if area.width >= 110 {

@@ -9,7 +9,7 @@ mod document;
 mod files;
 mod help;
 mod history;
-mod input;
+pub(super) mod input;
 pub(super) mod layout_picker;
 mod overview;
 mod repository;
@@ -100,33 +100,51 @@ fn highlight_border(frame: &mut Frame, area: Rect) {
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.graphics.begin_frame();
     screen.body_area = None;
+    screen.input_area = None;
     screen.repository_area = None;
     screen.workspace_areas.clear();
     screen.command_items.clear();
     screen.pointer.clear();
     screen.breadcrumb_items.clear();
     let area = frame.area();
-    if area.width < 60 || area.height < 18 {
-        frame.render_widget(Paragraph::new(i18n::tr!(TerminalSizeTooSmall)), area);
+    if area.is_empty() {
         return;
     }
-    let header = header(screen, area);
+    let mut header = if area.height >= 6 {
+        header(screen, area)
+    } else {
+        Text::default()
+    };
+    let input_height = match area.height {
+        14.. => 5,
+        9.. => 3,
+        _ => 1,
+    };
+    if area.height < 14 {
+        header.lines.truncate(1);
+    }
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
             Constraint::Length(header.lines.len() as u16),
-            Constraint::Min(3),
-            Constraint::Length(5),
+            Constraint::Min(0),
+            Constraint::Length(input_height),
         ])
         .split(area);
     frame.render_widget(Paragraph::new(header), layout[0]);
     let body = layout[1];
     screen.body_area = Some(body);
+    screen.input_area = Some(layout[2]);
     input::render(frame, screen, layout[2]);
-    render_body(frame, screen, body);
+    if !body.is_empty() {
+        render_body(frame, screen, body);
+    }
     render_commands(frame, screen, body);
 }
 fn truncate(text: &str, width: usize) -> String {
+    if width == 0 {
+        return String::new();
+    }
     let mut out = String::new();
     let mut count = 0;
     for c in text.chars() {
@@ -258,8 +276,8 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             ListItem::new(Line::from(spans))
         })
         .collect::<Vec<_>>();
-    // 留出筛选栏和列表标题，避免矮窗口中的命令面板遮住列表标题。
-    let available_height = body.height.saturating_sub(3) as usize;
+    // 高度充足时保留视图标题；矮窗口优先给命令候选留出空间。
+    let available_height = body.height.saturating_sub(u16::from(body.height >= 9)) as usize;
     let height = (items.len().clamp(1, 8) + 2).min(available_height) as u16;
     let area = Rect::new(
         body.x,
@@ -291,6 +309,12 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         Some(*selected)
     });
     let count = items.len();
+    let border = if area.height >= 3 {
+        block(title)
+    } else {
+        Block::default()
+    };
+    let inner = border.inner(area);
     frame.render_widget(Clear, area);
     frame.render_stateful_widget(
         List::new(if items.is_empty() {
@@ -298,23 +322,18 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         } else {
             items
         })
-        .block(block(title))
+        .block(border)
         .highlight_style(selected_style()),
         area,
         &mut state,
     );
-    crate::scrollbar::vertical(frame, area, block("").inner(area), count, state.offset());
+    crate::scrollbar::vertical(frame, area, inner, count, state.offset());
     screen.command_items = (state.offset()..count)
-        .take(area.height.saturating_sub(2) as usize)
+        .take(inner.height as usize)
         .enumerate()
         .map(|(row, index)| {
             (
-                Rect::new(
-                    area.x + 1,
-                    area.y + 1 + row as u16,
-                    area.width.saturating_sub(2),
-                    1,
-                ),
+                Rect::new(inner.x, inner.y + row as u16, inner.width, 1),
                 index,
             )
         })

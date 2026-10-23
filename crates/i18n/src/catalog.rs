@@ -699,7 +699,6 @@ pub enum Message {
     ConfirmOperation,
     CurrentRepositoryIsNotInTheFiltered,
     Instructions,
-    TerminalSizeTooSmall,
     CurrentRepo,
     Global,
     CurrentView,
@@ -3169,18 +3168,6 @@ impl Message {
             }
             (Self::Instructions, Language::English) => "Instructions",
             (Self::Instructions, Language::Chinese) => "操作说明",
-            (Self::TerminalSizeTooSmall, Language::English) => {
-                concat!(
-                    identity::command!(),
-                    ": resize terminal to at least 60 columns × 18 rows.\nCtrl+C exits; Esc cancels an operation in progress."
-                )
-            }
-            (Self::TerminalSizeTooSmall, Language::Chinese) => {
-                concat!(
-                    identity::command!(),
-                    "：请将终端调整到至少 60 列 × 18 行。\nCtrl+C 退出；进行中的操作可按 Esc 取消。"
-                )
-            }
             (Self::CurrentRepo, Language::English) => "Current repo",
             (Self::CurrentRepo, Language::Chinese) => "当前仓库",
             (Self::Global, Language::English) => "Global",

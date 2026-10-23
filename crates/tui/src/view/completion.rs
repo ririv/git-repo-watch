@@ -13,7 +13,8 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
         })
         .collect::<Vec<_>>();
     let count = items.len();
-    let height = (items.len().min(8) + 2).min(body.height.saturating_sub(3) as usize) as u16;
+    let available = body.height.saturating_sub(u16::from(body.height >= 9));
+    let height = (items.len().min(8) + 2).min(usize::from(available)) as u16;
     let area = Rect::new(
         body.x,
         body.bottom().saturating_sub(height),
@@ -21,13 +22,19 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
         height,
     );
     let mut state = ListState::default().with_selected(Some(directories.selected()));
+    let border = if height >= 3 {
+        block(i18n::tr!(DirectoryCandidates))
+    } else {
+        Block::default()
+    };
+    let inner = border.inner(area);
     frame.render_widget(Clear, area);
     frame.render_stateful_widget(
         List::new(items)
-            .block(block(i18n::tr!(DirectoryCandidates)))
+            .block(border)
             .highlight_style(selected_style()),
         area,
         &mut state,
     );
-    crate::scrollbar::vertical(frame, area, block("").inner(area), count, state.offset());
+    crate::scrollbar::vertical(frame, area, inner, count, state.offset());
 }

@@ -4,6 +4,7 @@ use super::*;
 enum Placement {
     Title,
     Content,
+    Hidden,
 }
 
 fn options(filter: Filter, order: Order) -> Line<'static> {
@@ -29,16 +30,22 @@ pub(super) fn render(
     order: Order,
     area: Rect,
 ) -> Rect {
+    // 极矮窗口直接显示列表，避免边框和标题耗尽全部内容行。
+    if area.height < 3 {
+        return area;
+    }
     let mut options = options(filter, order);
     // 按面板实际列宽计算，标题之间留一格边框，选项两侧各留一格空白。
     let needed = Line::from(title.as_str()).width() + options.width() + 3;
-    let placement = if needed <= usize::from(area.width.saturating_sub(2)) {
-        Placement::Title
-    } else {
-        Placement::Content
-    };
     let border = block(title).padding(ratatui::widgets::Padding::left(1));
     let content = border.inner(area);
+    let placement = if needed <= usize::from(area.width.saturating_sub(2)) {
+        Placement::Title
+    } else if content.height >= 3 && options.width() <= usize::from(content.width) {
+        Placement::Content
+    } else {
+        Placement::Hidden
+    };
     match placement {
         Placement::Title => {
             options.spans.insert(0, Span::raw(" "));
@@ -52,6 +59,10 @@ pub(super) fn render(
                 Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(content);
             frame.render_widget(Paragraph::new(options), parts[0]);
             parts[1]
+        }
+        Placement::Hidden => {
+            frame.render_widget(border, area);
+            content
         }
     }
 }

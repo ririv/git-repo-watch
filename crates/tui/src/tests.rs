@@ -21,6 +21,7 @@ mod navigation;
 mod overview;
 mod prefix_selection;
 mod repository_list;
+mod responsive;
 mod schedule;
 mod scrollbars;
 mod settings_design;
@@ -75,6 +76,7 @@ fn screen(service: Service) -> Screen {
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
         body_area: None,
+        input_area: None,
         pointer: Default::default(),
         clicks: Default::default(),
         drag: None,
@@ -884,8 +886,9 @@ fn wheel_scrolls_main_list_with_bounds_and_respects_input_and_preview_regions() 
     }
     assert_eq!(s.selected(), 0);
     render(&mut s, 20, 10);
-    assert!(!wheel(&mut s, ScrollDown, x, y));
-    assert_eq!(s.selected(), 0);
+    let compact = s.repository_area.unwrap();
+    assert!(wheel(&mut s, ScrollDown, compact.x + 2, compact.y + 3));
+    assert_eq!(s.selected(), 3);
 }
 #[test]
 fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_lists() {
