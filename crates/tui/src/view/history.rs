@@ -142,13 +142,21 @@ fn graph(
     }
     frame.render_widget(Paragraph::new(status), body[0]);
     let metrics = graphics.metrics();
+    // 留白仅作用于图所在的提交行，顶部状态和空列表提示保持原位。
+    let inset = u16::from(metrics.is_ok()).min(body[1].width);
+    let content_area = Rect::new(
+        body[1].x + inset,
+        body[1].y,
+        body[1].width.saturating_sub(inset),
+        body[1].height,
+    );
     let graph_width = if metrics.is_ok() {
-        session.width.min((body[1].width as usize / 3).max(1)) as u16
+        session.width.min((content_area.width as usize / 3).max(1)) as u16
     } else {
         0
     };
     // 图与短哈希固定，只有引用名称和提交标题横向滚动。
-    let text_width = body[1].width.saturating_sub(graph_width + 11) as usize;
+    let text_width = content_area.width.saturating_sub(graph_width + 11) as usize;
     let lines: Vec<_> = session
         .records
         .iter()
@@ -162,7 +170,6 @@ fn graph(
     session
         .horizontal
         .constrain(widest.saturating_sub(text_width));
-    let content_area = body[1];
     session.horizontal.render_on_border(
         frame,
         parts[0],
