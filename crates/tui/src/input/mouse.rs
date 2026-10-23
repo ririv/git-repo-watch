@@ -37,6 +37,20 @@ impl Screen {
             && let bar::InputBar::Command { selected, .. } = &mut self.bar
         {
             *selected = index;
+            if self
+                .bar
+                .command_input()
+                .is_some_and(|input| input.prefix_selected())
+            {
+                let command = self.bar.commands().expect("command candidates")[index];
+                if let bar::InputBar::Command {
+                    input, selected, ..
+                } = &mut self.bar
+                {
+                    input.complete(command);
+                    *selected = 0;
+                }
+            }
             self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
             return Ok(true);
         }

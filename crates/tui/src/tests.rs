@@ -13,6 +13,7 @@ mod images;
 mod layout_picker;
 mod navigation;
 mod overview;
+mod prefix_selection;
 mod repository_list;
 mod schedule;
 mod startup;

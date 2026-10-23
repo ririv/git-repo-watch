@@ -1,5 +1,5 @@
 use super::*;
-use crate::command::{Context, Input, context::DiffContext};
+use crate::command::{Context, Input, NamespaceEvent, context::DiffContext};
 fn control(s: &mut Screen, c: char) {
     s.key(
         KeyEvent::new(KeyCode::Char(c), KeyModifiers::CONTROL),
@@ -28,15 +28,24 @@ fn locked_prefix_selects_before_removal_and_never_executes_on_focus_return() {
     input
         .editor_mut()
         .key(KeyEvent::new(KeyCode::Char('u'), KeyModifiers::CONTROL));
-    assert!(input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)));
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+        NamespaceEvent::Handled
+    );
     assert!(input.prefix_selected());
-    assert!(input.namespace_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)));
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE)),
+        NamespaceEvent::Handled
+    );
     assert!(!input.prefix_selected());
-    for _ in 0..2 {
-        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE));
-    }
-    assert_eq!(input.context(), None);
-    assert_eq!(input.text(), "/");
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+        NamespaceEvent::Handled
+    );
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+        NamespaceEvent::Close
+    );
     for text in ["/settings", "//settings"] {
         let mut input = Input::new(Some(Context::Diff(DiffContext::Worktree)));
         input.paste(text);
@@ -104,7 +113,9 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         }
         assert_eq!(context(&s), None);
         assert!(matches!(s.mode, Mode::Changes(_)));
-        s.paste("settings");
+        assert!(matches!(s.bar, bar::InputBar::Search(_)));
+        assert_eq!(s.bar.text(), "source");
+        s.paste("//settings");
         assert_eq!(s.bar.commands().unwrap()[0].action, Action::Settings);
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.bar.editor().text, "source");
@@ -287,6 +298,9 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
         key(&mut s, KeyCode::Backspace);
         assert!(s.bar.command_input().unwrap().prefix_selected());
         key(&mut s, KeyCode::Backspace);
+        assert!(matches!(s.bar, bar::InputBar::Search(_)));
+        key(&mut s, KeyCode::Char('/'));
+        key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), None);
         assert!(
             s.bar

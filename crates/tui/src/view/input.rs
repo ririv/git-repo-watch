@@ -113,7 +113,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                         placeholder: if screen
                             .bar
                             .command_input()
-                            .is_some_and(|input| input.context().is_some())
+                            .is_some_and(|input| input.menu_context().is_some())
                         {
                             i18n::tr!(ContextCommandPlaceholder)
                         } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))

@@ -207,7 +207,11 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             let mut spans = vec![Span::styled(
                 format!(
                     "{}{}",
-                    if input.context().is_some() { "" } else { "/" },
+                    if input.menu_context().is_some() {
+                        ""
+                    } else {
+                        "/"
+                    },
                     input.name(c)
                 ),
                 Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
@@ -246,7 +250,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         height,
     );
     let title = input
-        .context()
+        .menu_context()
         .map(|context| {
             format!(
                 "/{} · {}",

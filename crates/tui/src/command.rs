@@ -7,7 +7,7 @@ pub(crate) mod path;
 mod tests;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
-pub(crate) use input::Input;
+pub(crate) use input::{Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Branches,

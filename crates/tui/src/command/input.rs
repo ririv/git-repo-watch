@@ -3,6 +3,13 @@ use super::{Command, Context};
 use crate::Editor;
 use crossterm::event::{KeyCode, KeyEvent};
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum NamespaceEvent {
+    Handled,
+    Pass,
+    Close,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum Input {
     Global(Editor),
@@ -31,6 +38,12 @@ impl Input {
         match self {
             Self::Global(_) => None,
             Self::Scoped { context, .. } | Self::Prefix(context) => Some(*context),
+        }
+    }
+    pub fn menu_context(&self) -> Option<Context> {
+        match self {
+            Self::Scoped { context, .. } => Some(*context),
+            Self::Global(_) | Self::Prefix(_) => None,
         }
     }
     pub fn editor(&self) -> &Editor {
@@ -72,19 +85,22 @@ impl Input {
         self.canonical_editor().text
     }
     pub fn query(&self) -> String {
+        if self.prefix_selected() {
+            return String::new();
+        }
         self.text()
             .strip_prefix('/')
             .expect("command slash")
             .to_owned()
     }
     pub fn matches(&self) -> Vec<&'static Command> {
-        match self.context() {
+        match self.menu_context() {
             Some(context) => context.matches(&self.editor().text),
             None => super::matches(&self.query()),
         }
     }
     pub fn name<'a>(&self, command: &'a Command) -> &'a str {
-        match self.context() {
+        match self.menu_context() {
             Some(context) => context
                 .relative(command)
                 .expect("candidate in current group"),
@@ -92,7 +108,7 @@ impl Input {
         }
     }
     pub fn usage(&self, command: &Command) -> String {
-        if self.context().is_none() {
+        if self.menu_context().is_none() {
             return command.usage();
         }
         match command.action.argument() {
@@ -101,7 +117,7 @@ impl Input {
         }
     }
     pub fn replace_canonical(&mut self, editor: Editor) {
-        match self.context() {
+        match self.menu_context() {
             None => *self = Self::Global(editor),
             Some(context) => {
                 let prefix = format!("/{} ", context.name());
@@ -124,6 +140,20 @@ impl Input {
         self.replace_canonical(Editor::new(command.completion()));
     }
     pub fn paste(&mut self, text: &str) {
+        if self.prefix_selected() {
+            // 粘贴与键入采用同一选区语义；空粘贴保留选区，控制字符不进入命令。
+            let text = text.chars().filter(|c| !c.is_control()).collect::<String>();
+            if !text.is_empty() {
+                let body = text
+                    .strip_prefix("//")
+                    .or_else(|| text.strip_prefix('/'))
+                    .unwrap_or(&text);
+                let mut editor = Editor::new("/".into());
+                editor.insert(body);
+                *self = Self::global(editor);
+            }
+            return;
+        }
         let absolute = text.strip_prefix("//").or_else(|| text.strip_prefix('/'));
         if self.editor().text.is_empty()
             && let Some(global) = absolute
@@ -151,33 +181,51 @@ impl Input {
         }
         self.paste(text);
     }
-    pub fn namespace_key(&mut self, key: KeyEvent) -> bool {
+    pub fn namespace_key(&mut self, key: KeyEvent) -> NamespaceEvent {
+        if self.prefix_selected()
+            && matches!(
+                key.modifiers,
+                crossterm::event::KeyModifiers::NONE | crossterm::event::KeyModifiers::SHIFT
+            )
+            && let KeyCode::Char(character) = key.code
+        {
+            // 选中的前缀是整个命令选区，首个字符替换它，而非恢复旧上下文。
+            *self = Self::new(None);
+            if character != '/' {
+                self.editor_mut().key(key);
+            }
+            return NamespaceEvent::Handled;
+        }
         if !key.modifiers.is_empty() {
-            return false;
+            return NamespaceEvent::Pass;
         }
         if let Self::Prefix(context) = self {
-            if key.code == KeyCode::Backspace || key.code == KeyCode::Char('/') {
-                *self = Self::new(None);
-                return true;
+            if key.code == KeyCode::Backspace {
+                return NamespaceEvent::Close;
             }
-            if key.code != KeyCode::Esc {
+            // 全局候选可继续选择、补全；Enter 或右键仍只恢复原前缀。
+            if !matches!(
+                key.code,
+                KeyCode::Esc | KeyCode::Up | KeyCode::Down | KeyCode::Tab | KeyCode::BackTab
+            ) {
                 *self = Self::new(Some(*context));
-                return !matches!(key.code, KeyCode::Char(_));
+                return NamespaceEvent::Handled;
             }
+            return NamespaceEvent::Pass;
         }
         match (self.context(), key.code) {
             (Some(context), KeyCode::Backspace) if self.editor().text.is_empty() => {
                 *self = Self::Prefix(context);
-                true
+                NamespaceEvent::Handled
             }
             (_, KeyCode::Char('/'))
                 if self.editor().text.is_empty()
                     || matches!(self,Self::Global(editor) if editor.text == "/") =>
             {
                 *self = Self::new(None);
-                true
+                NamespaceEvent::Handled
             }
-            _ => false,
+            _ => NamespaceEvent::Pass,
         }
     }
     pub fn into_search(self) -> Result<Editor, Self> {

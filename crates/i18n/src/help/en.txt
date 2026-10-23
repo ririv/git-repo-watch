@@ -30,7 +30,7 @@
 ## Context prefixes
 - The view prefix is a separate locked token: /diff for files and diffs, /log for history, /branch for branches, and /repo, /settings, /schedule for management pages. Home uses /repo; overview uses global commands.
 - Type only the operation suffix, e.g. stage, unstage, layout or refresh in a worktree diff. Name and bilingual description matching stay within the current group.
-- With an empty suffix, Backspace selects the prefix; a second Backspace removes it and opens global commands. Enter on a selected prefix only returns to editing.
+- With an empty suffix, Backspace selects the whole prefix, using its original selection colors. Candidates match the global / menu; use ↑↓ to select, Tab to complete or click a candidate to replace the prefix. Typing or pasting replaces it with a global command while retaining one leading /. Enter or → keeps the original prefix without running a command; a second Backspace closes commands and restores the current view’s search. Esc closes commands and restores search.
 - Another / with an empty command suffix switches to global commands too; typing //settings from search opens global settings directly.
 - Switching command ranges does not leave the view or change repositories. The context stays fixed while editing; Esc restores search. Reopening captures the current focus again.
 - With existing search, Home then / opens commands while retaining search. Slashes inside a search path remain literal text.

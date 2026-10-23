@@ -196,11 +196,18 @@ impl Screen {
             selection,
         } = &mut self.bar
         {
-            if input.namespace_key(key) {
-                *selected = 0;
-                *menu = Default::default();
-                self.message.clear();
-                return Ok(BarEvent::Handled);
+            match input.namespace_key(key) {
+                command::NamespaceEvent::Close => {
+                    self.clear_bar();
+                    return Ok(BarEvent::Handled);
+                }
+                command::NamespaceEvent::Handled => {
+                    *selected = 0;
+                    *menu = Default::default();
+                    self.message.clear();
+                    return Ok(BarEvent::Handled);
+                }
+                command::NamespaceEvent::Pass => {}
             }
             if let command::path::Menu::Directories(directories) = menu {
                 match key.code {
