@@ -5,6 +5,17 @@ use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
         self.view_revision += 1;
+        if matches!(self.bar, bar::InputBar::Search(_))
+            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            && let Some(destination) = self
+                .breadcrumb_items
+                .iter()
+                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                .map(|(_, destination)| *destination)
+        {
+            self.follow_breadcrumb(destination);
+            return Ok(true);
+        }
         if matches!(self.bar, bar::InputBar::Layout { .. }) {
             if event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
                 && let Some(body) = self.body_area

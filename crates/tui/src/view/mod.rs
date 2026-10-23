@@ -1,6 +1,7 @@
 //! Terminal layout and shared text-safe widgets.
 mod body;
 mod branches;
+mod breadcrumbs;
 pub(super) mod changes;
 mod completion;
 mod diff;
@@ -87,12 +88,13 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.repository_area = None;
     screen.workspace_areas.clear();
     screen.command_items.clear();
+    screen.breadcrumb_items.clear();
     let area = frame.area();
     if area.width < 60 || area.height < 18 {
         frame.render_widget(Paragraph::new(i18n::tr!(TerminalSizeTooSmall)), area);
         return;
     }
-    let header = header(screen);
+    let header = header(screen, area);
     let layout = Layout::default()
         .direction(Direction::Vertical)
         .constraints([

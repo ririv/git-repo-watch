@@ -1,43 +1,6 @@
 use super::*;
-pub(super) fn header(screen: &Screen) -> Text<'static> {
-    let repository_title = screen.workspace.path().map(name);
-    let title = if screen.page == Page::Detail
-        && crate::workspace::Workspace::is_root(&screen.mode)
-        && repository_title.is_some()
-    {
-        repository_title
-            .as_deref()
-            .expect("open repository has a name")
-    } else {
-        match &screen.mode {
-            Mode::Stashes(_) => i18n::tr!(StashTitle),
-            Mode::Branches(_) => i18n::tr!(BranchTitle),
-            Mode::History(_) => i18n::tr!(HistoryTitle),
-            Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
-                i18n::tr!(HistoryTitle)
-            }
-            Mode::Files(_) | Mode::Changes(_) => i18n::tr!(ChangesTitle),
-            Mode::CommitMessage { .. } | Mode::CommitConfirm { .. } => {
-                i18n::tr!(CommitStagedContents)
-            }
-            Mode::PushConfirm { .. } => i18n::tr!(PushCurrentBranch),
-            Mode::Error { title, .. } => title.as_str(),
-            _ => match screen.page {
-                Page::View(view) => view.title(),
-                Page::Repositories => i18n::tr!(Repositories),
-                Page::Detail => i18n::tr!(OverviewTitle),
-                Page::Configuration(section) => section.title(),
-                Page::Help => i18n::tr!(Help),
-            },
-        }
-    };
-    let mut lines = vec![Line::from(vec![
-        Span::styled(
-            format!(" {} ", identity::COMMAND),
-            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-        ),
-        Span::raw(format!(" / {}", safe(title))),
-    ])];
+pub(super) fn header(screen: &mut Screen, area: Rect) -> Text<'static> {
+    let mut lines = vec![super::breadcrumbs::render(screen, area)];
     if screen.page == Page::Detail && crate::workspace::Workspace::is_root(&screen.mode) {
         let size_hint = match screen
             .workspace

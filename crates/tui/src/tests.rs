@@ -1,4 +1,5 @@
 mod branches;
+mod breadcrumbs;
 mod changes;
 mod command_trigger;
 mod commands;
@@ -66,6 +67,7 @@ fn screen(service: Service) -> Screen {
         repository_area: None,
         body_area: None,
         command_items: Vec::new(),
+        breadcrumb_items: Vec::new(),
         filter: Filter::All,
         query: String::new(),
         order: Order::Priority,

@@ -13,8 +13,10 @@ impl Screen {
                     }
                     if self.page == Page::Detail {
                         self.workspace.save(Mode::Branches(view));
+                        self.return_to_view();
+                    } else {
+                        self.sync_bar();
                     }
-                    self.sync_bar();
                     return;
                 }
                 KeyCode::Up => session.advance(-1),

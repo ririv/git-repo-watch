@@ -14,19 +14,15 @@ impl Screen {
                 return Ok(false);
             }
             KeyCode::Tab => {
-                self.history.clear();
-                self.page = match self.page {
+                match self.page {
                     Page::Configuration(Configuration::General) => {
-                        Page::Configuration(Configuration::Schedule)
+                        self.open_page(Page::Configuration(Configuration::Schedule))
                     }
                     Page::Configuration(Configuration::Schedule | Configuration::Repositories) => {
-                        Page::Repositories
+                        self.open_repository_list(self.selected_path())
                     }
-                    _ => Page::Configuration(Configuration::General),
-                };
-                self.setting_selected = 0;
-                self.scroll = 0;
-                self.sync_bar();
+                    _ => self.open_page(Page::Configuration(Configuration::General)),
+                }
                 return Ok(false);
             }
             _ => {}

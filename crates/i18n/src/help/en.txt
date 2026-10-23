@@ -1,5 +1,6 @@
 ## Quick navigation
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
+- Breadcrumbs show the actual navigation path, starting at Repositories. Opening a child view or details adds a level; Esc / ← returns. Click an ancestor to return with selection and search preserved. Click navigation is disabled during command editing or confirmation. Pane focus does not add levels; Back at a pane root leaves the repository page.
 - With empty input, `→` / `Enter` opens the selected item; `←` / `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
 - `Tab` cycles repositories, general settings and the scheduled task.

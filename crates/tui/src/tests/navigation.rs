@@ -43,8 +43,6 @@ fn empty_input_file_arrows_open_diff_and_return_through_the_same_file_session() 
     );
     key(&mut s, KeyCode::Left);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.page, Page::Detail);
-    key(&mut s, KeyCode::Left);
     assert_eq!(s.page, Page::Repositories);
     assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
     assert!(s.service.store.report().unwrap().is_none());

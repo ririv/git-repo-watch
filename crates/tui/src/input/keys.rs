@@ -93,7 +93,11 @@ impl Screen {
             Mode::Panel(_) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {
                     self.mode = Mode::Browsing;
-                    self.sync_bar();
+                    if self.page == Page::Detail {
+                        self.return_to_view();
+                    } else {
+                        self.sync_bar();
+                    }
                 }
                 KeyCode::Enter => {
                     self.mode = mode;
@@ -113,8 +117,10 @@ impl Screen {
                             }
                             if self.page == Page::Detail {
                                 self.workspace.save(Mode::History(view));
+                                self.return_to_view();
+                            } else {
+                                self.sync_bar();
                             }
-                            self.sync_bar();
                             return Ok(false);
                         }
                         KeyCode::Up => session.advance(-1),
@@ -214,9 +220,11 @@ impl Screen {
                         self.message.clear();
                         if self.page == Page::Detail {
                             self.workspace.save(Mode::Files(session));
+                            self.return_to_view();
+                        } else {
+                            self.refresh_overview();
+                            self.sync_bar();
                         }
-                        self.refresh_overview();
-                        self.sync_bar();
                         return Ok(false);
                     }
                     KeyCode::Tab => {

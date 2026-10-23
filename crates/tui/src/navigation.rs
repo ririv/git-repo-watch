@@ -1,4 +1,5 @@
 //! View entry points own navigation; command context follows the focused content.
+pub(crate) mod breadcrumbs;
 use crate::{
     Effect, FileSession, Mode, Outcome, Page, Screen, branches, changes, history, stashes,
 };
@@ -17,7 +18,7 @@ impl View {
             Self::Diff => i18n::tr!(ChangesTitle),
             Self::History => i18n::tr!(HistoryTitle),
             Self::Branches => i18n::tr!(BranchTitle),
-            Self::Stashes => i18n::tr!(StashRead),
+            Self::Stashes => i18n::tr!(StashTitle),
         }
     }
 }
@@ -55,6 +56,7 @@ pub(crate) struct Visit {
     mode: Mode,
     scroll: usize,
     setting_selected: usize,
+    repository: Option<PathBuf>,
 }
 impl Visit {
     pub(crate) fn refresh(&mut self, readback: crate::mutations::readback::Readback) {
@@ -63,11 +65,15 @@ impl Visit {
 }
 impl Screen {
     pub(crate) fn remember_view(&mut self, mode: Mode) {
+        let repository = breadcrumbs::repository(&mode)
+            .map(std::path::Path::to_owned)
+            .or_else(|| self.scope_path());
         self.history.push(Visit {
             page: self.page,
             mode,
             scroll: self.scroll,
             setting_selected: self.setting_selected,
+            repository,
         });
     }
     pub(crate) fn open_page(&mut self, page: Page) {
