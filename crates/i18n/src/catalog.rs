@@ -707,7 +707,6 @@ pub enum Message {
     TuiHelp,
     Repos,
     Search,
-    WorktreeAndSyncLegend,
     NoRepositorySelectedAlt,
     NoRepositories,
     CleanAlt,
@@ -3196,12 +3195,6 @@ impl Message {
             (Self::Repos, Language::Chinese) => " {}库",
             (Self::Search, Language::English) => " Search: {}",
             (Self::Search, Language::Chinese) => " 搜索：{}",
-            (Self::WorktreeAndSyncLegend, Language::English) => {
-                "* Worktree changes · ? Unknown · Sync includes push results"
-            }
-            (Self::WorktreeAndSyncLegend, Language::Chinese) => {
-                "* 工作区改动 · ? 未知 · 同步包含推送结果"
-            }
             (Self::NoRepositorySelectedAlt, Language::English) => "No repository selected",
             (Self::NoRepositorySelectedAlt, Language::Chinese) => "无选中仓库",
             (Self::NoRepositories, Language::English) => "No repositories",

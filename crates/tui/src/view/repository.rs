@@ -1,11 +1,13 @@
 use super::*;
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let parts = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Length(1),
-        Constraint::Min(3),
-    ])
-    .split(area);
+    let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(3)]).split(area);
+    // 与面板标题的起点对齐，保留一格左边距。
+    let options = Rect::new(
+        parts[0].x + 1,
+        parts[0].y,
+        parts[0].width.saturating_sub(2),
+        parts[0].height,
+    );
     frame.render_widget(
         Paragraph::new(Line::from(vec![
             Span::styled("filter ", Style::default().fg(MUTED)),
@@ -13,13 +15,9 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Span::styled(" · sort ", Style::default().fg(MUTED)),
             Span::styled(screen.order.label(), Style::default().fg(ACCENT)),
         ])),
-        parts[0],
+        options,
     );
-    frame.render_widget(
-        Paragraph::new(i18n::tr!(WorktreeAndSyncLegend)).style(Style::default().fg(MUTED)),
-        parts[1],
-    );
-    let body = parts[2];
+    let body = parts[1];
     if area.width >= 120 && area.height >= 19 {
         let columns = Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)])
             .split(body);
