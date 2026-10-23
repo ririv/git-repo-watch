@@ -2,6 +2,7 @@
 mod actions;
 mod branches;
 mod changes;
+pub(crate) mod clicks;
 mod horizontal;
 mod keys;
 mod mouse;

@@ -9,6 +9,7 @@ mod contexts;
 mod copy;
 mod daily_operations;
 mod diff;
+mod double_click;
 mod help;
 mod history;
 mod horizontal;
@@ -70,6 +71,7 @@ fn screen(service: Service) -> Screen {
         repository_area: None,
         body_area: None,
         pointer: Default::default(),
+        clicks: Default::default(),
         command_items: Vec::new(),
         breadcrumb_items: Vec::new(),
         filter: Filter::All,

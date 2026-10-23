@@ -25,9 +25,22 @@ pub(crate) enum Action {
     Select(Target, usize),
     Scroll(ScrollTarget, usize),
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Hit {
+    Item(Target, usize),
+    Scrollbar(Action),
+}
+impl Hit {
+    pub fn action(self) -> Action {
+        match self {
+            Self::Item(target, index) => Action::Select(target, index),
+            Self::Scrollbar(action) => action,
+        }
+    }
+}
 #[derive(Debug, Clone)]
 enum Region {
-    Item(Rect, Action),
+    Item(Rect, Target, usize),
     Track {
         area: Rect,
         axis: crate::scrollbar::Axis,
@@ -47,8 +60,7 @@ impl Map {
     }
     pub fn item(&mut self, area: Rect, target: Target, index: usize) {
         if !area.is_empty() {
-            self.0
-                .push(Region::Item(area, Action::Select(target, index)));
+            self.0.push(Region::Item(area, target, index));
         }
     }
     pub fn list(
@@ -102,9 +114,11 @@ impl Map {
             });
         }
     }
-    pub fn hit(&self, point: Position) -> Option<Action> {
+    pub fn hit(&self, point: Position) -> Option<Hit> {
         self.0.iter().rev().find_map(|region| match region {
-            Region::Item(area, action) => area.contains(point).then_some(*action),
+            Region::Item(area, target, index) => {
+                area.contains(point).then_some(Hit::Item(*target, *index))
+            }
             Region::Track { area, axis, values } if area.contains(point) => {
                 let (position, length) = match axis {
                     crate::scrollbar::Axis::Horizontal => (point.x - area.x, area.width),
@@ -117,10 +131,10 @@ impl Map {
                 let index = (position as usize * maximum
                     + usize::from(length.saturating_sub(1)) / 2)
                     / usize::from(length.saturating_sub(1).max(1));
-                Some(match values {
+                Some(Hit::Scrollbar(match values {
                     Values::Rows(target, rows) => Action::Select(*target, rows[index]),
                     Values::Offset(target, _) => Action::Scroll(*target, index),
-                })
+                }))
             }
             _ => None,
         })

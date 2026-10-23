@@ -7,7 +7,7 @@
 
 ## Mouse & Trackpad
 - General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.
-- Left-click an item to select it, or a horizontal or vertical scrollbar to seek. Clicking an item does not stage, commit, or push.
+- Single-click an item to select it; double-click to perform its Enter action, keeping existing confirmations. Scrollbar clicks only seek. Titles and blank space never activate Enter. Disabling precise clicks also disables double-clicks.
 - With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.
 
 ## Repository panes

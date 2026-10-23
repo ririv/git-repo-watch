@@ -203,7 +203,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
-全局菜单只显示顶层入口；继续输入可按命令名称或中英文提示说明筛选，英文忽略大小写。例如 `//终端`、`//频率`、`//live diff` 都能找到对应命令，Tab 将选中结果补全为实际命令。完整名称前缀、命令词开头、名称中包含的文字、说明文字依次优先匹配，结果不重复；父命令末尾的空格会限定为子命令。输入命令前缀后显示所有匹配的子命令，不必先输入空格。例如 `/repo diff` 同时显示入口、`stage`、`unstage`、`layout` 及其三个布局快捷命令，`/repo diff layout` 显示布局入口和三个快捷命令；末尾加空格可只显示子命令。父命令排在子命令之前，输入 `/repo diff` 后直接按 Enter 仍进入变更界面。选中候选后按 Enter 执行对应入口，Tab 只补全命令名称。选中或点击 `/repo diff layout` 会打开底部横向选择器；左右键、Tab／Shift+Tab 切换候选，Enter 应用，Esc 返回原命令草稿。打开时定位当前设置，候选移动不立即应用；鼠标点击选项可定位候选，仍按 Enter 应用。输入 `/repo diff layout ` 仍可补全 `auto`、`split`、`unified` 快捷子命令。命令列表会标记当前选项，`/repo diff` 和 `/repo diff layout` 的候选直接显示布局设置；自动模式还显示当前预览实际使用的统一／双栏视图，并随窗口大小更新。例如 `/schedule interval` 修改执行间隔，`/repos remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
+全局菜单只显示顶层入口；继续输入可按命令名称或中英文提示说明筛选，英文忽略大小写。例如 `//终端`、`//频率`、`//live diff` 都能找到对应命令，Tab 将选中结果补全为实际命令。完整名称前缀、命令词开头、名称中包含的文字、说明文字依次优先匹配，结果不重复；父命令末尾的空格会限定为子命令。输入命令前缀后显示所有匹配的子命令，不必先输入空格。例如 `/repo diff` 同时显示入口、`stage`、`unstage`、`layout` 及其三个布局快捷命令，`/repo diff layout` 显示布局入口和三个快捷命令；末尾加空格可只显示子命令。父命令排在子命令之前，输入 `/repo diff` 后直接按 Enter 仍进入变更界面。选中候选后按 Enter 执行对应入口，Tab 只补全命令名称。选中或点击 `/repo diff layout` 会打开底部横向选择器；左右键、Tab／Shift+Tab 切换候选，Enter 应用，Esc 返回原命令草稿。打开时定位当前设置，候选移动不立即应用；鼠标单击选项定位候选，双击或按 Enter 应用。输入 `/repo diff layout ` 仍可补全 `auto`、`split`、`unified` 快捷子命令。命令列表会标记当前选项，`/repo diff` 和 `/repo diff layout` 的候选直接显示布局设置；自动模式还显示当前预览实际使用的统一／双栏视图，并随窗口大小更新。例如 `/schedule interval` 修改执行间隔，`/repos remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
 
 首页的 `/repos filter` 和 `/repos sort` 按 Enter 后展开选项，定位当前设置；移动候选不会立即应用，Esc 关闭菜单。也可直接执行 `/repos filter all`、`/repos filter problems`、`/repos filter clean`、`/repos filter failed`、`/repos filter unchecked`、`/repos filter no-upstream`、`/repos filter pushes`，或 `/repos sort priority`、`/repos sort name`、`/repos sort path`、`/repos sort updated`。名称排序忽略英文大小写，名称或时间相同时按完整路径排序；最近更新使用每个仓库状态记录的时间（包括检查和仓库操作后的本地刷新），从新到旧，未检查排最后。无上游与推送记录筛选独立于问题分类，问题包含需关注和检查失败。筛选与文字搜索同时生效，切换选项保留仍可见的选中仓库，否则选中首项；空列表仍可修改条件。这些选项只影响本次 TUI 会话，不修改配置、报告或定时任务，也不触发检查。首页仅显示当前条件和当前列表数量。
 
@@ -216,7 +216,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 - `/settings concurrency <count>`，范围 1 至 32。
 - `/settings startup-check <true|false>`，控制启动时检查全部仓库，默认 `true`。
 
-通用设置包含独立的“鼠标与触控板”分组，精确点击、滚轮滚动、选择子视图默认均开启，可分别关闭，保存后立即生效。精确点击按实际显示的行选择仓库、文件、分支、stash 和提交，点击横纵滚动条可定位；不会通过点击条目执行暂存、提交或推送。关闭“选择子视图”后，指针只操作已聚焦面板，不会因点击或滚动切换面板；键盘操作始终保留。配置保存在 TOML 的 `[mouse]` 表中，对应 `precise_click`、`scroll`、`select_pane`。
+通用设置包含独立的“鼠标与触控板”分组，精确点击、滚轮滚动、选择子视图默认均开启，可分别关闭，保存后立即生效。精确点击按实际显示的行选择仓库、文件、分支、stash 和提交，点击横纵滚动条可定位。同一条目双击等同于选中后按 Enter，沿用现有导航和确认流程；标题、空白与滚动条不触发 Enter。关闭精确点击也会关闭双击。关闭“选择子视图”后，指针只操作已聚焦面板，不会因点击或滚动切换面板；键盘操作始终保留。配置保存在 TOML 的 `[mouse]` 表中，对应 `precise_click`、`scroll`、`select_pane`。
 
 候选中的参数占位符使用亮青色斜体，与命令名称区分。选中命令按 Enter 或 Tab，只补全名称并追加空格；继续输入参数，Enter 校验并预览确认。参数缺失或错误时保留原输入。确认返回时保留整条命令和光标位置；管理页中的编辑操作也会在原页面下方填入完整命令及当前值。路径使用命令之后的整段文本，可包含空格；可整段使用匹配的单引号或双引号包裹，不执行 Shell、变量展开、通配展开或反斜线转义。`/repos remove` 仍作用于当前选中仓库，不需要路径参数。
 

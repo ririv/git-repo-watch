@@ -219,7 +219,7 @@ fn settings_group_is_bilingual_and_each_toggle_persists_without_new_commands() {
 
 #[test]
 fn hit_map_handles_filtered_indices_and_excludes_headers_and_empty_rows() {
-    use crate::pointer::{Action, Map, Target};
+    use crate::pointer::{Hit, Map, Target};
     use ratatui::layout::Rect;
     let mut map = Map::default();
     map.list(
@@ -231,11 +231,11 @@ fn hit_map_handles_filtered_indices_and_excludes_headers_and_empty_rows() {
     );
     assert_eq!(
         map.hit(Position::new(2, 3)),
-        Some(Action::Select(Target::Files, 7))
+        Some(Hit::Item(Target::Files, 7))
     );
     assert_eq!(
         map.hit(Position::new(2, 4)),
-        Some(Action::Select(Target::Files, 11))
+        Some(Hit::Item(Target::Files, 11))
     );
     assert_eq!(map.hit(Position::new(2, 2)), None);
     assert_eq!(map.hit(Position::new(2, 5)), None);

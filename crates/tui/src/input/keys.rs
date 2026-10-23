@@ -4,6 +4,7 @@ use super::{ctrl_c, scroll_key};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
+        self.clicks.reset();
         match &mut self.mode {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing
@@ -20,6 +21,7 @@ impl Screen {
         }
     }
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+        self.clicks.reset();
         if matches!(
             key.code,
             KeyCode::Esc

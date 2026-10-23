@@ -12,6 +12,18 @@ impl Screen {
                 | MouseEventKind::ScrollLeft
                 | MouseEventKind::ScrollRight
         );
+        if wheel
+            || matches!(
+                event.kind,
+                MouseEventKind::Drag(_)
+                    | MouseEventKind::Down(
+                        crossterm::event::MouseButton::Right
+                            | crossterm::event::MouseButton::Middle
+                    )
+            )
+        {
+            self.clicks.reset();
+        }
         if (!click && !wheel) || (wheel && !self.config.mouse.scroll) {
             return Ok(false);
         }
@@ -26,6 +38,7 @@ impl Screen {
                 .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
                 .map(|(_, destination)| *destination)
         {
+            self.clicks.reset();
             self.follow_breadcrumb(destination);
             return Ok(true);
         }
@@ -48,9 +61,17 @@ impl Screen {
                     && let bar::InputBar::Layout { selected, .. } = &mut self.bar
                 {
                     *selected = choice;
+                    if self.clicks.press(
+                        super::clicks::Identity::Layout(choice),
+                        Position::new(event.column, event.row),
+                        std::time::Instant::now(),
+                    ) {
+                        self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
+                    }
                     return Ok(true);
                 }
             }
+            self.clicks.reset();
             return Ok(false);
         }
         if precise
@@ -62,6 +83,7 @@ impl Screen {
                 .map(|(_, index)| *index)
             && let bar::InputBar::Command { selected, .. } = &mut self.bar
         {
+            self.clicks.reset();
             *selected = index;
             if self
                 .bar
@@ -82,6 +104,7 @@ impl Screen {
         }
         if click {
             if !matches!(self.bar, bar::InputBar::Search(_)) {
+                self.clicks.reset();
                 return Ok(false);
             }
             let hit = precise
@@ -93,12 +116,29 @@ impl Screen {
                 _ => None,
             };
             if !self.pointer_focus(event) {
+                self.clicks.reset();
                 return Ok(false);
             }
-            if let Some(action) = hit {
+            if let Some(hit) = hit {
                 self.scroll_input.keyboard(std::time::Instant::now());
-                return Ok(self.precise_action(action));
+                let applied = self.precise_action(hit.action());
+                if applied
+                    && let crate::pointer::Hit::Item(target, _) = hit
+                    && let Some(identity) = self.clicked_identity(target)
+                {
+                    if self.clicks.press(
+                        identity,
+                        Position::new(event.column, event.row),
+                        std::time::Instant::now(),
+                    ) {
+                        self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
+                    }
+                } else {
+                    self.clicks.reset();
+                }
+                return Ok(applied);
             }
+            self.clicks.reset();
             return Ok(before != crate::workspace::Section::focused(&self.mode)
                 || focus_before
                     != match &self.mode {
