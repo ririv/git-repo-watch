@@ -32,6 +32,8 @@ fn repository_clicks_use_visible_offsets_and_ignore_headers_blanks_and_disabled_
         click(&mut s, area.x + 3, area.y + 3);
         assert_eq!(s.selected(), offset + 1);
         assert_eq!(s.page, Page::Repositories);
+        assert!(!click(&mut s, area.x + 1, area.y + 2));
+        assert_eq!(s.selected(), offset + 1);
         assert!(!click(&mut s, area.x + 3, area.y + 1));
         assert_eq!(s.selected(), offset + 1);
         s.config.mouse.precise_click = false;

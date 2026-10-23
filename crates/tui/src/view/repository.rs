@@ -182,6 +182,9 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .style(Style::default().fg(b.color))
         })
         .collect::<Vec<_>>();
+    let border = block(format!("{} · {}", i18n::tr!(Repositories), rows.len()))
+        .padding(ratatui::widgets::Padding::left(1));
+    let content = border.inner(area);
     let table = Table::new(
         data,
         [
@@ -198,20 +201,16 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ])
         .style(Style::default().fg(MUTED)),
     )
-    .block(block(format!(
-        "{} · {}",
-        i18n::tr!(Repositories),
-        rows.len()
-    )))
+    .block(border)
     .row_highlight_style(selected_style())
     .column_spacing(1);
     screen.repository_area = Some(area);
     frame.render_stateful_widget(table, area, &mut screen.repository_viewport);
     let inner = Rect::new(
-        area.x + 1,
-        area.y + 2,
-        area.width.saturating_sub(2),
-        area.height.saturating_sub(3),
+        content.x,
+        content.y + 1,
+        content.width,
+        content.height.saturating_sub(1),
     );
     crate::scrollbar::vertical(
         frame,

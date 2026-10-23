@@ -221,16 +221,18 @@ fn highlighted_repository(s: &mut Screen, width: u16, height: u16) -> String {
     let area = s.repository_area.unwrap();
     let buffer = terminal.backend().buffer();
     let rows = (area.y + 2..area.bottom() - 1)
-        .filter(|y| buffer[(area.x + 1, *y)].bg == ratatui::style::Color::Rgb(25, 65, 95))
+        .filter(|y| buffer[(area.x + 2, *y)].bg == ratatui::style::Color::Rgb(25, 65, 95))
         .collect::<Vec<_>>();
     assert_eq!(rows.len(), 1, "exactly one repository row is highlighted");
-    let text: String = (area.x + 1..area.right() - 1)
+    let text: String = (area.x + 2..area.right() - 1)
         .map(|x| buffer[(x, rows[0])].symbol())
         .collect();
     assert!(!text.contains('›'));
+    assert_eq!(buffer[(area.x + 1, rows[0])].symbol(), " ");
+    assert_eq!(buffer[(area.x + 1, area.y + 1)].symbol(), " ");
     assert!(
         !text.starts_with(' '),
-        "selection no longer reserves leading columns"
+        "content starts after the single-column inset"
     );
     text
 }
