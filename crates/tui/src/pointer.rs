@@ -63,6 +63,18 @@ enum Values {
     Rows(Target, Vec<usize>),
     Offset(ScrollTarget, usize),
 }
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ListRow {
+    Item(usize),
+    Heading { following: usize },
+}
+impl ListRow {
+    fn anchor(self) -> usize {
+        match self {
+            Self::Item(index) | Self::Heading { following: index } => index,
+        }
+    }
+}
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Map(Vec<Region>);
 impl Map {
@@ -104,6 +116,37 @@ impl Map {
                 area: crate::scrollbar::vertical_area(panel, content),
                 axis: crate::scrollbar::Axis::Vertical,
                 values: Values::Rows(target, indices.to_vec()),
+                offset,
+            });
+        }
+    }
+    pub fn list_headings(
+        &mut self,
+        panel: Rect,
+        content: Rect,
+        items: &[ListRow],
+        offset: usize,
+        target: Target,
+    ) {
+        for (row, item) in items
+            .iter()
+            .skip(offset)
+            .take(content.height as usize)
+            .enumerate()
+        {
+            if let ListRow::Item(index) = item {
+                self.item(
+                    Rect::new(content.x, content.y + row as u16, content.width, 1),
+                    target,
+                    *index,
+                );
+            }
+        }
+        if items.len() > content.height as usize && !content.is_empty() {
+            self.0.push(Region::Track {
+                area: crate::scrollbar::vertical_area(panel, content),
+                axis: crate::scrollbar::Axis::Vertical,
+                values: Values::Rows(target, items.iter().map(|row| row.anchor()).collect()),
                 offset,
             });
         }

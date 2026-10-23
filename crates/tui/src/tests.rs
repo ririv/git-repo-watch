@@ -10,6 +10,7 @@ mod copy;
 mod daily_operations;
 mod diff;
 mod double_click;
+mod file_tree;
 mod help;
 mod history;
 mod horizontal;
@@ -64,6 +65,7 @@ fn screen(service: Service) -> Screen {
         history: vec![],
         mode: Mode::Browsing,
         diff_preference: Default::default(),
+        file_layout: Default::default(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
         clipboard: Default::default(),

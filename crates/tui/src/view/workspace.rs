@@ -79,6 +79,7 @@ fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
             files_area,
             files,
             i18n::tr!(Worktree),
+            screen.file_layout,
             &mut screen.pointer,
         );
     } else if let Some(session) = screen.workspace.session_mut() {
@@ -88,6 +89,7 @@ fn files(frame: &mut Frame, screen: &mut Screen, files_area: Rect) {
                 files_area,
                 files,
                 i18n::tr!(Worktree),
+                screen.file_layout,
                 &mut screen.pointer,
             ),
             Panel::Loading => placeholder(

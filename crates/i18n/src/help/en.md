@@ -27,6 +27,7 @@
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.
 - The global menu shows top-level entries. A prefix such as `/repo diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
 - Parameter commands stay in the input: `/repos add <path>`, `/settings concurrency <count>`.
+- `/repo diff view` switches between the directory tree (default) and flat list; use `/repo diff view tree` or `/repo diff view flat` directly. Single-child directory chains appear together (for example, `output/imagegen/`). Directories show hierarchy; selection and preview act on files.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
 - On the repository home page, `/repos filter` and `/repos sort` open their options: ↑↓ selects, Enter applies, Esc closes. ✓ marks the current option.
 - Filters: all, problems (attention or failed), clean, failed, unchecked, no-upstream, pushes (recorded successes or failures).

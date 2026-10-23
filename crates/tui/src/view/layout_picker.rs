@@ -43,6 +43,14 @@ fn effective(view: &document::View, area: Rect, preference: Preference) -> Optio
 }
 pub(super) fn annotation(action: Action, screen: &Screen, body: Rect) -> Option<String> {
     match action {
+        Action::FileLayoutMenu => Some(format!(
+            "{}: {}",
+            i18n::tr!(LayoutCurrent),
+            screen.file_layout.label()
+        )),
+        Action::FileLayout(layout) if layout == screen.file_layout => {
+            Some(format!("✓ {}", i18n::tr!(LayoutCurrent)))
+        }
         Action::Diff | Action::DiffLayoutMenu => Some(format!(
             "{}: {}",
             i18n::tr!(LayoutCurrent),

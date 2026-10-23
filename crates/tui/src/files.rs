@@ -1,5 +1,21 @@
 //! Shared file selection with explicit staged and unstaged identities.
+pub(super) mod tree;
 use crate::{Area, Change, Files};
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Layout {
+    #[default]
+    Tree,
+    Flat,
+}
+impl Layout {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Tree => i18n::tr!(FilesTree),
+            Self::Flat => i18n::tr!(FilesFlat),
+        }
+    }
+}
 use std::collections::BTreeSet;
 
 #[derive(Debug, Clone)]
@@ -75,7 +91,11 @@ impl FileSession {
                     .contains(&self.query.to_lowercase())
             })
             .collect::<Vec<_>>();
-        rows.sort_by_key(|change| change.area == Area::Staged);
+        rows.sort_by(|a, b| {
+            (a.area == Area::Staged)
+                .cmp(&(b.area == Area::Staged))
+                .then_with(|| a.location.name().cmp(b.location.name()))
+        });
         rows
     }
     pub fn change_index(&self, change: &Change) -> usize {

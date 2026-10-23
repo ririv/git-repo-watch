@@ -192,6 +192,7 @@ struct Screen {
     history: Vec<navigation::Visit>,
     mode: Mode,
     diff_preference: diff::Preference,
+    file_layout: files::Layout,
     graphics: graphics::Display,
     bar: bar::InputBar,
     clipboard: clipboard::Writer,
@@ -239,6 +240,7 @@ impl Screen {
             history: Vec::new(),
             mode: Mode::Browsing,
             diff_preference: Default::default(),
+            file_layout: Default::default(),
             graphics: graphics::Display::new(graphics::Support::Unavailable(
                 i18n::tr!(GraphicsUnsupported).into(),
             )),

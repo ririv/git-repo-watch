@@ -51,7 +51,11 @@ impl Context {
             && !(self == Self::Diff(DiffContext::History)
                 && matches!(
                     command.action,
-                    Action::Stage | Action::Unstage | Action::Refresh
+                    Action::Stage
+                        | Action::Unstage
+                        | Action::Refresh
+                        | Action::FileLayoutMenu
+                        | Action::FileLayout(_)
                 ))
     }
     pub fn matches(self, input: &str) -> Vec<&'static Command> {

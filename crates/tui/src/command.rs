@@ -26,6 +26,8 @@ pub enum Action {
     Diff,
     Log,
     LogMore,
+    FileLayoutMenu,
+    FileLayout(crate::files::Layout),
     DiffLayoutMenu,
     DiffLayout(crate::diff::Preference),
     FilterMenu,
@@ -199,6 +201,24 @@ pub const COMMANDS: &[Command] = &[
         action: Copy(crate::clipboard::Scope::Diff),
         scope: View,
         description: i18n::Message::CopyDiffCommand,
+    },
+    Command {
+        name: "repo diff view",
+        action: FileLayoutMenu,
+        scope: View,
+        description: i18n::Message::FilesLayout,
+    },
+    Command {
+        name: "repo diff view tree",
+        action: FileLayout(crate::files::Layout::Tree),
+        scope: View,
+        description: i18n::Message::FilesTree,
+    },
+    Command {
+        name: "repo diff view flat",
+        action: FileLayout(crate::files::Layout::Flat),
+        scope: View,
+        description: i18n::Message::FilesFlat,
     },
     Command {
         name: "repo commit",

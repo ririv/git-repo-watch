@@ -277,6 +277,9 @@ pub enum Message {
     DiffUnified,
     DiffChooseAuto,
     DiffChooseSplit,
+    FilesLayout,
+    FilesTree,
+    FilesFlat,
     DiffChooseUnified,
     DiffLayoutSelected,
     DiffBefore,
@@ -1643,6 +1646,12 @@ impl Message {
                 "Compare old and new versions side by side"
             }
             (Self::DiffChooseSplit, Language::Chinese) => "左右对比旧版与新版",
+            (Self::FilesLayout, Language::English) => "File list display",
+            (Self::FilesLayout, Language::Chinese) => "文件列表显示方式",
+            (Self::FilesTree, Language::English) => "Directory tree",
+            (Self::FilesTree, Language::Chinese) => "目录树",
+            (Self::FilesFlat, Language::English) => "Flat list",
+            (Self::FilesFlat, Language::Chinese) => "平铺列表",
             (Self::DiffChooseUnified, Language::English) => "Show changes in a single unified diff",
             (Self::DiffChooseUnified, Language::Chinese) => "在统一视图中查看差异",
             (Self::DiffLayoutSelected, Language::English) => "Diff layout: {} · This TUI session",

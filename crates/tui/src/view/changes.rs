@@ -29,6 +29,7 @@ pub(super) fn render(
     area: Rect,
     session: &mut Session,
     preference: crate::diff::Preference,
+    file_layout: crate::files::Layout,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -37,7 +38,7 @@ pub(super) fn render(
         match focus {
             Focus::Files => {
                 let title = name(&session.files.snapshot.path);
-                files::render(frame, area, &mut session.files, &title, hits);
+                files::render(frame, area, &mut session.files, &title, file_layout, hits);
             }
             Focus::Preview => match &mut session.preview {
                 Preview::Ready {

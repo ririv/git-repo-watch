@@ -28,6 +28,7 @@
 - 命令支持按名称或中英文提示说明筛选，英文不区分大小写，如 `/终端`、`/频率`、`/live diff`；名称匹配优先，Tab 补全选中项的实际命令。
 - 全局菜单只展示顶层命令；输入 `/repo diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
 - 带参数命令直接在输入栏填写，如 `/repos add <path>`、`/settings concurrency <count>`。
+- `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。单一子目录链合并显示（如 `output/imagegen/`）；目录只展示层级，文件仍可勾选和预览。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
 - 仓库首页用 `/repos filter` 筛选、`/repos sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。

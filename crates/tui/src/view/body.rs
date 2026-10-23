@@ -33,13 +33,21 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
         Mode::Files(s) => {
             let title = format!("{} · {}", name(&s.snapshot.path), safe(s.snapshot.branch()));
-            files::render(frame, area, s, &title, &mut screen.pointer);
+            files::render(
+                frame,
+                area,
+                s,
+                &title,
+                screen.file_layout,
+                &mut screen.pointer,
+            );
         }
         Mode::Changes(session) => changes::render(
             frame,
             area,
             session,
             screen.diff_preference,
+            screen.file_layout,
             &mut screen.graphics,
             &mut screen.pointer,
         ),
