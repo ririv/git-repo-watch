@@ -73,5 +73,6 @@ pub(super) fn render(frame: &mut Frame, area: Rect, session: &FileSession, title
             parts[1],
             &mut state,
         );
+        crate::scrollbar::vertical(frame, area, parts[1], changes.len(), state.offset());
     }
 }

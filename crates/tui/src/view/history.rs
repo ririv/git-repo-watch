@@ -195,6 +195,13 @@ fn graph(
             content_area,
             &mut session.state,
         );
+        crate::scrollbar::vertical(
+            frame,
+            parts[0],
+            content_area,
+            session.records.len(),
+            session.state.offset(),
+        );
         match metrics {
             Ok(metrics) => pixels::render(
                 frame,

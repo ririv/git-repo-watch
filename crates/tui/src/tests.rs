@@ -19,6 +19,7 @@ mod overview;
 mod prefix_selection;
 mod repository_list;
 mod schedule;
+mod scrollbars;
 mod startup;
 mod workspace;
 use super::*;
@@ -464,7 +465,7 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
             w as usize
         );
         assert!(during_lines[top + 1].starts_with('│'));
-        assert!(during_lines[top + 1].ends_with('│'));
+        assert!(during_lines[top + 1].ends_with(['│', '┃']));
         for _ in 0..command::COMMANDS.len() {
             key(&mut s, KeyCode::Down);
         }

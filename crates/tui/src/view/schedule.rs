@@ -102,4 +102,5 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         parts[1],
         &mut state,
     );
+    crate::scrollbar::vertical(frame, area, parts[1], actions.len(), state.offset());
 }

@@ -12,6 +12,7 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
             )))
         })
         .collect::<Vec<_>>();
+    let count = items.len();
     let height = (items.len().min(8) + 2).min(body.height.saturating_sub(3) as usize) as u16;
     let area = Rect::new(
         body.x,
@@ -29,4 +30,5 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
         area,
         &mut state,
     );
+    crate::scrollbar::vertical(frame, area, block("").inner(area), count, state.offset());
 }

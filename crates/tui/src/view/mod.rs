@@ -288,6 +288,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         area,
         &mut state,
     );
+    crate::scrollbar::vertical(frame, area, block("").inner(area), count, state.offset());
     screen.command_items = (state.offset()..count)
         .take(area.height.saturating_sub(2) as usize)
         .enumerate()

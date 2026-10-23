@@ -92,6 +92,7 @@ pub(super) fn list(frame: &mut Frame, area: Rect, session: &mut Session) {
             ]))
         })
         .collect::<Vec<_>>();
+    let count = items.len();
     let items = if items.is_empty() {
         vec![ListItem::new(i18n::tr!(BranchEmpty))]
     } else {
@@ -104,6 +105,7 @@ pub(super) fn list(frame: &mut Frame, area: Rect, session: &mut Session) {
         parts[1],
         &mut session.state,
     );
+    crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
 }
 fn compact(tracking: &Result<Tracking, String>) -> String {
     match tracking {

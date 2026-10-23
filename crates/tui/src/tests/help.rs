@@ -50,6 +50,7 @@ fn help_scrollbar_tracks_the_first_and_last_visible_pages_in_both_languages() {
             let area = s.body_area.unwrap();
             let first = terminal.backend().buffer()[(area.right() - 1, area.y + 1)].clone();
             assert_eq!(first.fg, Color::LightBlue);
+            assert_eq!(first.symbol(), "┃");
             s.scroll = usize::MAX;
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let last = &terminal.backend().buffer()[(area.right() - 1, area.bottom() - 2)];

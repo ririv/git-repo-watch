@@ -2,9 +2,8 @@
 use ratatui::{
     Frame,
     layout::Rect,
-    style::{Color, Modifier, Style},
+    style::Style,
     text::{Line, Span},
-    widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState},
 };
 use unicode_width::UnicodeWidthStr;
 
@@ -17,6 +16,7 @@ impl Viewport {
     pub fn offset(&self) -> usize {
         self.offset
     }
+    #[cfg(test)]
     pub fn overflowing(&self) -> bool {
         self.maximum > 0
     }
@@ -39,27 +39,13 @@ impl Viewport {
         }
     }
     fn render(&self, frame: &mut Frame, area: Rect) {
-        if self.overflowing() && area.width > 0 && area.height > 0 {
-            let visible = usize::from(area.width);
-            let mut state = ScrollbarState::new(self.maximum + 1)
-                .viewport_content_length(visible)
-                .position(self.offset);
-            frame.render_stateful_widget(
-                Scrollbar::new(ScrollbarOrientation::HorizontalBottom)
-                    .begin_symbol(None)
-                    .end_symbol(None)
-                    .track_symbol(Some("─"))
-                    .track_style(
-                        Style::default()
-                            .fg(Color::Rgb(65, 75, 85))
-                            .add_modifier(Modifier::DIM),
-                    )
-                    .thumb_symbol("━")
-                    .thumb_style(Style::default().fg(Color::LightBlue)),
-                area,
-                &mut state,
-            );
-        }
+        crate::scrollbar::render(
+            frame,
+            area,
+            crate::scrollbar::Axis::Horizontal,
+            self.offset,
+            self.maximum,
+        );
     }
 }
 

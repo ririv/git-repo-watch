@@ -83,6 +83,7 @@ pub(super) fn render(
     let cache = content.arrange(inner.width, preference, scroll);
     *scroll = (*scroll).min(cache.rows.len().saturating_sub(body.height as usize));
     cache.settle(*scroll);
+    crate::scrollbar::vertical(frame, area, body, cache.rows.len(), *scroll);
     for (index, row) in cache
         .rows
         .iter()

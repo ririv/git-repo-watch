@@ -39,4 +39,5 @@ pub(super) fn styled_text_view(
             .block(block),
         area,
     );
+    crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
 }

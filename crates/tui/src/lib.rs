@@ -22,6 +22,7 @@ mod overview;
 mod preview;
 mod repository_list;
 mod repository_tasks;
+mod scrollbar;
 mod settings;
 mod spinner;
 mod stashes;

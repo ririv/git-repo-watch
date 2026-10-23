@@ -208,13 +208,20 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     .column_spacing(1);
     screen.repository_area = Some(area);
     frame.render_stateful_widget(table, area, &mut screen.repository_viewport);
+    let inner = Rect::new(
+        area.x + 1,
+        area.y + 2,
+        area.width.saturating_sub(2),
+        area.height.saturating_sub(3),
+    );
+    crate::scrollbar::vertical(
+        frame,
+        area,
+        inner,
+        rows.len(),
+        screen.repository_viewport.offset(),
+    );
     if rows.is_empty() {
-        let inner = Rect {
-            y: area.y + 2,
-            height: area.height.saturating_sub(3),
-            x: area.x + 1,
-            width: area.width.saturating_sub(2),
-        };
         frame.render_widget(
             Paragraph::new(if screen.config.repositories.is_empty() {
                 i18n::tr!(NoRepositoriesMatchAddToAddOne)

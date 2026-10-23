@@ -68,18 +68,19 @@ pub(super) fn render(frame: &mut Frame, area: Rect, commit: &mut Commit) {
     ));
     let inner = border.inner(parts[0]);
     let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
-    commit.scroll = commit.scroll.min(
-        paragraph
-            .line_count(inner.width)
-            .saturating_sub(inner.height as usize),
-    );
+    let lines = paragraph.line_count(inner.width);
+    commit.scroll = commit
+        .scroll
+        .min(lines.saturating_sub(inner.height as usize));
     frame.render_widget(
         paragraph
             .scroll((commit.scroll.min(u16::MAX as usize) as u16, 0))
             .block(border),
         parts[0],
     );
+    crate::scrollbar::vertical(frame, parts[0], inner, lines, commit.scroll);
     let rows = commit.rows();
+    let count = rows.len();
     let title = format!("{} · {}", i18n::tr!(HistoryChanges), rows.len());
     let border = block(title);
     let inner = border.inner(parts[1]);
@@ -113,5 +114,6 @@ pub(super) fn render(frame: &mut Frame, area: Rect, commit: &mut Commit) {
             inner,
             &mut commit.files,
         );
+        crate::scrollbar::vertical(frame, parts[1], inner, count, commit.files.offset());
     }
 }

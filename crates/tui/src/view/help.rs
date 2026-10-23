@@ -1,6 +1,5 @@
 //! Styled quick reference with explicit headings, inline tokens and scroll position.
 use super::*;
-use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState};
 
 fn token_style(value: &str) -> Style {
     let color = match value {
@@ -74,19 +73,5 @@ pub(super) fn render(frame: &mut Frame, area: Rect, scroll: &mut usize) {
             .block(panel),
         area,
     );
-    if lines > inner.height as usize {
-        // 滚动条的位置对应视口起点，最后一屏应让滑块贴底。
-        let mut state = ScrollbarState::new(max_scroll + 1)
-            .position(*scroll)
-            .viewport_content_length(inner.height as usize);
-        frame.render_stateful_widget(
-            Scrollbar::new(ScrollbarOrientation::VerticalRight)
-                .begin_symbol(None)
-                .end_symbol(None)
-                .thumb_style(Style::default().fg(ACCENT))
-                .track_style(Style::default().fg(MUTED)),
-            Rect::new(area.x, inner.y, area.width, inner.height),
-            &mut state,
-        );
-    }
+    crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
 }

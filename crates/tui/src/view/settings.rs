@@ -62,11 +62,15 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         screen.scroll
     };
     let text = Text::from(lines);
-    let paragraph = Paragraph::new(text)
-        .wrap(Wrap { trim: false })
-        .block(block(section.title()));
+    let panel = block(section.title());
+    let inner = panel.inner(area);
+    let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+    let lines = paragraph.line_count(inner.width);
+    let start = start.min(lines.saturating_sub(inner.height as usize));
+    let paragraph = paragraph.block(panel);
     frame.render_widget(
         paragraph.scroll((start.min(u16::MAX as usize) as u16, 0)),
         area,
     );
+    crate::scrollbar::vertical(frame, area, inner, lines, start);
 }

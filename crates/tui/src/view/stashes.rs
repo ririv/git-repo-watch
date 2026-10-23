@@ -57,6 +57,7 @@ pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
                     ]))
                 })
                 .collect::<Vec<_>>();
+            let count = items.len();
             let items = if items.is_empty() {
                 vec![ListItem::new(i18n::tr!(StashEmpty))]
             } else {
@@ -71,14 +72,20 @@ pub(super) fn render(frame: &mut Frame, area: Rect, view: &mut View) {
                 areas[0],
                 &mut session.state,
             );
+            crate::scrollbar::vertical(
+                frame,
+                areas[0],
+                block("").inner(areas[0]),
+                count,
+                session.state.offset(),
+            );
             if areas.len() > 1 {
-                let mut scroll = 0;
-                review::text_view(
-                    frame,
+                // 静态预览没有独立滚动操作；完整详情才显示滚动条。
+                frame.render_widget(
+                    Paragraph::new(preview.as_deref().unwrap_or(i18n::tr!(StashEmpty)))
+                        .wrap(Wrap { trim: false })
+                        .block(block(i18n::tr!(StashDetails))),
                     areas[1],
-                    preview.as_deref().unwrap_or(i18n::tr!(StashEmpty)),
-                    &mut scroll,
-                    i18n::tr!(StashDetails),
                 );
             }
         }
