@@ -8,6 +8,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::Stashes(view) => stashes::render(frame, area, view),
         Mode::Branches(view) => branches::render(frame, area, view),
         Mode::History(view) => history::render(
             frame,
@@ -97,6 +98,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     UnregisterRepositoryFilesOnDiskAreRetained,
                     safe(&path.to_string_lossy())
                 ),
+                Confirmation::Mutation { plan, .. } => multiline(&crate::mutations::review(plan)),
                 Confirmation::Configure { command, value, .. } => {
                     format!(
                         "/{} {}\n\n{}",

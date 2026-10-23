@@ -94,6 +94,33 @@ impl Screen {
         self.message.clear();
         self.scroll = 0;
         match outcome {
+            Outcome::Stashes(snapshot) => {
+                let session = match &origin {
+                    Mode::Stashes(view) => view.session().refreshed(snapshot),
+                    _ => crate::stashes::Session::new(snapshot),
+                };
+                self.workspace.save(origin);
+                self.mode = Mode::Stashes(Box::new(crate::stashes::View::List(session)));
+            }
+            Outcome::MutationPrepared { plan, draft } => {
+                if plan.current() {
+                    self.mode = origin;
+                    self.message = i18n::tr!(PullCurrent).into();
+                } else {
+                    self.mode = Mode::Confirm {
+                        operation: Confirmation::Mutation {
+                            plan: Box::new(plan),
+                            origin: Box::new(origin),
+                            draft,
+                        },
+                        choice: Default::default(),
+                    };
+                }
+            }
+            Outcome::MutationCompleted(_change) => {
+                self.mode = origin;
+                self.refresh_mutated_view();
+            }
             Outcome::Checked(report) => {
                 self.mode = origin;
                 self.message = i18n::tf!(CheckOneComplete, report.repositories[0].path().display());

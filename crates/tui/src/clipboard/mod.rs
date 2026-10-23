@@ -11,6 +11,7 @@ pub(crate) enum Scope {
     Diff,
     Log,
     Branch,
+    Stash,
     Error,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -19,6 +20,7 @@ pub(crate) enum Target {
     FilePaths,
     Commit,
     Branch,
+    Stash,
     Diff,
     Error,
 }
@@ -28,6 +30,7 @@ impl Target {
             Self::RepositoryPath => i18n::tr!(CopyRepositoryPath),
             Self::FilePaths => i18n::tr!(CopyFilePaths),
             Self::Commit => i18n::tr!(CopyCommit),
+            Self::Stash => i18n::tr!(StashObject),
             Self::Branch => i18n::tr!(CopyBranch),
             Self::Diff => i18n::tr!(CopyDiff),
             Self::Error => i18n::tr!(CopyError),

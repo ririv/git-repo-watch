@@ -8,6 +8,7 @@ impl Screen {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing
             | Mode::Panel(_)
+            | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Files(_)
             | Mode::Changes(_)
@@ -100,6 +101,7 @@ impl Screen {
                 }
                 _ => self.mode = mode,
             },
+            Mode::Stashes(view) => self.stash_key(view, key),
             Mode::Branches(view) => self.branch_key(view, key),
             Mode::History(mut view) => {
                 match view.as_mut() {
@@ -178,7 +180,8 @@ impl Screen {
                 confirmation::Input::Execute => self.confirm(operation),
                 confirmation::Input::Return => {
                     self.mode = match operation {
-                        Confirmation::Configure { origin, draft, .. } => {
+                        Confirmation::Configure { origin, draft, .. }
+                        | Confirmation::Mutation { origin, draft, .. } => {
                             self.mode = *origin;
                             self.bar = crate::bar::InputBar::Command {
                                 input: draft.input,

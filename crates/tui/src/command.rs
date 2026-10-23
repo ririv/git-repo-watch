@@ -5,12 +5,22 @@ mod input;
 pub(crate) mod path;
 #[cfg(test)]
 mod tests;
-pub use argument::{ArgumentAction, argument_input};
+pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
 pub(crate) use input::Input;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Branches,
+    BranchCreate,
+    BranchSwitch,
+    Fetch,
+    Pull,
+    Stashes,
+    StashSave,
+    StashSaveAll,
+    StashApply,
+    StashPop,
+    StashDrop,
     Stage,
     Unstage,
     Diff,
@@ -164,6 +174,18 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::CopyBranchCommand,
     },
     Command {
+        name: "branch create",
+        action: BranchCreate,
+        scope: Repository,
+        description: i18n::Message::BranchCreateCommand,
+    },
+    Command {
+        name: "branch switch",
+        action: BranchSwitch,
+        scope: Repository,
+        description: i18n::Message::BranchSwitchCommand,
+    },
+    Command {
         name: "log",
         action: Log,
         scope: Repository,
@@ -252,6 +274,66 @@ pub const COMMANDS: &[Command] = &[
         action: Push,
         scope: Repository,
         description: i18n::Message::ReviewCurrentBranchAndRemoteUpstreamThen,
+    },
+    Command {
+        name: "fetch",
+        action: Fetch,
+        scope: Repository,
+        description: i18n::Message::FetchCommand,
+    },
+    Command {
+        name: "pull",
+        action: Pull,
+        scope: Repository,
+        description: i18n::Message::PullCommand,
+    },
+    Command {
+        name: "stash",
+        action: Stashes,
+        scope: Repository,
+        description: i18n::Message::StashCommand,
+    },
+    Command {
+        name: "stash refresh",
+        action: Refresh,
+        scope: View,
+        description: i18n::Message::RefreshContextView,
+    },
+    Command {
+        name: "stash copy",
+        action: Copy(crate::clipboard::Scope::Stash),
+        scope: View,
+        description: i18n::Message::StashCopyCommand,
+    },
+    Command {
+        name: "stash save",
+        action: StashSave,
+        scope: Repository,
+        description: i18n::Message::StashSaveCommand,
+    },
+    Command {
+        name: "stash save-all",
+        action: StashSaveAll,
+        scope: Repository,
+        description: i18n::Message::StashSaveAllCommand,
+    },
+    Command {
+        name: "stash apply",
+        action: StashApply,
+        scope: Repository,
+        description: i18n::Message::StashApplyCommand,
+    },
+    Command {
+        name: "stash pop",
+        action: StashPop,
+        scope: Repository,
+        description: i18n::Message::StashPopCommand,
+    },
+    Command {
+        name: "stash drop",
+        action: StashDrop,
+        scope: Repository,
+        description: i18n::Message::StashDropCommand,
     },
     Command {
         name: "terminal",

@@ -14,11 +14,13 @@ mod graphics;
 mod history;
 mod input;
 mod layout_picker;
+mod mutations;
 mod overview;
 mod preview;
 mod repository_list;
 mod repository_tasks;
 mod spinner;
+mod stashes;
 mod task;
 mod view;
 mod workspace;
@@ -71,6 +73,7 @@ enum Mode {
     Files(FileSession),
     History(Box<history::View>),
     Branches(Box<branches::View>),
+    Stashes(Box<stashes::View>),
     Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,
@@ -108,10 +111,15 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
+    Mutation {
+        plan: Box<engine::operations::mutation::Plan>,
+        origin: Box<Mode>,
+        draft: bar::CommandDraft,
+    },
     Schedule(engine::scheduler::Control),
     Remove(PathBuf),
     Configure {
-        command: command::ArgumentAction,
+        command: command::ConfigArgument,
         value: String,
         origin: Box<Mode>,
         draft: bar::CommandDraft,
@@ -122,6 +130,7 @@ enum Effect {
     ReadOnly,
     Check,
     IndexWrite,
+    RepositoryWrite,
     Commit,
     Push,
     Configuration,
@@ -150,6 +159,12 @@ enum WorkerEvent {
 enum Outcome {
     Checked(domain::Report),
     Branches(Box<branches::View>),
+    Stashes(engine::local::stash::Snapshot),
+    MutationPrepared {
+        plan: engine::operations::mutation::Plan,
+        draft: bar::CommandDraft,
+    },
+    MutationCompleted(engine::operations::mutation::Change),
     TerminalOpened(PathBuf),
     Files(Files),
     Changes(Files),
@@ -274,6 +289,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::Stashes(view) = &self.mode {
+            return Some(view.session().snapshot.path.clone());
+        }
         if let Mode::Branches(view) = &self.mode {
             return Some(view.session().snapshot.path.clone());
         }

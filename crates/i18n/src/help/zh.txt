@@ -54,6 +54,16 @@
 - 隐藏目录需先输入 `.`；补全仅读取一级目录，并保留光标后的路径。
 > 路径是命令后的整段参数。不展开变量、通配符或 Shell 转义；不支持 ~user 用户路径。
 
+## 分支、拉取与 stash
+- `/branch create <name>` 在当前提交创建本地分支，不切换；`/branch switch <name>` 切换已有本地分支。切换前要求已跟踪文件干净，不覆盖未跟踪文件，也不切换其他 worktree 占用的分支。
+- `/fetch` 立即在后台获取已配置的远程跟踪分支，遵守 refspec、排除与 skipFetchAll 设置，不改工作区或推送。
+- `/pull` 获取一次远程，预览固定的上游提交，确认后仅快进；分叉或脏工作区明确报错，不自动 merge、rebase 或 stash。
+- `/stash` 打开独立列表；↑↓选择、Enter 查看详情、←/Esc 返回。进入后 `/` 使用 /stash 上下文，列表可搜索消息和对象 ID。
+- `/stash save <message>` 保存已跟踪变更；`/stash save-all <message>` 也包含未跟踪文件，均不包含忽略文件。
+- `/stash apply <stash-id>` 恢复并保留；`/stash pop <stash-id>` 恢复成功后删除；`/stash drop <stash-id>` 只删除，不恢复。选中列表项后补全这些命令会填入其完整对象 ID，仍需确认。
+- `/stash copy` 复制选中 stash 的完整对象 ID；`/stash refresh` 刷新列表。恢复发生冲突时报告失败，保留原 stash 与实际冲突状态。
+- 写操作先预览再确认，返回编辑保留完整草稿。确认时重新核验 HEAD、索引、工作区和目标引用；stash 还核验列表顺序，外部变更会要求重新预览。
+
 ## 文件、提交与推送
 - `/diff` 打开统一变更界面，同时显示未暂存、已暂存文件及文本／图片预览；选择文件后在后台读取对应版本。
 - 宽屏左右排列，窄屏上下排列；`Tab` / `Ctrl+S` / `Ctrl+D` 切换焦点，`Enter` / `→` 聚焦预览，`Ctrl+F` 放大当前面板。

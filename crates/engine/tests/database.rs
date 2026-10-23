@@ -62,7 +62,7 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
             .unwrap(),
-        2
+        3
     );
     assert_eq!(
         db.query_row("SELECT count(*) FROM repository_observations", [], |row| {
@@ -666,5 +666,106 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
     assert_eq!(
         serde_json::to_value(source.report().unwrap()).unwrap(),
         serde_json::to_value(destination.report().unwrap()).unwrap()
+    );
+}
+
+#[test]
+fn version_two_upgrade_preserves_events_ids_observations_and_schedule_claims() {
+    let (_temp, store) = fixture();
+    let path = Path::new("/example/upgrade");
+    let mut observation = report(path, 0, false);
+    store
+        .save_operation_report(&mut observation, &record(path), &Cancel::default())
+        .unwrap();
+    assert!(
+        store
+            .claim_schedule_occurrence("retained", "2026-10-23 06:00:00", &Cancel::default())
+            .unwrap()
+    );
+    let db = Connection::open(store.database_path()).unwrap();
+    let before: (i64, String, i64) = db
+        .query_row("SELECT id,record,revision FROM operation_events", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .unwrap();
+    db.execute_batch(
+        "BEGIN IMMEDIATE;
+        CREATE TABLE operation_events_v2 (
+            id INTEGER PRIMARY KEY, path BLOB NOT NULL, revision INTEGER, at TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK(kind IN ('stage','unstage','commit','push')),
+            record TEXT NOT NULL CHECK(json_valid(record)),
+            FOREIGN KEY(path,revision) REFERENCES repository_observations(path,revision)
+        ) STRICT;
+        INSERT INTO operation_events_v2 SELECT * FROM operation_events;
+        DROP TABLE operation_events;
+        ALTER TABLE operation_events_v2 RENAME TO operation_events;
+        CREATE INDEX operation_repository ON operation_events(path,id DESC);
+        PRAGMA user_version=2; COMMIT;",
+    )
+    .unwrap();
+    drop(db);
+    store.migrate(&Cancel::default()).unwrap();
+    let db = Connection::open(store.database_path()).unwrap();
+    assert_eq!(
+        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
+            .unwrap(),
+        3
+    );
+    let after: (i64, String, i64) = db
+        .query_row("SELECT id,record,revision FROM operation_events", [], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })
+        .unwrap();
+    assert_eq!(before, after);
+    assert_eq!(
+        db.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
+            .unwrap(),
+        "ok"
+    );
+    assert!(
+        db.prepare("PRAGMA foreign_key_check")
+            .unwrap()
+            .query([])
+            .unwrap()
+            .next()
+            .unwrap()
+            .is_none()
+    );
+    assert!(
+        !store
+            .claim_schedule_occurrence("retained", "2026-10-23 06:00:00", &Cancel::default())
+            .unwrap()
+    );
+    assert_eq!(
+        store
+            .repository_report(path)
+            .unwrap()
+            .unwrap()
+            .repository_revisions[path],
+        1
+    );
+    let next = OperationRecord {
+        path: path.into(),
+        at: AT.into(),
+        operation: Operation::Workspace {
+            action: engine::operations::mutation::Action::Fetch,
+            completion: Completion::Succeeded {
+                value: engine::operations::mutation::Change::Fetched {
+                    remotes: vec!["origin".into()],
+                },
+            },
+        },
+    };
+    store
+        .save_operation_report(&mut observation, &next, &Cancel::default())
+        .unwrap();
+    assert_eq!(store.operation_history(path, 10).unwrap().len(), 2);
+    assert_eq!(
+        store
+            .repository_report(path)
+            .unwrap()
+            .unwrap()
+            .repository_revisions[path],
+        2
     );
 }

@@ -20,6 +20,7 @@ pub(super) struct Task {
 struct Completion {
     outcome: Result<Outcome>,
     refresh: Refresh,
+    view: Result<crate::mutations::readback::Readback>,
 }
 #[derive(Debug)]
 enum Refresh {
@@ -45,6 +46,11 @@ impl Screen {
             self.message = i18n::tr!(RepositoryTaskLimit).into();
             return;
         }
+        let requested = if effect == Effect::RepositoryWrite {
+            crate::mutations::readback::Requested::for_mode(&self.mode)
+        } else {
+            crate::mutations::readback::Requested::None
+        };
         let service = self.service.clone();
         let task_path = path.clone();
         let cancel = Cancel::default();
@@ -64,19 +70,25 @@ impl Screen {
             let refresh = match &outcome {
                 Ok(Outcome::Checked(report)) => Refresh::Updated(Box::new(report.clone())),
                 _ => match effect {
-                    Effect::IndexWrite | Effect::Commit | Effect::Push => {
-                        match service.store.repository_report(&task_path) {
-                            Ok(report) => match report {
-                                Some(report) => Refresh::Updated(Box::new(report)),
-                                None => Refresh::Unchanged,
-                            },
-                            Err(error) => Refresh::Failed(error),
-                        }
-                    }
+                    Effect::RepositoryWrite
+                    | Effect::IndexWrite
+                    | Effect::Commit
+                    | Effect::Push => match service.store.repository_report(&task_path) {
+                        Ok(report) => match report {
+                            Some(report) => Refresh::Updated(Box::new(report)),
+                            None => Refresh::Unchanged,
+                        },
+                        Err(error) => Refresh::Failed(error),
+                    },
                     Effect::ReadOnly | Effect::Check | Effect::Configuration => Refresh::Unchanged,
                 },
             };
-            let _ = tx.send(Completion { outcome, refresh });
+            let view = requested.read(&service, &task_path);
+            let _ = tx.send(Completion {
+                outcome,
+                refresh,
+                view,
+            });
         });
         self.repository_tasks.insert(
             path,
@@ -109,6 +121,7 @@ impl Screen {
                             BackgroundWorkerTerminatedUnexpectedly
                         ))),
                         refresh: Refresh::Unchanged,
+                        view: Ok(crate::mutations::readback::Readback::Unchanged),
                     },
                 )),
             })
@@ -149,6 +162,17 @@ impl Screen {
                 }
                 Refresh::Unchanged => {}
             }
+            match completion.view {
+                Ok(view) => self.merge_mutation_view(view),
+                Err(error) => {
+                    completion.outcome =
+                        match completion.outcome {
+                            Ok(_) => Err(error),
+                            Err(operation) => Err(operation
+                                .context(format!("{}: {error:#}", i18n::tr!(RefreshFailed)))),
+                        }
+                }
+            }
             self.focus(selected);
             let same_view = task.page == self.page
                 && task.revision == self.view_revision
@@ -156,7 +180,11 @@ impl Screen {
                 && self.bar.text() == task.input;
             if matches!(
                 task.effect,
-                Effect::IndexWrite | Effect::Commit | Effect::Push | Effect::Check
+                Effect::RepositoryWrite
+                    | Effect::IndexWrite
+                    | Effect::Commit
+                    | Effect::Push
+                    | Effect::Check
             ) {
                 self.refresh_repository_panes(&path);
             }
@@ -191,7 +219,10 @@ impl Screen {
                     }
                     let detail = if matches!(
                         task.effect,
-                        Effect::IndexWrite | Effect::Commit | Effect::Push
+                        Effect::RepositoryWrite
+                            | Effect::IndexWrite
+                            | Effect::Commit
+                            | Effect::Push
                     ) && task.cancel.is_cancelled()
                     {
                         i18n::tf!(OperationInterruptedSomeWritesMayHaveCompleted, e = error)

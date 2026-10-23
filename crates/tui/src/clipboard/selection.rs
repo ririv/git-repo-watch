@@ -73,6 +73,7 @@ pub(crate) enum Selection {
     Diff(Content),
     Log(Content),
     Branch(Content),
+    Stash(Content),
     Error(Content),
 }
 impl Selection {
@@ -81,8 +82,19 @@ impl Selection {
             (Self::Diff(content), Scope::Diff)
             | (Self::Log(content), Scope::Log)
             | (Self::Branch(content), Scope::Branch)
+            | (Self::Stash(content), Scope::Stash)
             | (Self::Error(content), Scope::Error) => Some(content),
             _ => None,
+        }
+    }
+    pub fn complete(&self, input: &mut crate::command::Input, command: &crate::command::Command) {
+        input.complete(command);
+        if matches!(
+            command.action,
+            Action::StashApply | Action::StashPop | Action::StashDrop
+        ) && let Self::Stash(Content::Text { text, .. }) = self
+        {
+            input.editor_mut().insert(text);
         }
     }
     pub fn is_error(&self) -> bool {
@@ -157,6 +169,10 @@ impl Screen {
                 )),
                 history::View::Diff { content, .. } => Selection::Diff(Content::document(content)),
             },
+            Mode::Stashes(view) => Selection::Stash(match view.selected() {
+                Some(entry) => Content::text(Target::Stash, entry.oid.to_string()),
+                None => Content::Unavailable(Unavailable::Empty),
+            }),
             Mode::Branches(view) => Selection::Branch(match view.as_ref() {
                 branches::View::List(session) => branch(session),
                 branches::View::Detail { entry, .. } => {

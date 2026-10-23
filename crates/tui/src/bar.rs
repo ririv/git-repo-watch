@@ -93,6 +93,8 @@ impl Screen {
     pub(crate) fn sync_bar(&mut self) {
         self.bar = InputBar::Search(Editor::new(if let Mode::History(view) = &self.mode {
             view.query().to_owned()
+        } else if let Mode::Stashes(view) = &self.mode {
+            view.session().query.clone()
         } else if let Mode::Branches(view) = &self.mode {
             view.session().query.clone()
         } else if matches!(self.mode, Mode::Panel(_)) {
@@ -115,6 +117,7 @@ impl Screen {
         if let InputBar::Search(editor) = &self.bar {
             let query = editor.text.clone();
             match &mut self.mode {
+                Mode::Stashes(view) => view.search(query),
                 Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
                 Mode::Files(s) if s.query != query => {
@@ -173,6 +176,7 @@ impl Screen {
             self.mode,
             Mode::Browsing
                 | Mode::Panel(_)
+                | Mode::Stashes(_)
                 | Mode::Branches(_)
                 | Mode::Files(_)
                 | Mode::Changes(_)
@@ -246,7 +250,7 @@ impl Screen {
                                 Err(error) => self.message = format!("{error:#}"),
                             }
                         } else {
-                            input.complete(c);
+                            selection.complete(input, c);
                             self.message.clear();
                         }
                         *selected = 0
@@ -263,7 +267,15 @@ impl Screen {
                                     path: path.clone(),
                                     selection: selection.clone(),
                                 };
-                                self.prepare_configuration(argument, value, draft);
+                                match argument.mutation(&value) {
+                                    Ok(Some(request)) => self.prepare_mutation(request, draft),
+                                    Ok(None) => self.prepare_configuration(
+                                        argument.configuration().expect("configuration parameter"),
+                                        value,
+                                        draft,
+                                    ),
+                                    Err(error) => self.message = format!("{error:#}"),
+                                }
                             }
                             Err(error) => self.message = format!("{error:#}"),
                         }
@@ -277,7 +289,7 @@ impl Screen {
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);
                         } else if command.action.argument().is_some() {
-                            input.complete(command);
+                            selection.complete(input, command);
                             *selected = 0;
                             self.message.clear();
                         } else {
@@ -353,7 +365,11 @@ impl Screen {
         if self.bar.editor().text.is_empty()
             && (matches!(
                 self.mode,
-                Mode::History(_) | Mode::Branches(_) | Mode::Changes(_) | Mode::Files(_)
+                Mode::History(_)
+                    | Mode::Stashes(_)
+                    | Mode::Branches(_)
+                    | Mode::Changes(_)
+                    | Mode::Files(_)
             ) || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
             && matches!(key.code, KeyCode::Home | KeyCode::End)
         {
@@ -420,6 +436,7 @@ impl Screen {
                 self.query.clear();
                 self.focus(path);
             }
+            Mode::Stashes(view) => view.search(String::new()),
             Mode::Branches(view) => view.search(String::new()),
             Mode::History(view) => view.clear_search(),
             Mode::Files(s) => {

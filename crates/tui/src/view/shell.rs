@@ -10,6 +10,7 @@ pub(super) fn header(screen: &Screen) -> Text<'static> {
             .expect("open repository has a name")
     } else {
         match &screen.mode {
+            Mode::Stashes(_) => i18n::tr!(StashTitle),
             Mode::Branches(_) => i18n::tr!(BranchTitle),
             Mode::History(_) => i18n::tr!(HistoryTitle),
             Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {

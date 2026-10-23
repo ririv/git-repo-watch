@@ -1,6 +1,7 @@
 //! Typed branch tracking and local graph queries.
 pub mod catalog;
 pub(crate) mod checkout;
+pub mod edit;
 pub mod fetch;
 pub mod upstream;
 use super::utf8_path;

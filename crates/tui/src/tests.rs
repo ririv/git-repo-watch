@@ -5,6 +5,7 @@ mod completion;
 mod concurrency;
 mod contexts;
 mod copy;
+mod daily_operations;
 mod diff;
 mod help;
 mod history;
@@ -1580,7 +1581,7 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     let input = format!("repo add \"{}\"", f.repo.display());
     command(&mut s, &input);
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Configure { command: command::ArgumentAction::Add, value, .. }, .. } if value == &f.repo.to_string_lossy())
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Configure { command: command::ConfigArgument::Add, value, .. }, .. } if value == &f.repo.to_string_lossy())
     );
     assert!(s.config.repositories.is_empty());
     key(&mut s, KeyCode::Esc);

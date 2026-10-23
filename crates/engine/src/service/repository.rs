@@ -140,7 +140,7 @@ impl Service {
         };
         self.refresh_after_write(&plan.path, Ok(result.clone()), vec![result], operation)
     }
-    fn refresh_after_write<T>(
+    pub(super) fn refresh_after_write<T>(
         &self,
         path: &Path,
         operation: Result<T>,

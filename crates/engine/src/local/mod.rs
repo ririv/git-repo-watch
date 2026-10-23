@@ -1,9 +1,11 @@
 //! Local repository capabilities implemented exclusively through libgit2.
 pub mod branches;
 pub mod files;
+pub mod guard;
 pub mod history;
 pub mod overview;
 pub mod review;
+pub mod stash;
 use anyhow::{Context, Result, ensure};
 use git2::{Repository, RepositoryOpenFlags, RepositoryState};
 use std::{

@@ -2,6 +2,56 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    MutationStashConflicts,
+    BranchCreateCommand,
+    BranchSwitchCommand,
+    FetchCommand,
+    PullCommand,
+    StashTitle,
+    StashRead,
+    StashCommand,
+    StashSaveCommand,
+    StashSaveAllCommand,
+    StashApplyCommand,
+    StashPopCommand,
+    StashDropCommand,
+    StashPosition,
+    StashEmpty,
+    StashDetails,
+    StashSearch,
+    StashHint,
+    StashCopyCommand,
+    StashObject,
+    BranchNameHint,
+    StashMessageHint,
+    StashIdHint,
+    StashIdRequired,
+    MutationRun,
+    MutationComplete,
+    PullCurrent,
+    PullReview,
+    StashDropWarning,
+    MutationTarget,
+
+    MutationRequiresCommit,
+    MutationDirtySubmodule,
+    MutationNonRegularFile,
+    MutationChanged,
+    MutationCleanRequired,
+    MutationInvalidBranch,
+    MutationLocalBranchRequired,
+    MutationAlreadyOnBranch,
+    MutationBranchExists,
+    MutationBranchInOtherWorktree,
+    MutationStashMessageRequired,
+    MutationNothingToStash,
+    MutationStashChanged,
+    MutationUpstreamRequired,
+    MutationPullAttached,
+    MutationPullDiverged,
+    MutationRemoteNotUtf8,
+    MutationFetchMappingRequired,
+    MutationNoRemote,
     CopyRepositoryCommand,
     CopyDiffCommand,
     CopyLogCommand,
@@ -701,6 +751,190 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::MutationStashConflicts, Language::English) => {
+                "Stash restored with conflicts; the stash was retained. Resolve conflicts before continuing."
+            }
+            (Self::MutationStashConflicts, Language::Chinese) => {
+                "恢复 stash 时产生冲突，原 stash 已保留。请先解决冲突。"
+            }
+            (Self::BranchCreateCommand, Language::English) => {
+                "Create a local branch at the current commit without switching"
+            }
+            (Self::BranchCreateCommand, Language::Chinese) => "在当前提交创建本地分支，不切换分支",
+            (Self::BranchSwitchCommand, Language::English) => {
+                "Switch to an existing local branch after review"
+            }
+            (Self::BranchSwitchCommand, Language::Chinese) => "预览后切换到已有本地分支",
+            (Self::FetchCommand, Language::English) => {
+                "Fetch configured remote-tracking branches without changing the worktree"
+            }
+            (Self::FetchCommand, Language::Chinese) => "获取远程跟踪分支，不修改工作区",
+            (Self::PullCommand, Language::English) => "Fetch and review a fast-forward-only pull",
+            (Self::PullCommand, Language::Chinese) => "获取并预览仅允许快进的拉取",
+            (Self::StashTitle, Language::English) => "Stashes",
+            (Self::StashTitle, Language::Chinese) => "暂存工作",
+            (Self::StashRead, Language::English) => "Read stashes",
+            (Self::StashRead, Language::Chinese) => "读取 stash",
+            (Self::StashCommand, Language::English) => {
+                "Browse saved work and manage the selected stash"
+            }
+            (Self::StashCommand, Language::Chinese) => "浏览并管理保存的工作",
+            (Self::StashSaveCommand, Language::English) => "Save tracked changes with a message",
+            (Self::StashSaveCommand, Language::Chinese) => "填写消息并保存已跟踪文件的变更",
+            (Self::StashSaveAllCommand, Language::English) => {
+                "Save tracked and untracked changes, excluding ignored files"
+            }
+            (Self::StashSaveAllCommand, Language::Chinese) => {
+                "保存已跟踪和未跟踪变更，不包含忽略文件"
+            }
+            (Self::StashApplyCommand, Language::English) => "Restore a stash and retain its entry",
+            (Self::StashApplyCommand, Language::Chinese) => "恢复 stash 并保留记录",
+            (Self::StashPopCommand, Language::English) => {
+                "Restore a stash and remove it only after success"
+            }
+            (Self::StashPopCommand, Language::Chinese) => "恢复 stash，仅成功后删除记录",
+            (Self::StashDropCommand, Language::English) => "Delete a stash without restoring it",
+            (Self::StashDropCommand, Language::Chinese) => "删除 stash，不恢复内容",
+            (Self::StashPosition, Language::English) => "Position",
+            (Self::StashPosition, Language::Chinese) => "位置",
+            (Self::StashEmpty, Language::English) => "No matching stashes",
+            (Self::StashEmpty, Language::Chinese) => "没有匹配的 stash",
+            (Self::StashDetails, Language::English) => "Stash details",
+            (Self::StashDetails, Language::Chinese) => "Stash 详情",
+            (Self::StashSearch, Language::English) => "Search stashes",
+            (Self::StashSearch, Language::Chinese) => "搜索 stash",
+            (Self::StashHint, Language::English) => {
+                "↑↓ Select · Enter Details · ←/Esc Back · / Commands"
+            }
+            (Self::StashHint, Language::Chinese) => "↑↓选择 · Enter 详情 · ←/Esc 返回 · / 命令",
+            (Self::StashCopyCommand, Language::English) => "Copy the selected stash object ID",
+            (Self::StashCopyCommand, Language::Chinese) => "复制选中 stash 的对象 ID",
+            (Self::StashObject, Language::English) => "Stash object ID",
+            (Self::StashObject, Language::Chinese) => "Stash 对象 ID",
+            (Self::BranchNameHint, Language::English) => {
+                "Enter a local branch name · Enter Review · Esc Return"
+            }
+            (Self::BranchNameHint, Language::Chinese) => "输入本地分支名 · Enter 预览 · Esc 返回",
+            (Self::StashMessageHint, Language::English) => {
+                "Enter a message · Enter Review · Esc Return"
+            }
+            (Self::StashMessageHint, Language::Chinese) => "输入保存消息 · Enter 预览 · Esc 返回",
+            (Self::StashIdHint, Language::English) => {
+                "Enter the full 40-character stash object ID · Enter Review"
+            }
+            (Self::StashIdHint, Language::Chinese) => "输入完整的 40 位 stash 对象 ID · Enter 预览",
+            (Self::StashIdRequired, Language::English) => {
+                "A full 40-character hexadecimal stash object ID is required"
+            }
+            (Self::StashIdRequired, Language::Chinese) => {
+                "请输入完整的 40 位十六进制 stash 对象 ID"
+            }
+            (Self::MutationRun, Language::English) => "Execute",
+            (Self::MutationRun, Language::Chinese) => "执行",
+            (Self::MutationComplete, Language::English) => {
+                "Operation completed; repository status updated"
+            }
+            (Self::MutationComplete, Language::Chinese) => "操作完成，仓库状态已更新",
+            (Self::PullCurrent, Language::English) => {
+                "The local branch already contains the upstream commit"
+            }
+            (Self::PullCurrent, Language::Chinese) => "本地分支已包含上游提交",
+            (Self::PullReview, Language::English) => {
+                "Fast-forward {0} commits to {1}\nUpstream: {2}\nNo merge or rebase will be performed."
+            }
+            (Self::PullReview, Language::Chinese) => {
+                "快进 {0} 个提交至 {1}\n上游：{2}\n不会创建合并提交或执行 rebase。"
+            }
+            (Self::StashDropWarning, Language::English) => {
+                "This permanently removes this stash entry without restoring its contents."
+            }
+            (Self::StashDropWarning, Language::Chinese) => "将删除此 stash 记录，不恢复其内容。",
+            (Self::MutationTarget, Language::English) => "Target",
+            (Self::MutationTarget, Language::Chinese) => "目标",
+            (Self::MutationRequiresCommit, Language::English) => {
+                "This operation requires an existing commit"
+            }
+            (Self::MutationRequiresCommit, Language::Chinese) => "此操作要求仓库已有提交",
+            (Self::MutationDirtySubmodule, Language::English) => {
+                "A submodule has local changes; handle it in its own repository first"
+            }
+            (Self::MutationDirtySubmodule, Language::Chinese) => {
+                "子模块存在本地改动，请先在子模块仓库中处理"
+            }
+            (Self::MutationNonRegularFile, Language::English) => {
+                "A changed path is not a regular file or symlink"
+            }
+            (Self::MutationNonRegularFile, Language::Chinese) => "改动路径不是普通文件或符号链接",
+            (Self::MutationChanged, Language::English) => {
+                "The repository changed after review; reopen the operation"
+            }
+            (Self::MutationChanged, Language::Chinese) => "预览后仓库状态已变化，请重新准备操作",
+            (Self::MutationCleanRequired, Language::English) => {
+                "Commit or stash tracked changes before this operation"
+            }
+            (Self::MutationCleanRequired, Language::Chinese) => "请先提交或 stash 已跟踪文件的改动",
+            (Self::MutationInvalidBranch, Language::English) => "Enter a valid local branch name",
+            (Self::MutationInvalidBranch, Language::Chinese) => "请输入有效的本地分支名称",
+            (Self::MutationLocalBranchRequired, Language::English) => {
+                "Choose an existing local branch; remote branches are not created implicitly"
+            }
+            (Self::MutationLocalBranchRequired, Language::Chinese) => {
+                "请选择已有本地分支；不会隐式创建远程跟踪分支"
+            }
+            (Self::MutationAlreadyOnBranch, Language::English) => {
+                "This branch is already checked out"
+            }
+            (Self::MutationAlreadyOnBranch, Language::Chinese) => "当前已经检出此分支",
+            (Self::MutationBranchExists, Language::English) => {
+                "A branch with this name already exists"
+            }
+            (Self::MutationBranchExists, Language::Chinese) => "同名分支已存在",
+            (Self::MutationBranchInOtherWorktree, Language::English) => {
+                "This branch is checked out in another worktree"
+            }
+            (Self::MutationBranchInOtherWorktree, Language::Chinese) => {
+                "此分支已在另一个 worktree 中检出"
+            }
+            (Self::MutationStashMessageRequired, Language::English) => {
+                "Enter a nonempty stash message without NUL characters"
+            }
+            (Self::MutationStashMessageRequired, Language::Chinese) => {
+                "请输入非空 stash 说明，且不能包含空字符"
+            }
+            (Self::MutationNothingToStash, Language::English) => "No changes match this stash mode",
+            (Self::MutationNothingToStash, Language::Chinese) => "没有符合此 stash 范围的改动",
+            (Self::MutationStashChanged, Language::English) => {
+                "The stash selection or list changed; refresh it and select again"
+            }
+            (Self::MutationStashChanged, Language::Chinese) => {
+                "stash 条目或列表已变化，请刷新后重新选择"
+            }
+            (Self::MutationUpstreamRequired, Language::English) => {
+                "Configure one explicit upstream branch before pulling"
+            }
+            (Self::MutationUpstreamRequired, Language::Chinese) => "拉取前请为当前分支配置唯一上游",
+            (Self::MutationPullAttached, Language::English) => {
+                "Switch to a local branch with a commit before pulling"
+            }
+            (Self::MutationPullAttached, Language::Chinese) => "拉取前请切换到已有提交的本地分支",
+            (Self::MutationPullDiverged, Language::English) => {
+                "The branch has diverged; choose merge or rebase explicitly outside this operation"
+            }
+            (Self::MutationPullDiverged, Language::Chinese) => {
+                "分支已分叉，请另行明确选择 merge 或 rebase"
+            }
+            (Self::MutationRemoteNotUtf8, Language::English) => {
+                "The remote name is not valid UTF-8"
+            }
+            (Self::MutationRemoteNotUtf8, Language::Chinese) => "远程名称不是有效 UTF-8",
+            (Self::MutationFetchMappingRequired, Language::English) => {
+                "This remote has no supported remote-tracking fetch mapping"
+            }
+            (Self::MutationFetchMappingRequired, Language::Chinese) => {
+                "此远程没有可用的远程跟踪 fetch 映射"
+            }
+            (Self::MutationNoRemote, Language::English) => "No eligible remote is configured",
+            (Self::MutationNoRemote, Language::Chinese) => "没有配置可用的远程",
             (Self::CopyRepositoryCommand, Language::English) => "Copy the selected repository path",
             (Self::CopyRepositoryCommand, Language::Chinese) => "复制当前仓库的完整路径",
             (Self::CopyDiffCommand, Language::English) => {
@@ -3144,6 +3378,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (PullReview $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Fast-forward {0} commits to {1}\nUpstream: {2}\nNo merge or rebase will be performed." $(, $($args)*)?),
+            $crate::Language::Chinese => format!("快进 {0} 个提交至 {1}\n上游：{2}\n不会创建合并提交或执行 rebase。" $(, $($args)*)?),
+        }
+    };
     (RepositoryTasksRunning $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("  {0} · {1} repository tasks" $(, $($args)*)?),

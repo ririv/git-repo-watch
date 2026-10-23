@@ -17,6 +17,7 @@ mod review;
 mod schedule;
 mod settings;
 mod shell;
+mod stashes;
 mod workspace;
 use super::*;
 use body::render_body;
@@ -146,6 +147,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         screen.mode,
         Mode::Browsing
             | Mode::Panel(_)
+            | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Files(_)
             | Mode::Changes(_)

@@ -12,6 +12,7 @@ pub(crate) enum Context {
     Diff(DiffContext),
     History,
     Branches,
+    Stash,
     Repositories,
     Settings,
     Schedule,
@@ -23,6 +24,7 @@ impl Context {
             Self::Diff(_) => "diff",
             Self::History => "log",
             Self::Branches => "branch",
+            Self::Stash => "stash",
             Self::Repositories => "repo",
             Self::Settings => "settings",
             Self::Schedule => "schedule",
@@ -89,6 +91,7 @@ impl Screen {
                 _ => Context::History,
             }),
             Mode::Branches(_) => Some(Context::Branches),
+            Mode::Stashes(_) => Some(Context::Stash),
             Mode::Error { .. } => Some(Context::Error),
             Mode::Panel(section) => match section {
                 workspace::Section::Worktree => Some(Context::Diff(DiffContext::Worktree)),

@@ -45,6 +45,13 @@ pub enum Operation {
     Push {
         publication: Publication,
     },
+    Workspace {
+        action: crate::operations::mutation::Action,
+        completion: Completion<crate::operations::mutation::Change>,
+    },
+    PullFetch {
+        completion: Completion<()>,
+    },
 }
 impl Operation {
     pub(super) fn kind(&self) -> &'static str {
@@ -53,6 +60,8 @@ impl Operation {
             Self::Unstage { .. } => "unstage",
             Self::Commit { .. } => "commit",
             Self::Push { .. } => "push",
+            Self::Workspace { .. } => "workspace",
+            Self::PullFetch { .. } => "pull_fetch",
         }
     }
 }

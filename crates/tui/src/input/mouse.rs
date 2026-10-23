@@ -78,6 +78,7 @@ impl Screen {
             self.mode,
             Mode::Browsing
                 | Mode::Panel(_)
+                | Mode::Stashes(_)
                 | Mode::Branches(_)
                 | Mode::Files(_)
                 | Mode::Changes(_)

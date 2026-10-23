@@ -121,7 +121,9 @@ impl Workspace {
             Mode::Changes(view) => session.files = Panel::Ready(view.files),
             Mode::History(view) => session.history = Panel::Ready(view.session().clone()),
             Mode::Confirm {
-                operation: crate::Confirmation::Configure { origin, .. },
+                operation:
+                    crate::Confirmation::Configure { origin, .. }
+                    | crate::Confirmation::Mutation { origin, .. },
                 ..
             } => self.save(*origin),
             _ => {}

@@ -33,6 +33,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
         match &screen.mode {
             Mode::Browsing
             | Mode::Panel(_)
+            | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Files(_)
             | Mode::Changes(_)
@@ -64,6 +65,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     i18n::tr!(SearchEditingHint)
                 } else {
                     match screen.mode {
+                        Mode::Stashes(_) => i18n::tr!(StashHint),
                         Mode::Branches(ref view) => match view.as_ref() {
                             crate::branches::View::List(_) => i18n::tr!(BranchHint),
                             crate::branches::View::Detail { .. } => i18n::tr!(OverviewInputHint),
@@ -97,6 +99,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                     {
                         i18n::tr!(HistorySearch)
+                    } else if matches!(screen.mode, Mode::Stashes(_)) {
+                        i18n::tr!(StashSearch)
                     } else if matches!(screen.mode, Mode::Branches(_)) {
                         i18n::tr!(BranchSearch)
                     } else if files || matches!(screen.mode, Mode::History(_)) {
@@ -140,17 +144,21 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                             engine::scheduler::Control::Disable => i18n::tr!(DisableScheduledTask),
                             engine::scheduler::Control::Apply => i18n::tr!(ActionApply),
                         },
+                        Confirmation::Mutation { .. } => i18n::tr!(MutationRun),
                         Confirmation::Remove(_) => i18n::tr!(ActionUnregister),
                         Confirmation::Configure { command, .. } => match command {
-                            command::ArgumentAction::Add => i18n::tr!(ActionAdd),
-                            command::ArgumentAction::Exclude => i18n::tr!(ActionExclude),
-                            command::ArgumentAction::Unexclude => i18n::tr!(ActionUnexclude),
-                            command::ArgumentAction::Scan => i18n::tr!(ActionScan),
-                            command::ArgumentAction::Import => i18n::tr!(ActionImport),
+                            command::ConfigArgument::Add => i18n::tr!(ActionAdd),
+                            command::ConfigArgument::Exclude => i18n::tr!(ActionExclude),
+                            command::ConfigArgument::Unexclude => i18n::tr!(ActionUnexclude),
+                            command::ConfigArgument::Scan => i18n::tr!(ActionScan),
+                            command::ConfigArgument::Import => i18n::tr!(ActionImport),
                             _ => i18n::tr!(ActionSave),
                         },
                     },
-                    back: if matches!(operation, Confirmation::Configure { .. }) {
+                    back: if matches!(
+                        operation,
+                        Confirmation::Configure { .. } | Confirmation::Mutation { .. }
+                    ) {
                         i18n::tr!(ActionReturnEdit)
                     } else {
                         i18n::tr!(ActionCancel)

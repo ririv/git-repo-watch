@@ -100,6 +100,44 @@ impl Git {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())
     }
+    pub fn fast_forward(&self, path: &Path, oid: git2::Oid, cancel: &Cancel) -> Result<()> {
+        self.run(
+            path,
+            strings(&[
+                "merge",
+                "--ff-only",
+                "--no-edit",
+                "--no-autostash",
+                "--no-stat",
+                &oid.to_string(),
+            ]),
+            cancel,
+        )?;
+        Ok(())
+    }
+    pub fn post_checkout(
+        &self,
+        path: &Path,
+        before: git2::Oid,
+        after: git2::Oid,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.run(
+            path,
+            strings(&[
+                "hook",
+                "run",
+                "--ignore-missing",
+                "post-checkout",
+                "--",
+                &before.to_string(),
+                &after.to_string(),
+                "1",
+            ]),
+            cancel,
+        )?;
+        Ok(())
+    }
     pub fn push(&self, path: &Path, target: &PushTarget, cancel: &Cancel) -> Result<()> {
         self.run(
             path,

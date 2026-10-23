@@ -4,6 +4,13 @@ use anyhow::{Context, Result, ensure};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArgumentAction {
     Add,
+    BranchCreate,
+    BranchSwitch,
+    StashSave,
+    StashSaveAll,
+    StashApply,
+    StashPop,
+    StashDrop,
     Exclude,
     Unexclude,
     Scan,
@@ -24,6 +31,14 @@ impl ArgumentAction {
     pub fn action(self) -> Action {
         match self {
             Self::Add => Action::Add,
+            Self::BranchCreate => Action::BranchCreate,
+            Self::BranchSwitch => Action::BranchSwitch,
+            Self::StashSave => Action::StashSave,
+            Self::StashSaveAll => Action::StashSaveAll,
+            Self::StashApply => Action::StashApply,
+            Self::StashPop => Action::StashPop,
+            Self::StashDrop => Action::StashDrop,
+
             Self::Exclude => Action::Exclude,
             Self::Unexclude => Action::Unexclude,
             Self::Scan => Action::Scan,
@@ -49,6 +64,9 @@ impl ArgumentAction {
             Self::Autopush => "<policy>",
             Self::Concurrency => "<count>",
             Self::StartupCheck => "<true|false>",
+            Self::BranchCreate | Self::BranchSwitch => "<name>",
+            Self::StashSave | Self::StashSaveAll => "<message>",
+            Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         }
     }
     pub fn hint(self) -> &'static str {
@@ -56,6 +74,9 @@ impl ArgumentAction {
             Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => {
                 i18n::tr!(PathArgumentHint)
             }
+            Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
+            Self::StashSave | Self::StashSaveAll => i18n::tr!(StashMessageHint),
+            Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::Interval => i18n::tr!(DurationArgumentHint),
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
             Self::Autopush => i18n::tr!(PolicyArgumentHint),
@@ -87,6 +108,17 @@ impl ArgumentAction {
                     .into_string()
                     .ok()
                     .context(i18n::tr!(ExpandedPathNotUtf8))
+            }
+            Self::BranchCreate | Self::BranchSwitch | Self::StashSave | Self::StashSaveAll => {
+                ensure!(!value.contains('\0'), "NUL is not allowed");
+                Ok(value.into())
+            }
+            Self::StashApply | Self::StashPop | Self::StashDrop => {
+                ensure!(
+                    value.len() == 40 && value.bytes().all(|b| b.is_ascii_hexdigit()),
+                    i18n::tr!(StashIdRequired)
+                );
+                Ok(value.into())
             }
             Self::Interval => {
                 engine::state::interval(value)?;
@@ -130,6 +162,14 @@ impl Action {
     pub fn argument(self) -> Option<ArgumentAction> {
         match self {
             Self::Add => Some(ArgumentAction::Add),
+            Self::BranchCreate => Some(ArgumentAction::BranchCreate),
+            Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
+            Self::StashSave => Some(ArgumentAction::StashSave),
+            Self::StashSaveAll => Some(ArgumentAction::StashSaveAll),
+            Self::StashApply => Some(ArgumentAction::StashApply),
+            Self::StashPop => Some(ArgumentAction::StashPop),
+            Self::StashDrop => Some(ArgumentAction::StashDrop),
+
             Self::Exclude => Some(ArgumentAction::Exclude),
             Self::Unexclude => Some(ArgumentAction::Unexclude),
             Self::Scan => Some(ArgumentAction::Scan),
@@ -175,4 +215,57 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
         let value = input.get(command.name.len()..)?.strip_prefix(' ')?;
         Some((argument, value))
     })
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ConfigArgument {
+    Add,
+    Exclude,
+    Unexclude,
+    Scan,
+    Import,
+    Interval,
+    Anchor,
+    Autopush,
+    Concurrency,
+    StartupCheck,
+}
+impl ConfigArgument {
+    pub fn action(self) -> Action {
+        self.argument().action()
+    }
+    pub fn command(self) -> &'static Command {
+        self.argument().command()
+    }
+    fn argument(self) -> ArgumentAction {
+        match self {
+            Self::Add => ArgumentAction::Add,
+            Self::Exclude => ArgumentAction::Exclude,
+            Self::Unexclude => ArgumentAction::Unexclude,
+            Self::Scan => ArgumentAction::Scan,
+            Self::Import => ArgumentAction::Import,
+            Self::Interval => ArgumentAction::Interval,
+            Self::Anchor => ArgumentAction::Anchor,
+            Self::Autopush => ArgumentAction::Autopush,
+            Self::Concurrency => ArgumentAction::Concurrency,
+            Self::StartupCheck => ArgumentAction::StartupCheck,
+        }
+    }
+}
+impl ArgumentAction {
+    pub fn configuration(self) -> Option<ConfigArgument> {
+        match self {
+            Self::Add => Some(ConfigArgument::Add),
+            Self::Exclude => Some(ConfigArgument::Exclude),
+            Self::Unexclude => Some(ConfigArgument::Unexclude),
+            Self::Scan => Some(ConfigArgument::Scan),
+            Self::Import => Some(ConfigArgument::Import),
+            Self::Interval => Some(ConfigArgument::Interval),
+            Self::Anchor => Some(ConfigArgument::Anchor),
+            Self::Autopush => Some(ConfigArgument::Autopush),
+            Self::Concurrency => Some(ConfigArgument::Concurrency),
+            Self::StartupCheck => Some(ConfigArgument::StartupCheck),
+            _ => None,
+        }
+    }
 }

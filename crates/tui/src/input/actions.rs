@@ -15,6 +15,24 @@ impl Screen {
         root: &Cancel,
     ) -> Result<bool> {
         match action {
+            Action::Stashes => {
+                if let Some(path) = path {
+                    self.read_stashes(path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
+            Action::Fetch => {
+                if let Some(path) = path {
+                    self.fetch_repository(path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
+            Action::Pull => {
+                let draft = self.mutation_draft(action, path);
+                self.prepare_mutation(engine::operations::mutation::Request::Pull, draft);
+            }
             Action::Copy(scope) => self.copy_to_clipboard(scope, selection, path),
             Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
@@ -60,7 +78,9 @@ impl Screen {
                     return Ok(false);
                 }
                 self.refresh_overview();
-                if let Mode::Branches(view) = &self.mode {
+                if let Mode::Stashes(view) = &self.mode {
+                    self.read_stashes(view.session().snapshot.path.clone());
+                } else if let Mode::Branches(view) = &self.mode {
                     self.read_branches(view.session().snapshot.path.clone());
                 } else if let Mode::History(view) = &self.mode {
                     self.open_history(view.session().references.path.clone());
@@ -229,7 +249,7 @@ impl Screen {
     }
     pub(crate) fn prepare_configuration(
         &mut self,
-        command: command::ArgumentAction,
+        command: command::ConfigArgument,
         value: String,
         draft: crate::bar::CommandDraft,
     ) {
@@ -313,6 +333,7 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
+            Confirmation::Mutation { plan, origin, .. } => self.execute_mutation(*plan, *origin),
             Confirmation::Schedule(operation) => self.start(
                 match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
@@ -358,7 +379,7 @@ impl Screen {
                     command::description(command.action()),
                     Effect::Configuration,
                     move |s, c, _| {
-                        use command::ArgumentAction as Parameter;
+                        use command::ConfigArgument as Parameter;
                         let save = |edit| -> Result<String> {
                             s.configure(edit)?;
                             Ok(i18n::tr!(ConfigurationSavedApplyScheduleAfterChangingThe).into())

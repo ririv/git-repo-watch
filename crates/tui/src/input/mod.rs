@@ -11,7 +11,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 fn ctrl_c(key: KeyEvent) -> bool {
     key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL)
 }
-fn scroll_key(scroll: &mut usize, key: KeyEvent) {
+pub(super) fn scroll_key(scroll: &mut usize, key: KeyEvent) {
     match key.code {
         KeyCode::Up | KeyCode::Char('k') => *scroll = scroll.saturating_sub(1),
         KeyCode::Down | KeyCode::Char('j') => *scroll = scroll.saturating_add(1),

@@ -73,6 +73,7 @@ mod checks;
 mod snapshot;
 pub use checks::{Groups, group};
 mod config;
+mod mutations;
 mod repository;
 mod schedule;
 impl Service {
