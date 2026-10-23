@@ -96,7 +96,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        s.paste("/diff layout ");
+        s.paste("//diff layout ");
         let menu = render(&mut s, 160, 32);
         for name in [
             "diff layout auto",
@@ -107,7 +107,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/diff layout split");
+        assert_eq!(s.bar.text(), "/diff layout split");
         support::write(f.repo.join("one.rs"), "fn changed_after_snapshot() {}\n");
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Changes(_)));

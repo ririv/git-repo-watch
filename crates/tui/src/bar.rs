@@ -6,7 +6,7 @@ use engine::cancel::Cancel;
 use std::path::PathBuf;
 #[derive(Debug)]
 pub(crate) struct CommandDraft {
-    pub editor: Editor,
+    pub input: command::Input,
     pub path: Option<PathBuf>,
 }
 #[derive(Debug)]
@@ -18,7 +18,7 @@ pub(crate) enum InputBar {
         draft: CommandDraft,
     },
     Command {
-        editor: Editor,
+        input: command::Input,
         selected: usize,
         menu: command::path::Menu,
         path: Option<PathBuf>,
@@ -32,25 +32,35 @@ impl Default for InputBar {
 impl InputBar {
     pub fn editor(&self) -> &Editor {
         match self {
-            Self::Search(editor) | Self::Command { editor, .. } => editor,
-            Self::Layout { draft, .. } => &draft.editor,
+            Self::Search(editor) => editor,
+            Self::Command { input, .. } => input.editor(),
+            Self::Layout { draft, .. } => draft.input.editor(),
         }
     }
     pub fn editor_mut(&mut self) -> &mut Editor {
         match self {
-            Self::Search(editor) | Self::Command { editor, .. } => editor,
-            Self::Layout { draft, .. } => &mut draft.editor,
+            Self::Search(editor) => editor,
+            Self::Command { input, .. } => input.editor_mut(),
+            Self::Layout { draft, .. } => draft.input.editor_mut(),
         }
     }
     pub fn commands(&self) -> Option<Vec<&'static command::Command>> {
         match self {
-            Self::Command { editor, .. } => Some(command::matches(
-                editor
-                    .text
-                    .strip_prefix('/')
-                    .expect("command input starts with slash"),
-            )),
+            Self::Command { input, .. } => Some(input.matches()),
             Self::Search(_) | Self::Layout { .. } => None,
+        }
+    }
+    pub fn text(&self) -> String {
+        match self {
+            Self::Command { input, .. } => input.text(),
+            Self::Layout { draft, .. } => draft.input.text(),
+            Self::Search(editor) => editor.text.clone(),
+        }
+    }
+    pub fn command_input(&self) -> Option<&command::Input> {
+        match self {
+            Self::Command { input, .. } => Some(input),
+            _ => None,
         }
     }
 }
@@ -75,29 +85,13 @@ impl Screen {
                 .unwrap_or_else(|| self.query.clone())
         }))
     }
-    fn normalize_bar(&mut self, path: Option<PathBuf>) {
-        let command = self.bar.editor().text.starts_with('/');
-        match (&self.bar, command) {
-            (InputBar::Search(_), true) => {
-                let old = std::mem::take(&mut self.bar);
-                let InputBar::Search(editor) = old else {
-                    unreachable!()
-                };
-                self.bar = InputBar::Command {
-                    editor,
-                    selected: 0,
-                    menu: Default::default(),
-                    path,
-                };
-            }
-            (InputBar::Command { .. }, false) => {
-                let old = std::mem::take(&mut self.bar);
-                let InputBar::Command { editor, .. } = old else {
-                    unreachable!()
-                };
-                self.bar = InputBar::Search(editor);
-            }
-            _ => {}
+    fn normalize_bar(&mut self) {
+        if matches!(&self.bar, InputBar::Command { input: command::Input::Global(editor), .. } if !editor.text.starts_with('/'))
+        {
+            let InputBar::Command { input, .. } = std::mem::take(&mut self.bar) else {
+                unreachable!()
+            };
+            self.bar = InputBar::Search(input.into_search().expect("global command lost slash"));
         }
         if let InputBar::Search(editor) = &self.bar {
             let query = editor.text.clone();
@@ -126,9 +120,20 @@ impl Screen {
         if matches!(self.bar, InputBar::Layout { .. }) {
             return;
         }
-        let path = self.scope_path();
-        self.bar.editor_mut().insert(text);
-        self.normalize_bar(path);
+        if matches!(self.bar, InputBar::Search(_))
+            && let Some(body) = text.strip_prefix('/')
+        {
+            self.open_command_bar();
+            let InputBar::Command { input, .. } = &mut self.bar else {
+                unreachable!()
+            };
+            input.paste_initial(body);
+        } else if let InputBar::Command { input, .. } = &mut self.bar {
+            input.paste(text);
+        } else {
+            self.bar.editor_mut().insert(text);
+        }
+        self.normalize_bar();
         if let InputBar::Command { selected, menu, .. } = &mut self.bar {
             *menu = Default::default();
             *selected = 0
@@ -151,12 +156,18 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         if let InputBar::Command {
-            editor,
+            input,
             selected,
             menu,
             path,
         } = &mut self.bar
         {
+            if input.namespace_key(key) {
+                *selected = 0;
+                *menu = Default::default();
+                self.message.clear();
+                return Ok(BarEvent::Handled);
+            }
             if let command::path::Menu::Directories(directories) = menu {
                 match key.code {
                     KeyCode::Esc => {
@@ -166,62 +177,53 @@ impl Screen {
                     KeyCode::Up | KeyCode::BackTab => directories.advance(true),
                     KeyCode::Down | KeyCode::Tab => directories.advance(false),
                     KeyCode::Enter => {
-                        *editor = directories.choose();
+                        input.replace_canonical(directories.choose());
                         *menu = Default::default();
                         self.message.clear();
                     }
                     _ => {
                         *menu = Default::default();
-                        editor.key(key);
-                        let path = path.clone();
-                        self.normalize_bar(path);
+                        input.editor_mut().key(key);
+                        self.normalize_bar();
                         self.message.clear();
                     }
                 }
                 return Ok(BarEvent::Handled);
             }
-            let matches = command::matches(
-                editor
-                    .text
-                    .strip_prefix('/')
-                    .expect("command input starts with slash"),
-            );
+            let matches = input.matches();
+            let query = input.query();
             match key.code {
                 KeyCode::Esc => self.clear_bar(),
                 KeyCode::Up => *selected = selected.saturating_sub(1),
                 KeyCode::Down => *selected = (*selected + 1).min(matches.len().saturating_sub(1)),
                 KeyCode::Tab => {
                     if let Some(c) = matches.get(*selected) {
-                        if command::argument_input(
-                            editor.text.strip_prefix('/').expect("command prefix"),
-                        )
-                        .is_some()
-                        {
+                        if command::argument_input(&query).is_some() {
+                            let mut canonical = input.canonical_editor();
                             match command::path::complete(
-                                editor,
+                                &mut canonical,
                                 self.service.scheduler.user_home(),
                             ) {
                                 Ok(completion) => {
+                                    input.replace_canonical(canonical);
                                     *menu = completion;
                                     self.message.clear();
                                 }
                                 Err(error) => self.message = format!("{error:#}"),
                             }
                         } else {
-                            *editor = Editor::new(c.completion());
+                            input.complete(c);
                             self.message.clear();
                         }
                         *selected = 0
                     }
                 }
                 KeyCode::Enter => {
-                    if let Some((argument, value)) = command::argument_input(
-                        editor.text.strip_prefix('/').expect("command prefix"),
-                    ) {
+                    if let Some((argument, value)) = command::argument_input(&query) {
                         match argument.parse(value, self.service.scheduler.user_home()) {
                             Ok(value) => {
                                 let draft = CommandDraft {
-                                    editor: editor.clone(),
+                                    input: input.clone(),
                                     path: path.clone(),
                                 };
                                 self.prepare_configuration(argument, value, draft);
@@ -231,13 +233,13 @@ impl Screen {
                     } else if let Some(command) = matches.get(*selected) {
                         if command.action == Action::DiffLayoutMenu {
                             let draft = CommandDraft {
-                                editor: editor.clone(),
+                                input: input.clone(),
                                 path: path.clone(),
                             };
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);
                         } else if command.action.argument().is_some() {
-                            *editor = Editor::new(command.completion());
+                            input.complete(command);
                             *selected = 0;
                             self.message.clear();
                         } else {
@@ -254,10 +256,9 @@ impl Screen {
                     }
                 }
                 _ => {
-                    let path = path.clone();
-                    editor.key(key);
+                    input.editor_mut().key(key);
                     *selected = 0;
-                    self.normalize_bar(path);
+                    self.normalize_bar();
                     self.message.clear();
                 }
             }
@@ -320,17 +321,12 @@ impl Screen {
         {
             return Ok(BarEvent::Pass);
         }
-        // 首页按 / 打开独立命令草稿，保留已有搜索，应用或关闭后恢复搜索。
+        // 按 / 捕获当前视图和仓库，独立保存命令草稿，保留已有搜索。
         if key.code == KeyCode::Char('/')
             && key.modifiers.is_empty()
-            && self.repository_list_active()
+            && (self.repository_list_active() || self.bar.editor().cursor == 0)
         {
-            self.bar = InputBar::Command {
-                editor: Editor::new("/".into()),
-                selected: 0,
-                menu: Default::default(),
-                path: self.selected_path(),
-            };
+            self.open_command_bar();
             self.message.clear();
             return Ok(BarEvent::Handled);
         }
@@ -345,13 +341,20 @@ impl Screen {
                 | KeyCode::End
         );
         if editing {
-            let path = self.scope_path();
             self.bar.editor_mut().key(key);
-            self.normalize_bar(path);
+            self.normalize_bar();
             self.message.clear();
             return Ok(BarEvent::Handled);
         }
         Ok(BarEvent::Pass)
+    }
+    fn open_command_bar(&mut self) {
+        self.bar = InputBar::Command {
+            input: command::Input::new(self.command_context()),
+            selected: 0,
+            menu: Default::default(),
+            path: self.scope_path(),
+        };
     }
     fn clear_bar(&mut self) {
         if matches!(self.bar, InputBar::Command { .. }) {

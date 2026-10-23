@@ -3,6 +3,7 @@ mod changes;
 mod commands;
 mod completion;
 mod concurrency;
+mod contexts;
 mod diff;
 mod help;
 mod history;
@@ -102,7 +103,8 @@ fn command(s: &mut Screen, text: &str) {
     if !s.bar.editor().text.is_empty() {
         key(s, KeyCode::Esc);
     }
-    s.paste(&format!("/{text}"));
+    // 既有工作流用显式全局命令；上下文后缀由 contexts 测试直接覆盖。
+    s.paste(&format!("//{text}"));
     key(s, KeyCode::Enter);
 }
 fn open_files(s: &mut Screen) {
@@ -199,7 +201,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     key(&mut s, KeyCode::Char('/'));
     s.paste("diff sta");
     key(&mut s, KeyCode::Tab);
-    assert!(matches!(&s.bar,crate::bar::InputBar::Command{editor,..}if editor.text=="/diff stage"));
+    assert!(matches!(&s.bar,crate::bar::InputBar::Command{input,..}if input.text()=="/diff stage"));
     key(&mut s, KeyCode::Esc);
     command(&mut s, "check nope");
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
@@ -404,11 +406,11 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     assert_eq!(s.query, "settings");
     assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Esc);
-    s.paste("/settings");
+    s.paste("//settings");
     assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::General));
-    s.paste("/push");
+    s.paste("//push");
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Delete);
     assert!(matches!(s.bar, crate::bar::InputBar::Search(_)));
@@ -513,7 +515,7 @@ fn numeric_search_and_list_commands_do_not_conflict() {
     )
     .unwrap();
     assert_eq!(s.filter, Filter::All);
-    assert_eq!(s.bar.editor().text, "/");
+    assert_eq!(s.bar.text(), "/");
 }
 
 #[test]
@@ -608,7 +610,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         assert!(confirm.contains("Enter confirm"));
         key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Browsing));
-        assert_eq!(s.bar.editor().text, "/settings concurrency 4");
+        assert_eq!(s.bar.text(), "/settings concurrency 4");
         key(&mut s, KeyCode::Esc);
     }
     key(&mut s, KeyCode::Enter);
@@ -642,9 +644,9 @@ fn terminal_command_completes_and_freezes_repository_scope() {
             "/example/unavailable-alpha".into(),
             "/example/unavailable-beta".into(),
         ]);
-        s.paste("/te");
+        s.paste("//te");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/terminal");
+        assert_eq!(s.bar.text(), "/terminal");
         assert_eq!(
             command::matches("terminal")
                 .first()
@@ -1228,12 +1230,12 @@ fn configuration_confirmation_returns_to_editing_and_saves_only_on_accept() {
     key(&mut s, KeyCode::Right);
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.bar.editor().text, "/settings concurrency 7");
+    assert_eq!(s.bar.text(), "/settings concurrency 7");
     assert_eq!(s.service.store.config().unwrap().max_concurrency, 4);
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.bar.editor().text, "/settings concurrency 7");
+    assert_eq!(s.bar.text(), "/settings concurrency 7");
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Char('y'));
     key(&mut s, KeyCode::Char('n'));
@@ -1373,7 +1375,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Browsing));
-        assert!(s.bar.editor().text.starts_with("/schedule autopush "));
+        assert!(s.bar.text().starts_with("/schedule autopush "));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings");
         assert_eq!(s.page, Page::Configuration(Configuration::General));
@@ -1384,7 +1386,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         assert_eq!(s.setting_selected, 0);
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Browsing));
-        assert!(s.bar.editor().text.starts_with("/settings concurrency "));
+        assert!(s.bar.text().starts_with("/settings concurrency "));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repo");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
@@ -1400,39 +1402,39 @@ fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu
     key(&mut s, KeyCode::Char('/'));
     s.paste("repo");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.editor().text, "/repo");
+    assert_eq!(s.bar.text(), "/repo");
     s.select(1);
     s.paste(" rem");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.editor().text, "/repo remove");
+    assert_eq!(s.bar.text(), "/repo remove");
     key(&mut s, KeyCode::Enter);
     assert!(
         matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == &PathBuf::from("/example/alpha"))
     );
     key(&mut s, KeyCode::Esc);
-    s.paste("/schedule ");
+    s.paste("//schedule ");
     s.paste("int");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.editor().text, "/schedule interval ");
+    assert_eq!(s.bar.text(), "/schedule interval ");
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert!(s.bar.editor().text.starts_with("/schedule interval "));
+    assert!(s.bar.text().starts_with("/schedule interval "));
 }
 
 #[test]
 fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_tasks() {
     let (_home, mut s) = fixture(vec![]);
     let before = s.service.store.config().unwrap();
-    s.paste("/sche");
+    s.paste("//sche");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.editor().text, "/schedule");
+    assert_eq!(s.bar.text(), "/schedule");
     assert_eq!(s.bar.commands().unwrap().len(), 7);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert!(s.bar.editor().text.starts_with("/schedule interval "));
+    assert!(s.bar.text().starts_with("/schedule interval "));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.page, Page::Repositories);
@@ -1471,7 +1473,7 @@ fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     assert!(s.bar.editor().text.is_empty());
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Repositories);
-    s.paste("/sche");
+    s.paste("//sche");
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert!(s.service.store.report().unwrap().is_none());
@@ -1548,12 +1550,12 @@ fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "repo");
-        s.paste("/repo a");
+        s.paste("//repo a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             assert!(render(&mut s, width, height).contains("/repo add <path>"));
         }
         key(&mut s, KeyCode::Enter);
-        assert_eq!(s.bar.editor().text, "/repo add ");
+        assert_eq!(s.bar.text(), "/repo add ");
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Enter);
@@ -1581,7 +1583,7 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     assert!(s.config.repositories.is_empty());
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.bar.editor().text, format!("/{input}"));
+    assert_eq!(s.bar.text(), format!("/{input}"));
     assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Enter);
@@ -1606,7 +1608,7 @@ fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchan
     ] {
         command(&mut s, input);
         assert!(matches!(s.mode, Mode::Browsing), "{input}");
-        assert_eq!(s.bar.editor().text, format!("/{input}"));
+        assert_eq!(s.bar.text(), format!("/{input}"));
         assert!(!s.message.is_empty(), "{input}");
     }
     let config = s.service.store.config().unwrap();
@@ -1621,15 +1623,15 @@ fn dashboard_editing_and_confirmation_share_the_inline_command_draft() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "schedule");
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.bar.editor().text, "/schedule interval 6h");
+    assert_eq!(s.bar.text(), "/schedule interval 6h");
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     command(&mut s, "schedule interval 12h");
     key(&mut s, KeyCode::Esc);
-    assert_eq!(s.bar.editor().text, "/schedule interval 12h");
+    assert_eq!(s.bar.text(), "/schedule interval 12h");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.editor().text, "/schedule interval 12h");
+    assert_eq!(s.bar.text(), "/schedule interval 12h");
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
@@ -1650,7 +1652,7 @@ fn cancelling_an_inline_parameter_confirmation_restores_the_file_panel_and_comma
     assert!(matches!(s.mode, Mode::Confirm { .. }));
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Files(_)));
-    assert_eq!(s.bar.editor().text, "/settings concurrency 8");
+    assert_eq!(s.bar.text(), "/settings concurrency 8");
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Files(_)));
     assert!(s.bar.editor().text.is_empty());

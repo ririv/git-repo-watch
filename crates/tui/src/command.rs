@@ -1,9 +1,13 @@
 //! Explicit command catalog independent of terminal rendering.
 mod argument;
+pub(crate) mod context;
+mod input;
 pub(crate) mod path;
 #[cfg(test)]
 mod tests;
 pub use argument::{ArgumentAction, argument_input};
+pub(crate) use context::Context;
+pub(crate) use input::Input;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Branches,
@@ -147,6 +151,12 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::BranchCommand,
     },
     Command {
+        name: "branch refresh",
+        action: Refresh,
+        scope: View,
+        description: i18n::Message::RefreshContextView,
+    },
+    Command {
         name: "log",
         action: Log,
         scope: Repository,
@@ -157,6 +167,12 @@ pub const COMMANDS: &[Command] = &[
         action: LogMore,
         scope: View,
         description: i18n::Message::HistoryMoreCommand,
+    },
+    Command {
+        name: "log refresh",
+        action: Refresh,
+        scope: View,
+        description: i18n::Message::RefreshContextView,
     },
     Command {
         name: "diff",
@@ -199,6 +215,12 @@ pub const COMMANDS: &[Command] = &[
         action: DiffLayout(crate::diff::Preference::Unified),
         scope: View,
         description: i18n::Message::DiffChooseUnified,
+    },
+    Command {
+        name: "diff refresh",
+        action: Refresh,
+        scope: View,
+        description: i18n::Message::RefreshContextView,
     },
     Command {
         name: "commit",
@@ -399,9 +421,12 @@ enum MatchKind {
 }
 impl Command {
     fn match_kind(&self, query: &str) -> Option<MatchKind> {
-        if self.name.starts_with(query) {
+        self.match_name(self.name, query)
+    }
+    fn match_name(&self, name: &str, query: &str) -> Option<MatchKind> {
+        if name.starts_with(query) {
             Some(MatchKind::NamePrefix)
-        } else if self.name.contains(query) {
+        } else if name.contains(query) {
             Some(MatchKind::NameSubstring)
         } else if [i18n::Language::English, i18n::Language::Chinese]
             .into_iter()

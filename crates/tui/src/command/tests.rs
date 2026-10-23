@@ -14,14 +14,15 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "diff layout auto",
         "diff layout split",
         "diff layout unified",
+        "diff refresh",
     ];
     for input in ["di", "diff", "  diff"] {
         assert_eq!(&names(input)[..expected.len()], expected);
     }
     assert_eq!(names("diff "), expected[1..]);
-    assert_eq!(names("diff lay"), expected[3..]);
-    assert_eq!(names("diff layout"), expected[3..]);
-    assert_eq!(names("diff layout "), expected[4..]);
+    assert_eq!(names("diff lay"), expected[3..7]);
+    assert_eq!(names("diff layout"), expected[3..7]);
+    assert_eq!(names("diff layout "), expected[4..7]);
     assert_eq!(names("diff layout s"), ["diff layout split"]);
     assert!(names("diff unknown").is_empty());
 }

@@ -2,6 +2,11 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    RefreshContextView,
+    ContextCommands,
+    ContextCommandPlaceholder,
+    ContextCommandHint,
+    ContextPrefixHint,
     RepositoryFilterCommand,
     RepositoryFilterAll,
     RepositoryFilterProblems,
@@ -670,6 +675,24 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::RefreshContextView, Language::English) => "Refresh this view",
+            (Self::RefreshContextView, Language::Chinese) => "刷新当前视图",
+            (Self::ContextCommands, Language::English) => "View commands",
+            (Self::ContextCommands, Language::Chinese) => "当前视图命令",
+            (Self::ContextCommandPlaceholder, Language::English) => "Type a command for this view…",
+            (Self::ContextCommandPlaceholder, Language::Chinese) => "输入当前视图的操作…",
+            (Self::ContextCommandHint, Language::English) => {
+                "Tab complete · Enter run · // global · ⌫ twice: global"
+            }
+            (Self::ContextCommandHint, Language::Chinese) => {
+                "Tab 补全 · Enter 执行 · // 全局 · ⌫ 两次切换全局"
+            }
+            (Self::ContextPrefixHint, Language::English) => {
+                "Prefix selected · Backspace: global · Esc close"
+            }
+            (Self::ContextPrefixHint, Language::Chinese) => {
+                "已选中前缀 · 再按 ⌫ 切换全局 · Esc 关闭"
+            }
             (Self::RepositoryFilterCommand, Language::English) => "Filter repositories",
             (Self::RepositoryFilterCommand, Language::Chinese) => "筛选仓库",
             (Self::RepositoryFilterAll, Language::English) => "All registered repositories",

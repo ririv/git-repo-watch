@@ -12,7 +12,7 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
 }
 
 pub(super) fn menu_title(screen: &Screen) -> Option<&'static str> {
-    match screen.bar.editor().text.to_ascii_lowercase().as_str() {
+    match screen.bar.text().to_ascii_lowercase().as_str() {
         "/filter " => Some(i18n::tr!(RepositoryFilterCommand)),
         "/sort " => Some(i18n::tr!(RepositorySortCommand)),
         _ => None,

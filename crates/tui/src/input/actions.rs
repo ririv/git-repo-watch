@@ -84,7 +84,7 @@ impl Screen {
             Action::DiffLayoutMenu => {
                 self.open_layout_picker(
                     crate::bar::CommandDraft {
-                        editor: Editor::new("/diff layout".into()),
+                        input: command::Input::global(Editor::new("/diff layout".into())),
                         path,
                     },
                     0,
@@ -211,7 +211,10 @@ impl Screen {
                 };
                 let argument = action.argument().expect("parameter action");
                 self.bar = crate::bar::InputBar::Command {
-                    editor: Editor::new(format!("{}{value}", argument.command().completion())),
+                    input: command::Input::from_canonical(
+                        self.command_context(),
+                        Editor::new(format!("{}{value}", argument.command().completion())),
+                    ),
                     selected: 0,
                     menu: Default::default(),
                     path,

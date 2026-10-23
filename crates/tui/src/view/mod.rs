@@ -133,7 +133,13 @@ fn local_time(value: &str) -> String {
 }
 
 fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
-    let crate::bar::InputBar::Command { selected, path, .. } = &screen.bar else {
+    let crate::bar::InputBar::Command {
+        input,
+        selected,
+        path,
+        ..
+    } = &screen.bar
+    else {
         return;
     };
     if !matches!(
@@ -161,7 +167,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         .expect("command bar provides candidates");
     let name_width = matches
         .iter()
-        .map(|command| command.usage().len())
+        .map(|command| input.usage(command).len())
         .max()
         .unwrap_or(0)
         .max(13);
@@ -189,7 +195,11 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             let padding = description_width
                 .saturating_sub(unicode_width::UnicodeWidthStr::width(description.as_str()));
             let mut spans = vec![Span::styled(
-                format!("/{}", c.name),
+                format!(
+                    "{}{}",
+                    if input.context().is_some() { "" } else { "/" },
+                    input.name(c)
+                ),
                 Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
             )];
             if let Some(argument) = c.action.argument() {
@@ -200,7 +210,8 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
                         .add_modifier(Modifier::ITALIC),
                 ));
             }
-            spans.push(Span::raw(" ".repeat(name_width - c.usage().len() + 1)));
+            let usage_width = input.usage(c).len();
+            spans.push(Span::raw(" ".repeat(name_width - usage_width + 1)));
             if let Some(annotation) = annotation {
                 spans.push(Span::styled(
                     format!("[{annotation}] "),
@@ -224,8 +235,10 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         body.width,
         height,
     );
-    let title = repository_list::menu_title(screen)
-        .map(str::to_owned)
+    let title = input
+        .context()
+        .map(|context| format!("/{} · {}", context.name(), i18n::tr!(ContextCommands)))
+        .or_else(|| repository_list::menu_title(screen).map(str::to_owned))
         .unwrap_or_else(|| {
             i18n::tf!(
                 Commands,

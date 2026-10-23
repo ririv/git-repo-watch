@@ -73,7 +73,7 @@ fn text_and_modified_arrows_stay_in_the_editor_instead_of_navigating() {
         assert_eq!(s.page, Page::Repositories);
         assert!(matches!(s.mode, Mode::Browsing));
     }
-    s.paste("/repo add ~/中文");
+    s.paste("//repo add ~/中文");
     let draft = s.bar.editor().text.clone();
     key(&mut s, KeyCode::Left);
     key(&mut s, KeyCode::Right);
@@ -88,7 +88,7 @@ fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation(
     let before = std::fs::read(s.service.store.config_path()).unwrap();
     command(&mut s, "settings");
     key(&mut s, KeyCode::Right);
-    assert_eq!(s.bar.editor().text, "/settings concurrency 4");
+    assert_eq!(s.bar.text(), "/settings concurrency 4");
     assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Left);

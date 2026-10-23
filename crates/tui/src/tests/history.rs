@@ -263,6 +263,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
     command(&mut s, "log more");
     assert!(s.message.contains(i18n::tr!(HistoryNoMore)));
     key(&mut s, KeyCode::Char('/'));
+    key(&mut s, KeyCode::Char('/'));
     assert!(
         s.bar
             .commands()

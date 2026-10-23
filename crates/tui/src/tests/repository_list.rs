@@ -160,7 +160,7 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         let selected = s.selected_path();
         let configuration = std::fs::read(s.service.store.config_path()).unwrap();
         command(&mut s, "sort");
-        assert_eq!(s.bar.editor().text, "/sort ");
+        assert_eq!(s.bar.text(), "/sort ");
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 0, .. }));
         key(&mut s, KeyCode::Down);
         assert_eq!(s.order, Order::Priority);

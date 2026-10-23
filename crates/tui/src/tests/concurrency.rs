@@ -178,11 +178,11 @@ fn task_completion_preserves_a_new_command_draft_and_errors_belong_to_the_origin
             Ok(Outcome::Files(service.files(&f.repo, &cancel)?))
         },
     );
-    s.paste("/settings con");
+    s.paste("//settings con");
     release.send(()).unwrap();
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.bar.editor().text, "/settings con");
+    assert_eq!(s.bar.text(), "/settings con");
     key(&mut s, KeyCode::Esc);
     let path = s.selected_path().unwrap();
     let (release, gate) = mpsc::channel();

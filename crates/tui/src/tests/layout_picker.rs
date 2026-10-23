@@ -16,7 +16,7 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
         wait(&mut s);
         command(&mut s, "diff layout unified");
         let query = s.mode.file_session().unwrap().query.clone();
-        s.paste("/diff lay");
+        s.paste("//diff lay");
         key(&mut s, KeyCode::Enter);
         assert!(matches!(
             s.bar,
@@ -35,9 +35,9 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
         ));
         assert_eq!(s.diff_preference, Preference::Unified);
         s.paste("ignored paste");
-        assert_eq!(s.bar.editor().text, "/diff lay");
+        assert_eq!(s.bar.text(), "/diff lay");
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.editor().text, "/diff lay");
+        assert_eq!(s.bar.text(), "/diff lay");
         assert!(matches!(s.bar, InputBar::Command { .. }));
         assert!(matches!(&s.mode,Mode::Changes(session) if session.files.query==query));
         key(&mut s, KeyCode::Enter);
@@ -136,7 +136,7 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         command(&mut s, "diff");
         wait(&mut s);
-        s.paste("/diff ");
+        s.paste("//diff ");
         for (width, actual) in [
             (180, Preference::Unified),
             (240, Preference::Split),
@@ -184,7 +184,7 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         key(&mut s, KeyCode::Right);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Split);
-        s.paste("/diff layout ");
+        s.paste("//diff layout ");
         let text = render(&mut s, 100, 28);
         let current = format!("✓ {}", i18n::tr!(LayoutCurrent));
         assert!(
@@ -204,7 +204,7 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
 #[test]
 fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_their_own_width() {
     let (_home, mut s) = fixture(vec![]);
-    s.paste("/diff ");
+    s.paste("//diff ");
     let text = render(&mut s, 100, 28);
     assert!(text.contains(&format!(
         "[{}: {}]",
@@ -221,7 +221,7 @@ fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_thei
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    s.paste("/diff ");
+    s.paste("//diff ");
     for (width, actual) in [(180, Preference::Split), (100, Preference::Unified)] {
         let text = render(&mut s, width, 32);
         assert!(

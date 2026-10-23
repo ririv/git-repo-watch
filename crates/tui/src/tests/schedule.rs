@@ -49,12 +49,12 @@ fn anchor_editing_normalizes_the_draft_and_interval_changes_preserve_it() {
     command(&mut s, "schedule");
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.bar.editor().text, "/schedule anchor auto");
+    assert_eq!(s.bar.text(), "/schedule anchor auto");
     key(&mut s, KeyCode::Esc);
     command(&mut s, "schedule anchor 00:00");
     assert!(matches!(s.mode, Mode::Confirm { .. }));
     key(&mut s, KeyCode::Esc);
-    assert!(s.bar.editor().text.starts_with("/schedule anchor 00:00"));
+    assert!(s.bar.text().starts_with("/schedule anchor 00:00"));
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);

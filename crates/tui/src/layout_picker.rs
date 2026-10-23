@@ -37,7 +37,7 @@ impl Screen {
                     unreachable!()
                 };
                 self.bar = InputBar::Command {
-                    editor: draft.editor,
+                    input: draft.input,
                     path: draft.path,
                     selected: command_cursor,
                     menu: Default::default(),

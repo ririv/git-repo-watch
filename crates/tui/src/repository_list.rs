@@ -84,7 +84,7 @@ impl Screen {
             .position(|command| command.action == current)
             .expect("current list option has a command");
         self.bar = InputBar::Command {
-            editor: Editor::new(format!("/{input}")),
+            input: crate::command::Input::global(Editor::new(format!("/{input}"))),
             selected,
             menu: Default::default(),
             path: self.selected_path(),

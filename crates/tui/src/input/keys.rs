@@ -178,7 +178,7 @@ impl Screen {
                         Confirmation::Configure { origin, draft, .. } => {
                             self.mode = *origin;
                             self.bar = crate::bar::InputBar::Command {
-                                editor: draft.editor,
+                                input: draft.input,
                                 path: draft.path,
                                 selected: 0,
                                 menu: Default::default(),

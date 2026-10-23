@@ -113,9 +113,9 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
         s.workspace.session().unwrap().arrangement,
         Arrangement::Maximized
     );
-    s.paste("/comm");
+    s.paste("//comm");
     zoom(&mut s);
-    assert_eq!(s.bar.editor().text, "/comm");
+    assert_eq!(s.bar.text(), "/comm");
     assert_eq!(
         s.workspace.session().unwrap().arrangement,
         Arrangement::Maximized
@@ -214,9 +214,9 @@ fn initial_background_read_keeps_command_drafts_and_active_file_selections() {
     support::write(f.repo.join("pending"), "pending\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
-    s.paste("/comm");
+    s.paste("//comm");
     wait_workspace(&mut s);
-    assert_eq!(s.bar.editor().text, "/comm");
+    assert_eq!(s.bar.text(), "/comm");
     key(&mut s, KeyCode::Esc);
     open_files(&mut s);
     wait(&mut s);
@@ -302,7 +302,7 @@ fn section_clicks_preserve_command_drafts_and_another_repository_gets_its_own_se
     assert!(s.mouse(click, &Cancel::default()).unwrap());
     wait(&mut s);
     assert!(matches!(&s.mode, Mode::Files(files) if files.snapshot.path==first.repo));
-    s.paste("/comm");
+    s.paste("//comm");
     let draft = s.bar.editor().text.clone();
     render(&mut s, 100, 28);
     s.mouse(click, &Cancel::default()).unwrap();

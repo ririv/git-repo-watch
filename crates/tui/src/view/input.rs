@@ -49,15 +49,16 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     i18n::tr!(DirectoryCompletionHint)
                 } else if command {
                     match command::argument_input(
-                        screen
-                            .bar
-                            .editor()
-                            .text
-                            .strip_prefix('/')
-                            .expect("command prefix"),
+                        screen.bar.text().strip_prefix('/').expect("command prefix"),
                     ) {
                         Some((argument, _)) => argument.hint(),
-                        None => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+                        None => match screen.bar.command_input() {
+                            Some(input) if input.prefix_selected() => i18n::tr!(ContextPrefixHint),
+                            Some(input) if input.context().is_some() => {
+                                i18n::tr!(ContextCommandHint)
+                            }
+                            _ => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+                        },
                     }
                 } else if !screen.bar.editor().text.is_empty() {
                     i18n::tr!(SearchEditingHint)
@@ -105,7 +106,13 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     },
                     Content::Editable {
                         editor: screen.bar.editor(),
-                        placeholder: if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+                        placeholder: if screen
+                            .bar
+                            .command_input()
+                            .is_some_and(|input| input.context().is_some())
+                        {
+                            i18n::tr!(ContextCommandPlaceholder)
+                        } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                         {
                             i18n::tr!(HistorySearchHint)
                         } else {
@@ -228,7 +235,14 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             editor,
             placeholder,
         } => {
-            let width = inner.width.saturating_sub(2) as usize;
+            let command = screen.bar.command_input();
+            let prefix = command
+                .and_then(|input| input.context())
+                .map(|context| format!(" /{} ", context.name()));
+            let prefix_width = prefix.as_deref().map_or(0, |prefix| {
+                unicode_width::UnicodeWidthStr::width(prefix) as u16 + 1
+            });
+            let width = inner.width.saturating_sub(2 + prefix_width) as usize;
             let (text, cursor) = editor.viewport(width);
             let value = if editor.text.is_empty() {
                 Span::styled(
@@ -238,15 +252,27 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             } else {
                 Span::styled(text, input_style)
             };
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::styled("› ", Style::default().fg(INPUT_ACCENT)),
-                    value,
-                ]))
-                .style(input_style),
-                inner,
-            );
-            frame.set_cursor_position((inner.x + 2 + cursor, inner.y));
+            let mut spans = Vec::new();
+            if let Some(prefix) = prefix {
+                spans.push(Span::styled(
+                    prefix,
+                    if command.is_some_and(|input| input.prefix_selected()) {
+                        Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
+                    } else {
+                        Style::default()
+                            .fg(Color::LightCyan)
+                            .bg(Color::Rgb(34, 52, 65))
+                            .bold()
+                    },
+                ));
+                spans.push(Span::raw(" "));
+            }
+            spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
+            spans.push(value);
+            frame.render_widget(Paragraph::new(Line::from(spans)).style(input_style), inner);
+            if !command.is_some_and(|input| input.prefix_selected()) {
+                frame.set_cursor_position((inner.x + prefix_width + 2 + cursor, inner.y));
+            }
         }
         Content::Layout { selected } => {
             for (area, preference, label) in layout_picker::options(inner, screen.diff_preference) {

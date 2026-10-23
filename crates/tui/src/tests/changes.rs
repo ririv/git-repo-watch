@@ -71,7 +71,8 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "diff layout",
                 "diff layout auto",
                 "diff layout split",
-                "diff layout unified"
+                "diff layout unified",
+                "diff refresh"
             ]
         );
         assert_eq!(
@@ -113,10 +114,10 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         support::write(f.repo.join("draft.rs"), "fn draft() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-        s.paste("/di");
+        s.paste("//di");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/diff");
-        assert_eq!(s.bar.commands().unwrap().len(), 7);
+        assert_eq!(s.bar.text(), "/diff");
+        assert_eq!(s.bar.commands().unwrap().len(), 8);
         let text = render(&mut s, 180, 36);
         for command in command::matches("diff") {
             assert!(text.contains(&format!("/{}", command.name)), "{text}");
@@ -127,7 +128,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.bar, crate::bar::InputBar::Layout { .. }));
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.editor().text, "/diff");
+        assert_eq!(s.bar.text(), "/diff");
         assert!(matches!(
             s.bar,
             crate::bar::InputBar::Command { selected: 3, .. }
@@ -301,10 +302,10 @@ fn completing_a_write_refreshes_only_files_and_preserves_a_new_command_draft() {
             )?))
         },
     );
-    s.paste("/diff layout sp");
+    s.paste("//diff layout sp");
     release.send(()).unwrap();
     wait(&mut s);
-    assert_eq!(s.bar.editor().text, "/diff layout sp");
+    assert_eq!(s.bar.text(), "/diff layout sp");
     assert_eq!(review(&s).files.rows()[0].area, Area::Staged);
     assert_eq!(
         review(&s).content().labels(),

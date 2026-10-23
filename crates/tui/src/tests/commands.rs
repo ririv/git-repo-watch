@@ -12,12 +12,12 @@ fn description_selection_completes_real_commands_and_returns_parameter_drafts() 
             assert!(text.contains("/schedule interval <duration>"), "{text}");
         }
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/schedule interval ");
+        assert_eq!(s.bar.text(), "/schedule interval ");
         s.paste("1w");
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Confirm { .. }));
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.editor().text, "/schedule interval 1w");
+        assert_eq!(s.bar.text(), "/schedule interval 1w");
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
             configuration

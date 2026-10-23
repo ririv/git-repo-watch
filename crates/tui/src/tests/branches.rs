@@ -23,9 +23,9 @@ fn branch_command_lists_filters_and_inspects_real_branches_without_changing_the_
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
-        s.paste("/bra");
+        s.paste("//bra");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.editor().text, "/branch");
+        assert_eq!(s.bar.text(), "/branch");
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Branches(_)));
@@ -111,9 +111,9 @@ fn branch_refresh_observes_external_changes_and_drafts_survive_passive_loading()
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Enter);
     command(&mut s, "branch");
-    s.paste("/comm");
+    s.paste("//comm");
     wait_workspace(&mut s);
-    assert_eq!(s.bar.editor().text, "/comm");
+    assert_eq!(s.bar.text(), "/comm");
     key(&mut s, KeyCode::Esc);
     support::git(&f.repo, &["branch", "new-branch"]);
     control(&mut s, 'r');
