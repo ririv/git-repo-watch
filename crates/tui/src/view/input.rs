@@ -5,6 +5,9 @@ use super::*;
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
 pub(super) fn active_accent(screen: &Screen) -> Color {
+    if screen.focus_mode == crate::focus::State::Selecting {
+        return ACCENT;
+    }
     match screen.config.interaction_mode {
         engine::state::InteractionMode::TextSelection => GOOD,
         engine::state::InteractionMode::Application => INPUT_ACCENT,
@@ -161,8 +164,13 @@ enum Content<'a> {
 }
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: Rect) {
-    let (title, content, hint) = if let crate::bar::InputBar::Layout { selected, .. } = &screen.bar
-    {
+    let (title, content, hint) = if screen.focus_mode == crate::focus::State::Selecting {
+        (
+            i18n::tr!(PaneFocusTitle),
+            Content::Locked(screen.focused_pane_name().into()),
+            i18n::tr!(PaneFocusHint),
+        )
+    } else if let crate::bar::InputBar::Layout { selected, .. } = &screen.bar {
         (
             i18n::tr!(LayoutPickerTitle),
             Content::Layout {

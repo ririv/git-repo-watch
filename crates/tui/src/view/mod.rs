@@ -113,6 +113,11 @@ fn highlight_border(frame: &mut Frame, area: Rect) {
     }
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
+    if screen.focus_mode == crate::focus::State::Selecting
+        && (!screen.pane_navigation_available() || screen.tasks.session.open())
+    {
+        screen.focus_mode = crate::focus::State::Inactive;
+    }
     screen.graphics.begin_frame();
     screen.body_area = None;
     screen.input_area = None;

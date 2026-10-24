@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
-        if self.tasks.session.open() {
+        if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
             return;
         }
         self.clicks.reset();
@@ -94,29 +94,11 @@ impl Screen {
             self.generate_commit_message();
             return Ok(false);
         }
-        if self.changes_shortcut(key)
-            || self.repository_pane_key(key)
-            || self.browser_shortcut(key)
-            || self.horizontal_key(key)
-        {
+        if self.focus_key(key) {
             return Ok(false);
         }
-        if let Mode::History(view) = &mut self.mode
-            && matches!(self.bar, crate::bar::InputBar::Search(_))
-            && key.modifiers.contains(KeyModifiers::ALT)
-            && let history::View::Graph(session) = view.as_mut()
-        {
-            match key.code {
-                KeyCode::Left => {
-                    session.pan = session.pan.saturating_sub(2);
-                    return Ok(false);
-                }
-                KeyCode::Right => {
-                    session.pan = (session.pan + 2).min(session.width.saturating_sub(1));
-                    return Ok(false);
-                }
-                _ => {}
-            }
+        if self.horizontal_key(key) {
+            return Ok(false);
         }
         match self.bar_key(key, root)? {
             crate::bar::BarEvent::Handled => return Ok(false),

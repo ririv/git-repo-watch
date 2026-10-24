@@ -17,12 +17,13 @@
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
 - `/repo branch` always opens the full branch view. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
-- `Ctrl+S` / `Ctrl+D` focuses the previous / next pane. Clicking or scrolling inside a pane also focuses it. At the repository root, Enter / → or Ctrl+D enters Overview; Ctrl+S enters History.
-- `Ctrl+F` toggles the focused pane between fullscreen and the tiled layout.
+- `/focus` enters global pane focus mode in repository grids, diff and file browsers. Arrows move by layout without wrapping; Tab/Shift+Tab cycle; Enter/Esc finish. Search pauses and arrow keys navigate panes while the input clearly shows Focus mode; / opens global commands. Use //focus or //zoom from a command context. Finishing restores type-to-search and preserves each pane’s selection and position. Clicking or scrolling inside a pane also focuses it.
+- `/zoom` toggles the focused pane between fullscreen and the tiled layout.
 - Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
 - At a pane root, Esc leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
 ## Search and commands
+- Use commands for pane focus, zoom, staging and graph panning. Typing searches immediately; basic navigation and editing keys remain. No terminal configuration changes are needed. Alt+B/F moves by words, Alt+D deletes the next word, and Alt+Left/Right also moves by words in command and commit editors.
 - The command menu sits directly above the input, followed by key hints and one reserved task-status row. Success notices disappear after 5 seconds; pending failures and running tasks remain. Use `/tasks`, `Alt+Enter`, or click the status row to open tasks and return to the original page and input draft.
 - Tasks show pending failures, running work, and the latest 200 completed records, retaining all active and pending tasks. `Enter` opens full details; `c` requests cancellation, `r` retries manual checks or fetch, and `d` marks a failure handled. Viewing a failure does not dismiss it. A successful retry resolves its original failure. Scheduled checks share this history.
 - Type to search repositories, or files in the file panel. Input is always active.
@@ -87,25 +88,25 @@
 - Directory chains with a single child directory and no other visible entries share one `parent/child/` row. Files and forks stop compaction.
 - `↑↓` selects; `Enter` / `→` toggles a directory or focuses a selected file's preview. `←` collapses a directory, selects its parent, or returns from the root.
 - Single-click a directory row to expand or collapse it; a double-click toggles it only once. Single-click files to select them; double-click to focus their preview. Precise-click preferences apply; scrollbar clicks only seek.
-- `Tab` / `Ctrl+S/D` switches between tree and preview; `Ctrl+F` maximizes the focused pane. Narrow windows display the focused pane. Previews support syntax highlighting, images and both scroll axes.
+- `Tab` or `/focus` switches between tree and preview; `/zoom` maximizes the focused pane. Narrow windows display the focused pane. Previews support syntax highlighting, images and both scroll axes.
 - Typing searches paths throughout the repository in the background, with an explicit 1,000-match limit. `Esc` clears search before returning to the tree or previous view.
 - `/repo files diff` opens the selected file's changes and preserves the browser when returning. `/repo files refresh` reloads directories and preview; `/repo files copy` copies the selected path.
 - Two fixed columns at the end of each row describe index and worktree changes: `M` modified, `A` added, `D` deleted, `R` renamed, `T` type changed, `??` untracked, `UU` conflicted.
 - Markdown and SVG open as source by default. Use the command menu to choose source, rendered preview or split. Ordinary files do not offer these commands.
 - `/repo files toggle` switches source and preview; `/repo files split` opens or closes the split. `preview` and `source` open the corresponding content directly. The menu shows the current mode; in a split, `toggle` or `source` returns to a single source pane. Each file retains its presentation and separate source/preview scroll positions for the current session.
-- In a split, `Tab`, `Shift+Tab` or `Ctrl+S/D` cycle through the tree, source and preview. Pointer focus and scrolling respect the pointer settings. Narrow windows stack the panes; the smallest windows show the focused pane while retaining the split for later resizing.
+- In a split, `Tab`, `Shift+Tab` or `/focus` cycle through the tree, source and preview. Pointer focus and scrolling respect the pointer settings. Narrow windows stack the panes; the smallest windows show the focused pane while retaining the split for later resizing.
 - SVG uses resvg in the background at the viewport size and supports embedded resources; external image references report an error. Markdown reuses the help page renderer; images retain their descriptions and addresses.
 
 ## Files, commits and pushes
 - `/repo diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.
-- Wide windows show files beside the preview; narrow windows stack them. `Tab` / `Ctrl+S` / `Ctrl+D` switches focus; `Enter` / `→` focuses the preview, and `Ctrl+F` maximizes the focused pane.
+- Wide windows show files beside the preview; narrow windows stack them. `Tab` or `/focus` switches focus; `Enter` / `→` focuses the preview, and `/zoom` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
 - `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
 - `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
 - Click a file checkbox to toggle its selection; click its name to select the row, or double-click its name to enter. This follows the precise-click preference. `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
-- `/repo diff stage` / `Alt+S` stages marked files or the cursor file; `/repo diff unstage` / `Alt+U` unstages them. These actions require an explicit file selection and never open a page.
+- `/repo diff stage` stages marked files or the cursor file; `/repo diff unstage` unstages them. These actions require an explicit file selection and never open a page.
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` previews staged contents, then takes a message and confirms. Git hooks and signing are preserved.
@@ -123,7 +124,7 @@
 - `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `Esc` goes back.
 - Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
 - Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `Tab` / `Shift+Tab` selects the next / previous match.
-- `Alt+←→` pans a wide graph. Wide terminals show a metadata preview.
+- `/repo log pan left` / `right` pans a wide graph. Wide terminals show a metadata preview.
 - In commit details, type to filter files, `Tab` switches merge parents and `PgUp` / `PgDn` scrolls metadata and message.
 - Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.
 > Graph and historical diff reads do not stage, commit, fetch, push or change reports.
@@ -160,9 +161,9 @@
 ## Scrolling indicators
 - Scrollbars support clicking the track and dragging the thumb on both axes. Dragging stays with the original pane until release, including outside the track; the precise-click preference applies.
 - Vertical scrollbars sit in the right border over content rows only, excluding fixed headers. Unstaged and staged groups have separate tracks; content that fits has no scrollbar.
-- Use `Ctrl+S/D` to switch panes; arrow keys do not switch panes.
+- Use global `/focus` mode to switch panes; arrow keys do not switch panes.
 - In a diff preview with empty input, ←→ scrolls long lines. Line numbers and change markers stay fixed; split columns pan together. Esc goes back. Overflowing content has a scrollbar embedded in the bottom border without taking a content row.
-- In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. Alt+←→ pans the graph, Enter opens details, and Esc goes back.
+- In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. /repo log pan left / right pans the graph, Enter opens details, and Esc goes back.
 - Horizontal wheel and Shift + vertical wheel also work when forwarded by the terminal. With text in the input, arrow keys edit the input; command and confirmation selectors keep their own keys.
 
 <!-- optional-ai -->

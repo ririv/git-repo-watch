@@ -60,9 +60,9 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
     key(&mut s, KeyCode::Enter);
     wait_workspace(&mut s);
     super::overview::wait_overview(&mut s);
-    control(&mut s, 'd');
+    focus_next(&mut s);
     assert_eq!(Section::focused(&s.mode), Some(Section::Overview));
-    control(&mut s, 'd');
+    focus_next(&mut s);
     assert_eq!(Section::of(&s.mode), Section::Branches);
     key(&mut s, KeyCode::Tab);
     for (width, height) in [(60, 18), (140, 32), (200, 50)] {
@@ -76,15 +76,15 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
         ] {
             assert!(text.contains(label), "{label}: {text}");
         }
-        control(&mut s, 'f');
+        zoom(&mut s);
         render(&mut s, width, height);
         assert_eq!(
             s.workspace_areas,
             vec![(s.body_area.unwrap(), Section::Branches)]
         );
-        control(&mut s, 'f');
+        zoom(&mut s);
     }
-    control(&mut s, 'd');
+    focus_next(&mut s);
     assert_eq!(Section::of(&s.mode), Section::Worktree);
     command(&mut s, "repo branch");
     assert!(matches!(&s.mode,Mode::Branches(view) if view.session().filter==BranchFilter::Local));
@@ -101,8 +101,8 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
     );
-    control(&mut s, 'd');
-    control(&mut s, 'd');
+    focus_next(&mut s);
+    focus_next(&mut s);
     assert_eq!(Section::of(&s.mode), Section::Overview);
 }
 

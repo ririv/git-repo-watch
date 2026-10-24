@@ -14,6 +14,10 @@ pub(crate) use input::{Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Tasks,
+    Focus,
+    Zoom,
+    PanLeft,
+    PanRight,
     Branches,
     BranchCreate,
     BranchSwitch,
@@ -418,6 +422,16 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::CopyRepositoryCommand,
     },
     Command {
+        name: "focus",
+        action: Focus,
+        description: i18n::Message::PaneFocusCommand,
+    },
+    Command {
+        name: "zoom",
+        action: Zoom,
+        description: i18n::Message::PaneZoomCommand,
+    },
+    Command {
         name: "tasks",
         action: Tasks,
         description: i18n::Message::Tasks,
@@ -551,6 +565,16 @@ pub const COMMANDS: &[Command] = &[
         name: "quit",
         action: Quit,
         description: i18n::Message::Quit,
+    },
+    Command {
+        name: "repo log pan left",
+        action: PanLeft,
+        description: i18n::Message::PanePanLeftCommand,
+    },
+    Command {
+        name: "repo log pan right",
+        action: PanRight,
+        description: i18n::Message::PanePanRightCommand,
     },
 ];
 pub fn matches(input: &str) -> Vec<&'static Command> {

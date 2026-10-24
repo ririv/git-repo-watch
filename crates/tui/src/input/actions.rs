@@ -20,6 +20,9 @@ impl Screen {
         }
         match action {
             Action::Tasks => self.open_tasks(),
+            Action::Focus => self.enter_focus(),
+            Action::Zoom => self.zoom_pane(),
+            Action::PanLeft | Action::PanRight => self.pan_graph(action == Action::PanLeft),
             Action::BrowseFiles => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Files, path);

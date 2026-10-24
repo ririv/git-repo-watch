@@ -2,6 +2,13 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    PaneFocusCommand,
+    PaneFocusTitle,
+    PaneFocusHint,
+    PaneZoomCommand,
+    PanePanLeftCommand,
+    PanePanRightCommand,
+    PaneUnavailable,
     TasksCheck,
     TasksScheduledCheck,
     TaskInterrupted,
@@ -893,6 +900,28 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::PaneFocusTitle, Language::English) => "Focus mode",
+            (Self::PaneFocusTitle, Language::Chinese) => "聚焦模式",
+            (Self::PaneFocusHint, Language::English) => {
+                "Arrows focus · Tab cycle · Enter/Esc finish · / commands"
+            }
+            (Self::PaneFocusHint, Language::Chinese) => {
+                "方向键聚焦 · Tab轮换 · Enter/Esc结束 · /命令"
+            }
+
+            (Self::PaneFocusCommand, Language::English) => "Enter pane focus mode",
+            (Self::PaneFocusCommand, Language::Chinese) => "进入面板聚焦模式",
+            (Self::PaneZoomCommand, Language::English) => "Maximize or restore focused pane",
+            (Self::PaneZoomCommand, Language::Chinese) => "放大或还原当前面板",
+            (Self::PanePanLeftCommand, Language::English) => "Pan graph left",
+            (Self::PanePanLeftCommand, Language::Chinese) => "向左平移图线",
+            (Self::PanePanRightCommand, Language::English) => "Pan graph right",
+            (Self::PanePanRightCommand, Language::Chinese) => "向右平移图线",
+            (Self::PaneUnavailable, Language::English) => {
+                "This view has no applicable pane operation."
+            }
+            (Self::PaneUnavailable, Language::Chinese) => "当前视图没有可执行的面板操作。",
+
             (Self::TasksCheck, Language::English) => "Check",
             (Self::TasksCheck, Language::Chinese) => "检查",
             (Self::TasksScheduledCheck, Language::English) => "Scheduled check",
@@ -1583,10 +1612,10 @@ impl Message {
                 "暂存只能选择未暂存文件，取消暂存只能选择已暂存文件；请核对勾选区域"
             }
             (Self::ChangesInputHint, Language::English) => {
-                "↑↓ navigate · ←→ pan preview · Tab focus · Ctrl+F zoom · Esc back"
+                "↑↓ navigate · ←→ pan preview · Tab focus · //zoom maximize · Esc back"
             }
             (Self::ChangesInputHint, Language::Chinese) => {
-                "↑↓选择/滚动 · ←→平移预览 · Tab切换 · Ctrl+F放大 · Esc返回"
+                "↑↓选择/滚动 · ←→平移预览 · Tab切换 · //zoom放大 · Esc返回"
             }
 
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
@@ -1727,12 +1756,12 @@ impl Message {
             (Self::WorkspaceOverview, Language::Chinese) => "概览",
             (Self::WorkspaceHistory, Language::English) => "History",
             (Self::WorkspaceHistory, Language::Chinese) => "提交历史",
-            (Self::WorkspaceFocusHint, Language::English) => "Ctrl+S/D Focus",
-            (Self::WorkspaceFocusHint, Language::Chinese) => "Ctrl+S/D 聚焦",
-            (Self::WorkspaceMaximizeHint, Language::English) => "Ctrl+F Fullscreen",
-            (Self::WorkspaceMaximizeHint, Language::Chinese) => "Ctrl+F 放大",
-            (Self::WorkspaceRestoreHint, Language::English) => "Ctrl+F Restore",
-            (Self::WorkspaceRestoreHint, Language::Chinese) => "Ctrl+F 恢复",
+            (Self::WorkspaceFocusHint, Language::English) => "//focus",
+            (Self::WorkspaceFocusHint, Language::Chinese) => "//focus",
+            (Self::WorkspaceMaximizeHint, Language::English) => "//zoom Fullscreen",
+            (Self::WorkspaceMaximizeHint, Language::Chinese) => "//zoom 放大",
+            (Self::WorkspaceRestoreHint, Language::English) => "//zoom Restore",
+            (Self::WorkspaceRestoreHint, Language::Chinese) => "//zoom 恢复",
 
             (Self::OverviewUpstream, Language::English) => "Upstream (local refs)",
             (Self::OverviewUpstream, Language::Chinese) => "上游（本地引用）",
@@ -1891,10 +1920,10 @@ impl Message {
                 "输入关键词定位已加载提交，或输入 / 查看命令"
             }
             (Self::HistoryInputHint, Language::English) => {
-                "↑↓ select · ←→ text · Enter details · Alt+←→ graph · Esc back"
+                "↑↓ select · ←→ text · Enter details · /pan left/right · Esc back"
             }
             (Self::HistoryInputHint, Language::Chinese) => {
-                "↑↓选择 · ←→文字 · Enter详情 · Alt+←→图 · Esc返回"
+                "↑↓选择 · ←→文字 · Enter详情 · /pan left/right · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
                 "↑↓ files · Enter diff · Tab parent · PgUp/PgDn message · ← back"
@@ -3513,10 +3542,10 @@ impl Message {
             }
             (Self::BrowserPlaceholder, Language::Chinese) => "搜索仓库文件路径，或输入 / 查看命令",
             (Self::BrowserHint, Language::English) => {
-                "↑↓ select · ← collapse · →/Enter open · Tab pane · Ctrl+F zoom · Esc back"
+                "↑↓ select · ← collapse · →/Enter open · Tab pane · //zoom maximize · Esc back"
             }
             (Self::BrowserHint, Language::Chinese) => {
-                "↑↓选择 · ←折叠 · →/Enter 打开 · Tab 面板 · Ctrl+F 放大 · Esc 返回"
+                "↑↓选择 · ←折叠 · →/Enter 打开 · Tab 面板 · /zoom 放大 · Esc 返回"
             }
             (Self::BrowserLoading, Language::English) => "Loading directory…",
             (Self::BrowserLoading, Language::Chinese) => "正在读取目录…",

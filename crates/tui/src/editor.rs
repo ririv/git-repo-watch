@@ -1,6 +1,9 @@
 //! UTF-8-safe single-line input shared by commands and forms.
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use unicode_segmentation::UnicodeSegmentation;
 use unicode_width::UnicodeWidthChar;
+#[cfg(test)]
+mod tests;
 #[derive(Debug, Clone, Default)]
 pub struct Editor {
     pub text: String,
@@ -24,6 +27,19 @@ impl Editor {
     }
     pub fn key(&mut self, key: KeyEvent) {
         match (key.code, key.modifiers) {
+            (KeyCode::Char('b') | KeyCode::Left, KeyModifiers::ALT) => {
+                self.cursor = self.text[..self.cursor]
+                    .unicode_word_indices()
+                    .next_back()
+                    .map_or(0, |(index, _)| index);
+            }
+            (KeyCode::Char('f') | KeyCode::Right, KeyModifiers::ALT) => {
+                self.cursor = self.next_word_end();
+            }
+            (KeyCode::Char('d'), KeyModifiers::ALT) => {
+                let end = self.next_word_end();
+                self.text.drain(self.cursor..end);
+            }
             (KeyCode::Char('a'), m) if m.contains(KeyModifiers::CONTROL) => self.cursor = 0,
             (KeyCode::Char('e'), m) if m.contains(KeyModifiers::CONTROL) => {
                 self.cursor = self.text.len()
@@ -73,6 +89,14 @@ impl Editor {
             }
             _ => {}
         }
+    }
+    fn next_word_end(&self) -> usize {
+        self.text[self.cursor..]
+            .unicode_word_indices()
+            .next()
+            .map_or(self.text.len(), |(index, word)| {
+                self.cursor + index + word.len()
+            })
     }
     fn left(&mut self) {
         if let Some((index, _)) = self.text[..self.cursor].char_indices().last() {

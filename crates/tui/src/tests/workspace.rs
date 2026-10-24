@@ -8,21 +8,10 @@ fn focus(s: &mut Screen, section: crate::workspace::Section) {
         if crate::workspace::Section::focused(&s.mode) == Some(section) {
             return;
         }
-        s.key(
-            KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
-            &Cancel::default(),
-        )
-        .unwrap();
+        focus_next(s);
         wait(s);
     }
     assert_eq!(crate::workspace::Section::of(&s.mode), section);
-}
-fn zoom(s: &mut Screen) {
-    s.key(
-        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-        &Cancel::default(),
-    )
-    .unwrap();
 }
 
 #[test]
@@ -63,11 +52,7 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
                 if width >= 140 {
                     assert!(text.contains(i18n::tr!(WorkspaceRestoreHint)), "{text}");
                 }
-                s.key(
-                    KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
-                    &Cancel::default(),
-                )
-                .unwrap();
+                focus_next(&mut s);
                 wait(&mut s);
             }
             zoom(&mut s);
@@ -116,7 +101,11 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
         Arrangement::Maximized
     );
     s.paste("//comm");
-    zoom(&mut s);
+    s.key(
+        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
     assert_eq!(s.bar.text(), "/comm");
     assert_eq!(
         s.workspace.session().unwrap().arrangement,

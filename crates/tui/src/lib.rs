@@ -13,6 +13,7 @@ mod diff;
 mod document;
 mod editor;
 mod files;
+mod focus;
 mod graphics;
 mod history;
 mod horizontal;
@@ -203,6 +204,7 @@ struct Screen {
     page: Page,
     history: Vec<navigation::Visit>,
     mode: Mode,
+    focus_mode: focus::State,
     interaction_save: interaction::Writer,
     diff_preference: diff::Preference,
     file_layout: files::Layout,
@@ -257,6 +259,7 @@ impl Screen {
             page: Page::Repositories,
             history: Vec::new(),
             mode: Mode::Browsing,
+            focus_mode: Default::default(),
             interaction_save: Default::default(),
             diff_preference: Default::default(),
             file_layout: Default::default(),

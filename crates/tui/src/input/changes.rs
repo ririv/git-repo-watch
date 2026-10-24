@@ -1,55 +1,12 @@
-//! Contextual index actions and adjacent focus shortcuts for the changes workspace.
+//! Content navigation for the changes workspace.
 use crate::{
     Mode, Screen,
-    bar::InputBar,
     changes::{Focus, Preview},
     workspace::Arrangement,
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
-use engine::local::files::IndexAction;
+use crossterm::event::{KeyCode, KeyEvent};
 
 impl Screen {
-    pub(super) fn changes_shortcut(&mut self, key: KeyEvent) -> bool {
-        if !matches!(self.bar, InputBar::Search(_)) {
-            return false;
-        }
-        if matches!(self.mode, Mode::Files(_) | Mode::Changes(_))
-            && key.modifiers == KeyModifiers::ALT
-        {
-            let action = match key.code {
-                KeyCode::Char('s') => Some(IndexAction::Stage),
-                KeyCode::Char('u') => Some(IndexAction::Unstage),
-                _ => None,
-            };
-            if let Some(action) = action {
-                self.edit_files(action);
-                return true;
-            }
-        }
-        let Mode::Changes(session) = &mut self.mode else {
-            return false;
-        };
-        if key.modifiers == KeyModifiers::CONTROL {
-            match key.code {
-                KeyCode::Char('s' | 'd') => {
-                    session.focus = match session.focus {
-                        Focus::Files => Focus::Preview,
-                        Focus::Preview => Focus::Files,
-                    };
-                    return true;
-                }
-                KeyCode::Char('f') => {
-                    session.arrangement = match session.arrangement {
-                        Arrangement::Tiled => Arrangement::Maximized,
-                        Arrangement::Maximized => Arrangement::Tiled,
-                    };
-                    return true;
-                }
-                _ => {}
-            }
-        }
-        false
-    }
     pub(super) fn changes_key(&mut self, mut session: Box<crate::changes::Session>, key: KeyEvent) {
         let empty = self.bar.editor().text.is_empty();
         if empty && matches!(key.code, KeyCode::Esc | KeyCode::Left) {

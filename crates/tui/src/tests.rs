@@ -13,6 +13,7 @@ mod daily_operations;
 mod diff;
 mod double_click;
 mod file_tree;
+mod focus;
 mod help;
 mod history;
 mod horizontal;
@@ -71,6 +72,7 @@ fn screen(service: Service) -> Screen {
         page: Page::Repositories,
         history: vec![],
         mode: Mode::Browsing,
+        focus_mode: Default::default(),
         interaction_save: Default::default(),
         diff_preference: Default::default(),
         file_layout: Default::default(),
@@ -156,17 +158,21 @@ fn open_files(s: &mut Screen) {
         thread::sleep(Duration::from_millis(5));
     }
 }
+fn focus_next(s: &mut Screen) {
+    command(s, "focus");
+    key(s, KeyCode::Tab);
+    key(s, KeyCode::Enter);
+}
+fn zoom(s: &mut Screen) {
+    command(s, "zoom");
+}
 fn maximize_preview(s: &mut Screen) {
     let Mode::Changes(session) = &mut s.mode else {
         panic!("changes workspace expected")
     };
     session.focus = crate::changes::Focus::Preview;
     if session.arrangement != crate::workspace::Arrangement::Maximized {
-        s.key(
-            KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-            &Cancel::default(),
-        )
-        .unwrap();
+        zoom(s);
     }
 }
 fn wait(s: &mut Screen) {

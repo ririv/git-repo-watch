@@ -250,21 +250,13 @@ fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_r
             assert_eq!(Section::focused(&s.mode), Some(section));
             let focused = labels(&s);
             assert_eq!(focused.len(), root.len() + 1);
-            s.key(
-                KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-                &Cancel::default(),
-            )
-            .unwrap();
+            zoom(&mut s);
             assert_eq!(labels(&s), focused);
             assert_eq!(
                 s.workspace.session().unwrap().arrangement,
                 Arrangement::Maximized
             );
-            s.key(
-                KeyEvent::new(KeyCode::Char('d'), KeyModifiers::CONTROL),
-                &Cancel::default(),
-            )
-            .unwrap();
+            focus_next(&mut s);
             assert_eq!(labels(&s).len(), focused.len());
             assert_eq!(s.history.len(), visits);
             let back = if Section::focused(&s.mode) == Some(Section::History) {
@@ -279,11 +271,7 @@ fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_r
                 Arrangement::Tiled
             );
             s.switch_repository_section(section.advance(false));
-            s.key(
-                KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-                &Cancel::default(),
-            )
-            .unwrap();
+            zoom(&mut s);
             click_crumb(&mut s, Destination::Current(Level::Repository));
             assert_eq!(labels(&s), root);
             assert_eq!(

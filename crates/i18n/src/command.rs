@@ -2,6 +2,9 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    PaneFocus,
+    PaneZoom,
+    PanePan,
     Tasks,
     Branches,
     BranchCreate,
@@ -73,6 +76,13 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::PaneFocus, Language::English) => "Focus a pane",
+            (Self::PaneFocus, Language::Chinese) => "切换面板焦点",
+            (Self::PaneZoom, Language::English) => "Maximize or restore",
+            (Self::PaneZoom, Language::Chinese) => "放大或还原面板",
+            (Self::PanePan, Language::English) => "Pan graph lanes",
+            (Self::PanePan, Language::Chinese) => "平移历史图线",
+
             (Self::Tasks, Language::English) => "Background tasks and history",
             (Self::Tasks, Language::Chinese) => "后台任务和历史记录",
             (Self::Branches, Language::English) => "Browse branches",

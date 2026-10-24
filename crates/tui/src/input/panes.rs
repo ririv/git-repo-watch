@@ -1,50 +1,67 @@
-//! Adjacent home-row shortcuts control focus and the repository viewport.
+//! Commands switch existing panes without changing their navigation depth.
 use crate::{
     Mode, Page, Screen,
-    bar::InputBar,
     workspace::{Arrangement, Section, Workspace},
 };
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl Screen {
-    pub(super) fn repository_pane_key(&mut self, key: KeyEvent) -> bool {
-        if self.page != Page::Detail
-            || !matches!(self.bar, InputBar::Search(_))
-            || self.workspace.session().is_none()
-        {
-            return false;
-        }
-        match (key.modifiers, key.code) {
-            (KeyModifiers::CONTROL, KeyCode::Char('s' | 'd'))
-                if matches!(
-                    self.mode,
-                    Mode::Browsing
-                        | Mode::Panel(_)
-                        | Mode::Branches(_)
-                        | Mode::Files(_)
-                        | Mode::History(_)
-                ) =>
-            {
-                let backwards = key.code == KeyCode::Char('s');
-                let section = match Section::focused(&self.mode) {
+    pub(crate) fn cycle_pane(&mut self, backwards: bool) {
+        match &mut self.mode {
+            Mode::Browser(session) => {
+                session.cycle_focus(backwards);
+                self.poll_browser();
+            }
+            Mode::Changes(session) => {
+                session.focus = match session.focus {
+                    crate::changes::Focus::Files => crate::changes::Focus::Preview,
+                    crate::changes::Focus::Preview => crate::changes::Focus::Files,
+                };
+            }
+            _ if self.page == Page::Detail && self.workspace.session().is_some() => {
+                let target = match Section::focused(&self.mode) {
                     Some(section) => section.advance(backwards),
                     None if backwards => Section::History,
                     None => Section::Overview,
                 };
-                self.switch_repository_section(section);
-                true
+                self.switch_repository_section(target);
             }
-            (KeyModifiers::CONTROL, KeyCode::Char('f'))
-                if Workspace::is_root(&self.mode) && Section::focused(&self.mode).is_some() =>
+            _ => self.message = i18n::tr!(PaneUnavailable).into(),
+        }
+    }
+    pub(super) fn zoom_pane(&mut self) {
+        let arrangement = match &mut self.mode {
+            Mode::Changes(session) => Some(&mut session.arrangement),
+            Mode::Browser(session) => Some(&mut session.arrangement),
+            mode if self.page == Page::Detail
+                && Workspace::is_root(mode)
+                && Section::focused(mode).is_some() =>
             {
-                let session = self.workspace.session_mut().expect("open repository");
-                session.arrangement = match session.arrangement {
-                    Arrangement::Tiled => Arrangement::Maximized,
-                    Arrangement::Maximized => Arrangement::Tiled,
-                };
-                true
+                self.workspace
+                    .session_mut()
+                    .map(|session| &mut session.arrangement)
             }
-            _ => false,
+            _ => None,
+        };
+        if let Some(arrangement) = arrangement {
+            *arrangement = match arrangement {
+                Arrangement::Tiled => Arrangement::Maximized,
+                Arrangement::Maximized => Arrangement::Tiled,
+            };
+        } else {
+            self.message = i18n::tr!(PaneUnavailable).into();
+        }
+    }
+    pub(super) fn pan_graph(&mut self, backwards: bool) {
+        if let Mode::History(view) = &mut self.mode
+            && let crate::history::View::Graph(session) = view.as_mut()
+        {
+            session.pan = if backwards {
+                session.pan.saturating_sub(2)
+            } else {
+                (session.pan + 2).min(session.width.saturating_sub(1))
+            };
+        } else {
+            self.message = i18n::tr!(PaneUnavailable).into();
         }
     }
 }

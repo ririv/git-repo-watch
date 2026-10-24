@@ -20,7 +20,12 @@ fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close(
             assert_eq!(buffer[(width - 1, first.y - 1)].symbol(), "╮");
             assert_eq!(buffer[(0, input.y)].symbol(), "├");
             assert_eq!(buffer[(width - 1, input.y)].symbol(), "┤");
-            assert!((first.y..input.y).all(|y| buffer[(width - 1, y)].symbol() == "│"));
+            let overflowing =
+                s.bar.commands(s.config.ai.enabled).unwrap().len() > s.command_items.len();
+            assert_eq!(
+                (first.y..input.y).any(|y| buffer[(width - 1, y)].symbol() == "┃"),
+                overflowing
+            );
             for x in 1..width - 1 {
                 assert_eq!(buffer[(x, first.y - 1)].symbol(), "─");
                 assert_eq!(buffer[(x, first.y - 1)].fg, Color::Rgb(180, 145, 220));

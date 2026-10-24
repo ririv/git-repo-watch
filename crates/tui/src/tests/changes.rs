@@ -9,13 +9,6 @@ fn ctrl(s: &mut Screen, c: char) {
     )
     .unwrap();
 }
-fn alt(s: &mut Screen, c: char) {
-    s.key(
-        KeyEvent::new(KeyCode::Char(c), KeyModifiers::ALT),
-        &Cancel::default(),
-    )
-    .unwrap();
-}
 fn review(s: &Screen) -> &crate::changes::Session {
     let Mode::Changes(session) = &s.mode else {
         panic!("changes workspace expected: {:?}", s.mode)
@@ -200,7 +193,7 @@ fn combined_view_previews_exact_sides_and_keeps_both_groups_visible_after_naviga
         );
         key(&mut s, KeyCode::Enter);
         assert_eq!(review(&s).focus, Focus::Preview);
-        ctrl(&mut s, 'f');
+        zoom(&mut s);
         assert_eq!(
             review(&s).arrangement,
             crate::workspace::Arrangement::Maximized
@@ -225,7 +218,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     command(&mut s, "repo diff");
     wait(&mut s);
     choose(&mut s, "alpha", Area::Untracked);
-    alt(&mut s, 's');
+    command(&mut s, "repo diff stage");
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Changes(_)));
     assert_eq!(
@@ -245,7 +238,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     assert!(s.repository_tasks.is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     ctrl(&mut s, 'a');
-    alt(&mut s, 'u');
+    command(&mut s, "repo diff unstage");
     wait(&mut s);
     assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
     assert_eq!(

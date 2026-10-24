@@ -122,11 +122,7 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo diff");
     wait(&mut s);
-    s.key(
-        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-        &Cancel::default(),
-    )
-    .unwrap();
+    zoom(&mut s);
     for (width, height) in [(60, 24), (160, 32)] {
         key(&mut s, KeyCode::End);
         let text = render(&mut s, width, height);
@@ -527,11 +523,7 @@ fn file_scrollbar_drag_preserves_each_group_offset_and_does_not_modify_index() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo diff");
     wait(&mut s);
-    s.key(
-        KeyEvent::new(KeyCode::Char('f'), KeyModifiers::CONTROL),
-        &Cancel::default(),
-    )
-    .unwrap();
+    zoom(&mut s);
     render(&mut s, 100, 32);
     let area = s.body_area.unwrap();
     let x = area.right() - 1;

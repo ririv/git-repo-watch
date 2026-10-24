@@ -1,24 +1,8 @@
 //! Directory navigation and preview focus keep command editing independent.
 use super::{Focus, Session};
-use crate::{Mode, Screen, workspace::Arrangement};
-use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use crate::{Mode, Screen};
+use crossterm::event::{KeyCode, KeyEvent};
 impl Screen {
-    pub(crate) fn browser_shortcut(&mut self, key: KeyEvent) -> bool {
-        if !matches!(self.bar, crate::bar::InputBar::Search(_))
-            || key.modifiers != KeyModifiers::CONTROL
-            || !matches!(key.code, KeyCode::Char('s' | 'd' | 'f'))
-        {
-            return false;
-        }
-        if !matches!(self.mode, Mode::Browser(_)) {
-            return false;
-        }
-        let Mode::Browser(session) = self.take_mode() else {
-            unreachable!()
-        };
-        self.browser_key(session, key);
-        true
-    }
     pub(crate) fn browser_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
         match key.code {
             KeyCode::Esc => {
@@ -32,15 +16,6 @@ impl Screen {
             }
             KeyCode::Tab => session.cycle_focus(false),
             KeyCode::BackTab => session.cycle_focus(true),
-            KeyCode::Char('s' | 'd') if key.modifiers == KeyModifiers::CONTROL => {
-                session.cycle_focus(key.code == KeyCode::Char('s'));
-            }
-            KeyCode::Char('f') if key.modifiers == KeyModifiers::CONTROL => {
-                session.arrangement = match session.arrangement {
-                    Arrangement::Tiled => Arrangement::Maximized,
-                    Arrangement::Maximized => Arrangement::Tiled,
-                }
-            }
             KeyCode::Up if session.focus == Focus::Tree => session.advance(-1),
             KeyCode::Down if session.focus == Focus::Tree => session.advance(1),
             KeyCode::PageUp if session.focus == Focus::Tree => session.advance(-10),
