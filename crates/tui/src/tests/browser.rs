@@ -396,6 +396,8 @@ fn browser_images_use_the_shared_pixel_view_and_unsupported_terminals_remain_usa
     assert!(
         matches!(&image.pairs[0].after, crate::preview::Side::Image { pixels, .. } if pixels.dimensions() == (8,4))
     );
+    let screen = render(&mut s, 140, 32);
+    assert_eq!(screen.matches('┌').count(), 2, "{screen}");
     for (width, height) in [(140, 32), (48, 12), (1, 1), (140, 32)] {
         render(&mut s, width, height);
     }

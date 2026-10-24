@@ -193,11 +193,10 @@ fn preview(
             document: Document::Image(image),
             ..
         } => {
-            super::document::side(
+            super::document::content(
                 frame,
                 inner,
                 &image.pairs[0].after,
-                "",
                 image.source,
                 0,
                 graphics,

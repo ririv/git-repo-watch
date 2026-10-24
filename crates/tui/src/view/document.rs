@@ -61,7 +61,7 @@ pub(super) fn render(
         }
     }
 }
-pub(super) fn side(
+fn side(
     frame: &mut Frame,
     area: Rect,
     side: &Side,
@@ -73,6 +73,18 @@ pub(super) fn side(
     let border = block(label);
     let inner = border.inner(area);
     frame.render_widget(border, area);
+    content(frame, inner, side, source, index, graphics);
+}
+
+/// Draw image content inside a panel already owned by the caller.
+pub(super) fn content(
+    frame: &mut Frame,
+    area: Rect,
+    side: &Side,
+    source: u64,
+    index: usize,
+    graphics: &mut Display,
+) {
     let text = match side {
         Side::Absent => Some(i18n::tr!(ImageAbsent).into()),
         Side::Other => Some(i18n::tr!(ImageNotRaster).into()),
@@ -82,7 +94,7 @@ pub(super) fn side(
             format,
             pixels,
         } => {
-            let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(inner);
+            let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).split(area);
             frame.render_widget(
                 Paragraph::new(format!(
                     "{} · {}×{} · {}",
@@ -146,6 +158,6 @@ pub(super) fn side(
         }
     };
     if let Some(text) = text {
-        frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), inner);
+        frame.render_widget(Paragraph::new(text).wrap(Wrap { trim: false }), area);
     }
 }

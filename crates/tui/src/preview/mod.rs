@@ -187,14 +187,18 @@ mod tests {
         let pixels = RgbaImage::from_pixel(2, 1, image::Rgba([255, 0, 0, 128]));
         let fitted = fit(&pixels, 80, 80).unwrap();
         assert_eq!(fitted.dimensions(), (80, 80));
-        assert_eq!(fitted.get_pixel(0, 0).0, [42, 42, 42, 255]);
+        assert_eq!(fitted.get_pixel(0, 0).0, [0, 0, 0, 0]);
         let center = fitted.get_pixel(40, 40).0;
         assert!(
             center[0] > 140 && center[1] < 30 && center[3] == 255,
             "{center:?}"
         );
-        assert_eq!(fitted.get_pixel(0, 19).0[0], fitted.get_pixel(0, 19).0[1]);
+        assert_eq!(fitted.get_pixel(0, 19).0, [0, 0, 0, 0]);
         assert!(fitted.get_pixel(0, 20).0[0] > 140);
-        assert_eq!(fitted.get_pixel(0, 60).0[0], fitted.get_pixel(0, 60).0[1]);
+        assert_eq!(fitted.get_pixel(0, 60).0, [0, 0, 0, 0]);
+        let transparent = fit(&RgbaImage::new(2, 1), 80, 80).unwrap();
+        assert_eq!(transparent.get_pixel(0, 0).0, [0, 0, 0, 0]);
+        assert_eq!(transparent.get_pixel(0, 20).0, [42, 42, 42, 255]);
+        assert_eq!(transparent.get_pixel(8, 20).0, [56, 56, 56, 255]);
     }
 }
