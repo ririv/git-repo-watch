@@ -2,6 +2,7 @@
 mod body;
 mod branches;
 mod breadcrumbs;
+pub(super) mod browser;
 pub(super) mod changes;
 mod completion;
 mod diff;
@@ -182,6 +183,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     if !matches!(
         screen.mode,
         Mode::Browsing
+            | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)
             | Mode::Branches(_)

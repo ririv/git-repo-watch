@@ -15,6 +15,20 @@ impl Screen {
         root: &Cancel,
     ) -> Result<bool> {
         match action {
+            Action::BrowseFiles => {
+                if let Some(path) = path {
+                    self.open_view(crate::navigation::View::Files, path);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
+            Action::BrowserDiff => self.open_browser_diff(),
+            Action::BrowserRefresh => {
+                if let Mode::Browser(session) = &mut self.mode {
+                    session.refresh();
+                    self.poll_browser();
+                }
+            }
             Action::Stashes => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Stashes, path);
@@ -73,6 +87,11 @@ impl Screen {
                 }
             }
             Action::Refresh => {
+                if let Mode::Browser(session) = &mut self.mode {
+                    session.refresh();
+                    self.poll_browser();
+                    return Ok(false);
+                }
                 if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {
                     if let Err(error) = self.reload(root) {
                         self.error(i18n::tr!(RefreshFailed), error);

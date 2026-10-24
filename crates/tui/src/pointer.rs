@@ -4,6 +4,7 @@ use ratatui::layout::{Position, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Target {
+    Browser,
     Repositories,
     Files,
     Branches,
@@ -14,6 +15,8 @@ pub(crate) enum Target {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScrollTarget {
+    BrowserPreview,
+    BrowserHorizontal,
     Text,
     Overview,
     Diff,

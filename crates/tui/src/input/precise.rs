@@ -17,6 +17,11 @@ impl Screen {
                     return false;
                 }
                 match target {
+                    Target::Browser => {
+                        if let Mode::Browser(session) = &mut self.mode {
+                            *session.state.offset_mut() = offset;
+                        }
+                    }
                     Target::Repositories => *self.repository_viewport.offset_mut() = offset,
                     Target::Files => {
                         let files = match &mut self.mode {
@@ -80,6 +85,14 @@ impl Screen {
             }
 
             Action::Select(target, index) => match target {
+                Target::Browser => {
+                    if let Mode::Browser(session) = &mut self.mode {
+                        session.select(index);
+                        self.poll_browser();
+                    } else {
+                        return false;
+                    }
+                }
                 Target::Repositories if self.page == Page::Repositories => self.select(index),
                 Target::Settings if matches!(self.page, Page::Configuration(_)) => {
                     self.setting_selected = index
@@ -129,6 +142,17 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
+                ScrollTarget::BrowserPreview | ScrollTarget::BrowserHorizontal => {
+                    if let Mode::Browser(session) = &mut self.mode {
+                        match target {
+                            ScrollTarget::BrowserPreview => session.scroll = offset,
+                            ScrollTarget::BrowserHorizontal => session.horizontal.seek(offset),
+                            _ => unreachable!(),
+                        }
+                    } else {
+                        return false;
+                    }
+                }
                 ScrollTarget::Overview if self.page == Page::Detail => self.scroll = offset,
                 ScrollTarget::HistoryMessage => match &mut self.mode {
                     Mode::History(view) => match view.as_mut() {

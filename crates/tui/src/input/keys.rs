@@ -9,6 +9,7 @@ impl Screen {
         match &mut self.mode {
             Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing
+            | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)
             | Mode::Branches(_)
@@ -69,7 +70,11 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
-        if self.changes_shortcut(key) || self.repository_pane_key(key) || self.horizontal_key(key) {
+        if self.changes_shortcut(key)
+            || self.repository_pane_key(key)
+            || self.browser_shortcut(key)
+            || self.horizontal_key(key)
+        {
             return Ok(false);
         }
         if let Mode::History(view) = &mut self.mode
@@ -96,6 +101,9 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::Browser(session) => {
+                self.browser_key(session, key);
+            }
             Mode::Browsing => return self.navigate(key, root),
             Mode::Panel(_) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {

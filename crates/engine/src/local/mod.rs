@@ -1,5 +1,6 @@
 //! Local repository capabilities implemented exclusively through libgit2.
 pub mod branches;
+pub mod browser;
 pub mod files;
 pub mod guard;
 pub mod history;

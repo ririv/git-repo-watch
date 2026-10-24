@@ -95,7 +95,10 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
         let staging = names("暂存");
         assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
-        assert_eq!(names("DIFF"), names("repo diff"));
+        let diff = names("DIFF");
+        let group = names("repo diff");
+        assert_eq!(&diff[..group.len()], group);
+        assert!(diff.contains(&"repo files diff"));
     }
 }
 

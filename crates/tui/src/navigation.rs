@@ -11,6 +11,7 @@ pub(crate) enum View {
     History,
     Branches,
     Stashes,
+    Files,
 }
 impl View {
     pub fn title(self) -> &'static str {
@@ -19,6 +20,7 @@ impl View {
             Self::History => i18n::tr!(HistoryTitle),
             Self::Branches => i18n::tr!(BranchTitle),
             Self::Stashes => i18n::tr!(StashTitle),
+            Self::Files => i18n::tr!(BrowserTitle),
         }
     }
 }
@@ -28,6 +30,7 @@ pub(crate) enum Content {
     History(history::Session),
     Branches(branches::Session),
     Stashes(stashes::Session),
+    Browser(Box<crate::browser::Session>),
 }
 impl Content {
     fn view(&self) -> View {
@@ -36,6 +39,7 @@ impl Content {
             Self::History(_) => View::History,
             Self::Branches(_) => View::Branches,
             Self::Stashes(_) => View::Stashes,
+            Self::Browser(_) => View::Files,
         }
     }
     fn into_mode(self) -> Mode {
@@ -47,6 +51,7 @@ impl Content {
             Self::History(session) => Mode::History(Box::new(history::View::Graph(session))),
             Self::Branches(session) => Mode::Branches(Box::new(branches::View::List(session))),
             Self::Stashes(session) => Mode::Stashes(Box::new(stashes::View::List(session))),
+            Self::Browser(session) => Mode::Browser(session),
         }
     }
 }
@@ -59,6 +64,13 @@ pub(crate) struct Visit {
     repository: Option<PathBuf>,
 }
 impl Visit {
+    pub(crate) fn refresh_browser(&mut self, path: &std::path::Path) {
+        if let Mode::Browser(session) = &mut self.mode
+            && session.root == path
+        {
+            session.refresh();
+        }
+    }
     pub(crate) fn refresh(&mut self, readback: crate::mutations::readback::Readback) {
         crate::mutations::readback::merge_mode(&mut self.mode, readback);
     }
@@ -139,6 +151,7 @@ impl Screen {
         if self.page == Page::View(view) && self.scope_path().as_ref() == Some(&path) {
             let at_root = match (&self.mode, view) {
                 (Mode::Changes(_), View::Diff) => true,
+                (Mode::Browser(_), View::Files) => true,
                 (Mode::History(current), View::History) => {
                     matches!(current.as_ref(), history::View::Graph(_))
                 }
@@ -153,6 +166,15 @@ impl Screen {
             if at_root {
                 return;
             }
+        }
+        if view == View::Files {
+            let origin = self.take_mode();
+            self.enter_view(
+                Content::Browser(Box::new(crate::browser::Session::new(path))),
+                origin,
+            );
+            self.poll_browser();
+            return;
         }
         // 从当前焦点进入完整视图时复用选择和搜索，布局由入口单独决定。
         let cached = match (&self.mode, view) {
@@ -197,7 +219,7 @@ impl Screen {
                     }
                     _ => None,
                 },
-                View::Stashes => None,
+                View::Stashes | View::Files => None,
             }
         });
         if let Some(content) = cached {
@@ -222,6 +244,7 @@ impl Screen {
                     View::Stashes => {
                         Content::Stashes(stashes::Session::new(service.stashes(&path, &cancel)?))
                     }
+                    View::Files => unreachable!("browser opens before the repository task"),
                 };
                 Ok(Outcome::Opened(Box::new(content)))
             },

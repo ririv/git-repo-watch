@@ -61,7 +61,7 @@ pub(super) fn render(
         }
     }
 }
-fn side(
+pub(super) fn side(
     frame: &mut Frame,
     area: Rect,
     side: &Side,

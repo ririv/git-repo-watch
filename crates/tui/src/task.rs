@@ -88,7 +88,7 @@ impl Screen {
                 }
             }
         }
-        changed | self.poll_repository_tasks(root)
+        changed | self.poll_repository_tasks(root) | self.poll_browser()
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
@@ -97,6 +97,12 @@ impl Screen {
         }
         match outcome {
             Outcome::Opened(content) => self.enter_view(*content, origin),
+            Outcome::BrowserDiff { files } => {
+                self.enter_view(navigation::Content::Diff(files), origin);
+                if let Mode::Changes(session) = &mut self.mode {
+                    session.focus = crate::changes::Focus::Preview;
+                }
+            }
             Outcome::Stashes(snapshot) => {
                 let session = match &origin {
                     Mode::Stashes(view) => view.session().refreshed(snapshot),

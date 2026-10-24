@@ -16,6 +16,10 @@ impl Screen {
             _ => return false,
         };
         let content = match &mut self.mode {
+            Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
+                session.horizontal.advance(delta);
+                return true;
+            }
             Mode::Changes(session) if session.focus == changes::Focus::Preview => {
                 match &mut session.preview {
                     changes::Preview::Ready { content, .. } => content,

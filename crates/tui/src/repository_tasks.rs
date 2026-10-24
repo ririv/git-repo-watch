@@ -242,6 +242,14 @@ impl Screen {
         changed
     }
     pub(super) fn refresh_repository_panes(&mut self, path: &Path) {
+        if let Mode::Browser(session) = &mut self.mode
+            && session.root == path
+        {
+            session.refresh();
+        }
+        for visit in &mut self.history {
+            visit.refresh_browser(path);
+        }
         if self.workspace.path() != Some(path) {
             return;
         }

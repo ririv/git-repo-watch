@@ -91,7 +91,9 @@ pub(crate) enum BarEvent {
 }
 impl Screen {
     pub(crate) fn sync_bar(&mut self) {
-        self.bar = InputBar::Search(Editor::new(if let Mode::History(view) = &self.mode {
+        self.bar = InputBar::Search(Editor::new(if let Mode::Browser(session) = &self.mode {
+            session.query.clone()
+        } else if let Mode::History(view) = &self.mode {
             view.query().to_owned()
         } else if let Mode::Stashes(view) = &self.mode {
             view.session().query.clone()
@@ -123,6 +125,7 @@ impl Screen {
         if let InputBar::Search(editor) = &self.bar {
             let query = editor.text.clone();
             match &mut self.mode {
+                Mode::Browser(session) => session.search(query),
                 Mode::Stashes(view) => view.search(query),
                 Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
@@ -184,6 +187,7 @@ impl Screen {
         if !matches!(
             self.mode,
             Mode::Browsing
+                | Mode::Browser(_)
                 | Mode::Panel(_)
                 | Mode::Stashes(_)
                 | Mode::Branches(_)
@@ -382,6 +386,7 @@ impl Screen {
             && (matches!(
                 self.mode,
                 Mode::History(_)
+                    | Mode::Browser(_)
                     | Mode::Panel(crate::workspace::Section::Overview)
                     | Mode::Stashes(_)
                     | Mode::Branches(_)
@@ -443,6 +448,7 @@ impl Screen {
         let path = self.selected_path();
         self.bar = InputBar::default();
         match &mut self.mode {
+            Mode::Browser(session) => session.search(String::new()),
             Mode::Panel(_) => {}
             Mode::Stashes(view) => view.search(String::new()),
             Mode::Branches(view) => view.search(String::new()),

@@ -47,6 +47,9 @@ impl Screen {
 }
 pub(crate) fn merge_mode(mode: &mut Mode, readback: Readback) {
     match (readback, mode) {
+        (Readback::Files(snapshot), Mode::Browser(session)) if session.root == snapshot.path => {
+            session.refresh()
+        }
         (Readback::Files(snapshot), Mode::Files(session))
             if session.snapshot.path == snapshot.path =>
         {

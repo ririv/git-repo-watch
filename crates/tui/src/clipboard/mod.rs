@@ -7,6 +7,7 @@ pub(crate) use worker::Writer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Scope {
+    Browser,
     Repository,
     Diff,
     Log,

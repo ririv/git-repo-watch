@@ -1,0 +1,234 @@
+//! Lazy file trees and immutable source previews share the repository viewport.
+use super::*;
+use crate::{
+    browser::{Focus, Preview, Session, preview::Document},
+    pointer::{ScrollTarget, Target},
+    workspace::Arrangement,
+};
+
+pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
+    if area.width < 75 || area.height < 8 || session.arrangement == Arrangement::Maximized {
+        return vec![(area, session.focus)];
+    }
+    let parts = Layout::horizontal([
+        Constraint::Length((area.width * 2 / 5).clamp(24, 42)),
+        Constraint::Min(1),
+    ])
+    .split(area);
+    vec![(parts[0], Focus::Tree), (parts[1], Focus::Preview)]
+}
+pub(super) fn render(
+    frame: &mut Frame,
+    area: Rect,
+    session: &mut Session,
+    graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
+) {
+    for (area, focus) in areas(area, session) {
+        match focus {
+            Focus::Tree => tree(frame, area, session, hits),
+            Focus::Preview => preview(frame, area, session, graphics, hits),
+        }
+        if focus == session.focus {
+            highlight_border(frame, area);
+        }
+    }
+}
+fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::pointer::Map) {
+    let panel = block(i18n::tr!(BrowserTitle));
+    let inner = panel.inner(area);
+    frame.render_widget(panel, area);
+    let notice = session.notice().map(str::to_owned);
+    let parts = Layout::vertical([
+        Constraint::Length(u16::from(notice.is_some())),
+        Constraint::Min(0),
+    ])
+    .split(inner);
+    if let Some(notice) = notice {
+        frame.render_widget(
+            Paragraph::new(safe(&notice)).style(Style::default().fg(MUTED)),
+            parts[0],
+        );
+    }
+    let rows = session.rows();
+    let width = parts[1].width as usize;
+    let name_width = if width >= 3 { width - 3 } else { width };
+    let items = rows
+        .iter()
+        .map(|row| {
+            let entry = row.entry;
+            let status = entry.status();
+            let color = if status.is_some_and(|status| status.changed()) {
+                WARN
+            } else {
+                Color::Reset
+            };
+            let path = if session.query.is_empty() {
+                entry
+                    .path
+                    .strip_prefix(row.head.parent().expect("nonempty browser path"))
+                    .expect("compact row stays within its parent")
+                    .to_string_lossy()
+            } else {
+                entry.path.to_string_lossy()
+            };
+            let label = if entry.directory() {
+                format!(
+                    "{}{path}/ {}",
+                    if session.expanded(row.head) {
+                        "▼  "
+                    } else {
+                        "▶  "
+                    },
+                    if session.directory_loading(&entry.path) {
+                        session.spinner()
+                    } else if session.directory_notice(&entry.path).is_some() {
+                        "!"
+                    } else {
+                        ""
+                    }
+                )
+            } else {
+                format!("   {path}")
+            };
+            let label = Line::styled(
+                format!("{}{}", "  ".repeat(row.depth), safe(&label)),
+                Style::default().fg(if entry.directory() { ACCENT } else { color }),
+            );
+            let mut line = crate::horizontal::clip(&label, 0, name_width);
+            if width >= 3 {
+                line.spans
+                    .push(Span::raw(" ".repeat(width - 2 - line.width())));
+                line.spans.push(Span::styled(
+                    status
+                        .map(|status| status.label())
+                        .unwrap_or_else(|| "  ".into()),
+                    Style::default().fg(color),
+                ));
+            }
+            ListItem::new(line)
+        })
+        .collect::<Vec<_>>();
+    let count = rows.len();
+    drop(rows);
+    frame.render_stateful_widget(
+        List::new(items).highlight_style(selected_style()),
+        parts[1],
+        &mut session.state,
+    );
+    if count == 0 && session.notice().is_none() {
+        frame.render_widget(
+            Paragraph::new(i18n::tr!(BrowserEmpty)).style(Style::default().fg(MUTED)),
+            parts[1],
+        );
+    }
+    crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
+    hits.list(
+        area,
+        parts[1],
+        &(0..count).collect::<Vec<_>>(),
+        session.state.offset(),
+        Target::Browser,
+    );
+}
+fn preview(
+    frame: &mut Frame,
+    area: Rect,
+    session: &mut Session,
+    graphics: &mut crate::graphics::Display,
+    hits: &mut crate::pointer::Map,
+) {
+    let title = session
+        .selected()
+        .map(|entry| safe(&entry.path.to_string_lossy()))
+        .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
+    let panel = block(title);
+    let inner = panel.inner(area);
+    frame.render_widget(panel, area);
+    match &mut session.preview {
+        Preview::Ready {
+            document: Document::Text { text, width },
+            ..
+        } => {
+            session
+                .horizontal
+                .constrain(width.saturating_sub(inner.width as usize));
+            session.scroll = session
+                .scroll
+                .min(text.lines.len().saturating_sub(inner.height as usize));
+            for (index, line) in text
+                .lines
+                .iter()
+                .skip(session.scroll)
+                .take(inner.height as usize)
+                .enumerate()
+            {
+                frame.render_widget(
+                    crate::horizontal::pinned(
+                        line,
+                        6.min(inner.width as usize),
+                        session.horizontal.offset(),
+                        inner.width as usize,
+                    ),
+                    Rect::new(inner.x, inner.y + index as u16, inner.width, 1),
+                );
+            }
+            crate::scrollbar::vertical(frame, area, inner, text.lines.len(), session.scroll);
+            hits.vertical(
+                area,
+                inner,
+                text.lines.len().saturating_sub(inner.height as usize),
+                session.scroll,
+                ScrollTarget::BrowserPreview,
+            );
+            session.horizontal.render_on_border(
+                frame,
+                area,
+                inner.x + 6.min(inner.width)..inner.right(),
+                hits,
+                ScrollTarget::BrowserHorizontal,
+            );
+        }
+        Preview::Ready {
+            document: Document::Image(image),
+            ..
+        } => {
+            super::document::side(
+                frame,
+                inner,
+                &image.pairs[0].after,
+                "",
+                image.source,
+                0,
+                graphics,
+            );
+        }
+        Preview::Loading(_) => frame.render_widget(
+            Paragraph::new(format!(
+                "{} {}",
+                session.spinner(),
+                i18n::tr!(BrowserReading)
+            ))
+            .style(Style::default().fg(MUTED)),
+            inner,
+        ),
+        Preview::Failed { error, .. } => frame.render_widget(
+            Paragraph::new(multiline(error))
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(BAD)),
+            inner,
+        ),
+        Preview::Empty => {
+            let notice = session
+                .selected()
+                .and_then(|entry| session.directory_notice(&entry.path).map(str::to_owned))
+                .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
+            frame.render_widget(
+                Paragraph::new(multiline(&notice))
+                    .wrap(Wrap { trim: false })
+                    .style(Style::default().fg(MUTED)),
+                inner,
+            );
+        }
+    }
+}

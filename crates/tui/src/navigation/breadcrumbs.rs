@@ -26,6 +26,7 @@ pub(crate) struct Crumb {
 pub(super) fn repository(mode: &Mode) -> Option<&Path> {
     match mode {
         Mode::History(view) => Some(&view.session().references.path),
+        Mode::Browser(session) => Some(&session.root),
         Mode::Branches(view) => Some(&view.session().snapshot.path),
         Mode::Stashes(view) => Some(&view.session().snapshot.path),
         Mode::Busy(pending) => repository(&pending.origin),
@@ -59,7 +60,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
                 View::History => Level::History,
                 View::Branches => Level::Branches,
                 View::Stashes => Level::Stashes,
-                View::Diff => Level::Page,
+                View::Diff | View::Files => Level::Page,
             },
         ),
         Page::Configuration(section) => push(section.title().into(), Level::Page),

@@ -699,6 +699,29 @@ pub enum Message {
     ConfirmOperation,
     CurrentRepositoryIsNotInTheFiltered,
     Instructions,
+    BrowserTitle,
+    BrowserDescription,
+    BrowserDiffDescription,
+    BrowserRefreshDescription,
+    BrowserSearch,
+    BrowserPlaceholder,
+    BrowserHint,
+    BrowserLoading,
+    BrowserReading,
+    BrowserSearching,
+    BrowserSearchLimited,
+    BrowserSelectFile,
+    BrowserEmpty,
+    BrowserInvalidPath,
+    BrowserSpecialFile,
+    BrowserNotUtf8,
+    BrowserMissing,
+    BrowserBinary,
+    BrowserTooLarge,
+    BrowserDirectory,
+    BrowserSymlink,
+    BrowserHighlightLimit,
+    BrowserNoDiff,
     CurrentRepo,
     Global,
     CurrentView,
@@ -3168,6 +3191,78 @@ impl Message {
             }
             (Self::Instructions, Language::English) => "Instructions",
             (Self::Instructions, Language::Chinese) => "操作说明",
+            (Self::BrowserTitle, Language::English) => "Files",
+            (Self::BrowserTitle, Language::Chinese) => "文件浏览",
+            (Self::BrowserDescription, Language::English) => {
+                "Browse repository files and preview their contents"
+            }
+            (Self::BrowserDescription, Language::Chinese) => "浏览仓库文件并预览内容",
+            (Self::BrowserDiffDescription, Language::English) => "Open the selected file's changes",
+            (Self::BrowserDiffDescription, Language::Chinese) => "查看选中文件的差异",
+            (Self::BrowserRefreshDescription, Language::English) => {
+                "Refresh loaded directories and file preview"
+            }
+            (Self::BrowserRefreshDescription, Language::Chinese) => "刷新已加载目录与文件预览",
+            (Self::BrowserSearch, Language::English) => "Find files",
+            (Self::BrowserSearch, Language::Chinese) => "搜索文件",
+            (Self::BrowserPlaceholder, Language::English) => {
+                "Search repository paths, or / for commands"
+            }
+            (Self::BrowserPlaceholder, Language::Chinese) => "搜索仓库文件路径，或输入 / 查看命令",
+            (Self::BrowserHint, Language::English) => {
+                "↑↓ select · ← collapse · →/Enter open · Tab pane · Ctrl+F zoom · Esc back"
+            }
+            (Self::BrowserHint, Language::Chinese) => {
+                "↑↓选择 · ←折叠 · →/Enter 打开 · Tab 面板 · Ctrl+F 放大 · Esc 返回"
+            }
+            (Self::BrowserLoading, Language::English) => "Loading directory…",
+            (Self::BrowserLoading, Language::Chinese) => "正在读取目录…",
+            (Self::BrowserReading, Language::English) => "Loading file…",
+            (Self::BrowserReading, Language::Chinese) => "正在读取文件…",
+            (Self::BrowserSearching, Language::English) => "Searching repository files…",
+            (Self::BrowserSearching, Language::Chinese) => "正在搜索仓库文件…",
+            (Self::BrowserSearchLimited, Language::English) => {
+                "Showing 1,000 matches; refine your search"
+            }
+            (Self::BrowserSearchLimited, Language::Chinese) => "已显示 1,000 项，请缩小搜索范围",
+            (Self::BrowserSelectFile, Language::English) => "Select a file to preview",
+            (Self::BrowserSelectFile, Language::Chinese) => "选择文件以预览内容",
+            (Self::BrowserEmpty, Language::English) => "No files to display",
+            (Self::BrowserEmpty, Language::Chinese) => "没有可显示的文件",
+            (Self::BrowserInvalidPath, Language::English) => {
+                "Browser paths must stay inside the repository without traversing symlinks"
+            }
+            (Self::BrowserInvalidPath, Language::Chinese) => {
+                "浏览路径必须位于仓库内，且不能穿越符号链接目录"
+            }
+            (Self::BrowserSpecialFile, Language::English) => "Special files cannot be previewed",
+            (Self::BrowserSpecialFile, Language::Chinese) => "特殊文件不支持内容预览",
+            (Self::BrowserNotUtf8, Language::English) => "This file is not UTF-8 text",
+            (Self::BrowserNotUtf8, Language::Chinese) => "该文件不是 UTF-8 文本",
+            (Self::BrowserMissing, Language::English) => {
+                "This tracked file is missing from the worktree; use /repo files diff to inspect its deletion"
+            }
+            (Self::BrowserMissing, Language::Chinese) => {
+                "该跟踪文件已从工作区删除，可用 /repo files diff 查看删除差异"
+            }
+            (Self::BrowserBinary, Language::English) => "Binary file; text preview unavailable",
+            (Self::BrowserBinary, Language::Chinese) => "二进制文件，不提供文本预览",
+            (Self::BrowserTooLarge, Language::English) => {
+                "Preview limit exceeded (text: 1 MiB; images: 16 MiB)"
+            }
+            (Self::BrowserTooLarge, Language::Chinese) => {
+                "文件超过预览上限（文本 1 MiB，图片 16 MiB）"
+            }
+            (Self::BrowserDirectory, Language::English) => "Directory or submodule",
+            (Self::BrowserDirectory, Language::Chinese) => "目录或子模块",
+            (Self::BrowserSymlink, Language::English) => "Symlink",
+            (Self::BrowserSymlink, Language::Chinese) => "符号链接",
+            (Self::BrowserHighlightLimit, Language::English) => {
+                "Syntax highlighting limit exceeded"
+            }
+            (Self::BrowserHighlightLimit, Language::Chinese) => "超过语法高亮处理上限",
+            (Self::BrowserNoDiff, Language::English) => "Select a changed file to open its diff",
+            (Self::BrowserNoDiff, Language::Chinese) => "请选择有改动的文件以查看差异",
             (Self::CurrentRepo, Language::English) => "Current repo",
             (Self::CurrentRepo, Language::Chinese) => "当前仓库",
             (Self::Global, Language::English) => "Global",

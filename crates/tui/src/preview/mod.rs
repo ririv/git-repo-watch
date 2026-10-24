@@ -63,6 +63,20 @@ pub(super) fn prepare(
         pairs,
     })
 }
+pub(super) fn single(image: media::Image, cancel: &Cancel) -> Result<View> {
+    let title = image.path.to_string_lossy().into_owned();
+    cancel.check()?;
+    let after = side(Source::Image(image), cancel)?;
+    Ok(View {
+        source: NEXT_SOURCE.fetch_add(1, Ordering::Relaxed),
+        title,
+        labels: (String::new(), i18n::tr!(Worktree).into()),
+        pairs: vec![Pair {
+            before: Side::Absent,
+            after,
+        }],
+    })
+}
 fn side(source: Source, cancel: &Cancel) -> Result<Side> {
     cancel.check()?;
     let side = match source {

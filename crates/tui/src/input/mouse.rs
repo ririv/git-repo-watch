@@ -143,6 +143,10 @@ impl Screen {
                 .then(|| self.pointer.hit(Position::new(event.column, event.row)))
                 .flatten();
             let before = crate::workspace::Section::focused(&self.mode);
+            let browser_focus_before = match &self.mode {
+                Mode::Browser(session) => Some(session.focus),
+                _ => None,
+            };
             let focus_before = match &self.mode {
                 Mode::Changes(session) => Some(session.focus),
                 _ => None,
@@ -165,11 +169,22 @@ impl Screen {
                     && let crate::pointer::Hit::Item(target, _) = hit
                     && let Some(identity) = self.clicked_identity(target)
                 {
-                    if self.clicks.press(
+                    let paired = self.clicks.press(
                         identity,
                         Position::new(event.column, event.row),
                         std::time::Instant::now(),
+                    );
+                    // 目录在首击时开合，忽略双击的第二下，避免立即反向切换。
+                    let activate = if matches!(
+                        (target, &self.mode),
+                        (crate::pointer::Target::Browser, Mode::Browser(session))
+                            if session.selected().is_some_and(|entry| entry.directory())
                     ) {
+                        !paired
+                    } else {
+                        paired
+                    };
+                    if activate {
                         self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
                     }
                 } else {
@@ -182,6 +197,11 @@ impl Screen {
                 || focus_before
                     != match &self.mode {
                         Mode::Changes(session) => Some(session.focus),
+                        _ => None,
+                    }
+                || browser_focus_before
+                    != match &self.mode {
+                        Mode::Browser(session) => Some(session.focus),
                         _ => None,
                     });
         }
@@ -218,6 +238,7 @@ impl Screen {
         if !matches!(
             self.mode,
             Mode::Browsing
+                | Mode::Browser(_)
                 | Mode::Panel(_)
                 | Mode::Stashes(_)
                 | Mode::Branches(_)
@@ -260,7 +281,22 @@ impl Screen {
     }
     fn pointer_focus(&mut self, event: MouseEvent) -> bool {
         let point = Position::new(event.column, event.row);
-        if let Mode::Changes(session) = &mut self.mode {
+        if let Mode::Browser(session) = &mut self.mode {
+            let Some(focus) = self.body_area.and_then(|area| {
+                crate::view::browser::areas(area, session)
+                    .into_iter()
+                    .find(|(area, _)| area.contains(point))
+                    .map(|(_, focus)| focus)
+            }) else {
+                return false;
+            };
+            if focus != session.focus {
+                if !self.config.mouse.select_pane {
+                    return false;
+                }
+                session.focus = focus;
+            }
+        } else if let Mode::Changes(session) = &mut self.mode {
             let panel = self.body_area.and_then(|area| {
                 crate::view::changes::areas(area, session)
                     .into_iter()

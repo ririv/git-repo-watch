@@ -1,6 +1,7 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
 mod bar;
 mod branches;
+mod browser;
 mod changes;
 mod checks;
 mod clipboard;
@@ -74,6 +75,7 @@ enum Page {
 #[derive(Debug)]
 enum Mode {
     Browsing,
+    Browser(Box<browser::Session>),
     /// Focused pane without an interactive content session (overview or pending data).
     Panel(workspace::Section),
     Confirm {
@@ -168,6 +170,9 @@ enum WorkerEvent {
 #[derive(Debug)]
 enum Outcome {
     Opened(Box<navigation::Content>),
+    BrowserDiff {
+        files: FileSession,
+    },
     Checked(domain::Report),
     Branches(Box<branches::View>),
     Stashes(engine::local::stash::Snapshot),
@@ -315,6 +320,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::Browser(session) = &self.mode {
+            return Some(session.root.clone());
+        }
         if let Mode::Stashes(view) = &self.mode {
             return Some(view.session().snapshot.path.clone());
         }

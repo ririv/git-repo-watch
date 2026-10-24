@@ -18,6 +18,7 @@ pub(crate) enum Context {
     Settings,
     Schedule,
     Error,
+    Files,
 }
 impl Context {
     pub fn name(self) -> &'static str {
@@ -31,6 +32,7 @@ impl Context {
             Self::Settings => "settings",
             Self::Schedule => "schedule",
             Self::Error => "error",
+            Self::Files => "repo files",
         }
     }
     pub fn relative(self, command: &Command) -> Option<&'static str> {
@@ -101,6 +103,7 @@ impl Context {
 impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
         match &self.mode {
+            Mode::Browser(_) => Some(Context::Files),
             Mode::Changes(_) | Mode::Files(_) => Some(Context::Diff(DiffContext::Worktree)),
             Mode::History(view) => Some(match view.as_ref() {
                 history::View::Diff { .. } => Context::Diff(DiffContext::History),

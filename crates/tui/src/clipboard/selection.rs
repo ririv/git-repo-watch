@@ -70,6 +70,7 @@ impl Content {
 pub(crate) enum Selection {
     #[default]
     None,
+    Browser(Content),
     Diff(Content),
     Log(Content),
     Branch(Content),
@@ -79,6 +80,7 @@ pub(crate) enum Selection {
 impl Selection {
     fn content(&self, scope: Scope) -> Option<&Content> {
         match (self, scope) {
+            (Self::Browser(content), Scope::Browser) => Some(content),
             (Self::Diff(content), Scope::Diff)
             | (Self::Log(content), Scope::Log)
             | (Self::Branch(content), Scope::Branch)
@@ -146,6 +148,9 @@ impl Selection {
 impl Screen {
     pub(crate) fn copy_selection(&self) -> Selection {
         match &self.mode {
+            Mode::Browser(session) => {
+                Selection::Browser(Content::paths(session.selected().map(|entry| entry.path)))
+            }
             Mode::Files(files) => Selection::Diff(file_paths(files)),
             Mode::Changes(session) => Selection::Diff(match session.focus {
                 changes::Focus::Files => file_paths(&session.files),

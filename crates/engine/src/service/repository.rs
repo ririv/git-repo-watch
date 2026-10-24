@@ -5,6 +5,33 @@ pub(super) struct RepositoryLock {
     _slot: Lock,
 }
 impl Service {
+    pub fn find_files(
+        &self,
+        root: &Path,
+        query: &str,
+        cancel: &Cancel,
+    ) -> Result<local::browser::Search> {
+        self.validate_repository(root, cancel)?;
+        local::browser::find(root, query, cancel)
+    }
+    pub fn browse_directory(
+        &self,
+        root: &Path,
+        relative: &Path,
+        cancel: &Cancel,
+    ) -> Result<local::browser::Directory> {
+        self.validate_repository(root, cancel)?;
+        local::browser::directory(root, relative, cancel)
+    }
+    pub fn browse_file(
+        &self,
+        root: &Path,
+        relative: &Path,
+        cancel: &Cancel,
+    ) -> Result<local::browser::Content> {
+        self.validate_repository(root, cancel)?;
+        local::browser::read(root, relative, cancel)
+    }
     pub fn branches(
         &self,
         path: &Path,

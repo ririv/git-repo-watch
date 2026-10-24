@@ -13,6 +13,10 @@ const INTERVAL: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Identity {
+    Browser {
+        repository: PathBuf,
+        path: PathBuf,
+    },
     Repository(PathBuf),
     Layout(crate::diff::Preference),
     File {
@@ -67,6 +71,13 @@ impl Clicks {
 impl Screen {
     pub(super) fn clicked_identity(&self, target: Target) -> Option<Identity> {
         match target {
+            Target::Browser => match &self.mode {
+                Mode::Browser(session) => Some(Identity::Browser {
+                    repository: session.root.clone(),
+                    path: session.selected_row()?.head.to_owned(),
+                }),
+                _ => None,
+            },
             Target::Repositories => self.selected_path().map(Identity::Repository),
             Target::Files => {
                 let files = self.mode.file_session()?;

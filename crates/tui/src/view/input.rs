@@ -53,6 +53,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     } else {
         match &screen.mode {
             Mode::Browsing
+            | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)
             | Mode::Branches(_)
@@ -86,6 +87,7 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     i18n::tr!(SearchEditingHint)
                 } else {
                     match screen.mode {
+                        Mode::Browser(_) => i18n::tr!(BrowserHint),
                         Mode::Stashes(_) => i18n::tr!(StashHint),
                         Mode::Branches(ref view) => match view.as_ref() {
                             crate::branches::View::List(_) => i18n::tr!(BranchHint),
@@ -117,6 +119,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 (
                     if command {
                         i18n::tr!(CommandsAlt)
+                    } else if matches!(screen.mode, Mode::Browser(_)) {
+                        i18n::tr!(BrowserSearch)
                     } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                     {
                         i18n::tr!(HistorySearch)
@@ -137,6 +141,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                             .is_some_and(|input| input.menu_context().is_some())
                         {
                             i18n::tr!(ContextCommandPlaceholder)
+                        } else if matches!(screen.mode, Mode::Browser(_)) {
+                            i18n::tr!(BrowserPlaceholder)
                         } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                         {
                             i18n::tr!(HistorySearchHint)
