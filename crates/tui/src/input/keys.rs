@@ -5,6 +5,9 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
+        if matches!(self.feedback, crate::feedback::Feedback::Reading(_)) {
+            return;
+        }
         self.clicks.reset();
         self.drag = None;
         match &mut self.mode {
@@ -33,6 +36,9 @@ impl Screen {
         self.clicks.reset();
         self.drag = None;
         if self.interaction_key(key) {
+            return Ok(false);
+        }
+        if self.feedback_key(key) {
             return Ok(false);
         }
         if matches!(

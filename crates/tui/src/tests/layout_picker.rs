@@ -79,8 +79,8 @@ fn chooser_and_current_mark_are_horizontal_at_all_supported_sizes_and_accept_mou
             let text = render(&mut s, width, height);
             assert!(text.contains(i18n::tr!(LayoutPickerTitle)));
             assert!(text.contains(i18n::tr!(LayoutPickerHint)));
-            let body = s.body_area.unwrap();
-            let line = text.lines().nth(usize::from(body.bottom() + 2)).unwrap();
+            let inner = view::input::content_area(s.input_area.unwrap());
+            let line = text.lines().nth(usize::from(inner.y)).unwrap();
             for preference in Preference::ALL {
                 assert!(line.contains(preference.label()), "{text}");
             }
@@ -89,13 +89,7 @@ fn chooser_and_current_mark_are_horizontal_at_all_supported_sizes_and_accept_mou
                 "{text}"
             );
         }
-        let body = s.body_area.unwrap();
-        let inner = ratatui::layout::Rect::new(
-            body.x + 1,
-            body.bottom() + 2,
-            body.width.saturating_sub(2),
-            1,
-        );
+        let inner = view::input::content_area(s.input_area.unwrap());
         let (area, _, _) = view::layout_picker::options(inner, Preference::Auto)
             .into_iter()
             .find(|(_, p, _)| *p == Preference::Split)

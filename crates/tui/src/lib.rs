@@ -12,6 +12,7 @@ mod confirmation;
 mod diff;
 mod document;
 mod editor;
+mod feedback;
 mod files;
 mod graphics;
 mod history;
@@ -228,6 +229,7 @@ struct Screen {
     settings_focus: Option<settings::Focus>,
     scroll: usize,
     message: String,
+    feedback: feedback::Feedback,
     check_task: Option<checks::CheckTask>,
     repository_tasks: BTreeMap<PathBuf, repository_tasks::Task>,
     repository_errors: BTreeMap<PathBuf, String>,
@@ -283,6 +285,7 @@ impl Screen {
             settings_focus: None,
             scroll: 0,
             message: String::new(),
+            feedback: Default::default(),
             check_task: None,
             repository_tasks: BTreeMap::new(),
             repository_errors: BTreeMap::new(),

@@ -1,83 +1,119 @@
 //! Bordered input with explicit editable and locked states.
+use super::feedback::Preview;
 use super::*;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
 /// Bottom chrome follows the active input surface instead of always reserving a command bar.
 pub(super) enum Footer {
-    InputBar,
-    Compact { hint: &'static str },
+    InputBar {
+        editor: u16,
+        hint: u16,
+        preview: Preview,
+    },
+    Compact {
+        hint: &'static str,
+        preview: Preview,
+    },
 }
 impl Footer {
-    pub fn for_screen(screen: &Screen) -> Self {
+    pub fn for_screen(screen: &Screen, area: Rect) -> Self {
+        let budget = if area.height >= 9 {
+            (area.height / 3).min(4)
+        } else {
+            0
+        };
+        let preview = Preview::fit(&status_text(screen, area), area.width, budget);
         match &screen.mode {
             Mode::PromptEditor(_) => Self::Compact {
                 hint: i18n::tr!(AgentPromptEditorHint),
+                preview,
             },
             Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::PromptEditor(_)) => {
                 Self::Compact {
                     hint: i18n::tr!(EscCtrlCCancelAndWaitFor),
+                    preview,
                 }
             }
-            _ => Self::InputBar,
+            _ => {
+                let (editor, hint) = match area.height {
+                    14.. => (3, 1),
+                    9.. => (3, 0),
+                    _ => (area.height.min(1), 0),
+                };
+                Self::InputBar {
+                    editor,
+                    hint,
+                    preview,
+                }
+            }
         }
     }
-    pub fn height(&self, screen: &Screen, available: u16) -> u16 {
+    pub fn height(&self) -> u16 {
         match self {
-            Self::InputBar => match available {
-                14.. => 5,
-                9.. => 3,
-                _ => 1,
-            },
-            Self::Compact { .. } => {
-                (1 + u16::from(!compact_status(screen).is_empty())).min(available)
-            }
+            Self::InputBar {
+                editor,
+                hint,
+                preview,
+            } => editor + hint + preview.height(),
+            Self::Compact { preview, .. } => 1 + preview.height(),
         }
     }
     pub fn render(&self, frame: &mut Frame, screen: &mut Screen, area: Rect) {
         match self {
-            Self::InputBar => {
-                screen.input_area = Some(area);
-                render(frame, screen, area);
+            Self::InputBar {
+                editor,
+                hint,
+                preview,
+            } => {
+                let parts = Layout::vertical([
+                    Constraint::Length(*editor),
+                    Constraint::Length(*hint),
+                    Constraint::Length(preview.height()),
+                ])
+                .split(area);
+                screen.input_area = Some(parts[0]);
+                render(frame, screen, parts[0], parts[1]);
+                preview.render(frame, screen, parts[2]);
             }
-            Self::Compact { hint } => {
+            Self::Compact { hint, preview } => {
                 if area.is_empty() {
                     return;
                 }
-                if area.height > 1 {
-                    frame.render_widget(
-                        Paragraph::new(truncate(&safe(&compact_status(screen)), area.width.into()))
-                            .style(Style::default().fg(WARN)),
-                        Rect::new(area.x, area.y, area.width, 1),
-                    );
-                }
-                render_hint(
+                render_hint(frame, Rect::new(area.x, area.y, area.width, 1), hint);
+                preview.render(
                     frame,
-                    Rect::new(area.x, area.bottom() - 1, area.width, 1),
-                    hint,
+                    screen,
+                    Rect::new(
+                        area.x,
+                        area.y + 1,
+                        area.width,
+                        area.height.saturating_sub(1),
+                    ),
                 );
             }
         }
     }
 }
-fn compact_status(screen: &Screen) -> String {
+pub(crate) fn status_text(screen: &Screen, body: Rect) -> String {
+    if matches!(screen.bar, crate::bar::InputBar::Layout { .. }) {
+        return format!(
+            "{}: {}",
+            i18n::tr!(LayoutCurrent),
+            layout_picker::summary(screen, body)
+        );
+    }
     match &screen.mode {
         Mode::Busy(pending) if pending.state == TaskState::Cancelling => {
             i18n::tr!(Cancelling).into()
         }
         Mode::Busy(pending) => format!("{} {}", pending.animation.symbol(), safe(&pending.title)),
-        _ => screen.message.clone(),
+        _ => screen
+            .commit_generator
+            .label()
+            .filter(|_| matches!(screen.mode, Mode::CommitMessage { .. }))
+            .unwrap_or_else(|| screen.message.clone()),
     }
-}
-
-fn regions(area: Rect) -> [Rect; 3] {
-    let heights = match area.height {
-        5.. => [1, 3, 1],
-        3.. => [0, 3, 0],
-        _ => [0, area.height.min(1), 0],
-    };
-    let parts = Layout::vertical(heights.map(Constraint::Length)).split(area);
-    [parts[0], parts[1], parts[2]]
 }
 fn editor_block(area: Rect) -> Block<'static> {
     if area.height >= 3 {
@@ -87,8 +123,7 @@ fn editor_block(area: Rect) -> Block<'static> {
     }
 }
 pub(crate) fn content_area(area: Rect) -> Rect {
-    let editor = regions(area)[1];
-    editor_block(editor).inner(editor)
+    editor_block(area).inner(area)
 }
 
 enum Content<'a> {
@@ -107,7 +142,7 @@ enum Content<'a> {
     },
 }
 
-pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
+pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: Rect) {
     let (title, content, hint) = if let crate::bar::InputBar::Layout { selected, .. } = &screen.bar
     {
         (
@@ -322,30 +357,6 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             ),
         }
     };
-    let parts = regions(area);
-    frame.render_widget(
-        Paragraph::new(truncate(
-            &safe(&if matches!(content, Content::Layout { .. }) {
-                format!(
-                    "{}: {}",
-                    i18n::tr!(LayoutCurrent),
-                    layout_picker::summary(
-                        screen,
-                        screen.body_area.expect("body is laid out before input")
-                    )
-                )
-            } else {
-                screen
-                    .commit_generator
-                    .label()
-                    .filter(|_| matches!(screen.mode, Mode::CommitMessage { .. }))
-                    .unwrap_or_else(|| screen.message.clone())
-            }),
-            area.width as usize,
-        ))
-        .style(Style::default().fg(WARN)),
-        parts[0],
-    );
     let active = matches!(
         content,
         Content::Editable { .. } | Content::Choices { .. } | Content::Layout { .. }
@@ -359,15 +370,15 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
     } else {
         MUTED
     };
-    let mut block = editor_block(parts[1])
+    let mut block = editor_block(area)
         .title_style(Style::default().fg(accent))
         .border_style(Style::default().fg(accent))
         .style(input_style);
-    if parts[1].height >= 3 {
+    if area.height >= 3 {
         block = block.title(format!(" {} ", title.trim()));
     }
-    let inner = block.inner(parts[1]);
-    frame.render_widget(block, parts[1]);
+    let inner = block.inner(area);
+    frame.render_widget(block, area);
     match content {
         Content::Editable {
             editor,
@@ -472,15 +483,10 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             inner,
         ),
     }
-    render_hint(frame, parts[2], hint);
+    render_hint(frame, hint_area, hint);
 }
 fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {
-    let hint_area = Rect::new(
-        area.x + 2,
-        area.y,
-        area.width.saturating_sub(4),
-        area.height,
-    );
+    let hint_area = footer_text_area(area);
     frame.render_widget(
         Paragraph::new(truncate(hint, hint_area.width as usize)).style(Style::default().fg(MUTED)),
         hint_area,

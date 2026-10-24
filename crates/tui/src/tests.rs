@@ -12,6 +12,7 @@ mod copy;
 mod daily_operations;
 mod diff;
 mod double_click;
+mod feedback;
 mod file_tree;
 mod help;
 mod history;
@@ -96,6 +97,7 @@ fn screen(service: Service) -> Screen {
         settings_focus: None,
         scroll: 0,
         message: String::new(),
+        feedback: Default::default(),
         check_task: None,
         repository_tasks: BTreeMap::new(),
         repository_errors: BTreeMap::new(),
@@ -208,6 +210,9 @@ fn render(s: &mut Screen, width: u16, height: u16) -> String {
     s.graphics.settle();
     terminal.draw(|frame| view::render(frame, s)).unwrap();
     s.graphics.finish_frame(&mut Vec::new()).unwrap();
+    if width == 0 {
+        return String::new();
+    }
     terminal
         .backend()
         .buffer()

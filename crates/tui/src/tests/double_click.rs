@@ -178,8 +178,7 @@ fn layout_double_click_applies_the_selected_option() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "repo diff layout");
     render(&mut s, 120, 32);
-    let body = s.body_area.unwrap();
-    let inner = ratatui::layout::Rect::new(body.x + 1, body.bottom() + 2, body.width - 2, 1);
+    let inner = view::input::content_area(s.input_area.unwrap());
     let (area, _, _) = view::layout_picker::options(inner, s.diff_preference)
         .into_iter()
         .find(|(_, choice, _)| *choice == crate::diff::Preference::Split)

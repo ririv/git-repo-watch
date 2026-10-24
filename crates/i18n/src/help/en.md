@@ -23,6 +23,7 @@
 - At a pane root, Esc leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
 ## Search and commands
+- The command menu sits directly above the input. Key hints follow the input, then wrapped operation results. Click Show full result or press `Alt+Enter` for long results; arrows, PgUp/PgDn and the wheel scroll. `Esc` / `Enter` returns to the unchanged page and input draft.
 - Type to search repositories, or files in the file panel. Input is always active.
 - With empty search, `/` opens this view's full-width command menu. `↑↓` selects, `Tab` completes, Enter opens. `//` opens global commands directly.
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.

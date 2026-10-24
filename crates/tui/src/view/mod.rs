@@ -8,6 +8,7 @@ mod commands;
 mod completion;
 mod diff;
 mod document;
+mod feedback;
 mod files;
 mod help;
 mod history;
@@ -50,6 +51,15 @@ const BORDER: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;
 const BAD: Color = Color::LightRed;
 const WARN: Color = Color::Yellow;
+const FOOTER_INSET: u16 = 2;
+fn footer_text_area(area: Rect) -> Rect {
+    Rect::new(
+        area.x + FOOTER_INSET.min(area.width),
+        area.y,
+        area.width.saturating_sub(FOOTER_INSET * 2),
+        area.height,
+    )
+}
 pub(crate) fn safe(text: &str) -> String {
     String::from_utf8_lossy(&strip_ansi_escapes::strip(text))
         .chars()
@@ -147,13 +157,18 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     if area.is_empty() {
         return;
     }
+    if let crate::feedback::Feedback::Reading(reader) = &mut screen.feedback {
+        feedback::reader(frame, area, reader);
+        return;
+    }
+    screen.feedback = Default::default();
     let mut header = if area.height >= 6 {
         header(screen, area)
     } else {
         Text::default()
     };
-    let footer = input::Footer::for_screen(screen);
-    let input_height = footer.height(screen, area.height);
+    let footer = input::Footer::for_screen(screen, area);
+    let input_height = footer.height();
     if area.height < 14 {
         header.lines.truncate(1);
     }

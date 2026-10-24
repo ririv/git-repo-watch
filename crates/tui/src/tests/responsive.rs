@@ -217,7 +217,8 @@ fn document_editor_uses_its_own_cursor_and_footer_then_restores_the_command_bar(
         assert!(text.contains("Ctrl+S"));
         assert!(!text.contains('╭'));
         assert!(s.input_area.is_none());
-        assert_eq!(s.body_area.unwrap().bottom(), 27);
+        assert_eq!(s.body_area.unwrap().bottom(), 26);
+        let empty_result_body = s.body_area;
         let Mode::PromptEditor(editor) = &s.mode else {
             panic!("prompt editor");
         };
@@ -230,7 +231,7 @@ fn document_editor_uses_its_own_cursor_and_footer_then_restores_the_command_bar(
         s.message = "invalid prompt".into();
         let text = draw(&mut s, 100, 28);
         assert!(text.contains("invalid prompt") && text.contains("Ctrl+S"));
-        assert_eq!(s.body_area.unwrap().bottom(), 26);
+        assert_eq!(s.body_area, empty_result_body);
         s.paste("新");
         assert!(s.message.is_empty());
         key(&mut s, KeyCode::Esc);

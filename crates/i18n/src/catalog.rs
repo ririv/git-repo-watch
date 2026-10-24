@@ -2,6 +2,8 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ExpandOperationResult,
+    OperationResultReaderHint,
     Ai,
     PreferenceSaved,
     AiHelp,
@@ -861,6 +863,14 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ExpandOperationResult, Language::English) => "Show full result · Alt+Enter",
+            (Self::ExpandOperationResult, Language::Chinese) => "展开完整结果 · Alt+Enter",
+            (Self::OperationResultReaderHint, Language::English) => {
+                "↑↓ / PgUp / PgDn scroll · Esc / Enter return"
+            }
+            (Self::OperationResultReaderHint, Language::Chinese) => {
+                "↑↓ / PgUp / PgDn 滚动 · Esc / Enter 返回"
+            }
             (Self::AgentPromptConflict, Language::English) => {
                 "Configuration contains both legacy instructions and a replacement prompt; keep only one."
             }
