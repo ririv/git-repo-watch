@@ -53,7 +53,7 @@ pub(crate) fn vertical(frame: &mut Frame, panel: Rect, content: Rect, rows: usiz
         area,
         Axis::Vertical,
         offset,
-        rows.saturating_sub(usize::from(area.height)),
+        rows.saturating_sub(usize::from(content.height)),
     );
 }
 
@@ -62,7 +62,8 @@ pub(crate) fn vertical_area(panel: Rect, content: Rect) -> Rect {
         return Rect::default();
     }
     let start = content.y.max(panel.y + 1);
-    let end = content.bottom().min(panel.bottom() - 1);
+    // 内容区域已排除实际边框；合并菜单没有底边，最后一行同样属于可见内容。
+    let end = content.bottom().min(panel.bottom());
     Rect::new(panel.right() - 1, start, 1, end.saturating_sub(start))
 }
 
@@ -141,6 +142,38 @@ mod tests {
                     assert_eq!(buffer[(13, 8)].symbol(), "┃");
                 }
                 _ => assert!(!buffer.content.iter().any(|cell| cell.symbol() == "┃")),
+            }
+        }
+    }
+
+    #[test]
+    fn joined_menu_hides_track_when_all_rows_fit_and_uses_last_row_when_scrolling() {
+        let panel = Rect::new(0, 0, 20, 9);
+        let content = Rect::new(1, 1, 18, 8);
+        let mut terminal = Terminal::new(TestBackend::new(20, 9)).unwrap();
+        for (rows, offset) in [(2, 0), (8, 0), (9, 0), (9, 1)] {
+            terminal
+                .draw(|frame| {
+                    frame.render_widget(
+                        Block::default().borders(
+                            ratatui::widgets::Borders::TOP
+                                | ratatui::widgets::Borders::LEFT
+                                | ratatui::widgets::Borders::RIGHT,
+                        ),
+                        panel,
+                    );
+                    vertical(frame, panel, content, rows, offset);
+                })
+                .unwrap();
+            let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(19, 0)].symbol(), "┐");
+            if rows <= 8 {
+                assert!((1..9).all(|y| buffer[(19, y)].symbol() == "│"));
+            } else {
+                assert!((1..9).any(|y| buffer[(19, y)].fg == THUMB_COLOR));
+                if offset == 1 {
+                    assert_eq!(buffer[(19, 8)].fg, THUMB_COLOR);
+                }
             }
         }
     }

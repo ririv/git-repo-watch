@@ -113,7 +113,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     let crate::bar::InputBar::Command {
         input,
         selected,
-        path,
         menu,
         ..
     } = &screen.bar
@@ -136,11 +135,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     }
     match menu {
         command::completion::Menu::Directories(values) => {
-            completion::render(frame, values, body);
+            completion::render(frame, screen, values, body);
             return;
         }
         command::completion::Menu::Values(values) => {
-            completion::render_values(frame, values, body);
+            completion::render_values(frame, screen, values, body);
             return;
         }
         command::completion::Menu::Commands => {}
@@ -181,44 +180,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             }
         })
         .collect::<Vec<_>>();
-    let available = body.height.saturating_sub(u16::from(body.height >= 9));
-    let height = (entries.len().clamp(1, 8) as u16 + 2).min(available);
-    let area = Rect::new(
-        body.x,
-        body.bottom().saturating_sub(height),
-        body.width,
-        height,
-    );
-    let title = input
-        .menu_context()
-        .map(|context| {
-            format!(
-                "/{} · {}",
-                context.name(),
-                repository_list::menu_title(screen).unwrap_or(i18n::tr!(ContextCommands))
-            )
-        })
-        .or_else(|| repository_list::menu_title(screen).map(str::to_owned))
-        .unwrap_or_else(|| {
-            i18n::tf!(
-                Commands,
-                path.as_deref()
-                    .map(name)
-                    .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into())
-            )
-        });
-    let border = if area.height >= 3 {
-        block(title)
-    } else {
-        Block::default()
-    };
-    let inner = border.inner(area);
-    frame.render_widget(Clear, area);
-    frame.render_widget(border, area);
-    if inner.is_empty() {
+    let (area, list) = candidates::panel(frame, screen, body, entries.len());
+    if list.is_empty() {
         return;
     }
-    let list = inner;
     let columns = Columns::fit(&entries, list.width.into());
     let items = entries
         .iter()

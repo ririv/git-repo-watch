@@ -168,7 +168,11 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             assert!(!selected.modifier.contains(Modifier::UNDERLINED));
             assert!(!terminal.backend().cursor_visible());
             assert!(!selected_text.contains("[ /repos ]"));
-            assert!(selected_text.contains(i18n::tr!(CommandsAlt).trim()));
+            let separator = selected_text
+                .lines()
+                .nth(s.input_area.unwrap().y.into())
+                .unwrap();
+            assert!(separator.starts_with('├') && separator.ends_with('┤'));
             let selected_input = s.bar.command_input().unwrap().clone();
             if let bar::InputBar::Command { input, .. } = &mut s.bar {
                 *input = crate::command::Input::new(None);

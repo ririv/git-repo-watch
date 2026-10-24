@@ -180,7 +180,7 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
                 "{text}"
             );
             assert!(!text.contains("[✓]"), "{text}");
-            assert!(text.contains(i18n::tr!(RepositorySortCommand)), "{text}");
+            assert!(!text.contains(i18n::tr!(RepositorySortCommand)), "{text}");
         }
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repos filter failed");

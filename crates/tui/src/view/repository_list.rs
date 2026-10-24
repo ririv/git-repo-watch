@@ -10,11 +10,3 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
         _ => None,
     }
 }
-
-pub(super) fn menu_title(screen: &Screen) -> Option<&'static str> {
-    match screen.bar.text().to_ascii_lowercase().as_str() {
-        "/repos filter " => Some(i18n::tr!(RepositoryFilterCommand)),
-        "/repos sort " => Some(i18n::tr!(RepositorySortCommand)),
-        _ => None,
-    }
-}

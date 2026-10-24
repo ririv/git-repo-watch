@@ -4,6 +4,24 @@ use super::*;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
+pub(super) fn active_accent(screen: &Screen) -> Color {
+    match screen.config.interaction_mode {
+        engine::state::InteractionMode::TextSelection => GOOD,
+        engine::state::InteractionMode::Application => INPUT_ACCENT,
+    }
+}
+
+pub(super) fn connect_menu(frame: &mut Frame, screen: &Screen, input: Rect) {
+    let style = Style::default().fg(active_accent(screen));
+    // 只替换连接处的两个角，保留输入框已经绘制的标题和顶边。
+    frame.buffer_mut()[(input.x, input.y)]
+        .set_symbol("├")
+        .set_style(style);
+    frame.buffer_mut()[(input.right() - 1, input.y)]
+        .set_symbol("┤")
+        .set_style(style);
+}
+
 /// Bottom chrome follows the active input surface instead of always reserving a command bar.
 pub(super) enum Footer {
     InputBar {
@@ -362,11 +380,10 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
         Content::Editable { .. } | Content::Choices { .. } | Content::Layout { .. }
     );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
-    let accent = if screen.config.interaction_mode == engine::state::InteractionMode::TextSelection
-    {
+    let accent = if active {
+        active_accent(screen)
+    } else if screen.config.interaction_mode == engine::state::InteractionMode::TextSelection {
         GOOD
-    } else if active {
-        INPUT_ACCENT
     } else {
         MUTED
     };

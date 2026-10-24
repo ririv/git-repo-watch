@@ -332,7 +332,8 @@ fn agent_is_one_parameter_command_and_completion_never_changes_preferences_befor
         };
         assert_eq!(values.agents(), Agent::ALL);
         let text = render(&mut s, 120, 28);
-        assert!(text.contains(i18n::tr!(ArgumentCandidates)));
+        assert!(!text.contains(i18n::tr!(ArgumentCandidates)));
+        assert!(text.contains("codex") && text.contains("claude"));
         assert!(!text.contains("/settings ai agent claude"));
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);

@@ -113,7 +113,7 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let rendered = render(&mut s, width, height);
             assert!(
-                rendered.contains(i18n::tr!(DirectoryCandidates)),
+                !rendered.contains(i18n::tr!(DirectoryCandidates)),
                 "{rendered}"
             );
             assert!(rendered.contains("目录 00/"));

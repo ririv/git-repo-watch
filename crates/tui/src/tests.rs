@@ -505,13 +505,9 @@ fn full_width_command_panel_keeps_list_and_input_positions_stable() {
         let during_lines = during.lines().collect::<Vec<_>>();
         assert!(during_lines[list_line].contains("仓库 · 1"));
         assert!(during_lines[input_line].contains("/") && during_lines[input_line].contains("›"));
-        assert!(during.contains("命令"));
-        let top = during_lines
-            .iter()
-            .position(|line| line.starts_with('┌') && line.contains("命令"))
-            .unwrap();
-        assert!(during_lines[top].starts_with('┌'));
-        assert!(during_lines[top].ends_with('┐'));
+        let top = s.command_items[0].0.y as usize - 1;
+        assert!(during_lines[top].starts_with('╭'));
+        assert!(during_lines[top].ends_with('╮'));
         assert_eq!(
             unicode_width::UnicodeWidthStr::width(during_lines[top]),
             w as usize

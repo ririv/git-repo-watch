@@ -1,6 +1,45 @@
 use super::*;
 
 #[test]
+fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close() {
+    use ratatui::style::Color;
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        for (width, height) in [(60, 18), (100, 28), (180, 36)] {
+            s.paste("/");
+            let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            let input = s.input_area.unwrap();
+            let first = s.command_items.first().unwrap().0;
+            let last = s.command_items.last().unwrap().0;
+            let buffer = terminal.backend().buffer();
+            assert_eq!(s.command_items.len(), 8);
+            assert_eq!(last.bottom(), input.y);
+            assert_eq!(buffer[(0, first.y - 1)].symbol(), "╭");
+            assert_eq!(buffer[(width - 1, first.y - 1)].symbol(), "╮");
+            assert_eq!(buffer[(0, input.y)].symbol(), "├");
+            assert_eq!(buffer[(width - 1, input.y)].symbol(), "┤");
+            assert!((first.y..input.y).all(|y| buffer[(width - 1, y)].symbol() == "│"));
+            for x in 1..width - 1 {
+                assert_eq!(buffer[(x, first.y - 1)].symbol(), "─");
+                assert_eq!(buffer[(x, first.y - 1)].fg, Color::Rgb(180, 145, 220));
+            }
+            let text = render(&mut s, width, height);
+            let title = text.lines().nth(input.y.into()).unwrap();
+            assert!(title.contains(i18n::tr!(CommandsAlt).trim()), "{title}");
+            key(&mut s, KeyCode::Esc);
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            assert!(s.command_items.is_empty());
+            let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(0, input.y)].symbol(), "╭");
+            assert_eq!(buffer[(width - 1, input.y)].symbol(), "╮");
+        }
+        s.shutdown();
+    }
+}
+
+#[test]
 fn description_selection_completes_real_commands_and_returns_parameter_drafts() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);

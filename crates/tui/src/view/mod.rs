@@ -3,6 +3,7 @@ mod body;
 mod branches;
 mod breadcrumbs;
 pub(super) mod browser;
+mod candidates;
 pub(super) mod changes;
 mod commands;
 mod completion;

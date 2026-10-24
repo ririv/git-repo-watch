@@ -1,6 +1,25 @@
 use super::*;
 
 #[test]
+fn repository_scrollbar_only_appears_when_rows_overflow_after_resize() {
+    let (_home, mut s) = fixture(
+        (0..26)
+            .map(|i| PathBuf::from(format!("/example/repo{i:02}")))
+            .collect(),
+    );
+    for height in [40, 18, 40] {
+        let mut terminal = Terminal::new(TestBackend::new(86, height)).unwrap();
+        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+        let area = s.repository_area.unwrap();
+        let buffer = terminal.backend().buffer();
+        let scrollable = (area.y + 1..area.bottom() - 1)
+            .any(|y| buffer[(area.right() - 1, y)].fg == crate::scrollbar::THUMB_COLOR);
+        assert_eq!(scrollable, height == 18);
+    }
+    s.shutdown();
+}
+
+#[test]
 fn file_groups_keep_independent_tracks_and_headers_when_navigating() {
     let f = support::Fixture::create();
     for index in 0..20 {
