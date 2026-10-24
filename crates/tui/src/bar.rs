@@ -21,7 +21,7 @@ pub(crate) enum InputBar {
     Command {
         input: command::Input,
         selected: usize,
-        menu: command::path::Menu,
+        menu: command::completion::Menu,
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
     },
@@ -46,7 +46,7 @@ impl InputBar {
             Self::Layout { draft, .. } => draft.input.editor_mut(),
         }
     }
-    pub fn commands(&self) -> Option<Vec<&'static command::Command>> {
+    pub fn commands(&self, ai_enabled: bool) -> Option<Vec<&'static command::Command>> {
         match self {
             Self::Command {
                 input,
@@ -57,7 +57,10 @@ impl InputBar {
                 input
                     .matches()
                     .into_iter()
-                    .filter(|command| selection.admits(command.action, path.as_deref()))
+                    .filter(|command| {
+                        command.action.available(ai_enabled)
+                            && selection.admits(command.action, path.as_deref())
+                    })
                     .collect(),
             ),
             Self::Search(_) | Self::Layout { .. } => None,
@@ -222,16 +225,16 @@ impl Screen {
                 }
                 command::NamespaceEvent::Pass => {}
             }
-            if let command::path::Menu::Directories(directories) = menu {
+            if let Some(candidates) = menu.selection() {
                 match key.code {
                     KeyCode::Esc => {
                         *menu = Default::default();
                         self.message.clear();
                     }
-                    KeyCode::Up | KeyCode::BackTab => directories.advance(true),
-                    KeyCode::Down | KeyCode::Tab => directories.advance(false),
+                    KeyCode::Up | KeyCode::BackTab => candidates.advance(true),
+                    KeyCode::Down | KeyCode::Tab => candidates.advance(false),
                     KeyCode::Enter => {
-                        input.replace_canonical(directories.choose());
+                        input.replace_canonical(candidates.choose());
                         *menu = Default::default();
                         self.message.clear();
                     }
@@ -247,7 +250,10 @@ impl Screen {
             let matches = input
                 .matches()
                 .into_iter()
-                .filter(|command| selection.admits(command.action, path.as_deref()))
+                .filter(|command| {
+                    command.action.available(self.config.ai.enabled)
+                        && selection.admits(command.action, path.as_deref())
+                })
                 .collect::<Vec<_>>();
             let query = input.query();
             match key.code {
@@ -258,9 +264,10 @@ impl Screen {
                     if let Some(c) = matches.get(*selected) {
                         if command::argument_input(&query).is_some() {
                             let mut canonical = input.canonical_editor();
-                            match command::path::complete(
+                            match command::completion::complete(
                                 &mut canonical,
                                 self.service.scheduler.user_home(),
+                                self.config.ai.agent,
                             ) {
                                 Ok(completion) => {
                                     input.replace_canonical(canonical);
@@ -280,7 +287,23 @@ impl Screen {
                     if !selection.is_error()
                         && let Some((argument, value)) = command::argument_input(&query)
                     {
+                        if !argument.action().available(self.config.ai.enabled) {
+                            self.message = i18n::tr!(NoMatchingCommands).into();
+                            return Ok(BarEvent::Handled);
+                        }
+                        if argument.action() == Action::AiPrompt && value.trim().is_empty() {
+                            self.activate(
+                                Action::AiPrompt,
+                                None,
+                                crate::clipboard::Selection::None,
+                                root,
+                            )?;
+                            return Ok(BarEvent::Handled);
+                        }
                         match argument.parse(value, self.service.scheduler.user_home()) {
+                            Ok(value) if argument == command::ArgumentAction::AiAgent => {
+                                self.select_agent(value.parse()?);
+                            }
                             Ok(value) => {
                                 let draft = CommandDraft {
                                     input: input.clone(),
@@ -308,7 +331,9 @@ impl Screen {
                             };
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);
-                        } else if command.action.argument().is_some() {
+                        } else if command.action.argument().is_some()
+                            && command.action != Action::AiPrompt
+                        {
                             selection.complete(input, command);
                             *selected = 0;
                             self.message.clear();

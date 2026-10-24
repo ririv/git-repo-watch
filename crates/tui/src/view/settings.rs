@@ -1,9 +1,13 @@
+mod ai;
 mod general;
 use super::*;
 use crate::settings::Item;
+pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
+    ai::annotation(action, screen)
+}
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
     if section == Configuration::General {
-        general::render(frame, screen, area);
+        general::render(frame, screen, area, section);
         return;
     }
     let mut lines = Vec::new();
@@ -13,7 +17,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
     let mut row = 0usize;
     let mut mouse_heading = false;
     for (i, item) in section
-        .items(screen.snapshot.registration)
+        .items(screen.snapshot.registration, &screen.config.ai)
         .iter()
         .enumerate()
     {

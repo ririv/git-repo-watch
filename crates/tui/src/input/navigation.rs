@@ -36,14 +36,20 @@ impl Screen {
             Page::Configuration(section) => match key.code {
                 KeyCode::Up => self.setting_selected = self.setting_selected.saturating_sub(1),
                 KeyCode::Down => {
-                    self.setting_selected = (self.setting_selected + 1)
-                        .min(section.items(self.snapshot.registration).len() - 1)
+                    self.setting_selected = (self.setting_selected + 1).min(
+                        section
+                            .items(self.snapshot.registration, &self.config.ai)
+                            .len()
+                            .saturating_sub(1),
+                    )
                 }
                 KeyCode::Enter | KeyCode::Right => {
-                    return self.activate_setting(
-                        section.items(self.snapshot.registration)[self.setting_selected],
-                        root,
-                    );
+                    if let Some(item) = section
+                        .items(self.snapshot.registration, &self.config.ai)
+                        .get(self.setting_selected)
+                    {
+                        return self.activate_setting(*item, root);
+                    }
                 }
                 _ => scroll_key(&mut self.scroll, key),
             },

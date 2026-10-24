@@ -1,10 +1,12 @@
 //! Explicit command catalog independent of terminal rendering.
 mod argument;
+pub(crate) mod completion;
 pub(crate) mod context;
 mod input;
 pub(crate) mod path;
 #[cfg(test)]
 mod tests;
+pub(crate) mod values;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
 pub(crate) use input::{Input, NamespaceEvent};
@@ -43,6 +45,10 @@ pub enum Action {
     Sort(crate::repository_list::Order),
     Copy(crate::clipboard::Scope),
     Commit,
+    CommitGenerate,
+    AiAgent,
+    AiModel,
+    AiPrompt,
     Push,
     Terminal,
     Check,
@@ -50,6 +56,7 @@ pub enum Action {
     CancelCheck,
     Refresh,
     Settings,
+    AiSettings,
     Schedule,
     OpenRepository,
     Repositories,
@@ -288,6 +295,12 @@ pub const COMMANDS: &[Command] = &[
         action: Push,
         scope: Repository,
         description: i18n::Message::ReviewCurrentBranchAndRemoteUpstreamThen,
+    },
+    Command {
+        name: "repo commit generate",
+        action: CommitGenerate,
+        scope: Repository,
+        description: i18n::Message::AgentGenerate,
     },
     Command {
         name: "repo fetch",
@@ -560,6 +573,30 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::InteractionCommand,
     },
     Command {
+        name: "settings ai",
+        action: AiSettings,
+        scope: Global,
+        description: i18n::Message::AiSettings,
+    },
+    Command {
+        name: "settings ai agent",
+        action: AiAgent,
+        scope: Global,
+        description: i18n::Message::AgentNameHint,
+    },
+    Command {
+        name: "settings ai model",
+        action: AiModel,
+        scope: Global,
+        description: i18n::Message::AgentModelHint,
+    },
+    Command {
+        name: "settings ai prompt",
+        action: AiPrompt,
+        scope: Global,
+        description: i18n::Message::AgentPromptHint,
+    },
+    Command {
         name: "settings interaction interactive",
         action: Interaction(engine::state::InteractionMode::Application),
         scope: Global,
@@ -717,4 +754,18 @@ pub fn description(action: Action) -> &'static str {
         .expect("catalog covers every action")
         .description
         .text()
+}
+
+impl Action {
+    pub fn available(self, ai_enabled: bool) -> bool {
+        ai_enabled
+            || !matches!(
+                self,
+                Self::AiSettings
+                    | Self::CommitGenerate
+                    | Self::AiAgent
+                    | Self::AiModel
+                    | Self::AiPrompt
+            )
+    }
 }

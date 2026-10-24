@@ -8,13 +8,24 @@ pub(crate) enum Item {
     Command(Action),
     ChineseCommandTrigger,
     Interaction,
+    AiEnabled,
     Mouse(engine::state::MouseSetting),
 }
 impl Item {
+    pub fn context(self) -> command::Context {
+        match self {
+            Self::AiEnabled
+            | Self::Command(Action::AiAgent | Action::AiModel | Action::AiPrompt) => {
+                command::Context::Ai
+            }
+            _ => command::Context::Settings,
+        }
+    }
     pub fn description(self) -> &'static str {
         match self {
             Self::Command(action) => command::description(action),
             Self::Interaction => i18n::tr!(InteractionSetting),
+            Self::AiEnabled => i18n::tr!(AiEnabled),
             Self::ChineseCommandTrigger => i18n::tr!(ChineseCommandTrigger),
             Self::Mouse(setting) => match setting {
                 engine::state::MouseSetting::PreciseClick => i18n::tr!(MousePreciseClick),
@@ -25,7 +36,7 @@ impl Item {
     }
 }
 impl Configuration {
-    pub(crate) fn items(self, registration: Registration) -> Vec<Item> {
+    pub(crate) fn items(self, registration: Registration, ai: &engine::ai::Config) -> Vec<Item> {
         let mut items = self
             .actions(registration)
             .iter()
@@ -39,6 +50,12 @@ impl Configuration {
             items.push(Item::Interaction);
             use engine::state::MouseSetting::*;
             items.extend([PreciseClick, Scroll, SelectPane].map(Item::Mouse));
+            items.push(Item::AiEnabled);
+            if ai.enabled {
+                items.extend(
+                    [Action::AiAgent, Action::AiModel, Action::AiPrompt].map(Item::Command),
+                );
+            }
         }
         items
     }
@@ -52,6 +69,18 @@ impl Screen {
                 crate::clipboard::Selection::None,
                 root,
             ),
+            Item::AiEnabled => {
+                let enabled = !self.config.ai.enabled;
+                self.start(
+                    item.description(),
+                    Effect::Configuration,
+                    move |service, cancel, _| {
+                        service.configure_with_cancel(ConfigEdit::AiEnabled(enabled), &cancel)?;
+                        Ok(Outcome::Text(i18n::tr!(PreferenceSaved).into()))
+                    },
+                );
+                Ok(false)
+            }
             Item::Interaction => {
                 self.interaction_menu();
                 Ok(false)

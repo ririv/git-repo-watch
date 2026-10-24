@@ -6,10 +6,12 @@ pub(super) fn render(
     area: Rect,
     scroll: &mut usize,
     hits: &mut crate::pointer::Map,
+    ai_enabled: bool,
 ) {
     let panel = block(i18n::tr!(Instructions)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
-    let text = crate::markdown::linked(i18n::tr!(TuiHelp), inner.width, None);
+    let source = contents(ai_enabled);
+    let text = crate::markdown::linked(&source, inner.width, None);
     let lines = Paragraph::new(text.plain())
         .wrap(Wrap { trim: false })
         .line_count(inner.width);
@@ -25,4 +27,25 @@ pub(super) fn render(
         *scroll,
         crate::pointer::ScrollTarget::Text,
     );
+}
+
+fn contents(ai_enabled: bool) -> std::borrow::Cow<'static, str> {
+    i18n::tr!(TuiHelp)
+        .replace(
+            "<!-- optional-ai -->",
+            if ai_enabled { i18n::tr!(AiHelp) } else { "" },
+        )
+        .into()
+}
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn disabled_ai_has_no_generation_or_ai_configuration_help() {
+        for language in [i18n::Language::English, i18n::Language::Chinese] {
+            let _language = i18n::using(language);
+            let text = super::contents(false);
+            assert!(!text.contains("/repo commit generate") && !text.contains("/settings ai"));
+            assert!(super::contents(true).contains("/settings ai"));
+        }
+    }
 }

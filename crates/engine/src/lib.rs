@@ -1,6 +1,8 @@
 //! Composable application services for Git repository monitoring.
+pub mod ai;
 pub mod cancel;
 pub mod check;
+pub mod commit_message;
 pub mod desktop;
 pub mod directories;
 pub mod discovery;

@@ -8,6 +8,13 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::PromptEditor(session) => prompt::render(frame, area, session, &mut screen.pointer),
+        Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::PromptEditor(_)) => {
+            let Mode::PromptEditor(session) = pending.origin.as_mut() else {
+                unreachable!()
+            };
+            prompt::render(frame, area, session, &mut screen.pointer);
+        }
         Mode::Browser(session) => browser::render(
             frame,
             area,
@@ -143,7 +150,13 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Page::Detail => overview::render(frame, screen, area),
             Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),
             Page::Configuration(section) => settings(frame, screen, area, section),
-            Page::Help => help::render(frame, area, &mut screen.scroll, &mut screen.pointer),
+            Page::Help => help::render(
+                frame,
+                area,
+                &mut screen.scroll,
+                &mut screen.pointer,
+                screen.config.ai.enabled,
+            ),
         },
     }
 }

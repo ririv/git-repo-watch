@@ -7,6 +7,7 @@ mod checks;
 mod clipboard;
 mod command;
 mod command_trigger;
+mod commit_message;
 mod confirmation;
 mod diff;
 mod document;
@@ -25,6 +26,7 @@ mod navigation;
 mod overview;
 mod pointer;
 mod preview;
+mod prompt_editor;
 mod repository_list;
 mod repository_tasks;
 mod scrollbar;
@@ -75,6 +77,7 @@ enum Page {
 }
 #[derive(Debug)]
 enum Mode {
+    PromptEditor(Box<prompt_editor::Session>),
     Browsing,
     Browser(Box<browser::Session>),
     /// Focused pane without an interactive content session (overview or pending data).
@@ -186,6 +189,7 @@ enum Outcome {
     Files(Files),
     History(Box<history::View>),
     CommitPrepared(CommitPlan),
+    CommitForGeneration(CommitPlan),
     PushPrepared(PushPlan),
     Committed(CommitResult),
     Published(Publication),
@@ -205,6 +209,8 @@ struct Screen {
     bar: bar::InputBar,
     clipboard: clipboard::Writer,
     link_opener: links::Opener,
+    commit_generator: commit_message::Generator,
+    commit_draft_id: u64,
     repository_viewport: ratatui::widgets::TableState,
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
@@ -258,6 +264,8 @@ impl Screen {
             bar: bar::InputBar::default(),
             clipboard: Default::default(),
             link_opener: Default::default(),
+            commit_generator: Default::default(),
+            commit_draft_id: 0,
             repository_viewport,
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
@@ -355,7 +363,12 @@ impl Screen {
     fn reload(&mut self, cancel: &Cancel) -> Result<()> {
         let path = self.selected_path();
         self.snapshot = self.service.snapshot(cancel)?;
+        let ai_enabled = self.config.ai.enabled;
         self.config = self.service.store.config()?;
+        if ai_enabled != self.config.ai.enabled {
+            self.settings_focus = None;
+        }
+        self.hide_disabled_ai_settings();
         self.load_updates()?;
         self.focus(path);
         Ok(())

@@ -13,6 +13,7 @@ mod history;
 pub(super) mod input;
 pub(super) mod layout_picker;
 mod overview;
+mod prompt;
 mod repository;
 mod repository_list;
 mod review;
@@ -150,11 +151,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     } else {
         Text::default()
     };
-    let input_height = match area.height {
-        14.. => 5,
-        9.. => 3,
-        _ => 1,
-    };
+    let footer = input::Footer::for_screen(screen);
+    let input_height = footer.height(screen, area.height);
     if area.height < 14 {
         header.lines.truncate(1);
     }
@@ -169,8 +167,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     frame.render_widget(Paragraph::new(header), layout[0]);
     let body = layout[1];
     screen.body_area = Some(body);
-    screen.input_area = Some(layout[2]);
-    input::render(frame, screen, layout[2]);
+    footer.render(frame, screen, layout[2]);
     if !body.is_empty() {
         render_body(frame, screen, body);
     }
@@ -229,16 +226,24 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         return;
     }
     if let crate::bar::InputBar::Command {
-        menu: command::path::Menu::Directories(directories),
+        menu: command::completion::Menu::Directories(directories),
         ..
     } = &screen.bar
     {
         completion::render(frame, directories, body);
         return;
     }
+    if let crate::bar::InputBar::Command {
+        menu: command::completion::Menu::Values(values),
+        ..
+    } = &screen.bar
+    {
+        completion::render_values(frame, values, body);
+        return;
+    }
     let matches = screen
         .bar
-        .commands()
+        .commands(screen.config.ai.enabled)
         .expect("command bar provides candidates");
     let name_width = matches
         .iter()
@@ -256,6 +261,7 @@ fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             };
             let annotation = repository_list::annotation(c.action, screen)
                 .or_else(|| layout_picker::annotation(c.action, screen, body))
+                .or_else(|| settings::annotation(c.action, screen))
                 .or_else(|| {
                     screen
                         .bar

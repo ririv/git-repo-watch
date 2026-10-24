@@ -198,6 +198,7 @@ impl Screen {
                     }
                 }
                 ScrollTarget::Text => match &mut self.mode {
+                    Mode::PromptEditor(session) => session.scroll = offset,
                     Mode::Branches(view) => match view.as_mut() {
                         branches::View::Detail { scroll, .. } => *scroll = offset,
                         _ => return false,

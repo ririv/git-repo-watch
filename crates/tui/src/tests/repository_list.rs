@@ -253,7 +253,8 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
         .command_items
         .iter()
         .find(|(_, index)| {
-            s.bar.commands().unwrap()[*index].action == Action::Filter(Filter::Unchecked)
+            s.bar.commands(s.config.ai.enabled).unwrap()[*index].action
+                == Action::Filter(Filter::Unchecked)
         })
         .copied()
         .unwrap();

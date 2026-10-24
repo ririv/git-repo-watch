@@ -10,6 +10,7 @@ use std::{
     path::PathBuf,
 };
 use toml_edit::{Array, DocumentMut, Item, Value};
+mod ai;
 
 impl Default for Config {
     fn default() -> Self {
@@ -24,6 +25,7 @@ impl Default for Config {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: MouseConfig::default(),
+            ai: Default::default(),
         }
     }
 }
@@ -52,6 +54,8 @@ pub struct Config {
     pub interaction_mode: super::InteractionMode,
     #[serde(default)]
     pub mouse: MouseConfig,
+    #[serde(default, alias = "commit_message")]
+    pub ai: crate::ai::Config,
 }
 /// Independently configurable pointer capabilities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -106,6 +110,7 @@ fn is_default_concurrency(value: &usize) -> bool {
 }
 impl Config {
     pub fn validate(&self) -> Result<()> {
+        self.ai.validate()?;
         crate::scheduler::duration::validate(self.interval_seconds)?;
         if let Some(basis) = self.schedule_anchor.basis() {
             basis.validate()?;
@@ -158,7 +163,10 @@ pub enum ConfigurationMigration {
 }
 
 pub(super) fn parse(text: &str) -> Result<Config> {
-    let config: Config = toml_edit::de::from_str(text).context(i18n::tr!(InvalidToml))?;
+    let mut document: DocumentMut = text.parse().context(i18n::tr!(InvalidToml))?;
+    ai::migrate(&mut document)?;
+    let config: Config =
+        toml_edit::de::from_str(&document.to_string()).context(i18n::tr!(InvalidToml))?;
     config.validate()?;
     Ok(config)
 }
@@ -169,6 +177,11 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         .unwrap_or(TEMPLATE)
         .parse()
         .context(i18n::tr!(InvalidToml))?;
+    ai::migrate(&mut document)?;
+    // 旧版将 AI 选项保存在提交专用表；下次显式保存配置时整体更名，保留表内注释。
+    if let Some(legacy) = document.remove("commit_message") {
+        document.insert("ai", legacy);
+    }
     let before = original.as_ref().map(serde_json::to_value).transpose()?;
     let after = serde_json::to_value(config)?;
     let mut desired = toml_edit::ser::to_document(config)?;
@@ -238,6 +251,48 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             *value.decor_mut() = current.decor().clone();
         }
         document["mouse"][key] = Item::Value(value);
+    }
+    for path in [
+        &["enabled"][..],
+        &["agent"][..],
+        &["codex", "model"][..],
+        &["claude", "model"][..],
+    ] {
+        let lookup = |value: &serde_json::Value| {
+            path.iter()
+                .fold(&value["ai"], |value, key| &value[*key])
+                .clone()
+        };
+        if before
+            .as_ref()
+            .is_some_and(|before| lookup(before) == lookup(&after))
+        {
+            continue;
+        }
+        if !document.contains_key("ai") {
+            document["ai"] = Item::Table(toml_edit::Table::new());
+        }
+        let mut source = &desired["ai"];
+        let mut destination = &mut document["ai"];
+        for key in &path[..path.len() - 1] {
+            source = &source[*key];
+            if destination.get(*key).is_none() {
+                destination[*key] = Item::Table(toml_edit::Table::new());
+            }
+            destination = &mut destination[*key];
+        }
+        let key = path[path.len() - 1];
+        let mut value = source[key].as_value().expect("agent scalar").clone();
+        if let Some(current) = destination.get(key).and_then(Item::as_value) {
+            *value.decor_mut() = current.decor().clone();
+        }
+        destination[key] = Item::Value(value);
+    }
+    if before
+        .as_ref()
+        .is_none_or(|before| before["ai"]["prompt"] != after["ai"]["prompt"])
+    {
+        ai::replace(&mut document, &config.ai.prompt)?;
     }
     Ok(document.to_string())
 }

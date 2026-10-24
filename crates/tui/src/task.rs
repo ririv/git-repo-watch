@@ -33,15 +33,16 @@ impl Screen {
         self.message.clear();
     }
     pub(super) fn animate_task(&mut self) -> bool {
-        match &mut self.mode {
-            Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
-            _ => self
-                .repository_tasks
-                .values_mut()
-                .fold(false, |changed, task| {
-                    task.animation.tick(std::time::Instant::now()) | changed
-                }),
-        }
+        self.commit_generator.tick()
+            | match &mut self.mode {
+                Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
+                _ => self
+                    .repository_tasks
+                    .values_mut()
+                    .fold(false, |changed, task| {
+                        task.animation.tick(std::time::Instant::now()) | changed
+                    }),
+            }
     }
     pub(super) fn poll(&mut self, root: &Cancel) -> bool {
         let mut changed = false;
@@ -88,7 +89,10 @@ impl Screen {
                 }
             }
         }
-        changed | self.poll_repository_tasks(root) | self.poll_browser()
+        changed
+            | self.poll_repository_tasks(root)
+            | self.poll_browser()
+            | self.poll_commit_message()
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
@@ -164,12 +168,17 @@ impl Screen {
                 }
             },
             Outcome::CommitPrepared(plan) => {
+                self.commit_draft_id += 1;
                 self.workspace.save(origin);
                 self.mode = Mode::CommitMessage {
                     plan,
                     editor: Editor::default(),
                     scroll: 0,
                 }
+            }
+            Outcome::CommitForGeneration(plan) => {
+                self.finish(Outcome::CommitPrepared(plan), origin, root);
+                self.generate_commit_message();
             }
             Outcome::PushPrepared(plan) => {
                 self.workspace.save(origin);
@@ -239,6 +248,7 @@ impl Screen {
     pub(super) fn shutdown(&mut self) {
         self.clipboard.shutdown();
         self.link_opener.shutdown();
+        self.commit_generator.shutdown();
         self.interaction_save.shutdown();
         for task in self.repository_tasks.values() {
             task.cancel.cancel();

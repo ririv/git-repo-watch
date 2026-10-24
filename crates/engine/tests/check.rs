@@ -139,6 +139,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -240,6 +241,7 @@ fn independent_repositories_overlap_real_fetches() {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -272,6 +274,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -364,6 +367,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let service = Service::new(store.clone(), Manager::new().unwrap());
@@ -413,6 +417,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     {

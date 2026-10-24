@@ -163,6 +163,8 @@
 - In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. Alt+←→ pans the graph, Enter opens details, and Esc goes back.
 - Horizontal wheel and Shift + vertical wheel also work when forwarded by the terminal. With text in the input, arrow keys edit the input; command and confirmation selectors keep their own keys.
 
+<!-- optional-ai -->
+
 ## Language
 - System Chinese uses Chinese; all other languages use English.
 - Set `APP_LANG=en` or `APP_LANG=zh` before starting to override the system language.

@@ -3,6 +3,73 @@ use super::*;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
+/// Bottom chrome follows the active input surface instead of always reserving a command bar.
+pub(super) enum Footer {
+    InputBar,
+    Compact { hint: &'static str },
+}
+impl Footer {
+    pub fn for_screen(screen: &Screen) -> Self {
+        match &screen.mode {
+            Mode::PromptEditor(_) => Self::Compact {
+                hint: i18n::tr!(AgentPromptEditorHint),
+            },
+            Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::PromptEditor(_)) => {
+                Self::Compact {
+                    hint: i18n::tr!(EscCtrlCCancelAndWaitFor),
+                }
+            }
+            _ => Self::InputBar,
+        }
+    }
+    pub fn height(&self, screen: &Screen, available: u16) -> u16 {
+        match self {
+            Self::InputBar => match available {
+                14.. => 5,
+                9.. => 3,
+                _ => 1,
+            },
+            Self::Compact { .. } => {
+                (1 + u16::from(!compact_status(screen).is_empty())).min(available)
+            }
+        }
+    }
+    pub fn render(&self, frame: &mut Frame, screen: &mut Screen, area: Rect) {
+        match self {
+            Self::InputBar => {
+                screen.input_area = Some(area);
+                render(frame, screen, area);
+            }
+            Self::Compact { hint } => {
+                if area.is_empty() {
+                    return;
+                }
+                if area.height > 1 {
+                    frame.render_widget(
+                        Paragraph::new(truncate(&safe(&compact_status(screen)), area.width.into()))
+                            .style(Style::default().fg(WARN)),
+                        Rect::new(area.x, area.y, area.width, 1),
+                    );
+                }
+                render_hint(
+                    frame,
+                    Rect::new(area.x, area.bottom() - 1, area.width, 1),
+                    hint,
+                );
+            }
+        }
+    }
+}
+fn compact_status(screen: &Screen) -> String {
+    match &screen.mode {
+        Mode::Busy(pending) if pending.state == TaskState::Cancelling => {
+            i18n::tr!(Cancelling).into()
+        }
+        Mode::Busy(pending) => format!("{} {}", pending.animation.symbol(), safe(&pending.title)),
+        _ => screen.message.clone(),
+    }
+}
+
 fn regions(area: Rect) -> [Rect; 3] {
     let heights = match area.height {
         5.. => [1, 3, 1],
@@ -65,7 +132,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                 let hint = if matches!(
                     &screen.bar,
                     crate::bar::InputBar::Command {
-                        menu: command::path::Menu::Directories(_),
+                        menu: command::completion::Menu::Directories(_)
+                            | command::completion::Menu::Values(_),
                         ..
                     }
                 ) {
@@ -74,8 +142,12 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     match command::argument_input(
                         screen.bar.text().strip_prefix('/').expect("command prefix"),
                     ) {
-                        Some((argument, _)) => argument.hint(),
-                        None => match screen.bar.command_input() {
+                        Some((argument, _))
+                            if argument.action().available(screen.config.ai.enabled) =>
+                        {
+                            argument.hint()
+                        }
+                        _ => match screen.bar.command_input() {
                             Some(input) if input.prefix_selected() => i18n::tr!(ContextPrefixHint),
                             Some(input) if input.context().is_some() => {
                                 i18n::tr!(ContextCommandHint)
@@ -153,13 +225,20 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     hint,
                 )
             }
+            Mode::PromptEditor(_) => unreachable!("the document editor has a compact footer"),
             Mode::CommitMessage { editor, .. } => (
                 i18n::tr!(CommitMessageAlt),
                 Content::Editable {
                     editor,
                     placeholder: i18n::tr!(DescribeThisCommit),
                 },
-                i18n::tr!(EnterConfirmEscCancelPgupPgdnReview),
+                if !screen.config.ai.enabled {
+                    i18n::tr!(EnterConfirmEscCancelPgupPgdnReview)
+                } else if screen.commit_generator.running() {
+                    i18n::tr!(AgentRunningHint)
+                } else {
+                    i18n::tr!(AgentHint)
+                },
             ),
             Mode::Confirm { operation, choice } => (
                 i18n::tr!(ConfirmOperationAlt),
@@ -256,7 +335,11 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
                     )
                 )
             } else {
-                screen.message.clone()
+                screen
+                    .commit_generator
+                    .label()
+                    .filter(|_| matches!(screen.mode, Mode::CommitMessage { .. }))
+                    .unwrap_or_else(|| screen.message.clone())
             }),
             area.width as usize,
         ))
@@ -389,11 +472,14 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect) {
             inner,
         ),
     }
+    render_hint(frame, parts[2], hint);
+}
+fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {
     let hint_area = Rect::new(
-        parts[2].x + 2,
-        parts[2].y,
-        parts[2].width.saturating_sub(4),
-        parts[2].height,
+        area.x + 2,
+        area.y,
+        area.width.saturating_sub(4),
+        area.height,
     );
     frame.render_widget(
         Paragraph::new(truncate(hint, hint_area.width as usize)).style(Style::default().fg(MUTED)),

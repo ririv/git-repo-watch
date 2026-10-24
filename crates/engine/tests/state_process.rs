@@ -111,6 +111,7 @@ fn intervals_and_schema_boundaries() {
         chinese_command_trigger: true,
         interaction_mode: Default::default(),
         mouse: Default::default(),
+        ai: Default::default(),
     };
     assert!(c.validate().is_ok());
 }

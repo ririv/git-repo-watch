@@ -103,4 +103,11 @@ pub enum ConfigEdit {
     ChineseCommandTrigger(bool),
     Mouse(state::MouseSetting, bool),
     Interaction(state::InteractionMode),
+    AiEnabled(bool),
+    AiAgent(crate::ai::Agent),
+    AiModel {
+        agent: crate::ai::Agent,
+        model: String,
+    },
+    AiPrompt(crate::ai::Prompt),
 }

@@ -8,6 +8,7 @@ enum Group {
     Checks,
     Input,
     Pointer,
+    Ai,
 }
 impl Group {
     fn title(self) -> &'static str {
@@ -15,6 +16,7 @@ impl Group {
             Self::Checks => i18n::tr!(SettingsChecks),
             Self::Input => i18n::tr!(SettingsInput),
             Self::Pointer => i18n::tr!(MouseSettings),
+            Self::Ai => i18n::tr!(Ai),
         }
     }
 }
@@ -22,6 +24,7 @@ enum Value {
     Toggle(bool),
     Number(usize),
     Interaction(engine::state::InteractionMode),
+    Text(String),
 }
 struct Entry {
     group: Group,
@@ -75,6 +78,39 @@ impl Entry {
                     Value::Toggle(screen.config.mouse.enabled(setting)),
                 )
             }
+            Item::AiEnabled => (
+                Group::Ai,
+                i18n::tr!(AiEnabled),
+                i18n::tr!(AiEnabledHint),
+                Value::Toggle(screen.config.ai.enabled),
+            ),
+            Item::Command(action @ (Action::AiAgent | Action::AiModel | Action::AiPrompt)) => {
+                let config = &screen.config.ai;
+                let (label, hint, value) = match action {
+                    Action::AiAgent => (
+                        i18n::tr!(AgentChoice),
+                        i18n::tr!(AgentChoiceHint),
+                        config.agent.label().to_owned(),
+                    ),
+                    Action::AiModel => (
+                        i18n::tr!(AgentModel),
+                        i18n::tr!(AgentModelHint),
+                        super::ai::model(config),
+                    ),
+                    Action::AiPrompt => (
+                        i18n::tr!(AgentPrompt),
+                        i18n::tr!(AgentPromptHint),
+                        match &config.prompt {
+                            engine::ai::Prompt::Default => i18n::tr!(AgentDefaultPrompt).into(),
+                            engine::ai::Prompt::Custom { .. } => {
+                                i18n::tr!(AgentCustomPrompt).into()
+                            }
+                        },
+                    ),
+                    _ => unreachable!(),
+                };
+                (Group::Ai, label, hint, Value::Text(value))
+            }
             Item::Command(_) => unreachable!("general settings catalog"),
         };
         Self {
@@ -86,15 +122,16 @@ impl Entry {
     }
 }
 
-pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let panel = block(i18n::tr!(GeneralSettings)).padding(ratatui::widgets::Padding::horizontal(1));
+pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {
+    let panel = block(section.title()).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
     let width = inner.width.min(88);
-    let entries = Configuration::General
-        .items(screen.snapshot.registration)
+    let entries = section
+        .items(screen.snapshot.registration, &screen.config.ai)
         .into_iter()
         .map(|item| Entry::new(item, screen))
         .collect::<Vec<_>>();
+    screen.setting_selected = screen.setting_selected.min(entries.len().saturating_sub(1));
     let label_width = entries
         .iter()
         .map(|item| item.label.width())
@@ -149,13 +186,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         } else {
             Style::default()
         };
-        let (value, color) = match entry.value {
+        let (value, color) = match &entry.value {
             Value::Toggle(true) => (format!("● {}", i18n::tr!(TaskEnabled)), GOOD),
             Value::Toggle(false) => (format!("○ {}", i18n::tr!(TaskDisabled)), Color::Gray),
-            Value::Interaction(mode) => {
-                (crate::interaction::label(mode).to_owned(), Color::LightCyan)
-            }
+            Value::Interaction(mode) => (
+                crate::interaction::label(*mode).to_owned(),
+                Color::LightCyan,
+            ),
             Value::Number(value) => (value.to_string(), Color::LightCyan),
+            Value::Text(value) => (value.clone(), Color::LightCyan),
         };
         let mut label = vec![Span::styled(
             entry.label,

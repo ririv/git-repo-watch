@@ -9,6 +9,109 @@ fn fixture() -> (tempfile::TempDir, Store) {
     (temp, store)
 }
 #[test]
+fn agent_preferences_preserve_comments_and_independent_models_without_paths() {
+    use engine::{
+        ai::Agent,
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+    };
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let original = fs::read_to_string(store.config_path()).unwrap();
+    let legacy = original.split("# AI 功能").next().unwrap();
+    fs::write(store.config_path(), legacy).unwrap();
+    let config = store.config().unwrap();
+    assert_eq!(config.ai.agent, Agent::Codex);
+    store.save_config(&config).unwrap();
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
+    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let service = Service::new(store.clone(), manager);
+    service
+        .configure(ConfigEdit::AiModel {
+            agent: Agent::Codex,
+            model: "test-codex-model".into(),
+        })
+        .unwrap();
+    service
+        .configure(ConfigEdit::AiAgent(Agent::Claude))
+        .unwrap();
+    service
+        .configure(ConfigEdit::AiModel {
+            agent: Agent::Claude,
+            model: "test-claude-model".into(),
+        })
+        .unwrap();
+    service
+        .configure(ConfigEdit::AiPrompt(engine::ai::Prompt::Custom {
+            text: "使用简洁中文".into(),
+        }))
+        .unwrap();
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("test-codex-model\"", "test-codex-model\" # 保留模型注释");
+    fs::write(store.config_path(), text).unwrap();
+    service
+        .configure(ConfigEdit::AiAgent(Agent::Codex))
+        .unwrap();
+    let saved = store.config().unwrap();
+    assert_eq!(saved.ai.codex.model, "test-codex-model");
+    assert_eq!(saved.ai.claude.model, "test-claude-model");
+    assert_eq!(
+        saved.ai.prompt,
+        engine::ai::Prompt::Custom {
+            text: "使用简洁中文".into()
+        }
+    );
+    assert_eq!(saved.mouse, config.mouse);
+    let text = fs::read_to_string(store.config_path()).unwrap();
+    assert!(text.contains("# 保留模型注释") && !text.contains("executable"));
+}
+#[test]
+fn legacy_ai_table_keeps_preferences_and_comments_when_saved_under_its_new_name() {
+    use engine::{
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+    };
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let legacy = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("[ai", "[commit_message")
+        .replace("enabled = true\n", "")
+        .replace(
+            "agent = \"codex\"",
+            "agent = \"codex\"\ninstructions = \"keep style\" # 用户偏好",
+        );
+    let mut document: toml_edit::DocumentMut = legacy.parse().unwrap();
+    document["commit_message"]
+        .as_table_like_mut()
+        .unwrap()
+        .remove("prompt");
+    let legacy = document.to_string();
+    fs::write(store.config_path(), &legacy).unwrap();
+    let original = store.config().unwrap();
+    assert!(original.ai.enabled);
+    assert_eq!(
+        original.ai.prompt.text(""),
+        format!(
+            "{}\n\nkeep style",
+            engine::commit_message::DEFAULT_PROMPT.trim()
+        )
+    );
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
+    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let service = Service::new(store.clone(), manager);
+    service.configure(ConfigEdit::AiEnabled(false)).unwrap();
+    let saved = store.config().unwrap();
+    assert!(!saved.ai.enabled);
+    assert_eq!(saved.ai.prompt, original.ai.prompt);
+    let text = fs::read_to_string(store.config_path()).unwrap();
+    assert!(text.contains("[ai]") && !text.contains("[commit_message"));
+    assert!(text.contains("# 用户偏好"));
+    service.configure(ConfigEdit::AiEnabled(true)).unwrap();
+    assert_eq!(store.config().unwrap(), original);
+}
+#[test]
 fn template_and_initial_configuration_have_all_explicit_defaults_and_private_permissions() {
     let (_temp, store) = fixture();
     store.initialize().unwrap();
@@ -112,6 +215,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         check_on_startup: false,
         chinese_command_trigger: true,
         mouse: Default::default(),
+        ai: Default::default(),
         ..Config::default()
     };
     let json = serde_json::to_vec_pretty(&config).unwrap();
@@ -262,4 +366,50 @@ fn interaction_mode_defaults_without_rewriting_legacy_and_preserves_pointer_pref
             .unwrap()
             .contains("# 交互模式")
     );
+}
+
+#[test]
+fn complete_prompt_roundtrips_multiline_and_reset_removes_the_old_custom_text() {
+    use engine::ai::Prompt;
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let mut config = store.config().unwrap();
+    config.ai.prompt = Prompt::Custom {
+        text: "只生成标题。\n保留中文、空格和 \"引号\"。\n".into(),
+    };
+    store.save_config(&config).unwrap();
+    assert_eq!(store.config().unwrap(), config);
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("mode = \"custom\"", "mode = \"custom\" # 自定义注释");
+    fs::write(store.config_path(), &text).unwrap();
+    config.ai.codex.model = "another-model".into();
+    store.save_config(&config).unwrap();
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("# 自定义注释")
+    );
+    config.ai.prompt = Prompt::Default;
+    store.save_config(&config).unwrap();
+    assert_eq!(store.config().unwrap().ai.prompt, Prompt::Default);
+    let text = fs::read_to_string(store.config_path()).unwrap();
+    assert!(!text.contains("只生成标题"));
+    assert!(text.contains("# 自定义注释"));
+}
+#[test]
+fn conflicting_legacy_instructions_and_full_prompt_leave_configuration_untouched() {
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let text = fs::read_to_string(store.config_path()).unwrap().replace(
+        "agent = \"codex\"",
+        "agent = \"codex\"\ninstructions = \"old preference\"",
+    );
+    fs::write(store.config_path(), &text).unwrap();
+    assert_eq!(
+        store.config().unwrap_err().to_string(),
+        i18n::tr!(AgentPromptConflict)
+    );
+    assert!(store.save_config(&Config::default()).is_err());
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), text);
 }

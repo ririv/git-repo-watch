@@ -205,3 +205,37 @@ fn repository_views_and_confirmation_render_across_tiny_sizes_without_mutating_g
         s.shutdown();
     }
 }
+
+#[test]
+fn document_editor_uses_its_own_cursor_and_footer_then_restores_the_command_bar() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        command(&mut s, "settings ai prompt");
+        let text = draw(&mut s, 100, 28);
+        assert!(text.contains("Write a Git commit subject"));
+        assert!(text.contains("Ctrl+S"));
+        assert!(!text.contains('╭'));
+        assert!(s.input_area.is_none());
+        assert_eq!(s.body_area.unwrap().bottom(), 27);
+        let Mode::PromptEditor(editor) = &s.mode else {
+            panic!("prompt editor");
+        };
+        let draft = editor.prompt();
+        for (width, height) in [(48, 15), (24, 8), (8, 4), (1, 1), (0, 0), (100, 28)] {
+            draw(&mut s, width, height);
+            assert!(s.input_area.is_none());
+            assert!(matches!(&s.mode, Mode::PromptEditor(editor) if editor.prompt() == draft));
+        }
+        s.message = "invalid prompt".into();
+        let text = draw(&mut s, 100, 28);
+        assert!(text.contains("invalid prompt") && text.contains("Ctrl+S"));
+        assert_eq!(s.body_area.unwrap().bottom(), 26);
+        s.paste("新");
+        assert!(s.message.is_empty());
+        key(&mut s, KeyCode::Esc);
+        draw(&mut s, 100, 28);
+        assert!(s.input_area.is_some());
+        s.shutdown();
+    }
+}

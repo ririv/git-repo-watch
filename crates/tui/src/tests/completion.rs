@@ -13,7 +13,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
-            menu: command::path::Menu::Directories(_),
+            menu: command::completion::Menu::Directories(_),
             ..
         }
     ));
@@ -28,7 +28,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
-            menu: command::path::Menu::Commands,
+            menu: command::completion::Menu::Commands,
             ..
         }
     ));
@@ -70,7 +70,7 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
         assert!(matches!(
             &s.bar,
             bar::InputBar::Command {
-                menu: command::path::Menu::Commands,
+                menu: command::completion::Menu::Commands,
                 ..
             }
         ));
@@ -84,7 +84,7 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
-            menu: command::path::Menu::Commands,
+            menu: command::completion::Menu::Commands,
             ..
         }
     ));

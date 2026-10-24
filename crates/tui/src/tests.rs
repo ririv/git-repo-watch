@@ -4,6 +4,7 @@ mod browser;
 mod changes;
 mod command_trigger;
 mod commands;
+mod commit_message;
 mod completion;
 mod concurrency;
 mod contexts;
@@ -76,6 +77,8 @@ fn screen(service: Service) -> Screen {
         bar: crate::bar::InputBar::default(),
         clipboard: Default::default(),
         link_opener: Default::default(),
+        commit_generator: Default::default(),
+        commit_draft_id: 0,
         repository_viewport,
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
@@ -118,6 +121,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
@@ -763,7 +767,13 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             s.paste("/repo");
             let text = render(&mut s, width, height);
             assert_eq!(s.command_items.len(), 8, "{text}");
-            for item in s.bar.commands().unwrap().into_iter().take(8) {
+            for item in s
+                .bar
+                .commands(s.config.ai.enabled)
+                .unwrap()
+                .into_iter()
+                .take(8)
+            {
                 assert!(text.contains(&format!("/{}", item.name)));
             }
             for _ in 0..command::COMMANDS.len() {
@@ -1367,6 +1377,10 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             "settings concurrency",
             "settings startup-check",
             "settings interaction",
+            "settings ai",
+            "settings ai agent",
+            "settings ai model",
+            "settings ai prompt",
             "settings interaction interactive",
             "settings interaction text"
         ]
@@ -1466,7 +1480,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("//sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/schedule");
-    assert_eq!(s.bar.commands().unwrap().len(), 7);
+    assert_eq!(s.bar.commands(s.config.ai.enabled).unwrap().len(), 7);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);
@@ -1511,7 +1525,7 @@ fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     s.paste("//");
     let index = s
         .bar
-        .commands()
+        .commands(s.config.ai.enabled)
         .unwrap()
         .iter()
         .position(|command| command.action == Action::Schedule)

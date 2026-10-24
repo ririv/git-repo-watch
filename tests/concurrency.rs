@@ -86,6 +86,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     let spawn = |repo: &PathBuf| {

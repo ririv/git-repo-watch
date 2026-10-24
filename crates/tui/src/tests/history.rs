@@ -269,7 +269,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
     key(&mut s, KeyCode::Char('/'));
     assert!(
         s.bar
-            .commands()
+            .commands(s.config.ai.enabled)
             .unwrap()
             .iter()
             .all(|command| !command.name.contains(' '))

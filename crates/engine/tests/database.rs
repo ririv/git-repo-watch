@@ -640,6 +640,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         check_on_startup: false,
         chinese_command_trigger: true,
         mouse: Default::default(),
+        ai: Default::default(),
         ..engine::state::Config::default()
     };
     fs::write(

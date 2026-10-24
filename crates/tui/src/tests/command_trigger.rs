@@ -110,7 +110,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
         key(&mut s, KeyCode::Char('/'));
         let names = s
             .bar
-            .commands()
+            .commands(s.config.ai.enabled)
             .unwrap()
             .iter()
             .map(|c| c.name)
@@ -121,6 +121,10 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
                 "settings concurrency",
                 "settings startup-check",
                 "settings interaction",
+                "settings ai",
+                "settings ai agent",
+                "settings ai model",
+                "settings ai prompt",
                 "settings interaction interactive",
                 "settings interaction text"
             ]

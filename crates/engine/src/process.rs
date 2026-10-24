@@ -3,7 +3,7 @@ use crate::cancel::Cancel;
 use anyhow::{Context, Result, bail};
 use std::{
     ffi::OsString,
-    io::Read,
+    io::{Read, Seek, Write},
     os::unix::process::CommandExt,
     path::Path,
     process::{Command, Stdio},
@@ -38,7 +38,6 @@ pub fn run(
     cancel: &Cancel,
     timeout: Duration,
 ) -> Result<Output> {
-    cancel.check()?;
     let mut command = Command::new(program);
     command
         .args(args)
@@ -56,19 +55,50 @@ pub fn run(
             "GIT_SSH_COMMAND",
             "/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15",
         );
+    execute(command, cancel, timeout, usize::MAX)
+}
+/// Run a bounded non-interactive request with private file-backed stdin.
+pub fn run_with_input(
+    program: &Path,
+    args: &[OsString],
+    cwd: &Path,
+    input: &[u8],
+    cancel: &Cancel,
+    timeout: Duration,
+    limit: usize,
+) -> Result<Output> {
+    cancel.check()?;
+    let mut stdin = tempfile::tempfile()?;
+    stdin.write_all(input)?;
+    stdin.rewind()?;
+    let mut command = Command::new(program);
+    command
+        .args(args)
+        .current_dir(cwd)
+        .stdin(Stdio::from(stdin))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .process_group(0);
+    execute(command, cancel, timeout, limit)
+}
+fn execute(
+    mut command: Command,
+    cancel: &Cancel,
+    timeout: Duration,
+    limit: usize,
+) -> Result<Output> {
+    cancel.check()?;
+    let program = command.get_program().to_string_lossy().into_owned();
     let mut child = command
         .spawn()
-        .with_context(|| i18n::tf!(UnableToStart, program.display()))?;
+        .with_context(|| i18n::tf!(UnableToStart, program))?;
     let mut stdout = child.stdout.take().context(i18n::tr!(CannotAttachStdout))?;
     let mut stderr = child.stderr.take().context(i18n::tr!(CannotAttachStderr))?;
-    let out = thread::spawn(move || {
-        let mut data = Vec::new();
-        stdout.read_to_end(&mut data).map(|_| data)
-    });
-    let err = thread::spawn(move || {
-        let mut data = Vec::new();
-        stderr.read_to_end(&mut data).map(|_| data)
-    });
+    let overflow = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let output_overflow = overflow.clone();
+    let error_overflow = overflow.clone();
+    let out = thread::spawn(move || collect(&mut stdout, limit, &output_overflow));
+    let err = thread::spawn(move || collect(&mut stderr, limit, &error_overflow));
     let started = Instant::now();
     let result = loop {
         match child.try_wait() {
@@ -79,10 +109,13 @@ pub fn run(
         if cancel.is_cancelled() {
             break Err(crate::cancel::Cancelled.into());
         }
+        if overflow.load(std::sync::atomic::Ordering::Acquire) {
+            break Err(anyhow::anyhow!(i18n::tr!(AgentOutputTooLarge)));
+        }
         if started.elapsed() >= timeout {
             break Err(anyhow::anyhow!(i18n::tf!(
                 TimedOutSeconds,
-                program.display(),
+                program,
                 timeout.as_secs()
             )));
         }
@@ -100,11 +133,33 @@ pub fn run(
         .join()
         .map_err(|_| anyhow::anyhow!(i18n::tr!(StderrReaderPanicked)))??;
     let status = result?;
+    if overflow.load(std::sync::atomic::Ordering::Acquire) {
+        bail!(i18n::tr!(AgentOutputTooLarge));
+    }
     Ok(Output {
         code: status.code().unwrap_or(128),
         stdout,
         stderr,
     })
+}
+fn collect(
+    reader: &mut impl Read,
+    limit: usize,
+    overflow: &std::sync::atomic::AtomicBool,
+) -> std::io::Result<Vec<u8>> {
+    let mut data = Vec::new();
+    let mut buffer = [0; 8192];
+    loop {
+        let count = reader.read(&mut buffer)?;
+        if count == 0 {
+            return Ok(data);
+        }
+        if count > limit.saturating_sub(data.len()) {
+            overflow.store(true, std::sync::atomic::Ordering::Release);
+        } else {
+            data.extend_from_slice(&buffer[..count]);
+        }
+    }
 }
 pub fn system(program: &str, args: &[&str], cancel: &Cancel) -> Result<Output> {
     run(

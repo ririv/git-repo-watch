@@ -20,6 +20,9 @@ pub enum ArgumentAction {
     Autopush,
     Concurrency,
     StartupCheck,
+    AiAgent,
+    AiModel,
+    AiPrompt,
 }
 impl ArgumentAction {
     pub fn is_path(self) -> bool {
@@ -48,6 +51,9 @@ impl ArgumentAction {
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
             Self::StartupCheck => Action::StartupCheck,
+            Self::AiAgent => Action::AiAgent,
+            Self::AiModel => Action::AiModel,
+            Self::AiPrompt => Action::AiPrompt,
         }
     }
     pub fn command(self) -> &'static Command {
@@ -64,6 +70,9 @@ impl ArgumentAction {
             Self::Autopush => "<policy>",
             Self::Concurrency => "<count>",
             Self::StartupCheck => "<true|false>",
+            Self::AiAgent => "<name>",
+            Self::AiModel => "<model|default>",
+            Self::AiPrompt => "<text>",
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::StashSave | Self::StashSaveAll => "<message>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
@@ -82,6 +91,9 @@ impl ArgumentAction {
             Self::Autopush => i18n::tr!(PolicyArgumentHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::StartupCheck => i18n::tr!(StartupCheckArgumentHint),
+            Self::AiAgent => i18n::tr!(AgentNameHint),
+            Self::AiModel => i18n::tr!(AgentModelHint),
+            Self::AiPrompt => i18n::tr!(AgentPromptHint),
         }
     }
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
@@ -147,6 +159,17 @@ impl ArgumentAction {
                 );
                 Ok(value.into())
             }
+            Self::AiAgent => Ok(value.parse::<engine::ai::Agent>()?.name().into()),
+            Self::AiModel | Self::AiPrompt => {
+                let mut config = engine::ai::Config::default();
+                if self == Self::AiModel {
+                    config.program_mut().model = value.into();
+                } else {
+                    config.prompt = engine::ai::Prompt::Custom { text: value.into() };
+                }
+                config.validate()?;
+                Ok(value.into())
+            }
             Self::Concurrency => {
                 let count = value.parse::<usize>()?;
                 ensure!(
@@ -179,6 +202,9 @@ impl Action {
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
             Self::StartupCheck => Some(ArgumentAction::StartupCheck),
+            Self::AiAgent => Some(ArgumentAction::AiAgent),
+            Self::AiModel => Some(ArgumentAction::AiModel),
+            Self::AiPrompt => Some(ArgumentAction::AiPrompt),
             _ => None,
         }
     }
@@ -229,6 +255,8 @@ pub enum ConfigArgument {
     Autopush,
     Concurrency,
     StartupCheck,
+    AiModel,
+    AiPrompt,
 }
 impl ConfigArgument {
     pub fn action(self) -> Action {
@@ -249,6 +277,8 @@ impl ConfigArgument {
             Self::Autopush => ArgumentAction::Autopush,
             Self::Concurrency => ArgumentAction::Concurrency,
             Self::StartupCheck => ArgumentAction::StartupCheck,
+            Self::AiModel => ArgumentAction::AiModel,
+            Self::AiPrompt => ArgumentAction::AiPrompt,
         }
     }
 }
@@ -265,6 +295,8 @@ impl ArgumentAction {
             Self::Autopush => Some(ConfigArgument::Autopush),
             Self::Concurrency => Some(ConfigArgument::Concurrency),
             Self::StartupCheck => Some(ConfigArgument::StartupCheck),
+            Self::AiModel => Some(ConfigArgument::AiModel),
+            Self::AiPrompt => Some(ConfigArgument::AiPrompt),
             _ => None,
         }
     }

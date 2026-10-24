@@ -29,13 +29,19 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
         select(&mut s, "plain.txt");
         assert!(session(&mut s).open_target().is_none());
         key(&mut s, KeyCode::Char('/'));
-        assert!(!s.bar.commands().unwrap().iter().any(|command| matches!(
-            command.action,
-            Action::BrowserToggle
-                | Action::BrowserSplit
-                | Action::BrowserSource
-                | Action::BrowserPreview
-        )));
+        assert!(
+            !s.bar
+                .commands(s.config.ai.enabled)
+                .unwrap()
+                .iter()
+                .any(|command| matches!(
+                    command.action,
+                    Action::BrowserToggle
+                        | Action::BrowserSplit
+                        | Action::BrowserSource
+                        | Action::BrowserPreview
+                ))
+        );
         key(&mut s, KeyCode::Esc);
         select(&mut s, "README.md");
         assert!(text(&mut s).contains("# 文档 Title"));

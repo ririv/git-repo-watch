@@ -244,7 +244,7 @@ fn settings_group_is_bilingual_and_each_toggle_persists_without_new_commands() {
             MouseSetting::SelectPane,
         ] {
             let index = Configuration::General
-                .items(s.snapshot.registration)
+                .items(s.snapshot.registration, &s.config.ai)
                 .iter()
                 .position(|item| *item == crate::settings::Item::Mouse(setting))
                 .unwrap();

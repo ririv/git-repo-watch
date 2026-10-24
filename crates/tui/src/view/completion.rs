@@ -12,6 +12,49 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
             )))
         })
         .collect::<Vec<_>>();
+    render_candidates(
+        frame,
+        items,
+        directories.selected(),
+        i18n::tr!(DirectoryCandidates),
+        body,
+    );
+}
+
+pub(super) fn render_values(frame: &mut Frame, values: &command::values::Candidates, body: Rect) {
+    let items = values
+        .agents()
+        .iter()
+        .map(|agent| {
+            ListItem::new(Line::from(vec![
+                Span::styled(agent.name(), Style::default().fg(ACCENT)),
+                Span::styled(
+                    if *agent == values.current {
+                        format!("  ✓ {}", i18n::tr!(LayoutCurrent))
+                    } else {
+                        String::new()
+                    },
+                    Style::default().fg(GOOD),
+                ),
+            ]))
+        })
+        .collect();
+    render_candidates(
+        frame,
+        items,
+        values.selected(),
+        i18n::tr!(ArgumentCandidates),
+        body,
+    );
+}
+
+fn render_candidates(
+    frame: &mut Frame,
+    items: Vec<ListItem<'static>>,
+    selected: usize,
+    title: &'static str,
+    body: Rect,
+) {
     let count = items.len();
     let available = body.height.saturating_sub(u16::from(body.height >= 9));
     let height = (items.len().min(8) + 2).min(usize::from(available)) as u16;
@@ -21,9 +64,9 @@ pub(super) fn render(frame: &mut Frame, directories: &command::path::Directories
         body.width,
         height,
     );
-    let mut state = ListState::default().with_selected(Some(directories.selected()));
+    let mut state = ListState::default().with_selected(Some(selected));
     let border = if height >= 3 {
-        block(i18n::tr!(DirectoryCandidates))
+        block(title)
     } else {
         Block::default()
     };

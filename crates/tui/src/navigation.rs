@@ -251,3 +251,17 @@ impl Screen {
         );
     }
 }
+
+impl Screen {
+    pub(crate) fn hide_disabled_ai_settings(&mut self) {
+        if self.config.ai.enabled {
+            return;
+        }
+        self.history
+            .retain(|visit| !matches!(visit.mode, Mode::PromptEditor(_)));
+        if matches!(self.mode, Mode::PromptEditor(_)) {
+            self.mode = Mode::Browsing;
+            self.sync_bar();
+        }
+    }
+}

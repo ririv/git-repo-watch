@@ -38,7 +38,10 @@ fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope()
     s.select(1);
     render(&mut s, 180, 36);
     let (area, index) = s.command_items[0];
-    assert_eq!(s.bar.commands().unwrap()[index].action, Action::Remove);
+    assert_eq!(
+        s.bar.commands(s.config.ai.enabled).unwrap()[index].action,
+        Action::Remove
+    );
     s.mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),

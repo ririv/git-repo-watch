@@ -70,7 +70,7 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         assert_eq!(context(&s), Some(Context::Diff(DiffContext::Worktree)));
         assert!(
             s.bar
-                .commands()
+                .commands(s.config.ai.enabled)
                 .unwrap()
                 .iter()
                 .all(|c| c.name.starts_with("repo diff "))
@@ -86,13 +86,13 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         }
         s.paste("repo terminal");
         key(&mut s, KeyCode::Enter);
-        assert!(s.bar.commands().unwrap().is_empty());
+        assert!(s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
         control(&mut s, 'u');
         s.paste("布局");
         assert!(
             s.bar
-                .commands()
+                .commands(s.config.ai.enabled)
                 .unwrap()
                 .iter()
                 .all(|c| matches!(c.action, Action::DiffLayoutMenu | Action::DiffLayout(_)))
@@ -116,7 +116,10 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         assert!(matches!(s.bar, bar::InputBar::Search(_)));
         assert_eq!(s.bar.text(), "source");
         s.paste("//settings");
-        assert_eq!(s.bar.commands().unwrap()[0].action, Action::Settings);
+        assert_eq!(
+            s.bar.commands(s.config.ai.enabled).unwrap()[0].action,
+            Action::Settings
+        );
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.bar.editor().text, "source");
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -158,7 +161,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     assert_eq!(context(&s), Some(Context::History));
     assert!(
         s.bar
-            .commands()
+            .commands(s.config.ai.enabled)
             .unwrap()
             .iter()
             .all(|c| c.name.starts_with("repo log "))
@@ -176,22 +179,31 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Diff(DiffContext::History)));
-    assert!(s.bar.commands().unwrap().iter().all(|c| matches!(
-        c.action,
-        Action::DiffLayoutMenu
-            | Action::DiffLayout(_)
-            | Action::Copy(crate::clipboard::Scope::Diff)
-    )));
+    assert!(
+        s.bar
+            .commands(s.config.ai.enabled)
+            .unwrap()
+            .iter()
+            .all(|c| matches!(
+                c.action,
+                Action::DiffLayoutMenu
+                    | Action::DiffLayout(_)
+                    | Action::Copy(crate::clipboard::Scope::Diff)
+            ))
+    );
     s.paste("stage");
     key(&mut s, KeyCode::Enter);
-    assert!(s.bar.commands().unwrap().is_empty());
+    assert!(s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     key(&mut s, KeyCode::Esc);
     command(&mut s, "repo branch");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Branches));
-    assert_eq!(s.bar.commands().unwrap()[0].name, "repo branch refresh");
+    assert_eq!(
+        s.bar.commands(s.config.ai.enabled).unwrap()[0].name,
+        "repo branch refresh"
+    );
 }
 
 #[test]
@@ -257,7 +269,7 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), None);
         assert_eq!(s.bar.text(), "/");
-        let commands = s.bar.commands().unwrap();
+        let commands = s.bar.commands(s.config.ai.enabled).unwrap();
         assert!(commands.iter().all(|c| !c.name.contains(' ')));
         assert!(commands.iter().any(|c| c.action == Action::OpenRepository));
         assert!(commands.iter().any(|c| c.action == Action::Repositories));
@@ -272,15 +284,21 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), Some(Context::Repositories));
-        assert!(s.bar.commands().unwrap().iter().all(|c| !matches!(
-            c.action,
-            Action::FilterMenu
-                | Action::Filter(_)
-                | Action::SortMenu
-                | Action::Sort(_)
-                | Action::RepositorySettings
-                | Action::RepositoryRefresh
-        )));
+        assert!(
+            s.bar
+                .commands(s.config.ai.enabled)
+                .unwrap()
+                .iter()
+                .all(|c| !matches!(
+                    c.action,
+                    Action::FilterMenu
+                        | Action::Filter(_)
+                        | Action::SortMenu
+                        | Action::Sort(_)
+                        | Action::RepositorySettings
+                        | Action::RepositoryRefresh
+                ))
+        );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repos");
         assert_eq!(s.page, Page::Repositories);
@@ -367,7 +385,7 @@ fn repository_entry_freezes_its_target_and_nested_views_keep_full_context_paths(
         assert_eq!(context(&s), Some(Context::Repository));
         assert!(
             s.bar
-                .commands()
+                .commands(s.config.ai.enabled)
                 .unwrap()
                 .iter()
                 .all(|c| c.name.starts_with("repo "))

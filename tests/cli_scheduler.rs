@@ -24,6 +24,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
+            ai: Default::default(),
         })
         .unwrap();
     (temp, store)

@@ -16,6 +16,7 @@ pub(crate) enum Context {
     Repository,
     Repositories,
     Settings,
+    Ai,
     Schedule,
     Error,
     Files,
@@ -30,6 +31,7 @@ impl Context {
             Self::Repository => "repo",
             Self::Repositories => "repos",
             Self::Settings => "settings",
+            Self::Ai => "settings ai",
             Self::Schedule => "schedule",
             Self::Error => "error",
             Self::Files => "repo files",
@@ -119,7 +121,13 @@ impl Screen {
                 workspace::Section::Overview => Some(Context::Repository),
             },
             Mode::Browsing => match self.page {
-                Page::Configuration(Configuration::General) => Some(Context::Settings),
+                Page::Configuration(Configuration::General) => Some(
+                    Configuration::General
+                        .items(self.snapshot.registration, &self.config.ai)
+                        .get(self.setting_selected)
+                        .filter(|_| self.config.ai.enabled)
+                        .map_or(Context::Settings, |item| item.context()),
+                ),
                 Page::Repositories => None,
                 Page::Detail => Some(Context::Repository),
                 Page::Configuration(Configuration::Repositories) => Some(Context::Repositories),

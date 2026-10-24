@@ -132,7 +132,7 @@ fn settings_double_click_toggles_once_and_schedule_double_click_stops_at_confirm
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "settings");
     let index = Configuration::General
-        .items(s.snapshot.registration)
+        .items(s.snapshot.registration, &s.config.ai)
         .iter()
         .position(|item| *item == crate::settings::Item::Mouse(engine::state::MouseSetting::Scroll))
         .unwrap();

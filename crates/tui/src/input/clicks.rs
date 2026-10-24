@@ -131,7 +131,7 @@ impl Screen {
                 Page::Configuration(section) => Some(Identity::Setting(
                     section,
                     *section
-                        .items(self.snapshot.registration)
+                        .items(self.snapshot.registration, &self.config.ai)
                         .get(self.setting_selected)?,
                 )),
                 _ => None,

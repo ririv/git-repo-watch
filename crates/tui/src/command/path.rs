@@ -6,12 +6,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-#[derive(Debug, Default)]
-pub(crate) enum Menu {
-    #[default]
-    Commands,
-    Directories(Directories),
-}
+use super::completion::Menu;
 
 #[derive(Debug)]
 pub(crate) struct Directories {

@@ -2,6 +2,44 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    Ai,
+    PreferenceSaved,
+    AiHelp,
+    AiSettings,
+    AiEnabled,
+    AiEnabledHint,
+    AiDisabled,
+    AgentNotFound,
+    AgentSettings,
+    AgentChoice,
+    AgentNameHint,
+    UnknownAgent,
+    SupportedAgents,
+    ArgumentCandidates,
+    AgentChoiceHint,
+    AgentModel,
+    AgentModelHint,
+    AgentPrompt,
+    AgentPromptEditorHint,
+    AgentDefaultPrompt,
+    AgentCustomPrompt,
+    AgentPromptHint,
+    AgentDefault,
+    AgentNone,
+    AgentSaved,
+    AgentGenerate,
+    AgentGenerating,
+    AgentGenerated,
+    AgentDraftChanged,
+    AgentCancelled,
+    AgentHint,
+    AgentRunningHint,
+    AgentModelInvalid,
+    AgentPromptInvalid,
+    AgentPromptConflict,
+    AgentDiffTooLarge,
+    AgentOutputTooLarge,
+    AgentMessageInvalid,
     SettingsChecks,
     SettingsInput,
     SettingsConcurrency,
@@ -823,6 +861,142 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::AgentPromptConflict, Language::English) => {
+                "Configuration contains both legacy instructions and a replacement prompt; keep only one."
+            }
+            (Self::AgentPromptConflict, Language::Chinese) => {
+                "配置同时包含旧补充要求和新生成指令，请保留一种。"
+            }
+            (Self::AgentDefaultPrompt, Language::English) => "Default prompt",
+            (Self::AgentDefaultPrompt, Language::Chinese) => "默认指令",
+            (Self::PreferenceSaved, Language::English) => "Settings saved.",
+            (Self::PreferenceSaved, Language::Chinese) => "设置已保存。",
+            (Self::Ai, Language::English | Language::Chinese) => "AI",
+            (Self::AiHelp, Language::English) => include_str!("help/ai.en.md"),
+            (Self::AiHelp, Language::Chinese) => include_str!("help/ai.zh.md"),
+            (Self::AiSettings, Language::English) => "AI settings",
+            (Self::AiSettings, Language::Chinese) => "AI 设置",
+            (Self::AiEnabled, Language::English) => "Enable AI",
+            (Self::AiEnabled, Language::Chinese) => "启用 AI",
+            (Self::AiEnabledHint, Language::English) => {
+                "Turn off to hide AI features. Change this switch here; commands cannot enable AI."
+            }
+            (Self::AiEnabledHint, Language::Chinese) => {
+                "关闭后隐藏相关命令和功能，只能在此重新启用。"
+            }
+            (Self::AiDisabled, Language::English) => {
+                "AI is disabled. Enable it on the AI settings page."
+            }
+            (Self::AiDisabled, Language::Chinese) => "AI 已禁用，请在 AI 设置页启用。",
+            (Self::AgentNotFound, Language::English) => {
+                "Agent not found in PATH; install and log in to the selected CLI"
+            }
+            (Self::AgentNotFound, Language::Chinese) => {
+                "未在 PATH 中找到生成工具，请先安装并登录所选 CLI"
+            }
+            (Self::AgentSettings, Language::English) => "Commit message generation",
+            (Self::AgentSettings, Language::Chinese) => "提交消息生成",
+            (Self::AgentChoice, Language::English) => "Agent",
+            (Self::AgentNameHint, Language::English) => {
+                "Enter an agent name; Tab completes supported values."
+            }
+            (Self::AgentNameHint, Language::Chinese) => "填写工具名称，Tab 补全可用参数值。",
+            (Self::UnknownAgent, Language::English) => "Unknown agent",
+            (Self::UnknownAgent, Language::Chinese) => "未知工具",
+            (Self::SupportedAgents, Language::English) => "Supported agents",
+            (Self::SupportedAgents, Language::Chinese) => "支持的工具",
+            (Self::ArgumentCandidates, Language::English) => "Argument values",
+            (Self::ArgumentCandidates, Language::Chinese) => "参数候选",
+            (Self::AgentChoice, Language::Chinese) => "生成工具",
+            (Self::AgentChoiceHint, Language::English) => {
+                "Use an installed CLI and its existing login; invoked only on request."
+            }
+            (Self::AgentChoiceHint, Language::Chinese) => {
+                "调用本机 CLI 与现有登录状态，仅在手动请求时运行。"
+            }
+            (Self::AgentModel, Language::English) => "Model",
+            (Self::AgentModel, Language::Chinese) => "模型",
+            (Self::AgentModelHint, Language::English) => {
+                "Enter a model name, or default to use the agent's configured model."
+            }
+            (Self::AgentModelHint, Language::Chinese) => {
+                "填写模型名；default 表示沿用 agent 自己的模型。"
+            }
+            (Self::AgentPrompt, Language::English) => "Prompt",
+            (Self::AgentCustomPrompt, Language::English) => "Custom prompt · Enter to edit",
+            (Self::AgentCustomPrompt, Language::Chinese) => "自定义指令 · Enter 编辑",
+            (Self::AgentPrompt, Language::Chinese) => "生成指令",
+            (Self::AgentPromptEditorHint, Language::English) => "Ctrl+S save · Esc cancel",
+            (Self::AgentPromptEditorHint, Language::Chinese) => "Ctrl+S 保存 · Esc 放弃修改",
+            (Self::AgentPromptHint, Language::English) => {
+                "Edit the complete generation prompt. Output must be a single-line subject."
+            }
+            (Self::AgentPromptHint, Language::Chinese) => {
+                "完整编辑生成指令，结果需为单行提交标题。"
+            }
+            (Self::AgentDefault, Language::English | Language::Chinese) => "Default",
+            (Self::AgentNone, Language::English) => "None",
+            (Self::AgentNone, Language::Chinese) => "无",
+            (Self::AgentSaved, Language::English) => "AI settings saved.",
+            (Self::AgentSaved, Language::Chinese) => "AI 设置已保存。",
+            (Self::AgentGenerate, Language::English) => {
+                "Generate a commit message from staged changes using the configured agent"
+            }
+            (Self::AgentGenerate, Language::Chinese) => {
+                "使用已配置的工具，根据暂存改动生成提交消息"
+            }
+            (Self::AgentGenerating, Language::English) => "Generating commit message",
+            (Self::AgentGenerating, Language::Chinese) => "正在生成提交消息",
+            (Self::AgentGenerated, Language::English) => {
+                "Commit message generated; edit and confirm before committing."
+            }
+            (Self::AgentGenerated, Language::Chinese) => "已生成提交消息，可编辑后确认提交。",
+            (Self::AgentDraftChanged, Language::English) => {
+                "Draft changed; generated text was not applied."
+            }
+            (Self::AgentDraftChanged, Language::Chinese) => "草稿已更改，未覆盖为生成结果。",
+            (Self::AgentCancelled, Language::English) => "Generation cancelled; draft retained.",
+            (Self::AgentCancelled, Language::Chinese) => "已取消生成，保留原草稿。",
+            (Self::AgentHint, Language::English) => {
+                "Ctrl+R generate · Enter review · Esc return · PgUp/PgDn scroll"
+            }
+            (Self::AgentHint, Language::Chinese) => {
+                "Ctrl+R 生成 · Enter 确认 · Esc 返回 · PgUp/PgDn 滚动"
+            }
+            (Self::AgentRunningHint, Language::English) => {
+                "Generating… Ctrl+R cancel · Esc return; editing is still available"
+            }
+            (Self::AgentRunningHint, Language::Chinese) => {
+                "生成中… Ctrl+R 取消 · Esc 返回；仍可编辑消息"
+            }
+            (Self::AgentModelInvalid, Language::English) => {
+                "Model must have no control characters and be at most 256 bytes."
+            }
+            (Self::AgentModelInvalid, Language::Chinese) => {
+                "模型名不能包含控制字符，且最多 256 字节。"
+            }
+            (Self::AgentPromptInvalid, Language::English) => {
+                "Prompt must be nonempty, contain no NUL and be at most 16384 bytes."
+            }
+            (Self::AgentPromptInvalid, Language::Chinese) => {
+                "生成指令不能为空、不能包含 NUL，且最多 16384 字节。"
+            }
+            (Self::AgentDiffTooLarge, Language::English) => {
+                "Staged patch exceeds 128 KiB. Stage a smaller change before generating a message."
+            }
+            (Self::AgentDiffTooLarge, Language::Chinese) => {
+                "暂存差异超过 128 KiB，请缩小本次暂存范围后生成消息。"
+            }
+            (Self::AgentOutputTooLarge, Language::English) => {
+                "Agent output exceeded the allowed size."
+            }
+            (Self::AgentOutputTooLarge, Language::Chinese) => "生成工具的输出超过大小限制。",
+            (Self::AgentMessageInvalid, Language::English) => {
+                "Expected one nonempty plain-text commit subject (at most 500 characters)."
+            }
+            (Self::AgentMessageInvalid, Language::Chinese) => {
+                "生成结果必须是非空的单行提交标题，最多 500 个字符。"
+            }
             (Self::SettingsChecks, Language::English) => "Checks",
             (Self::SettingsChecks, Language::Chinese) => "检查",
             (Self::SettingsInput, Language::English) => "Input",

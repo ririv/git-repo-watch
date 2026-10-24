@@ -33,7 +33,7 @@ fn selected_prefix_is_replaced_by_typing_including_shift_and_unicode() {
         assert_eq!(input.context(), None);
         assert_eq!(input.text(), format!("/{text}"));
         assert_eq!(input.editor().cursor, input.editor().text.len());
-        assert!(!s.bar.commands().unwrap().is_empty());
+        assert!(!s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Esc);
@@ -61,7 +61,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
         assert_eq!(s.bar.editor().cursor, expected.len());
         assert!(s.repository_tasks.is_empty());
         assert_eq!(
-            s.bar.commands().unwrap()[0].name,
+            s.bar.commands(s.config.ai.enabled).unwrap()[0].name,
             if expected.contains(" add ") {
                 "repos add"
             } else if expected == "/终端" {
@@ -109,7 +109,7 @@ fn typing_slash_over_a_selected_prefix_opens_the_global_menu() {
     assert_eq!(s.bar.command_input().unwrap().context(), None);
     assert!(
         s.bar
-            .commands()
+            .commands(s.config.ai.enabled)
             .unwrap()
             .iter()
             .all(|c| !c.name.contains(' '))
@@ -154,7 +154,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             let selected_text = render(&mut s, width, height);
             let selected_names = s
                 .bar
-                .commands()
+                .commands(s.config.ai.enabled)
                 .unwrap()
                 .iter()
                 .map(|c| c.name)
@@ -177,7 +177,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             assert_eq!(
                 selected_names,
                 s.bar
-                    .commands()
+                    .commands(s.config.ai.enabled)
                     .unwrap()
                     .iter()
                     .map(|c| c.name)
@@ -209,7 +209,7 @@ fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected
     select_prefix(&mut s);
     let index = s
         .bar
-        .commands()
+        .commands(s.config.ai.enabled)
         .unwrap()
         .iter()
         .position(|c| c.action == Action::Schedule)
@@ -233,7 +233,7 @@ fn clicking_a_global_candidate_replaces_the_selected_prefix_before_opening_the_v
     select_prefix(&mut s);
     let index = s
         .bar
-        .commands()
+        .commands(s.config.ai.enabled)
         .unwrap()
         .iter()
         .position(|c| c.action == Action::Schedule)
@@ -277,7 +277,7 @@ fn deleting_a_selected_prefix_closes_commands_and_restores_search() {
         assert_eq!(s.selected_path(), path);
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         assert!(s.repository_tasks.is_empty());
-        assert!(s.bar.commands().is_none());
+        assert!(s.bar.commands(s.config.ai.enabled).is_none());
         key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(s.bar.text(), "/repos ");

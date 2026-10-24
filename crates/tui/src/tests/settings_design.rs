@@ -55,7 +55,10 @@ fn settings_description_rows_select_their_item_and_manual_scroll_is_preserved() 
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings");
         for width in [60, 80, 140] {
-            s.setting_selected = Configuration::General.items(s.snapshot.registration).len() - 1;
+            s.setting_selected = Configuration::General
+                .items(s.snapshot.registration, &s.config.ai)
+                .len()
+                - 1;
             render(&mut s, width, 18);
             let selected = s.setting_selected;
             let positions = (0..18)

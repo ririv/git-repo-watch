@@ -14,6 +14,10 @@ impl Screen {
         selection: crate::clipboard::Selection,
         root: &Cancel,
     ) -> Result<bool> {
+        if !action.available(self.config.ai.enabled) {
+            self.message = i18n::tr!(NoMatchingCommands).into();
+            return Ok(false);
+        }
         match action {
             Action::BrowseFiles => {
                 if let Some(path) = path {
@@ -98,6 +102,7 @@ impl Screen {
                 self.open_configuration(Configuration::Repositories);
             }
             Action::Settings => self.open_configuration(Configuration::General),
+            Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
             Action::InteractionMenu => self.interaction_menu(),
@@ -202,15 +207,20 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
             }
-            Action::Commit | Action::Push => {
+            Action::Commit | Action::CommitGenerate | Action::Push => {
                 if let Some(path) = path {
-                    if action == Action::Commit {
+                    if matches!(action, Action::Commit | Action::CommitGenerate) {
                         self.start_repository(
                             path.clone(),
                             i18n::tr!(ReadStagedContents),
                             Effect::ReadOnly,
                             move |s, c, _| {
-                                Ok(Outcome::CommitPrepared(s.prepare_commit(&path, &c)?))
+                                let plan = s.prepare_commit(&path, &c)?;
+                                Ok(if action == Action::CommitGenerate {
+                                    Outcome::CommitForGeneration(plan)
+                                } else {
+                                    Outcome::CommitPrepared(plan)
+                                })
                             },
                         )
                     } else {
@@ -278,6 +288,13 @@ impl Screen {
                     choice: Default::default(),
                 }
             }
+            Action::AiPrompt => {
+                self.open_ai_setting(crate::settings::Item::Command(Action::AiPrompt));
+                self.mode = Mode::PromptEditor(Box::new(crate::prompt_editor::Session::new(
+                    &self.config.ai.prompt,
+                )));
+                self.sync_bar();
+            }
             _ => {
                 let value = match action {
                     Action::Interval => {
@@ -292,6 +309,14 @@ impl Screen {
                     Action::Autopush => self.config.push_policy.to_string(),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
                     Action::StartupCheck => self.config.check_on_startup.to_string(),
+                    Action::AiAgent => self.config.ai.agent.name().into(),
+                    Action::AiModel => {
+                        if self.config.ai.program().model.is_empty() {
+                            "default".into()
+                        } else {
+                            self.config.ai.program().model.clone()
+                        }
+                    }
                     _ => String::new(),
                 };
                 let argument = action.argument().expect("parameter action");
@@ -308,6 +333,16 @@ impl Screen {
             }
         }
         Ok(false)
+    }
+    pub(crate) fn select_agent(&mut self, agent: engine::ai::Agent) {
+        self.start(
+            i18n::tr!(AgentChoice),
+            Effect::Configuration,
+            move |service, cancel, _| {
+                service.configure_with_cancel(ConfigEdit::AiAgent(agent), &cancel)?;
+                Ok(Outcome::Text(i18n::tr!(AgentSaved).into()))
+            },
+        );
     }
     pub(crate) fn prepare_configuration(
         &mut self,
@@ -329,6 +364,15 @@ impl Screen {
     }
     fn open_configuration(&mut self, section: Configuration) {
         self.open_page(Page::Configuration(section));
+    }
+    fn open_ai_setting(&mut self, item: crate::settings::Item) {
+        self.open_configuration(Configuration::General);
+        self.setting_selected = Configuration::General
+            .items(self.snapshot.registration, &self.config.ai)
+            .iter()
+            .position(|candidate| *candidate == item)
+            .expect("enabled AI setting is present in the general form");
+        self.settings_focus = None;
     }
     pub(crate) fn read_files(&mut self, path: PathBuf) {
         self.start_repository(
@@ -426,6 +470,7 @@ impl Screen {
                 origin,
                 ..
             } => {
+                let agent = self.config.ai.agent;
                 self.mode = *origin;
                 self.sync_bar();
                 self.start(
@@ -471,6 +516,26 @@ impl Screen {
                             Parameter::StartupCheck => {
                                 s.configure(ConfigEdit::StartupCheck(value.parse()?))?;
                                 i18n::tr!(StartupCheckSavedNextLaunch).into()
+                            }
+                            Parameter::AiModel | Parameter::AiPrompt => {
+                                let edit = match command {
+                                    Parameter::AiModel => ConfigEdit::AiModel {
+                                        agent,
+                                        model: if value == "default" {
+                                            String::new()
+                                        } else {
+                                            value
+                                        },
+                                    },
+                                    Parameter::AiPrompt => {
+                                        ConfigEdit::AiPrompt(engine::ai::Prompt::Custom {
+                                            text: value,
+                                        })
+                                    }
+                                    _ => unreachable!(),
+                                };
+                                s.configure_with_cancel(edit, &c)?;
+                                i18n::tr!(AgentSaved).into()
                             }
                         };
                         Ok(Outcome::Text(message))

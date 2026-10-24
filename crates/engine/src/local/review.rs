@@ -2,7 +2,7 @@
 use super::{Head, files, head, idle, open};
 use anyhow::{Result, ensure};
 use std::path::{Path, PathBuf};
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CommitPlan {
     pub path: PathBuf,
     pub(crate) head: Head,

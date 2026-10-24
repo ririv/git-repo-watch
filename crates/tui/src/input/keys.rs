@@ -2,11 +2,18 @@
 use super::super::*;
 use super::{ctrl_c, scroll_key};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         self.clicks.reset();
         self.drag = None;
         match &mut self.mode {
+            Mode::PromptEditor(session) => {
+                self.message = match session.insert(text) {
+                    Ok(()) => String::new(),
+                    Err(error) => format!("{error:#}"),
+                };
+            }
             Mode::CommitMessage { editor, .. } => editor.insert(text),
             Mode::Browsing
             | Mode::Browser(_)
@@ -70,6 +77,14 @@ impl Screen {
         if ctrl_c(key) {
             return Ok(true);
         }
+        if self.config.ai.enabled
+            && matches!(self.mode, Mode::CommitMessage { .. })
+            && key.code == KeyCode::Char('r')
+            && key.modifiers == KeyModifiers::CONTROL
+        {
+            self.generate_commit_message();
+            return Ok(false);
+        }
         if self.changes_shortcut(key)
             || self.repository_pane_key(key)
             || self.browser_shortcut(key)
@@ -101,6 +116,41 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::PromptEditor(mut session) => {
+                match (key.code, key.modifiers) {
+                    (KeyCode::Esc, _) => {
+                        self.sync_bar();
+                        return Ok(false);
+                    }
+                    (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
+                        let prompt = session.prompt();
+                        self.mode = Mode::PromptEditor(session);
+                        if let Err(error) = prompt.validate() {
+                            self.message = format!("{error:#}");
+                        } else {
+                            self.start(
+                                i18n::tr!(AgentPrompt),
+                                Effect::Configuration,
+                                move |service, cancel, _| {
+                                    service.configure_with_cancel(
+                                        ConfigEdit::AiPrompt(prompt),
+                                        &cancel,
+                                    )?;
+                                    Ok(Outcome::Text(i18n::tr!(AgentSaved).into()))
+                                },
+                            );
+                        }
+                        return Ok(false);
+                    }
+                    _ => {
+                        self.message = match session.key(key) {
+                            Ok(()) => String::new(),
+                            Err(error) => format!("{error:#}"),
+                        };
+                    }
+                }
+                self.mode = Mode::PromptEditor(session);
+            }
             Mode::Browser(session) => {
                 self.browser_key(session, key);
             }
@@ -291,6 +341,7 @@ impl Screen {
             } => {
                 match key.code {
                     KeyCode::Esc => {
+                        self.commit_generator.cancel();
                         if matches!(self.page, Page::View(_)) {
                             self.return_to_view();
                         }
@@ -300,6 +351,7 @@ impl Screen {
                     KeyCode::PageDown => scroll = scroll.saturating_add(10),
                     KeyCode::PageUp => scroll = scroll.saturating_sub(10),
                     KeyCode::Enter => {
+                        self.commit_generator.cancel();
                         if editor.text.trim().is_empty() {
                             self.message = i18n::tr!(EnterACommitMessage).into()
                         } else {

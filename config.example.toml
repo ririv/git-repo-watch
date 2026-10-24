@@ -33,3 +33,25 @@ precise_click = true
 scroll = true
 # 点击或滚动时允许切换到指针所在的子视图。
 select_pane = true
+
+# AI 功能：显式选择本机 CLI；只在手动请求时调用，复用该 CLI 的登录与配置。
+# 默认生成单行提交标题，结果仍需编辑和确认；不暂存文件、不执行提交或推送。
+[ai]
+# 仅在通用设置页切换；关闭后隐藏 AI 命令、功能和快捷键。
+enabled = true
+agent = "codex"
+
+# 完整生成指令：default 使用内置指令，custom 完整替换；自定义文本支持 TOML 多行字符串。
+[ai.prompt]
+mode = "default"
+# mode = "custom"
+# text = "根据暂存差异生成单行中文提交标题，使用 Conventional Commits。"
+
+[ai.codex]
+# 仅通过当前 PATH 查找 codex，不配置程序路径。
+# 空字符串沿用 agent 自己的默认模型。
+model = ""
+
+[ai.claude]
+# 仅通过当前 PATH 查找 claude。
+model = ""
