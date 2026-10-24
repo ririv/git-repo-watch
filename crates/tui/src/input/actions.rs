@@ -27,6 +27,7 @@ impl Screen {
             editor.restore();
         }
         match action {
+            Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {
                     editor.focus(crate::commit_form::Focus::Message);

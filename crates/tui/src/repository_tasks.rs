@@ -226,9 +226,20 @@ impl Screen {
             self.focus(selected);
             // 提交中的说明只读；忽略编辑按键或切换操作焦点不应阻止该任务收尾。
             let submitting_here = task.effect == Effect::Commit
-                && matches!(&self.mode, Mode::CommitMessage { plan, editor, .. }
-                    if plan.path == path && editor.submitting());
+                && match &self.mode {
+                    Mode::CommitMessage { plan, editor, .. } => {
+                        plan.path == path && editor.submitting()
+                    }
+                    Mode::Composition(session) => {
+                        session.prepared.snapshot.path == path
+                            && matches!(session.state, composition::State::Submitting)
+                    }
+                    _ => false,
+                };
+            let waiting_here = matches!(&self.mode, Mode::CompositionWaiting(waiting) if waiting.path == path)
+                && task.effect == Effect::ReadOnly;
             let same_view = submitting_here
+                || waiting_here
                 || (task.page == self.page
                     && task.revision == self.view_revision
                     && self.scope_path() == task.scope
@@ -251,6 +262,21 @@ impl Screen {
             match completion.outcome {
                 Ok(outcome) => {
                     self.repository_errors.remove(&path);
+                    if !same_view
+                        && self.config.ai.enabled
+                        && let Outcome::Composed(prepared) = &outcome
+                    {
+                        if let Some(origin) =
+                            composition::waiting::complete(&mut self.mode, &path, prepared)
+                        {
+                            self.workspace.save(origin);
+                        }
+                        for visit in &mut self.history {
+                            if let Some(origin) = visit.complete_composition(&path, prepared) {
+                                self.workspace.save(origin);
+                            }
+                        }
+                    }
                     if same_view {
                         let origin = self.take_mode();
                         self.finish(outcome, origin, root);
@@ -279,8 +305,20 @@ impl Screen {
                         format!("{error:#}")
                     };
                     self.repository_errors.insert(path.clone(), detail.clone());
+                    composition::waiting::fail(&mut self.mode, &path, &detail);
+                    for visit in &mut self.history {
+                        visit.fail_composition(&path, &detail);
+                    }
+                    if waiting_here {
+                        self.message.clear();
+                        self.sync_bar();
+                        continue;
+                    }
                     if same_view {
                         let mut origin = self.take_mode();
+                        if let Mode::Composition(session) = &mut origin {
+                            session.restore();
+                        }
                         if let Mode::CommitMessage { editor, .. } = &mut origin {
                             editor.restore();
                         }

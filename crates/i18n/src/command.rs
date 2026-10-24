@@ -2,6 +2,16 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    Compose,
+    ComposeNext,
+    ComposeRegenerate,
+    ComposeEdit,
+    ComposeUp,
+    ComposeDown,
+    ComposeSplit,
+    ComposeMerge,
+    ComposeMove,
+
     SearchMode,
     SearchFilter,
     SearchLocate,
@@ -79,6 +89,25 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::Compose, Language::English) => "Compose commits",
+            (Self::Compose, Language::Chinese) => "编排提交",
+            (Self::ComposeNext, Language::English) => "Commit next",
+            (Self::ComposeNext, Language::Chinese) => "提交下一项",
+            (Self::ComposeRegenerate, Language::English) => "Regenerate plan",
+            (Self::ComposeRegenerate, Language::Chinese) => "重新编排",
+            (Self::ComposeEdit, Language::English) => "Edit message",
+            (Self::ComposeEdit, Language::Chinese) => "编辑说明",
+            (Self::ComposeUp, Language::English) => "Move earlier",
+            (Self::ComposeUp, Language::Chinese) => "前移",
+            (Self::ComposeDown, Language::English) => "Move later",
+            (Self::ComposeDown, Language::Chinese) => "后移",
+            (Self::ComposeSplit, Language::English) => "Split change unit",
+            (Self::ComposeSplit, Language::Chinese) => "拆分改动块",
+            (Self::ComposeMerge, Language::English) => "Merge commits",
+            (Self::ComposeMerge, Language::Chinese) => "合并提交",
+            (Self::ComposeMove, Language::English) => "Reassign change unit",
+            (Self::ComposeMove, Language::Chinese) => "移动改动块",
+
             (Self::SearchMode, Language::English) => "Input search mode",
             (Self::SearchMode, Language::Chinese) => "输入搜索方式",
             (Self::SearchFilter, Language::English) => "Show matching items",

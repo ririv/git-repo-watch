@@ -8,6 +8,7 @@ pub(super) mod changes;
 mod commands;
 pub(crate) mod commit;
 mod completion;
+pub(crate) mod composition;
 mod diff;
 mod document;
 mod feedback;

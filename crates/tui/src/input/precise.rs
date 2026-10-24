@@ -17,6 +17,17 @@ impl Screen {
                     return false;
                 }
                 match target {
+                    Target::CompositionCommits | Target::CompositionUnits => {
+                        if let Mode::Composition(session) = &mut self.mode {
+                            match target {
+                                Target::CompositionCommits => {
+                                    *session.commits.offset_mut() = offset
+                                }
+                                Target::CompositionUnits => *session.units.offset_mut() = offset,
+                                _ => unreachable!(),
+                            }
+                        }
+                    }
                     Target::Browser => {
                         if let Mode::Browser(session) = &mut self.mode {
                             *session.state.offset_mut() = offset;
@@ -85,6 +96,26 @@ impl Screen {
             }
 
             Action::Select(target, index) => match target {
+                Target::CompositionCommits | Target::CompositionUnits => {
+                    let Mode::Composition(session) = &mut self.mode else {
+                        return false;
+                    };
+                    if !matches!(session.state, crate::composition::State::Browsing) {
+                        return false;
+                    }
+                    match target {
+                        Target::CompositionCommits
+                            if index < session.prepared.plan.commits.len() =>
+                        {
+                            session.select(index)
+                        }
+                        Target::CompositionUnits if index < session.ids().len() => {
+                            session.unit = index;
+                            session.scroll = 0;
+                        }
+                        _ => return false,
+                    }
+                }
                 Target::Browser => {
                     if let Mode::Browser(session) = &mut self.mode {
                         session.select(index);
@@ -199,9 +230,19 @@ impl Screen {
                 }
                 ScrollTarget::CommitMessage => match &mut self.mode {
                     Mode::CommitMessage { editor, .. } => editor.display().scroll = offset,
+                    Mode::Composition(session) => match &mut session.state {
+                        crate::composition::State::Editing(editor) => editor.scroll = offset,
+                        _ => session.message_scroll = offset,
+                    },
                     _ => return false,
                 },
                 ScrollTarget::Text => match &mut self.mode {
+                    Mode::CompositionWaiting(waiting) => match &mut waiting.state {
+                        crate::composition::waiting::State::Failed { scroll, .. } => {
+                            *scroll = offset
+                        }
+                        _ => return false,
+                    },
                     Mode::PromptEditor(session) => session.editor.scroll = offset,
                     Mode::Branches(view) => match view.as_mut() {
                         branches::View::Detail { scroll, .. } => *scroll = offset,
@@ -211,6 +252,7 @@ impl Screen {
                         stashes::View::Detail { scroll, .. } => *scroll = offset,
                         _ => return false,
                     },
+                    Mode::Composition(session) => session.scroll = offset,
                     Mode::CommitMessage { scroll, .. }
                     | Mode::PushConfirm { scroll, .. }
                     | Mode::Error { scroll, .. } => *scroll = offset,

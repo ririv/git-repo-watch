@@ -299,6 +299,62 @@ impl Screen {
                         _ => None,
                     });
         }
+        if self.bar.is_plain()
+            && let Mode::CompositionWaiting(waiting) = &mut self.mode
+            && let crate::composition::waiting::State::Failed { scroll, .. } = &mut waiting.state
+            && let Some(body) = self.body_area
+        {
+            let (_, detail) = crate::view::composition::areas(body);
+            let (_, _, preview) = crate::view::composition::detail_areas(detail);
+            if preview.contains(Position::new(event.column, event.row)) {
+                match event.kind {
+                    MouseEventKind::ScrollUp => {
+                        *scroll = scroll.saturating_sub(3);
+                        return Ok(true);
+                    }
+                    MouseEventKind::ScrollDown => {
+                        *scroll = scroll.saturating_add(3);
+                        return Ok(true);
+                    }
+                    _ => {}
+                }
+            }
+        }
+        if self.bar.is_plain()
+            && let Mode::Composition(session) = &mut self.mode
+            && matches!(
+                session.state,
+                crate::composition::State::Browsing | crate::composition::State::Editing(_)
+            )
+            && let Some(body) = self.body_area
+        {
+            let (_, detail) = crate::view::composition::areas(body);
+            let (message, _, preview) = crate::view::composition::detail_areas(detail);
+            let point = Position::new(event.column, event.row);
+            let offset = if message.contains(point) {
+                Some(match &mut session.state {
+                    crate::composition::State::Editing(editor) => &mut editor.scroll,
+                    _ => &mut session.message_scroll,
+                })
+            } else if preview.contains(point) {
+                Some(&mut session.scroll)
+            } else {
+                None
+            };
+            if let Some(offset) = offset {
+                match event.kind {
+                    MouseEventKind::ScrollUp => {
+                        *offset = offset.saturating_sub(3);
+                        return Ok(true);
+                    }
+                    MouseEventKind::ScrollDown => {
+                        *offset = offset.saturating_add(3);
+                        return Ok(true);
+                    }
+                    _ => {}
+                }
+            }
+        }
         let horizontal = match event.kind {
             MouseEventKind::ScrollLeft => Some(KeyCode::Left),
             MouseEventKind::ScrollRight => Some(KeyCode::Right),
@@ -339,6 +395,7 @@ impl Screen {
                 | Mode::Files(_)
                 | Mode::Changes(_)
                 | Mode::History(_)
+                | Mode::Composition(_)
         ) {
             return Ok(false);
         }
@@ -375,6 +432,38 @@ impl Screen {
     }
     fn pointer_focus(&mut self, event: MouseEvent) -> bool {
         let point = Position::new(event.column, event.row);
+        if matches!(self.mode, Mode::CompositionWaiting(_)) {
+            return self.body_area.is_some_and(|area| area.contains(point));
+        }
+        if let Mode::Composition(session) = &mut self.mode {
+            if matches!(session.state, crate::composition::State::Editing(_)) {
+                return self.body_area.is_some_and(|area| {
+                    let (_, detail) = crate::view::composition::areas(area);
+                    let (message, _, preview) = crate::view::composition::detail_areas(detail);
+                    message.contains(point) || preview.contains(point)
+                });
+            }
+            if !matches!(session.state, crate::composition::State::Browsing) {
+                return false;
+            }
+            let Some(area) = self.body_area else {
+                return false;
+            };
+            let (commits, detail) = crate::view::composition::areas(area);
+            let (_, units, _) = crate::view::composition::detail_areas(detail);
+            let focus = if commits.contains(point) {
+                crate::composition::Focus::Commits
+            } else if units.contains(point) {
+                crate::composition::Focus::Units
+            } else {
+                return area.contains(point);
+            };
+            if focus != session.focus && !self.config.mouse.select_pane {
+                return false;
+            }
+            session.focus = focus;
+            return true;
+        }
         if let Mode::Browser(session) = &mut self.mode {
             let Some(focus) = self.body_area.and_then(|area| {
                 crate::view::browser::areas(area, session)

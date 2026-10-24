@@ -4,6 +4,8 @@ use ratatui::layout::{Position, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Target {
+    CompositionCommits,
+    CompositionUnits,
     Browser,
     Repositories,
     Files,

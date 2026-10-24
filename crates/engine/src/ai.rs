@@ -2,6 +2,7 @@
 use anyhow::{Result, ensure};
 use serde::{Deserialize, Serialize};
 mod prompt;
+pub mod text;
 pub use prompt::Prompt;
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]

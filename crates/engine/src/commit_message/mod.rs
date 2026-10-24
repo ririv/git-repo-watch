@@ -1,23 +1,14 @@
 //! Generate editable commit messages through explicitly selected local agents.
-mod claude;
-mod codex;
 mod context;
-mod runner;
-mod wire;
+pub use crate::ai::text::Update;
 
-#[derive(Debug, Clone)]
-pub enum Update {
-    Append(String),
-    Replace(String),
-}
-
-use crate::ai::{Agent, Config};
+use crate::ai::Config;
+pub use crate::ai::text::MESSAGE_LIMIT;
 use crate::{
     cancel::Cancel,
     local::{self, review::CommitPlan},
 };
 use anyhow::{Result, ensure};
-pub const MESSAGE_LIMIT: usize = 64 * 1024;
 pub const DEFAULT_PROMPT: &str = include_str!("default_prompt.txt");
 
 pub fn generate(
@@ -27,9 +18,8 @@ pub fn generate(
     mut emit: impl FnMut(Update) + Send,
 ) -> Result<String> {
     ensure!(config.enabled, i18n::tr!(AiDisabled));
-    let executable = runner::resolve(config.agent)?;
     generate_using(plan, config, cancel, |config, prompt, cancel| {
-        runner::run(config, prompt, cancel, &executable, &mut emit)
+        crate::ai::text::generate(config, prompt, cancel, &mut emit)
     })
 }
 

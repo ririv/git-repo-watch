@@ -1,6 +1,6 @@
 //! File snapshots; index mutation and diff rendering are separate capabilities.
 mod diff;
-mod index;
+pub(crate) mod index;
 pub mod media;
 pub mod patch;
 mod source;

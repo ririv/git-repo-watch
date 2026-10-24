@@ -46,6 +46,14 @@ impl Footer {
         };
         let preview = Preview::fit(&status_text(screen, area), area.width, budget);
         match &screen.mode {
+            Mode::Composition(session)
+                if matches!(session.state, crate::composition::State::Editing(_)) =>
+            {
+                Self::Compact {
+                    hint: i18n::tr!(ComposeEditHint),
+                    preview,
+                }
+            }
             Mode::PromptEditor(_) => Self::Compact {
                 hint: i18n::tr!(AgentPromptEditorHint),
                 preview,
@@ -201,6 +209,8 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             }
             crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
         },
+        Mode::Composition(_) => i18n::tr!(ComposeHint),
+        Mode::CompositionWaiting(waiting) => waiting.hint(),
         Mode::CommitMessage { editor, .. } if editor.generating() => {
             i18n::tr!(CommitGeneratingHint)
         }
@@ -236,9 +246,43 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             },
             i18n::tr!(LayoutPickerHint),
         )
+    } else if let Mode::Composition(session) = &screen.mode
+        && !matches!(session.state, crate::composition::State::Browsing)
+    {
+        match &session.state {
+            crate::composition::State::Confirm(choice) => (
+                i18n::tr!(ConfirmOperationAlt),
+                Content::Choices {
+                    choice: *choice,
+                    execute: i18n::tr!(ComposeNext),
+                    back: i18n::tr!(ActionReturnEdit),
+                },
+                i18n::tr!(ConfirmSelectHint),
+            ),
+            crate::composition::State::Moving { target, .. } => (
+                i18n::tr!(ComposeMove),
+                Content::Locked(
+                    session.prepared.plan.commits[*target]
+                        .message
+                        .lines()
+                        .next()
+                        .unwrap_or("")
+                        .into(),
+                ),
+                i18n::tr!(ComposeMoveHint),
+            ),
+            crate::composition::State::Submitting => (
+                i18n::tr!(ComposeTitle),
+                Content::Locked(i18n::tr!(CommitSubmitting).into()),
+                i18n::tr!(CommitSubmittingHint),
+            ),
+            _ => unreachable!("composition text editing has a compact footer"),
+        }
     } else {
         match &screen.mode {
             Mode::Browsing
+            | Mode::Composition(_)
+            | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)

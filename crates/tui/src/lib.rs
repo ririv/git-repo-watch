@@ -9,6 +9,7 @@ mod command;
 mod command_trigger;
 mod commit_form;
 mod commit_message;
+mod composition;
 mod confirmation;
 mod diff;
 mod document;
@@ -83,6 +84,8 @@ enum Page {
 #[derive(Debug)]
 enum Mode {
     PromptEditor(Box<prompt_editor::Session>),
+    Composition(Box<composition::Session>),
+    CompositionWaiting(Box<composition::waiting::Session>),
     Browsing,
     Browser(Box<browser::Session>),
     /// Focused pane without an interactive content session (overview or pending data).
@@ -187,6 +190,8 @@ enum Outcome {
     TerminalOpened(PathBuf),
     Files(Files),
     History(Box<history::View>),
+    Composed(Box<engine::composition::Prepared>),
+    CompositionCommitted(Box<engine::composition::Progress>),
     CommitPrepared(CommitPlan),
     CommitForGeneration(CommitPlan),
     PushPrepared(PushPlan),
@@ -337,6 +342,12 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::CompositionWaiting(waiting) = &self.mode {
+            return Some(waiting.path.clone());
+        }
+        if let Mode::Composition(session) = &self.mode {
+            return Some(session.prepared.snapshot.path.clone());
+        }
         if let Mode::CommitMessage { plan, .. } = &self.mode {
             return Some(plan.path.clone());
         }

@@ -18,6 +18,10 @@ pub(crate) enum Direction {
 impl Screen {
     pub(crate) fn focused_pane_name(&self) -> &'static str {
         match &self.mode {
+            Mode::Composition(session) => match session.focus {
+                crate::composition::Focus::Commits => i18n::tr!(ComposePending),
+                crate::composition::Focus::Units => i18n::tr!(ComposeUnits),
+            },
             Mode::Browser(session) => match session.focus {
                 crate::browser::Focus::Tree => i18n::tr!(BrowserTitle),
                 crate::browser::Focus::Preview => match session.presentation().active() {
@@ -38,6 +42,7 @@ impl Screen {
     }
     pub(crate) fn pane_navigation_available(&self) -> bool {
         matches!(self.mode, Mode::Browser(_) | Mode::Changes(_))
+            || matches!(&self.mode, Mode::Composition(session) if matches!(session.state, crate::composition::State::Browsing))
             || (self.page == Page::Detail
                 && self.workspace.session().is_some()
                 && matches!(
@@ -84,6 +89,14 @@ impl Screen {
     fn move_pane(&mut self, direction: Direction) {
         use Direction::*;
         match &mut self.mode {
+            Mode::Composition(session) => {
+                use crate::composition::Focus::{Commits, Units};
+                session.focus = match (session.focus, direction) {
+                    (Commits, Right | Down) => Units,
+                    (Units, Left | Up) => Commits,
+                    (focus, _) => focus,
+                };
+            }
             Mode::Changes(session) => {
                 use crate::changes::Focus::{Files, Preview};
                 if let Some(area) = self.body_area {

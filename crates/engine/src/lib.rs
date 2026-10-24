@@ -3,6 +3,7 @@ pub mod ai;
 pub mod cancel;
 pub mod check;
 pub mod commit_message;
+pub mod composition;
 pub mod desktop;
 pub mod directories;
 pub mod discovery;

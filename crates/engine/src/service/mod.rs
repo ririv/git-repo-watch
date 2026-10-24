@@ -70,6 +70,7 @@ pub struct Snapshot {
     pub check_on_startup: bool,
 }
 mod checks;
+mod composition;
 mod snapshot;
 pub use checks::{Groups, group};
 mod config;

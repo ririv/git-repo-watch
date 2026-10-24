@@ -4,7 +4,7 @@ use crate::cancel::Cancel;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
 
-pub(super) fn run(
+pub(crate) fn run(
     config: &Config,
     prompt: &str,
     cancel: &Cancel,
@@ -21,7 +21,7 @@ pub(super) fn run(
         }
     }
 }
-pub(super) fn resolve(agent: Agent) -> Result<PathBuf> {
+pub(crate) fn resolve(agent: Agent) -> Result<PathBuf> {
     let command = agent.name();
     let missing = || anyhow::anyhow!("{}: {command}", i18n::tr!(AgentNotFound));
     let path = std::env::var_os("PATH").ok_or_else(missing)?;

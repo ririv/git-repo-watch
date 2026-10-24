@@ -99,7 +99,7 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
     index.write()?;
     read(&snapshot.path).context(i18n::tr!(StagingCompletedButRefreshFailed))
 }
-fn require_supported_filters(repo: &Repository, path: &Path) -> Result<()> {
+pub(crate) fn require_supported_filters(repo: &Repository, path: &Path) -> Result<()> {
     let flags = git2::AttrCheckFlags::FILE_THEN_INDEX;
     if let git2::AttrValue::String(name) =
         git2::AttrValue::from_bytes(repo.get_attr_bytes(path, "filter", flags)?)

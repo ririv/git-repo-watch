@@ -2,6 +2,43 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ComposeTooLarge,
+    ComposeFileTooLarge,
+    ComposeTitle,
+    ComposeCommand,
+    ComposeInvalid,
+    ComposeCoverage,
+    ComposeDependency,
+    ComposeNoChanges,
+    ComposeSubmodule,
+    ComposeChanged,
+    ComposeEmptyStep,
+    ComposeIndexLocked,
+    ComposeCommitMissing,
+    ComposeCommitStopped,
+    ComposeHookConflict,
+    ComposeHookChanged,
+    ComposeGenerating,
+    ComposeNext,
+    ComposeDone,
+    ComposeHint,
+    ComposeEditHint,
+    ComposeWaitingHint,
+    ComposeRetryHint,
+    ComposeGenerationFailed,
+    ComposeEdit,
+    ComposeUp,
+    ComposeDown,
+    ComposeSplit,
+    ComposeMerge,
+    ComposeMove,
+    ComposeMoveHint,
+    ComposeRegenerate,
+    ComposeSelected,
+    ComposePending,
+    ComposeUnits,
+    ComposeCompleted,
+
     AgentStreamIncomplete,
     AgentStreamUnexpectedRequest,
     CommitGeneratingHint,
@@ -928,6 +965,138 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ComposeTooLarge, Language::English) => {
+                "Composition exceeds 512 units or 128 KiB of patch context; commit part of the changes first."
+            }
+            (Self::ComposeTooLarge, Language::Chinese) => {
+                "编排超过 512 个改动块或 128 KiB 差异，请先提交部分改动。"
+            }
+            (Self::ComposeFileTooLarge, Language::English) => {
+                "Unstaged files over 16 MiB cannot be captured for composition"
+            }
+            (Self::ComposeFileTooLarge, Language::Chinese) => {
+                "编排不能读取超过 16 MiB 的未暂存文件"
+            }
+
+            (Self::ComposeTitle, Language::English) => "Commit composition",
+            (Self::ComposeTitle, Language::Chinese) => "编排提交",
+            (Self::ComposeCommand, Language::English) => {
+                "Plan multiple commits from staged and working-tree changes"
+            }
+            (Self::ComposeCommand, Language::Chinese) => "按改动主题编排多个提交",
+            (Self::ComposeInvalid, Language::English) => "Invalid commit plan.",
+            (Self::ComposeInvalid, Language::Chinese) => "提交计划格式无效。",
+            (Self::ComposeCoverage, Language::English) => {
+                "Every change unit must be assigned exactly once; the final tree must match the captured changes."
+            }
+            (Self::ComposeCoverage, Language::Chinese) => {
+                "每个改动块必须恰好分配一次，最终内容必须与快照一致。"
+            }
+            (Self::ComposeDependency, Language::English) => {
+                "Change units cannot be applied in this order; group dependent changes together or reorder the commits"
+            }
+            (Self::ComposeDependency, Language::Chinese) => {
+                "改动块无法按此顺序应用，请合并相关改动或调整提交顺序"
+            }
+            (Self::ComposeNoChanges, Language::English) => "No committable changes.",
+            (Self::ComposeNoChanges, Language::Chinese) => "没有可提交的改动。",
+            (Self::ComposeSubmodule, Language::English) => {
+                "Untracked nested repositories cannot be composed."
+            }
+            (Self::ComposeSubmodule, Language::Chinese) => "未跟踪的嵌套仓库不能参与编排。",
+            (Self::ComposeChanged, Language::English) => {
+                "HEAD, index or working-tree contents changed. Generate a new plan."
+            }
+            (Self::ComposeChanged, Language::Chinese) => {
+                "HEAD、暂存区或工作区内容已变化，请重新生成编排。"
+            }
+            (Self::ComposeEmptyStep, Language::English) => "A planned commit contains no changes.",
+            (Self::ComposeEmptyStep, Language::Chinese) => "计划中存在没有实际改动的提交。",
+            (Self::ComposeIndexLocked, Language::English) => "Cannot lock the repository index",
+            (Self::ComposeIndexLocked, Language::Chinese) => "无法锁定仓库索引",
+            (Self::ComposeCommitMissing, Language::English) => {
+                "Git completed without creating a commit."
+            }
+            (Self::ComposeCommitMissing, Language::Chinese) => "Git 未创建提交。",
+            (Self::ComposeCommitStopped, Language::English) => {
+                "Composition stopped; inspect the repository and this commit before continuing"
+            }
+            (Self::ComposeCommitStopped, Language::Chinese) => {
+                "编排已停止，请检查仓库和此提交后再继续"
+            }
+            (Self::ComposeHookConflict, Language::English) => {
+                "A commit was created but hooks changed its contents; the original index was retained. Review staged changes manually. Commit"
+            }
+            (Self::ComposeHookConflict, Language::Chinese) => {
+                "提交已创建，但钩子改动无法无冲突地合并到原暂存区；原索引已保留，请手动核对。提交"
+            }
+            (Self::ComposeHookChanged, Language::English) => {
+                "Hooks changed the committed contents; the index was reconciled and composition stopped. Commit"
+            }
+            (Self::ComposeHookChanged, Language::Chinese) => {
+                "钩子修改了提交内容，已同步索引并停止编排。提交"
+            }
+            (Self::ComposeGenerating, Language::English) => "Generating commit plan",
+            (Self::ComposeGenerating, Language::Chinese) => "正在生成提交编排",
+            (Self::ComposeNext, Language::English) => "Commit next",
+            (Self::ComposeNext, Language::Chinese) => "提交下一项",
+            (Self::ComposeDone, Language::English) => "Commit composition completed",
+            (Self::ComposeDone, Language::Chinese) => "编排提交已完成",
+            (Self::ComposeHint, Language::English) => {
+                "↑↓ select · Tab pane · Enter edit message · / commands · Esc back"
+            }
+            (Self::ComposeHint, Language::Chinese) => {
+                "↑↓ 选择 · Tab 面板 · Enter 编辑说明 · / 命令 · Esc 返回"
+            }
+            (Self::ComposeEditHint, Language::English) => {
+                "Enter newline · Ctrl+S save · Esc discard"
+            }
+            (Self::ComposeEditHint, Language::Chinese) => "Enter 换行 · Ctrl+S 保存 · Esc 放弃",
+            (Self::ComposeWaitingHint, Language::English) => "Esc cancel and return · / commands",
+            (Self::ComposeWaitingHint, Language::Chinese) => "Esc 取消并返回 · / 命令",
+            (Self::ComposeRetryHint, Language::English) => {
+                "Enter retry · PgUp/PgDn scroll · Esc back · / commands"
+            }
+            (Self::ComposeRetryHint, Language::Chinese) => {
+                "Enter 重试 · PgUp/PgDn 滚动 · Esc 返回 · / 命令"
+            }
+            (Self::ComposeGenerationFailed, Language::English) => "Commit plan generation failed",
+            (Self::ComposeGenerationFailed, Language::Chinese) => "提交编排生成失败",
+            (Self::ComposeEdit, Language::English) => "Edit selected commit message",
+            (Self::ComposeEdit, Language::Chinese) => "编辑所选提交的说明",
+            (Self::ComposeUp, Language::English) => "Move selected commit earlier",
+            (Self::ComposeUp, Language::Chinese) => "将所选提交前移",
+            (Self::ComposeDown, Language::English) => "Move selected commit later",
+            (Self::ComposeDown, Language::Chinese) => "将所选提交后移",
+            (Self::ComposeSplit, Language::English) => {
+                "Move selected change unit into a new commit"
+            }
+            (Self::ComposeSplit, Language::Chinese) => "将所选改动块拆成新提交",
+            (Self::ComposeMerge, Language::English) => {
+                "Merge selected commit with the following commit"
+            }
+            (Self::ComposeMerge, Language::Chinese) => "将所选提交与下一项合并",
+            (Self::ComposeMove, Language::English) => "Move selected change unit to another commit",
+            (Self::ComposeMove, Language::Chinese) => "将所选改动块移到其它提交",
+            (Self::ComposeMoveHint, Language::English) => {
+                "↑↓ target commit · Enter move · Esc back"
+            }
+            (Self::ComposeMoveHint, Language::Chinese) => "↑↓ 目标提交 · Enter 移动 · Esc 返回",
+            (Self::ComposeRegenerate, Language::English) => {
+                "Generate a new plan from current repository contents"
+            }
+            (Self::ComposeRegenerate, Language::Chinese) => "根据仓库当前内容重新生成编排",
+            (Self::ComposeSelected, Language::English) => {
+                "Select a planned commit or change unit first."
+            }
+            (Self::ComposeSelected, Language::Chinese) => "请先选中计划中的提交或改动块。",
+            (Self::ComposePending, Language::English) => "Remaining commits",
+            (Self::ComposePending, Language::Chinese) => "待提交",
+            (Self::ComposeUnits, Language::English) => "Change units",
+            (Self::ComposeUnits, Language::Chinese) => "改动块",
+            (Self::ComposeCompleted, Language::English) => "Completed commits",
+            (Self::ComposeCompleted, Language::Chinese) => "已提交",
+
             (Self::PaneReadHint, Language::English) => "Enter reload · ←/Esc back · / commands",
             (Self::PaneReadHint, Language::Chinese) => "Enter重新读取 · ←/Esc返回 · /命令",
             (Self::BrowserPreviewHint, Language::English) => {

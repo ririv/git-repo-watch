@@ -14,6 +14,10 @@ const INTERVAL: Duration = Duration::from_millis(400);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Identity {
     Task(String),
+    Composition {
+        repository: PathBuf,
+        unit: String,
+    },
     CommitAction {
         repository: PathBuf,
         action: crate::commit_form::Action,
@@ -76,6 +80,20 @@ impl Clicks {
 impl Screen {
     pub(super) fn clicked_identity(&self, target: Target) -> Option<Identity> {
         match target {
+            Target::CompositionCommits | Target::CompositionUnits => {
+                let Mode::Composition(session) = &self.mode else {
+                    return None;
+                };
+                let unit = if target == Target::CompositionCommits {
+                    session.ids().first()?.clone()
+                } else {
+                    session.selected_unit()?.id.clone()
+                };
+                Some(Identity::Composition {
+                    repository: session.prepared.snapshot.path.clone(),
+                    unit,
+                })
+            }
             Target::Browser => match &self.mode {
                 Mode::Browser(session) => Some(Identity::Browser {
                     repository: session.root.clone(),

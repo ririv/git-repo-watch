@@ -11,6 +11,17 @@ impl Screen {
         self.clicks.reset();
         self.drag = None;
         match &mut self.mode {
+            Mode::Composition(session) => match &mut session.state {
+                crate::composition::State::Editing(editor) => {
+                    self.message = editor
+                        .insert(text)
+                        .err()
+                        .map(|_| i18n::tr!(AgentMessageInvalid).to_owned())
+                        .unwrap_or_default();
+                }
+                crate::composition::State::Browsing => self.bar_paste(text),
+                _ => {}
+            },
             Mode::PromptEditor(session) => {
                 self.message = match session.insert(text) {
                     Ok(()) => String::new(),
@@ -26,6 +37,7 @@ impl Screen {
             }
             Mode::CommitMessage { .. } => {}
             Mode::Browsing
+            | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)
@@ -119,6 +131,8 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::CompositionWaiting(waiting) => self.composition_waiting_key(waiting, key),
+            Mode::Composition(session) => self.compose_key(session, key, root),
             Mode::PromptEditor(mut session) => {
                 match (key.code, key.modifiers) {
                     (KeyCode::Esc, _) => {

@@ -25,6 +25,8 @@ pub(crate) struct Crumb {
 }
 pub(super) fn repository(mode: &Mode) -> Option<&Path> {
     match mode {
+        Mode::CompositionWaiting(waiting) => Some(&waiting.path),
+        Mode::Composition(session) => Some(&session.prepared.snapshot.path),
         Mode::History(view) => Some(&view.session().references.path),
         Mode::Browser(session) => Some(&session.root),
         Mode::Branches(view) => Some(&view.session().snapshot.path),
@@ -105,6 +107,9 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         }
         Mode::Changes(_) if !matches!(page, Page::View(View::Diff)) => {
             push(i18n::tr!(ChangesTitle).into(), Level::Page)
+        }
+        Mode::Composition(_) | Mode::CompositionWaiting(_) => {
+            push(i18n::tr!(ComposeTitle).into(), Level::Page)
         }
         Mode::CommitMessage { .. } => push(i18n::tr!(CommitStagedContents).into(), Level::Page),
         Mode::PromptEditor(_) => push(i18n::tr!(AgentPrompt).into(), Level::Page),

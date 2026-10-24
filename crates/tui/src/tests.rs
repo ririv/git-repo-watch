@@ -6,6 +6,7 @@ mod command_trigger;
 mod commands;
 mod commit_message;
 mod completion;
+mod composition;
 mod concurrency;
 mod contexts;
 mod copy;

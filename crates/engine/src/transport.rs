@@ -100,6 +100,24 @@ impl Git {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())
     }
+    pub(crate) fn commit_index(
+        &self,
+        path: &Path,
+        index: &Path,
+        message: &str,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        process::run_with_environment(
+            Path::new("/usr/bin/git"),
+            &strings(&["commit", "-m", message]),
+            Some(path),
+            cancel,
+            self.timeout,
+            &[("GIT_INDEX_FILE".into(), index.as_os_str().into())],
+        )?
+        .success("git commit")?;
+        Ok(())
+    }
     pub fn fast_forward(&self, path: &Path, oid: git2::Oid, cancel: &Cancel) -> Result<()> {
         self.run(
             path,

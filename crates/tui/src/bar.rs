@@ -207,9 +207,15 @@ impl Screen {
             }
             return Ok(BarEvent::Pass);
         }
+        if matches!(&self.mode, Mode::Composition(session) if !matches!(session.state, crate::composition::State::Browsing))
+        {
+            return Ok(BarEvent::Pass);
+        }
         if !matches!(
             self.mode,
             Mode::Browsing
+                | Mode::Composition(_)
+                | Mode::CompositionWaiting(_)
                 | Mode::Browser(_)
                 | Mode::Panel(_)
                 | Mode::Stashes(_)

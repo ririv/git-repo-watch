@@ -39,6 +39,16 @@ pub fn run(
     cancel: &Cancel,
     timeout: Duration,
 ) -> Result<Output> {
+    run_with_environment(program, args, cwd, cancel, timeout, &[])
+}
+pub(crate) fn run_with_environment(
+    program: &Path,
+    args: &[OsString],
+    cwd: Option<&Path>,
+    cancel: &Cancel,
+    timeout: Duration,
+    environment: &[(OsString, OsString)],
+) -> Result<Output> {
     let mut command = Command::new(program);
     command
         .args(args)
@@ -49,6 +59,7 @@ pub fn run(
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
+    command.envs(environment.iter().map(|(key, value)| (key, value)));
     command
         .env("GIT_TERMINAL_PROMPT", "0")
         .env("GIT_OPTIONAL_LOCKS", "0")

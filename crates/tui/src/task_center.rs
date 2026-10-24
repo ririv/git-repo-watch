@@ -391,6 +391,19 @@ pub(crate) fn outcome(
     let outcome = engine::tasks::Outcome::capture(result, cancel, |value| match value {
         Outcome::Text(text) => text.clone(),
         Outcome::Committed(value) => format!("{value:#?}"),
+        Outcome::Composed(prepared) => format!(
+            "{}: {}\n{}: {}",
+            i18n::tr!(ComposePending),
+            prepared.plan.commits.len(),
+            i18n::tr!(ComposeUnits),
+            prepared.snapshot.units.len()
+        ),
+        Outcome::CompositionCommitted(progress) => match progress.as_ref() {
+            engine::composition::Progress::More { result, .. } => format!("{result:#?}"),
+            engine::composition::Progress::Complete { completed } => {
+                format!("{:#?}", completed.last())
+            }
+        },
         Outcome::Published(value) => format!("{value:#?}"),
         Outcome::MutationCompleted(value) => format!("{value:#?}"),
         _ => title.to_owned(),

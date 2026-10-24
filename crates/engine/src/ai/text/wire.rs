@@ -3,7 +3,7 @@ use anyhow::{Context, Result, ensure};
 use serde_json::Value;
 use std::io::{BufRead, Read, Write};
 
-pub(super) struct Reader<R> {
+pub(crate) struct Reader<R> {
     input: R,
     remaining: usize,
 }
@@ -35,12 +35,12 @@ impl<R: BufRead> Reader<R> {
         }
     }
 }
-pub(super) fn send(output: &mut impl Write, value: Value) -> Result<()> {
+pub(crate) fn send(output: &mut impl Write, value: Value) -> Result<()> {
     serde_json::to_writer(&mut *output, &value)?;
     output.write_all(b"\n")?;
     output.flush()?;
     Ok(())
 }
-pub(super) fn text(value: &Value) -> Result<&str> {
+pub(crate) fn text(value: &Value) -> Result<&str> {
     value.as_str().context(i18n::tr!(AgentMessageInvalid))
 }

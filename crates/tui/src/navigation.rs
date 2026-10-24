@@ -64,6 +64,16 @@ pub(crate) struct Visit {
     repository: Option<PathBuf>,
 }
 impl Visit {
+    pub(crate) fn complete_composition(
+        &mut self,
+        path: &std::path::Path,
+        prepared: &engine::composition::Prepared,
+    ) -> Option<Mode> {
+        crate::composition::waiting::complete(&mut self.mode, path, prepared)
+    }
+    pub(crate) fn fail_composition(&mut self, path: &std::path::Path, detail: &str) {
+        crate::composition::waiting::fail(&mut self.mode, path, detail);
+    }
     pub(crate) fn refresh_browser(&mut self, path: &std::path::Path) {
         if let Mode::Browser(session) = &mut self.mode
             && session.root == path
@@ -257,9 +267,16 @@ impl Screen {
         if self.config.ai.enabled {
             return;
         }
-        self.history
-            .retain(|visit| !matches!(visit.mode, Mode::PromptEditor(_)));
-        if matches!(self.mode, Mode::PromptEditor(_)) {
+        self.history.retain(|visit| {
+            !matches!(
+                visit.mode,
+                Mode::PromptEditor(_) | Mode::Composition(_) | Mode::CompositionWaiting(_)
+            )
+        });
+        if matches!(
+            self.mode,
+            Mode::PromptEditor(_) | Mode::Composition(_) | Mode::CompositionWaiting(_)
+        ) {
             self.mode = Mode::Browsing;
             self.sync_bar();
         }

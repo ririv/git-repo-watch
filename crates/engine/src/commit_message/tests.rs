@@ -1,4 +1,8 @@
 use super::*;
+use crate::ai::{
+    Agent,
+    text::{runner, wire},
+};
 use std::{
     fs,
     os::unix::fs::PermissionsExt,

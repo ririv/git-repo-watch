@@ -54,6 +54,7 @@ pub enum Action {
     Copy(crate::clipboard::Scope),
     Commit,
     CommitGenerate,
+    Compose(crate::composition::Action),
     AiAgent,
     AiModel,
     AiPrompt,
@@ -257,6 +258,51 @@ pub const COMMANDS: &[Command] = &[
         name: "repo commit",
         action: Commit,
         description: i18n::Message::ReviewStagedContentsEnterAMessageAnd,
+    },
+    Command {
+        name: "repo compose",
+        action: Compose(crate::composition::Action::Open),
+        description: i18n::Message::ComposeCommand,
+    },
+    Command {
+        name: "repo compose commit",
+        action: Compose(crate::composition::Action::Next),
+        description: i18n::Message::ComposeNext,
+    },
+    Command {
+        name: "repo compose regenerate",
+        action: Compose(crate::composition::Action::Regenerate),
+        description: i18n::Message::ComposeRegenerate,
+    },
+    Command {
+        name: "repo compose message",
+        action: Compose(crate::composition::Action::Edit),
+        description: i18n::Message::ComposeEdit,
+    },
+    Command {
+        name: "repo compose up",
+        action: Compose(crate::composition::Action::Up),
+        description: i18n::Message::ComposeUp,
+    },
+    Command {
+        name: "repo compose down",
+        action: Compose(crate::composition::Action::Down),
+        description: i18n::Message::ComposeDown,
+    },
+    Command {
+        name: "repo compose split",
+        action: Compose(crate::composition::Action::Split),
+        description: i18n::Message::ComposeSplit,
+    },
+    Command {
+        name: "repo compose merge",
+        action: Compose(crate::composition::Action::Merge),
+        description: i18n::Message::ComposeMerge,
+    },
+    Command {
+        name: "repo compose move",
+        action: Compose(crate::composition::Action::Move),
+        description: i18n::Message::ComposeMove,
     },
     Command {
         name: "repo push",
@@ -713,6 +759,7 @@ impl Action {
             || !matches!(
                 self,
                 Self::AiSettings
+                    | Self::Compose(_)
                     | Self::CommitGenerate
                     | Self::AiAgent
                     | Self::AiModel

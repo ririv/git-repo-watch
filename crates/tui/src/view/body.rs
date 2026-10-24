@@ -8,6 +8,12 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::CompositionWaiting(waiting) => {
+            composition::waiting(frame, area, waiting, &mut screen.pointer)
+        }
+        Mode::Composition(session) => {
+            composition::render(frame, area, session, &mut screen.pointer)
+        }
         Mode::PromptEditor(session) => prompt::render(frame, area, session, &mut screen.pointer),
         Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::PromptEditor(_)) => {
             let Mode::PromptEditor(session) = pending.origin.as_mut() else {

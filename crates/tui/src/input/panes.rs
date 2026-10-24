@@ -7,6 +7,12 @@ use crate::{
 impl Screen {
     pub(crate) fn cycle_pane(&mut self, backwards: bool) {
         match &mut self.mode {
+            Mode::Composition(session) => {
+                session.focus = match session.focus {
+                    crate::composition::Focus::Commits => crate::composition::Focus::Units,
+                    crate::composition::Focus::Units => crate::composition::Focus::Commits,
+                }
+            }
             Mode::Browser(session) => {
                 session.cycle_focus(backwards);
                 self.poll_browser();

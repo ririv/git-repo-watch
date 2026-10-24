@@ -122,6 +122,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     if !matches!(
         screen.mode,
         Mode::Browsing
+            | Mode::Composition(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)

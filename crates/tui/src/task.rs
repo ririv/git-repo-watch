@@ -45,7 +45,17 @@ impl Screen {
         self.message.clear();
     }
     pub(super) fn animate_task(&mut self) -> bool {
+        let waiting = match &mut self.mode {
+            Mode::CompositionWaiting(waiting) => match &mut waiting.state {
+                composition::waiting::State::Running(animation) => {
+                    animation.tick(std::time::Instant::now())
+                }
+                _ => false,
+            },
+            _ => false,
+        };
         self.commit_generator.tick()
+            | waiting
             | match &mut self.mode {
                 Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
                 _ => self
@@ -184,6 +194,19 @@ impl Screen {
                     self.mode = Mode::Files(next);
                 }
             },
+            Outcome::Composed(prepared) => {
+                if self.config.ai.enabled {
+                    let origin = match origin {
+                        Mode::CompositionWaiting(waiting) => *waiting.origin,
+                        origin => origin,
+                    };
+                    self.workspace.save(origin);
+                    self.mode = Mode::Composition(Box::new(composition::Session::new(*prepared)));
+                } else {
+                    self.mode = Mode::Browsing;
+                }
+            }
+            Outcome::CompositionCommitted(progress) => self.finish_composition(*progress),
             Outcome::CommitPrepared(plan) => {
                 self.commit_draft_id += 1;
                 self.workspace.save(origin);
@@ -254,6 +277,9 @@ impl Screen {
         self.sync_bar();
     }
     pub(super) fn error(&mut self, title: &str, e: anyhow::Error) {
+        if let Mode::Composition(session) = &mut self.mode {
+            session.restore();
+        }
         if let Mode::CommitMessage { editor, .. } = &mut self.mode
             && editor.generating()
         {
