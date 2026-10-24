@@ -67,6 +67,22 @@ impl Screen {
         self.view_revision += 1;
         let precise = self.config.mouse.precise_click;
         if precise
+            && click
+            && matches!(self.bar, bar::InputBar::Search(_))
+            && let Some(target) = self
+                .pointer
+                .links
+                .hit(Position::new(event.column, event.row))
+        {
+            self.clicks.reset();
+            self.scroll_input.keyboard(std::time::Instant::now());
+            self.message = match self.link_opener.submit(target) {
+                Ok(()) => i18n::tr!(LinkOpening).into(),
+                Err(error) => format!("{}: {error:#}", i18n::tr!(LinkOpenFailed)),
+            };
+            return Ok(true);
+        }
+        if precise
             && matches!(self.bar, bar::InputBar::Search(_))
             && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && let Some(destination) = self

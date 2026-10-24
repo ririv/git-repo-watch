@@ -9,17 +9,14 @@ pub(super) fn render(
 ) {
     let panel = block(i18n::tr!(Instructions)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
-    let paragraph = Paragraph::new(crate::markdown::render(i18n::tr!(TuiHelp), inner.width))
-        .wrap(Wrap { trim: false });
-    let lines = paragraph.line_count(inner.width);
+    let text = crate::markdown::linked(i18n::tr!(TuiHelp), inner.width, None);
+    let lines = Paragraph::new(text.plain())
+        .wrap(Wrap { trim: false })
+        .line_count(inner.width);
     let max_scroll = lines.saturating_sub(inner.height as usize);
     *scroll = (*scroll).min(max_scroll);
-    frame.render_widget(
-        paragraph
-            .scroll(((*scroll).min(u16::MAX as usize) as u16, 0))
-            .block(panel),
-        area,
-    );
+    frame.render_widget(panel, area);
+    hits.links.paragraph(frame, inner, &text, *scroll);
     crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
     hits.vertical(
         area,

@@ -14,7 +14,7 @@ pub(crate) struct Grab {
 }
 impl Map {
     pub fn grab(&self, point: Position) -> Option<Grab> {
-        self.0.iter().rev().find_map(|region| {
+        self.regions.iter().rev().find_map(|region| {
             let Region::Track {
                 area,
                 axis,
@@ -54,7 +54,7 @@ impl Map {
 }
 impl Grab {
     pub fn valid(&self, map: &Map) -> bool {
-        map.0.iter().any(|region| matches!(region,
+        map.regions.iter().any(|region| matches!(region,
             Region::Track { area, axis, values, .. } if *area == self.area && *axis == self.axis && *values == self.values))
     }
     pub fn action(&self, point: Position) -> Option<Action> {

@@ -17,6 +17,7 @@ mod history;
 mod horizontal;
 mod images;
 mod layout_picker;
+mod links;
 mod mouse;
 mod navigation;
 mod opening;
@@ -74,6 +75,7 @@ fn screen(service: Service) -> Screen {
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
         clipboard: Default::default(),
+        link_opener: Default::default(),
         repository_viewport,
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,

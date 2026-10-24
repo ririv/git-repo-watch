@@ -106,6 +106,40 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.workspace_areas.clear();
     screen.command_items.clear();
     screen.pointer.clear();
+    screen.pointer.links.reset(
+        matches!(screen.bar, crate::bar::InputBar::Search(_))
+            && !matches!(
+                screen.mode,
+                Mode::Confirm { .. }
+                    | Mode::PushConfirm { .. }
+                    | Mode::CommitConfirm { .. }
+                    | Mode::Busy(_)
+            ),
+    );
+    screen.pointer.links.paths = screen.config.repositories.clone();
+    screen
+        .pointer
+        .links
+        .paths
+        .extend(screen.config.excluded_roots.clone());
+    screen.pointer.links.paths.extend([
+        screen.service.store.config_dir(),
+        screen.service.store.state_dir(),
+        screen.service.store.log_dir(),
+    ]);
+    screen
+        .pointer
+        .links
+        .paths
+        .push(screen.service.store.config_path());
+    screen
+        .pointer
+        .links
+        .paths
+        .push(screen.service.store.database_path());
+    if let Some(path) = screen.scope_path() {
+        screen.pointer.links.paths.push(path);
+    }
     screen.breadcrumb_items.clear();
     let area = frame.area();
     if area.is_empty() {

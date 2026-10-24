@@ -18,6 +18,7 @@ mod horizontal;
 mod input;
 mod interaction;
 mod layout_picker;
+mod links;
 mod markdown;
 mod mutations;
 mod navigation;
@@ -203,6 +204,7 @@ struct Screen {
     graphics: graphics::Display,
     bar: bar::InputBar,
     clipboard: clipboard::Writer,
+    link_opener: links::Opener,
     repository_viewport: ratatui::widgets::TableState,
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
@@ -255,6 +257,7 @@ impl Screen {
             )),
             bar: bar::InputBar::default(),
             clipboard: Default::default(),
+            link_opener: Default::default(),
             repository_viewport,
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
@@ -399,11 +402,13 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
     let mut screen = Screen::new(service, &root)?;
     let mut guard = TerminalGuard::enter(screen.config.interaction_mode)?;
     screen.graphics = graphics::Display::detect();
+    let mut link_output = links::Native::default();
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let result = (|| -> Result<()> {
         // 先显示上轮结果，再仅在本次启动时发起一次后台检查。
-        terminal.draw(|frame| view::render(frame, &mut screen))?;
+        let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
+        link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
         screen.graphics.finish_frame(&mut io::stdout())?;
         screen.check_on_startup();
         let mut dirty = true;
@@ -430,6 +435,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 | screen.poll_workspace()
                 | screen.poll_changes()
                 | screen.poll_clipboard()
+                | screen.poll_links()
                 | screen.poll_interaction()
                 | screen.workspace.animate()
                 | screen.animate_check()
@@ -439,7 +445,8 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 changed | screen.overview.poll(&screen.service) | screen.overview.animate();
             guard.sync(screen.config.interaction_mode)?;
             if dirty || changed {
-                terminal.draw(|frame| view::render(frame, &mut screen))?;
+                let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
+                link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
                 screen.graphics.finish_frame(&mut io::stdout())?;
                 dirty = false;
             }

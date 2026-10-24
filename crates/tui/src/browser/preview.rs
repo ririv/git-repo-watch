@@ -11,13 +11,13 @@ use std::{collections::BTreeSet, num::NonZeroU32};
 #[derive(Debug)]
 pub(crate) enum Document {
     Text {
-        text: Text<'static>,
+        text: crate::links::Text,
         width: usize,
         gutter: usize,
     },
     Image(Box<crate::preview::View>),
 }
-fn document(text: Text<'static>, gutter: usize) -> Document {
+fn document(text: crate::links::Text, gutter: usize) -> Document {
     let width = text.width();
     Document::Text {
         text,
@@ -53,6 +53,7 @@ pub(super) fn prepare(
     content: Content,
     opening: Opening,
     width: u16,
+    root: &std::path::Path,
     cancel: &Cancel,
 ) -> anyhow::Result<Document> {
     let mut gutter = 0;
@@ -64,7 +65,15 @@ pub(super) fn prepare(
             } = opening
             {
                 return match renderer {
-                    Renderer::Markdown => Ok(document(markdown::prepare(&text, width, cancel)?, 0)),
+                    Renderer::Markdown => Ok(document(
+                        markdown::prepare(
+                            &text,
+                            width,
+                            root.join(&path).parent().expect("file parent"),
+                            cancel,
+                        )?,
+                        0,
+                    )),
                     Renderer::Svg => Ok(Document::Image(Box::new(crate::preview::svg::prepare(
                         &path, &text, cancel,
                     )?))),
@@ -107,7 +116,10 @@ pub(super) fn prepare(
                             Line::from(spans)
                         })
                         .collect::<Vec<_>>();
-                    return Ok(document(Text::from(rows), gutter));
+                    return Ok(document(
+                        crate::links::Text::new(Text::from(rows), &[]),
+                        gutter,
+                    ));
                 }
                 highlight::Source::UnknownLanguage => Text::from(plain_source(&text, cancel)?),
                 highlight::Source::Limited(limit) => {
@@ -138,5 +150,5 @@ pub(super) fn prepare(
         Content::Special => Text::from(i18n::tr!(BrowserSpecialFile)),
         Content::Directory => Text::from(i18n::tr!(BrowserDirectory)),
     };
-    Ok(document(text, gutter))
+    Ok(document(crate::links::Text::new(text, &[]), gutter))
 }

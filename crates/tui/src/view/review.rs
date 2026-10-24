@@ -41,15 +41,12 @@ pub(super) fn styled_text_view(
 ) {
     let block = block(title.to_owned());
     let inner = block.inner(area);
-    let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+    let text = hits.links.text(text);
+    let paragraph = Paragraph::new(text.plain()).wrap(Wrap { trim: false });
     let lines = paragraph.line_count(inner.width);
     *scroll = (*scroll).min(lines.saturating_sub(inner.height as usize));
-    frame.render_widget(
-        paragraph
-            .scroll(((*scroll).min(u16::MAX as usize) as u16, 0))
-            .block(block),
-        area,
-    );
+    frame.render_widget(block, area);
+    hits.links.paragraph(frame, inner, &text, *scroll);
     crate::scrollbar::vertical(frame, area, inner, lines, *scroll);
     hits.vertical(
         area,

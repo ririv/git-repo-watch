@@ -13,12 +13,11 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         let text = selected
             .map(|row| repository_detail(screen, row))
             .unwrap_or_else(|| i18n::tr!(NoRepositories).into());
-        frame.render_widget(
-            Paragraph::new(text)
-                .wrap(Wrap { trim: false })
-                .block(block(title)),
-            columns[1],
-        );
+        let panel = block(title);
+        let inner = panel.inner(columns[1]);
+        frame.render_widget(panel, columns[1]);
+        let text = screen.pointer.links.text(text);
+        screen.pointer.links.paragraph(frame, inner, &text, 0);
     } else {
         repository_table(frame, screen, area)
     }

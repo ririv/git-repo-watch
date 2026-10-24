@@ -1,4 +1,5 @@
 use super::*;
+use ratatui::text::Text;
 
 fn plain(text: &Text<'_>) -> String {
     text.lines

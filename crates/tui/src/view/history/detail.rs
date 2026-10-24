@@ -72,17 +72,14 @@ pub(super) fn render(
         &detail.oid.to_string()[..12]
     ));
     let inner = border.inner(parts[0]);
-    let paragraph = Paragraph::new(lines).wrap(Wrap { trim: false });
+    let text = hits.links.text(Text::from(lines));
+    let paragraph = Paragraph::new(text.plain()).wrap(Wrap { trim: false });
     let lines = paragraph.line_count(inner.width);
     commit.scroll = commit
         .scroll
         .min(lines.saturating_sub(inner.height as usize));
-    frame.render_widget(
-        paragraph
-            .scroll((commit.scroll.min(u16::MAX as usize) as u16, 0))
-            .block(border),
-        parts[0],
-    );
+    frame.render_widget(border, parts[0]);
+    hits.links.paragraph(frame, inner, &text, commit.scroll);
     crate::scrollbar::vertical(frame, parts[0], inner, lines, commit.scroll);
     hits.vertical(
         parts[0],

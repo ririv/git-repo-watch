@@ -113,24 +113,33 @@ pub(super) fn render(
     {
         let y = body.y + index as u16;
         match row {
-            VisualRow::Full { line, fixed, .. } => frame.render_widget(
-                crate::horizontal::pinned(line, *fixed, offset, body.width as usize),
+            VisualRow::Full { line, fixed, .. } => hits.links.plain_line(
+                frame,
                 Rect::new(body.x, y, body.width, 1),
+                line,
+                *fixed,
+                offset,
             ),
             VisualRow::Columns {
                 left, right, fixed, ..
             } => {
-                frame.render_widget(
-                    crate::horizontal::pinned(left, *fixed, offset, left_width as usize),
+                hits.links.plain_line(
+                    frame,
                     Rect::new(body.x, y, left_width, 1),
+                    left,
+                    *fixed,
+                    offset,
                 );
                 frame.render_widget(
                     Line::styled("│", Style::default().fg(MUTED)),
                     Rect::new(body.x + left_width, y, 1, 1),
                 );
-                frame.render_widget(
-                    crate::horizontal::pinned(right, *fixed, offset, right_width as usize),
+                hits.links.plain_line(
+                    frame,
                     Rect::new(body.x + left_width + 1, y, right_width, 1),
+                    right,
+                    *fixed,
+                    offset,
                 );
             }
         }

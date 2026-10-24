@@ -1,20 +1,28 @@
 //! Width-aware tables preserve cell styles and CJK display widths.
 use super::*;
 use pulldown_cmark::Alignment;
-use unicode_width::UnicodeWidthChar;
 
 pub(super) fn render<'a>(
     events: &mut impl Iterator<Item = Event<'a>>,
     align: &[Alignment],
     width: u16,
-) -> Vec<Line<'static>> {
-    let mut rows = Vec::<Vec<Line<'static>>>::new();
+    base: Option<&Path>,
+) -> Vec<LinkedLine> {
+    let mut rows = Vec::<Vec<LinkedLine>>::new();
     let mut row = Vec::new();
-    let mut cell = Renderer::default();
+    let mut cell = Renderer {
+        base: base.map(Path::to_owned),
+        ..Renderer::default()
+    };
     for event in events.by_ref() {
         match event {
             Event::End(TagEnd::Table) => break,
-            Event::Start(Tag::TableCell) => cell = Renderer::default(),
+            Event::Start(Tag::TableCell) => {
+                cell = Renderer {
+                    base: base.map(Path::to_owned),
+                    ..Renderer::default()
+                }
+            }
             Event::End(TagEnd::TableCell) => {
                 cell.flush();
                 row.push(cell.lines.pop().unwrap_or_default());
@@ -32,7 +40,7 @@ pub(super) fn render<'a>(
         .map(|column| {
             rows.iter()
                 .filter_map(|row| row.get(column))
-                .map(Line::width)
+                .map(LinkedLine::width)
                 .max()
                 .unwrap_or(1)
                 .max(2)
@@ -62,7 +70,7 @@ pub(super) fn render<'a>(
         widths[index] -= 1;
     }
     let border = |left: &str, middle: &str, right: &str| {
-        Line::styled(
+        LinkedLine::from(Line::styled(
             format!(
                 "{left}{}{right}",
                 widths
@@ -72,7 +80,7 @@ pub(super) fn render<'a>(
                     .join(middle)
             ),
             Style::default().fg(MUTED),
-        )
+        ))
     };
     let mut output = vec![border("┌", "┬", "┐")];
     for (index, row) in rows.iter().enumerate() {
@@ -82,7 +90,10 @@ pub(super) fn render<'a>(
             .map(|(cell, width)| wrap(cell, *width))
             .collect::<Vec<_>>();
         for y in 0..cells.iter().map(Vec::len).max().unwrap_or(1) {
-            let mut spans = vec![Span::styled("│", Style::default().fg(MUTED))];
+            let mut output_line = LinkedLine::from(Line::from(vec![Span::styled(
+                "│",
+                Style::default().fg(MUTED),
+            )]));
             for (column, width) in widths.iter().enumerate() {
                 let line = cells
                     .get(column)
@@ -95,18 +106,24 @@ pub(super) fn render<'a>(
                     Alignment::Center => padding / 2,
                     _ => 0,
                 };
-                spans.push(Span::raw(" ".repeat(left + 1)));
-                spans.extend(line.spans.into_iter().map(|span| {
-                    if index == 0 {
-                        span.patch_style(Style::default().add_modifier(Modifier::BOLD))
-                    } else {
-                        span
+                output_line.append(LinkedLine::from(Line::from(Span::raw(
+                    " ".repeat(left + 1),
+                ))));
+                let mut line = line;
+                if index == 0 {
+                    for span in &mut line.text.spans {
+                        span.style = span
+                            .style
+                            .patch(Style::default().add_modifier(Modifier::BOLD));
                     }
-                }));
-                spans.push(Span::raw(" ".repeat(padding - left + 1)));
-                spans.push(Span::styled("│", Style::default().fg(MUTED)));
+                }
+                output_line.append(line);
+                output_line.append(LinkedLine::from(Line::from(vec![
+                    Span::raw(" ".repeat(padding - left + 1)),
+                    Span::styled("│", Style::default().fg(MUTED)),
+                ])));
             }
-            output.push(Line::from(spans));
+            output.push(output_line);
         }
         if index == 0 {
             output.push(border("├", "┼", "┤"));
@@ -116,7 +133,7 @@ pub(super) fn render<'a>(
     output
 }
 
-fn stacked(rows: Vec<Vec<Line<'static>>>) -> Vec<Line<'static>> {
+fn stacked(rows: Vec<Vec<LinkedLine>>) -> Vec<LinkedLine> {
     let Some(headers) = rows.first() else {
         return Vec::new();
     };
@@ -126,31 +143,16 @@ fn stacked(rows: Vec<Vec<Line<'static>>>) -> Vec<Line<'static>> {
     let mut result = Vec::new();
     for row in rows.iter().skip(1) {
         for (header, cell) in headers.iter().zip(row) {
-            let mut spans = header.spans.clone();
-            spans.push(Span::raw(": "));
-            spans.extend(cell.spans.clone());
-            result.push(Line::from(spans));
+            let mut line = header.clone();
+            line.append(LinkedLine::from(Line::from(Span::raw(": "))));
+            line.append(cell.clone());
+            result.push(line);
         }
-        result.push(Line::default());
+        result.push(LinkedLine::default());
     }
     result
 }
 
-fn wrap(line: &Line<'static>, width: usize) -> Vec<Line<'static>> {
-    let mut lines = Vec::new();
-    let mut spans = Vec::new();
-    let mut used = 0;
-    for span in &line.spans {
-        for c in span.content.chars() {
-            let size = c.width().unwrap_or(0);
-            if used + size > width && used > 0 {
-                lines.push(Line::from(std::mem::take(&mut spans)));
-                used = 0;
-            }
-            spans.push(Span::styled(c.to_string(), span.style));
-            used += size;
-        }
-    }
-    lines.push(Line::from(spans));
-    lines
+fn wrap(line: &LinkedLine, width: usize) -> Vec<LinkedLine> {
+    line.wrap(width, false)
 }

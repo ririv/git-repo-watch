@@ -40,14 +40,12 @@ pub(super) fn render(
                 .take(inner.height as usize)
                 .enumerate()
             {
-                frame.render_widget(
-                    crate::horizontal::pinned(
-                        line,
-                        (*gutter).min(inner.width as usize),
-                        position.horizontal.offset(),
-                        inner.width as usize,
-                    ),
+                hits.links.line(
+                    frame,
                     Rect::new(inner.x, inner.y + index as u16, inner.width, 1),
+                    line,
+                    (*gutter).min(inner.width as usize),
+                    position.horizontal.offset(),
                 );
             }
             crate::scrollbar::vertical(frame, area, inner, text.lines.len(), position.scroll);

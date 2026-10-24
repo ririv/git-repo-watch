@@ -74,6 +74,12 @@
 - `/repo stash copy` copies the selected full object ID; `/repo stash refresh` reloads the list. Restore conflicts are reported as failures and retain the original stash and actual conflict state.
 - Writes require review and confirmation; returning to edit preserves the draft. HEAD, index, worktree and target references are revalidated. Stash operations also validate reflog order; external changes require a new review.
 
+## Links and paths
+- Click underlined URLs and paths to open them. URLs use the default browser; local files and directories use the system default application. Precise-click preferences apply. Lists, directory toggles and scrollbars keep their existing behavior.
+- Markdown labels retain their original destinations. Relative file links resolve against the current document directory, including Unicode, spaces and percent encoding. Scrolling, wrapping and splits do not truncate destinations.
+- In text selection mode, native links are handled by the terminal. Ghostty normally uses Command-click on macOS and Ctrl-click on Linux; terminal settings determine the gesture.
+- External opens run in the background and report failures. Missing files do not redirect to another location.
+
 ## Repository file browser
 - `/repo files` browses tracked files and untracked files allowed by Git ignore rules. Directories load one level at a time in the background; `.git` is excluded.
 - Directory chains with a single child directory and no other visible entries share one `parent/child/` row. Files and forks stop compaction.

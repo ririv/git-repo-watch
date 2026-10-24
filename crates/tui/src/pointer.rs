@@ -79,19 +79,22 @@ impl ListRow {
     }
 }
 #[derive(Debug, Default, Clone)]
-pub(crate) struct Map(Vec<Region>);
+pub(crate) struct Map {
+    regions: Vec<Region>,
+    pub links: crate::links::Map,
+}
 impl Map {
     pub fn file_checkbox(&mut self, area: Rect, index: usize) {
         if !area.is_empty() {
-            self.0.push(Region::FileCheckbox(area, index));
+            self.regions.push(Region::FileCheckbox(area, index));
         }
     }
     pub fn clear(&mut self) {
-        self.0.clear();
+        self.regions.clear();
     }
     pub fn item(&mut self, area: Rect, target: Target, index: usize) {
         if !area.is_empty() {
-            self.0.push(Region::Item(area, target, index));
+            self.regions.push(Region::Item(area, target, index));
         }
     }
     pub fn list(
@@ -115,7 +118,7 @@ impl Map {
             );
         }
         if indices.len() > content.height as usize && !content.is_empty() {
-            self.0.push(Region::Track {
+            self.regions.push(Region::Track {
                 area: crate::scrollbar::vertical_area(panel, content),
                 axis: crate::scrollbar::Axis::Vertical,
                 values: Values::Rows(target, indices.to_vec()),
@@ -146,7 +149,7 @@ impl Map {
             }
         }
         if items.len() > content.height as usize && !content.is_empty() {
-            self.0.push(Region::Track {
+            self.regions.push(Region::Track {
                 area: crate::scrollbar::vertical_area(panel, content),
                 axis: crate::scrollbar::Axis::Vertical,
                 values: Values::Rows(target, items.iter().map(|row| row.anchor()).collect()),
@@ -179,7 +182,7 @@ impl Map {
         target: ScrollTarget,
     ) {
         if maximum > 0 && !area.is_empty() {
-            self.0.push(Region::Track {
+            self.regions.push(Region::Track {
                 area,
                 axis,
                 values: Values::Offset(target, maximum),
@@ -188,7 +191,7 @@ impl Map {
         }
     }
     pub fn hit(&self, point: Position) -> Option<Hit> {
-        self.0.iter().rev().find_map(|region| match region {
+        self.regions.iter().rev().find_map(|region| match region {
             Region::FileCheckbox(area, index) if area.contains(point) => {
                 Some(Hit::FileCheckbox(*index))
             }

@@ -7,18 +7,33 @@ mod tests;
 use pulldown_cmark::{CodeBlockKind, Event, Options, Parser, Tag, TagEnd};
 use ratatui::{
     style::{Color, Modifier, Style},
-    text::{Line, Span, Text},
+    text::{Line, Span},
+};
+
+use crate::links::{Anchor, Line as LinkedLine, Text as LinkedText};
+use engine::desktop::Target;
+use std::{
+    path::{Path, PathBuf},
+    sync::Arc,
 };
 
 const ACCENT: Color = Color::LightBlue;
 const MUTED: Color = Color::DarkGray;
 
 /// Render CommonMark with tables, strikethrough and task lists at the available width.
-pub(super) fn render(source: &str, width: u16) -> Text<'static> {
+#[cfg(test)]
+pub(super) fn render(source: &str, width: u16) -> ratatui::text::Text<'static> {
+    linked(source, width, None).plain()
+}
+
+pub(super) fn linked(source: &str, width: u16, base: Option<&Path>) -> LinkedText {
     let options =
         Options::ENABLE_TABLES | Options::ENABLE_STRIKETHROUGH | Options::ENABLE_TASKLISTS;
     let mut events = Parser::new_ext(source, options);
-    let mut renderer = Renderer::default();
+    let mut renderer = Renderer {
+        base: base.map(Path::to_owned),
+        ..Renderer::default()
+    };
     while let Some(event) = events.next() {
         match event {
             Event::Start(Tag::CodeBlock(kind)) => {
@@ -36,14 +51,14 @@ pub(super) fn render(source: &str, width: u16) -> Text<'static> {
                     CodeBlockKind::Indented => "",
                 };
                 for line in code::render(language, &source) {
-                    renderer.block_line(line);
+                    renderer.block_line(line.into());
                 }
                 renderer.blank();
             }
             Event::Start(Tag::Table(alignment)) => {
                 renderer.flush();
                 let available = width.saturating_sub(renderer.prefix_width());
-                for line in table::render(&mut events, &alignment, available) {
+                for line in table::render(&mut events, &alignment, available, base) {
                     renderer.block_line(line);
                 }
                 renderer.blank();
@@ -55,21 +70,28 @@ pub(super) fn render(source: &str, width: u16) -> Text<'static> {
     while renderer
         .lines
         .last()
-        .is_some_and(|line| line.spans.is_empty())
+        .is_some_and(|line| line.text.spans.is_empty())
     {
         renderer.lines.pop();
     }
-    Text::from(renderer.lines)
+    for line in &mut renderer.lines {
+        line.detect(&[]);
+    }
+    LinkedText {
+        lines: renderer.lines,
+    }
 }
 
 #[derive(Default)]
 struct Renderer {
-    lines: Vec<Line<'static>>,
+    lines: Vec<LinkedLine>,
+    anchors: Vec<Anchor>,
+    base: Option<PathBuf>,
     current: Vec<Span<'static>>,
     styles: Vec<Style>,
     containers: Vec<Container>,
     lists: Vec<List>,
-    links: Vec<String>,
+    links: Vec<(String, Option<Arc<Target>>)>,
 }
 
 enum List {
@@ -95,6 +117,13 @@ impl Renderer {
             .chars()
             .map(|c| if c.is_control() { ' ' } else { c })
             .collect::<String>();
+        let start = self.current.iter().map(Span::width).sum::<usize>();
+        if let Some((_, Some(target))) = self.links.last() {
+            self.anchors.push(Anchor {
+                columns: start..start + unicode_width::UnicodeWidthStr::width(text.as_str()),
+                target: target.clone(),
+            });
+        }
         self.current.push(Span::styled(text, style));
     }
     fn prefix(&mut self) -> Vec<Span<'static>> {
@@ -128,20 +157,26 @@ impl Renderer {
     }
     fn flush(&mut self) {
         if !self.current.is_empty() {
-            let mut spans = self.prefix();
-            spans.append(&mut self.current);
-            self.lines.push(Line::from(spans));
+            let mut line = LinkedLine {
+                text: Line::from(std::mem::take(&mut self.current)),
+                anchors: std::mem::take(&mut self.anchors),
+            };
+            line.prepend(self.prefix());
+            self.lines.push(line);
         }
     }
-    fn block_line(&mut self, mut line: Line<'static>) {
-        let mut spans = self.prefix();
-        spans.append(&mut line.spans);
-        self.lines.push(Line::from(spans));
+    fn block_line(&mut self, mut line: LinkedLine) {
+        line.prepend(self.prefix());
+        self.lines.push(line);
     }
     fn blank(&mut self) {
         self.flush();
-        if self.lines.last().is_some_and(|line| !line.spans.is_empty()) {
-            self.lines.push(Line::default());
+        if self
+            .lines
+            .last()
+            .is_some_and(|line| !line.text.spans.is_empty())
+        {
+            self.lines.push(LinkedLine::default());
         }
     }
     fn event(&mut self, event: Event<'_>) {
@@ -182,7 +217,10 @@ impl Renderer {
                     });
                 }
                 Tag::Link { dest_url, .. } | Tag::Image { dest_url, .. } => {
-                    self.links.push(dest_url.into_string());
+                    let destination = dest_url.into_string();
+                    let target =
+                        Target::reference(&destination, self.base.as_deref()).map(Arc::new);
+                    self.links.push((destination, target));
                     self.push_style(
                         Style::default()
                             .fg(ACCENT)
@@ -218,9 +256,10 @@ impl Renderer {
                 }
                 TagEnd::Link | TagEnd::Image => {
                     self.styles.pop();
-                    if let Some(destination) = self.links.pop() {
+                    if let Some((destination, _)) = self.links.last() {
                         self.text(format!(" ({destination})"), Style::default().fg(MUTED));
                     }
+                    self.links.pop();
                 }
                 _ => {}
             },

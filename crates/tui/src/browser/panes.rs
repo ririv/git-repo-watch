@@ -70,6 +70,7 @@ impl Pane {
                     service.browse_file(&root, &path, &cancel)?,
                     opening,
                     width,
+                    &root,
                     &cancel,
                 )
             });

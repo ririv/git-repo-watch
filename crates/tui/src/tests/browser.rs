@@ -91,7 +91,8 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
             panic!("highlight")
         };
         assert!(highlighted.lines.iter().any(|line| {
-            line.spans
+            line.text
+                .spans
                 .iter()
                 .any(|span| matches!(span.style.fg, Some(ratatui::style::Color::Rgb(..))))
         }));

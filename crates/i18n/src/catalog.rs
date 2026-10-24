@@ -722,6 +722,11 @@ pub enum Message {
     BrowserSymlink,
     BrowserHighlightLimit,
     BrowserNoDiff,
+    LinkOpen,
+    LinkOpening,
+    LinkRequested,
+    LinkOpenFailed,
+    LinkPathMissing,
     FileSource,
     FileMarkdownPreview,
     FileSvgPreview,
@@ -3274,6 +3279,16 @@ impl Message {
             (Self::BrowserHighlightLimit, Language::Chinese) => "超过语法高亮处理上限",
             (Self::BrowserNoDiff, Language::English) => "Select a changed file to open its diff",
             (Self::BrowserNoDiff, Language::Chinese) => "请选择有改动的文件以查看差异",
+            (Self::LinkOpen, Language::English) => "Open link",
+            (Self::LinkOpen, Language::Chinese) => "打开链接",
+            (Self::LinkOpening, Language::English) => "Opening link…",
+            (Self::LinkOpening, Language::Chinese) => "正在打开链接…",
+            (Self::LinkRequested, Language::English) => "Link sent to the system",
+            (Self::LinkRequested, Language::Chinese) => "已请求系统打开链接",
+            (Self::LinkOpenFailed, Language::English) => "Could not open link",
+            (Self::LinkOpenFailed, Language::Chinese) => "打开链接失败",
+            (Self::LinkPathMissing, Language::English) => "Path does not exist: {}",
+            (Self::LinkPathMissing, Language::Chinese) => "路径不存在：{}",
             (Self::FileSource, Language::English) => "Source",
             (Self::FileSource, Language::Chinese) => "源码",
             (Self::FileMarkdownPreview, Language::English) => "Markdown preview",
@@ -3638,6 +3653,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (LinkPathMissing $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Path does not exist: {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("路径不存在：{}" $(, $($args)*)?),
+        }
+    };
     (PullReview $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Fast-forward {0} commits to {1}\nUpstream: {2}\nNo merge or rebase will be performed." $(, $($args)*)?),

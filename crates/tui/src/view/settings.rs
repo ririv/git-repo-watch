@@ -90,7 +90,8 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         screen.scroll
     };
     let text = Text::from(lines);
-    let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+    let text = screen.pointer.links.text(text);
+    let paragraph = Paragraph::new(text.plain()).wrap(Wrap { trim: false });
     let lines = paragraph.line_count(inner.width);
     let start = start.min(lines.saturating_sub(inner.height as usize));
     for (index, row, height) in item_rows {
@@ -116,10 +117,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         start,
         crate::pointer::ScrollTarget::Text,
     );
-    let paragraph = paragraph.block(panel);
-    frame.render_widget(
-        paragraph.scroll((start.min(u16::MAX as usize) as u16, 0)),
-        area,
-    );
+    frame.render_widget(panel, area);
+    screen.pointer.links.paragraph(frame, inner, &text, start);
     crate::scrollbar::vertical(frame, area, inner, lines, start);
 }
