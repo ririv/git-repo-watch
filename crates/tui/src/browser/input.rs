@@ -30,17 +30,10 @@ impl Screen {
                     return;
                 }
             }
-            KeyCode::Tab | KeyCode::BackTab => {
-                session.focus = match session.focus {
-                    Focus::Tree => Focus::Preview,
-                    Focus::Preview => Focus::Tree,
-                }
-            }
+            KeyCode::Tab => session.cycle_focus(false),
+            KeyCode::BackTab => session.cycle_focus(true),
             KeyCode::Char('s' | 'd') if key.modifiers == KeyModifiers::CONTROL => {
-                session.focus = match session.focus {
-                    Focus::Tree => Focus::Preview,
-                    Focus::Preview => Focus::Tree,
-                }
+                session.cycle_focus(key.code == KeyCode::Char('s'));
             }
             KeyCode::Char('f') if key.modifiers == KeyModifiers::CONTROL => {
                 session.arrangement = match session.arrangement {
@@ -63,12 +56,20 @@ impl Screen {
                     return;
                 }
             }
-            KeyCode::Up => session.scroll = session.scroll.saturating_sub(1),
-            KeyCode::Down => session.scroll = session.scroll.saturating_add(1),
-            KeyCode::PageUp => session.scroll = session.scroll.saturating_sub(10),
-            KeyCode::PageDown => session.scroll = session.scroll.saturating_add(10),
-            KeyCode::Home => session.scroll = 0,
-            KeyCode::End => session.scroll = usize::MAX,
+            KeyCode::Up => {
+                session.pane().position.scroll = session.pane().position.scroll.saturating_sub(1)
+            }
+            KeyCode::Down => {
+                session.pane().position.scroll = session.pane().position.scroll.saturating_add(1)
+            }
+            KeyCode::PageUp => {
+                session.pane().position.scroll = session.pane().position.scroll.saturating_sub(10)
+            }
+            KeyCode::PageDown => {
+                session.pane().position.scroll = session.pane().position.scroll.saturating_add(10)
+            }
+            KeyCode::Home => session.pane().position.scroll = 0,
+            KeyCode::End => session.pane().position.scroll = usize::MAX,
             _ => {}
         }
         self.mode = Mode::Browser(session);

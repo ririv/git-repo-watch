@@ -17,7 +17,7 @@ impl Screen {
         };
         let content = match &mut self.mode {
             Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
-                session.horizontal.advance(delta);
+                session.pane().position.horizontal.advance(delta);
                 return true;
             }
             Mode::Changes(session) if session.focus == changes::Focus::Preview => {

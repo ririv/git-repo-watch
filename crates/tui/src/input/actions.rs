@@ -23,6 +23,31 @@ impl Screen {
                 }
             }
             Action::BrowserDiff => self.open_browser_diff(),
+            Action::BrowserToggle
+            | Action::BrowserSplit
+            | Action::BrowserSource
+            | Action::BrowserPreview => {
+                if let Mode::Browser(session) = &mut self.mode
+                    && let Some(target) = selection.opener()
+                {
+                    match action {
+                        Action::BrowserToggle => {
+                            session.present(target, target.presentation.toggle())
+                        }
+                        Action::BrowserSplit => {
+                            session.present(target, target.presentation.split())
+                        }
+                        Action::BrowserSource => {
+                            session.open_with(target, crate::browser::opening::TextMode::Source)
+                        }
+                        Action::BrowserPreview => {
+                            session.open_with(target, crate::browser::opening::TextMode::Preview)
+                        }
+                        _ => unreachable!(),
+                    }
+                    self.poll_browser();
+                }
+            }
             Action::BrowserRefresh => {
                 if let Mode::Browser(session) = &mut self.mode {
                     session.refresh();

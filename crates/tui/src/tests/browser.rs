@@ -1,13 +1,13 @@
 use super::*;
 use crate::browser::{Focus, Preview, Session, preview::Document};
 
-fn session(s: &mut Screen) -> &mut Session {
+pub(super) fn session(s: &mut Screen) -> &mut Session {
     let Mode::Browser(session) = &mut s.mode else {
         panic!("file browser")
     };
     session
 }
-fn ready(s: &mut Screen) {
+pub(super) fn ready(s: &mut Screen) {
     let start = Instant::now();
     loop {
         s.poll(&Cancel::default());
@@ -21,7 +21,7 @@ fn ready(s: &mut Screen) {
         thread::sleep(Duration::from_millis(5));
     }
 }
-fn select(s: &mut Screen, path: &str) {
+pub(super) fn select(s: &mut Screen, path: &str) {
     let browser = session(s);
     let index = browser
         .rows()
@@ -31,8 +31,8 @@ fn select(s: &mut Screen, path: &str) {
     browser.select(index);
     ready(s);
 }
-fn text(s: &mut Screen) -> String {
-    match &session(s).preview {
+pub(super) fn text(s: &mut Screen) -> String {
+    match &session(s).pane().preview {
         Preview::Ready {
             document: Document::Text { text, .. },
             ..
@@ -86,7 +86,7 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
                 text: highlighted, ..
             },
             ..
-        } = &session(&mut s).preview
+        } = &session(&mut s).pane().preview
         else {
             panic!("highlight")
         };
@@ -389,7 +389,7 @@ fn browser_images_use_the_shared_pixel_view_and_unsupported_terminals_remain_usa
     let Preview::Ready {
         document: Document::Image(image),
         ..
-    } = &session(&mut s).preview
+    } = &session(&mut s).pane().preview
     else {
         panic!("image")
     };

@@ -1,4 +1,6 @@
 //! Source previews share bundled syntax definitions and the raster decoder.
+mod markdown;
+use super::opening::{Opening, Renderer, TextMode};
 use engine::{cancel::Cancel, local::browser::Content};
 use ratatui::{
     style::{Color, Modifier, Style},
@@ -8,12 +10,20 @@ use std::{collections::BTreeSet, num::NonZeroU32};
 
 #[derive(Debug)]
 pub(crate) enum Document {
-    Text { text: Text<'static>, width: usize },
+    Text {
+        text: Text<'static>,
+        width: usize,
+        gutter: usize,
+    },
     Image(Box<crate::preview::View>),
 }
-fn document(text: Text<'static>) -> Document {
+fn document(text: Text<'static>, gutter: usize) -> Document {
     let width = text.width();
-    Document::Text { text, width }
+    Document::Text {
+        text,
+        width,
+        gutter,
+    }
 }
 fn plain(text: &str) -> String {
     text.chars()
@@ -39,9 +49,28 @@ fn plain_source(text: &str, cancel: &Cancel) -> anyhow::Result<Vec<Line<'static>
         })
         .collect()
 }
-pub(super) fn prepare(content: Content, cancel: &Cancel) -> anyhow::Result<Document> {
+pub(super) fn prepare(
+    content: Content,
+    opening: Opening,
+    width: u16,
+    cancel: &Cancel,
+) -> anyhow::Result<Document> {
+    let mut gutter = 0;
     let text = match content {
         Content::Text { path, text } => {
+            if let Opening::Text {
+                renderer,
+                mode: TextMode::Preview,
+            } = opening
+            {
+                return match renderer {
+                    Renderer::Markdown => Ok(document(markdown::prepare(&text, width, cancel)?, 0)),
+                    Renderer::Svg => Ok(Document::Image(Box::new(crate::preview::svg::prepare(
+                        &path, &text, cancel,
+                    )?))),
+                };
+            }
+            gutter = text.lines().count().to_string().len().max(4) + 2;
             let requested: BTreeSet<_> = (1..=text.lines().count())
                 .filter_map(|i| NonZeroU32::new(i as u32))
                 .collect();
@@ -78,7 +107,7 @@ pub(super) fn prepare(content: Content, cancel: &Cancel) -> anyhow::Result<Docum
                             Line::from(spans)
                         })
                         .collect::<Vec<_>>();
-                    return Ok(document(Text::from(rows)));
+                    return Ok(document(Text::from(rows), gutter));
                 }
                 highlight::Source::UnknownLanguage => Text::from(plain_source(&text, cancel)?),
                 highlight::Source::Limited(limit) => {
@@ -109,5 +138,5 @@ pub(super) fn prepare(content: Content, cancel: &Cancel) -> anyhow::Result<Docum
         Content::Special => Text::from(i18n::tr!(BrowserSpecialFile)),
         Content::Directory => Text::from(i18n::tr!(BrowserDirectory)),
     };
-    Ok(document(text))
+    Ok(document(text, gutter))
 }

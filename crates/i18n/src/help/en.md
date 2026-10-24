@@ -83,6 +83,10 @@
 - Typing searches paths throughout the repository in the background, with an explicit 1,000-match limit. `Esc` clears search before returning to the tree or previous view.
 - `/repo files diff` opens the selected file's changes and preserves the browser when returning. `/repo files refresh` reloads directories and preview; `/repo files copy` copies the selected path.
 - Two fixed columns at the end of each row describe index and worktree changes: `M` modified, `A` added, `D` deleted, `R` renamed, `T` type changed, `??` untracked, `UU` conflicted.
+- Markdown and SVG open as source by default. Use the command menu to choose source, rendered preview or split. Ordinary files do not offer these commands.
+- `/repo files toggle` switches source and preview; `/repo files split` opens or closes the split. `preview` and `source` open the corresponding content directly. The menu shows the current mode; in a split, `toggle` or `source` returns to a single source pane. Each file retains its presentation and separate source/preview scroll positions for the current session.
+- In a split, `Tab`, `Shift+Tab` or `Ctrl+S/D` cycle through the tree, source and preview. Pointer focus and scrolling respect the pointer settings. Narrow windows stack the panes; the smallest windows show the focused pane while retaining the split for later resizing.
+- SVG uses resvg in the background at the viewport size and supports embedded resources; external image references report an error. Markdown reuses the help page renderer; images retain their descriptions and addresses.
 
 ## Files, commits and pushes
 - `/repo diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.

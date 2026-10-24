@@ -142,11 +142,15 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
-                ScrollTarget::BrowserPreview | ScrollTarget::BrowserHorizontal => {
+                ScrollTarget::BrowserPreview(mode) | ScrollTarget::BrowserHorizontal(mode) => {
                     if let Mode::Browser(session) = &mut self.mode {
                         match target {
-                            ScrollTarget::BrowserPreview => session.scroll = offset,
-                            ScrollTarget::BrowserHorizontal => session.horizontal.seek(offset),
+                            ScrollTarget::BrowserPreview(_) => {
+                                session.panes.get_mut(mode).position.scroll = offset
+                            }
+                            ScrollTarget::BrowserHorizontal(_) => {
+                                session.panes.get_mut(mode).position.horizontal.seek(offset)
+                            }
                             _ => unreachable!(),
                         }
                     } else {

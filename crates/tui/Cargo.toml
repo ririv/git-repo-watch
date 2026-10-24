@@ -20,6 +20,7 @@ crossterm.workspace = true
 ratatui.workspace = true
 ratatui-image.workspace = true
 image.workspace = true
+resvg.workspace = true
 libc.workspace = true
 strip-ansi-escapes.workspace = true
 unicode-width.workspace = true

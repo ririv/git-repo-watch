@@ -28,6 +28,7 @@ pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+resvg = { version = "0.48.1", default-features = false, features = ["text", "system-fonts", "raster-images"] }
 tiny-skia = { version = "0.12", default-features = false, features = ["std", "simd"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"

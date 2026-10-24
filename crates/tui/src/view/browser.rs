@@ -1,8 +1,10 @@
 //! Lazy file trees and immutable source previews share the repository viewport.
+mod content;
+mod layout;
 use super::*;
 use crate::{
-    browser::{Focus, Preview, Session, preview::Document},
-    pointer::{ScrollTarget, Target},
+    browser::{Focus, Session},
+    pointer::Target,
     workspace::Arrangement,
 };
 
@@ -16,6 +18,19 @@ pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
     ])
     .split(area);
     vec![(parts[0], Focus::Tree), (parts[1], Focus::Preview)]
+}
+pub(crate) fn preview_mode_at(
+    area: Rect,
+    session: &Session,
+    point: ratatui::layout::Position,
+) -> Option<crate::browser::opening::TextMode> {
+    if point.y == area.y {
+        return None;
+    }
+    layout::panes(area, session)
+        .into_iter()
+        .find(|pane| pane.frame.contains(point))
+        .map(|pane| pane.mode)
 }
 pub(super) fn render(
     frame: &mut Frame,
@@ -142,92 +157,44 @@ fn preview(
         .selected()
         .map(|entry| safe(&entry.path.to_string_lossy()))
         .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
-    let panel = block(title);
-    let inner = panel.inner(area);
+    let panel = block(truncate(&title, area.width.saturating_sub(2) as usize));
     frame.render_widget(panel, area);
-    match &mut session.preview {
-        Preview::Ready {
-            document: Document::Text { text, width },
-            ..
-        } => {
-            session
-                .horizontal
-                .constrain(width.saturating_sub(inner.width as usize));
-            session.scroll = session
-                .scroll
-                .min(text.lines.len().saturating_sub(inner.height as usize));
-            for (index, line) in text
-                .lines
-                .iter()
-                .skip(session.scroll)
-                .take(inner.height as usize)
-                .enumerate()
-            {
-                frame.render_widget(
-                    crate::horizontal::pinned(
-                        line,
-                        6.min(inner.width as usize),
-                        session.horizontal.offset(),
-                        inner.width as usize,
-                    ),
-                    Rect::new(inner.x, inner.y + index as u16, inner.width, 1),
-                );
-            }
-            crate::scrollbar::vertical(frame, area, inner, text.lines.len(), session.scroll);
-            hits.vertical(
-                area,
-                inner,
-                text.lines.len().saturating_sub(inner.height as usize),
-                session.scroll,
-                ScrollTarget::BrowserPreview,
-            );
-            session.horizontal.render_on_border(
-                frame,
-                area,
-                inner.x + 6.min(inner.width)..inner.right(),
-                hits,
-                ScrollTarget::BrowserHorizontal,
-            );
-        }
-        Preview::Ready {
-            document: Document::Image(image),
-            ..
-        } => {
-            super::document::content(
-                frame,
-                inner,
-                &image.pairs[0].after,
-                image.source,
-                0,
-                graphics,
-            );
-        }
-        Preview::Loading(_) => frame.render_widget(
-            Paragraph::new(format!(
-                "{} {}",
-                session.spinner(),
-                i18n::tr!(BrowserReading)
-            ))
-            .style(Style::default().fg(MUTED)),
-            inner,
-        ),
-        Preview::Failed { error, .. } => frame.render_widget(
-            Paragraph::new(multiline(error))
-                .wrap(Wrap { trim: false })
-                .style(Style::default().fg(BAD)),
-            inner,
-        ),
-        Preview::Empty => {
-            let notice = session
-                .selected()
-                .and_then(|entry| session.directory_notice(&entry.path).map(str::to_owned))
-                .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
+    let spinner = session.spinner().to_owned();
+    let notice = session
+        .selected()
+        .and_then(|entry| session.directory_notice(&entry.path).map(str::to_owned))
+        .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
+    for pane in layout::panes(area, session) {
+        if let Some((header, label)) = pane.heading {
             frame.render_widget(
-                Paragraph::new(multiline(&notice))
-                    .wrap(Wrap { trim: false })
-                    .style(Style::default().fg(MUTED)),
-                inner,
+                Paragraph::new(label).style(Style::default().fg(
+                    if session.focus == Focus::Preview
+                        && session.presentation().active() == pane.mode
+                    {
+                        ACCENT
+                    } else {
+                        MUTED
+                    },
+                )),
+                header,
             );
         }
+        if let Some(separator) = pane.separator {
+            frame.render_widget(
+                Block::default()
+                    .borders(Borders::LEFT)
+                    .border_style(Style::default().fg(MUTED)),
+                separator,
+            );
+        }
+        session.preview_width(pane.mode, pane.content.width);
+        content::render(
+            frame,
+            &pane,
+            session.panes.get_mut(pane.mode),
+            (&spinner, &notice),
+            graphics,
+            hits,
+        );
     }
 }

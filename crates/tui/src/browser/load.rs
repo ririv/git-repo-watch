@@ -2,6 +2,7 @@
 use super::*;
 impl Session {
     pub fn refresh(&mut self) {
+        self.save_position();
         self.directory_reader.clear();
         self.queued.clear();
         let mut visible = BTreeSet::from([PathBuf::new()]);
@@ -27,8 +28,7 @@ impl Session {
                 *value = Contents::Unloaded;
             }
         }
-        self.preview = Preview::Empty;
-        self.preview_reader.clear();
+        self.panes.clear();
         if !self.query.is_empty() {
             self.search_reader.clear();
             self.search = Search::Loading(self.query.clone());
@@ -38,10 +38,9 @@ impl Session {
     pub fn pending(&self) -> bool {
         !self.queued.is_empty()
             || self.directory_reader.pending()
-            || self.preview_reader.pending()
+            || self.panes.pending()
             || self.search_reader.pending()
             || matches!(self.search, Search::Loading(_))
-            || matches!(self.preview, Preview::Loading(_))
     }
     pub fn animate(&mut self) -> bool {
         self.pending() && self.animation.tick(Instant::now())
@@ -148,26 +147,7 @@ impl Session {
                 .unwrap_or(self.state.selected().unwrap_or(0));
             self.select(index);
         }
-        if let Preview::Loading(key) = &self.preview
-            && self.preview_reader.requested() != Some(key)
-        {
-            let service = service.clone();
-            let root = self.root.clone();
-            let path = key.path.clone();
-            self.preview_reader.request(key.clone(), move |cancel| {
-                preview::prepare(service.browse_file(&root, &path, &cancel)?, &cancel)
-            });
-            changed = true;
-        }
-        if let Some((key, result)) = self.preview_reader.poll()
-            && self.preview.key() == Some(&key)
-        {
-            self.preview = match result {
-                Ok(document) => Preview::Ready { key, document },
-                Err(error) => Preview::Failed { key, error },
-            };
-            changed = true;
-        }
+        changed |= self.panes.poll(service, &self.root);
         changed
     }
 }

@@ -70,7 +70,10 @@ impl Content {
 pub(crate) enum Selection {
     #[default]
     None,
-    Browser(Content),
+    Browser {
+        content: Content,
+        opener: Option<crate::browser::opening::OpenTarget>,
+    },
     Diff(Content),
     Log(Content),
     Branch(Content),
@@ -80,7 +83,7 @@ pub(crate) enum Selection {
 impl Selection {
     fn content(&self, scope: Scope) -> Option<&Content> {
         match (self, scope) {
-            (Self::Browser(content), Scope::Browser) => Some(content),
+            (Self::Browser { content, .. }, Scope::Browser) => Some(content),
             (Self::Diff(content), Scope::Diff)
             | (Self::Log(content), Scope::Log)
             | (Self::Branch(content), Scope::Branch)
@@ -102,11 +105,30 @@ impl Selection {
     pub fn is_error(&self) -> bool {
         matches!(self, Self::Error(_))
     }
+    pub fn opener(&self) -> Option<&crate::browser::opening::OpenTarget> {
+        match self {
+            Self::Browser { opener, .. } => opener.as_ref(),
+            _ => None,
+        }
+    }
     pub fn admits(&self, action: Action, path: Option<&Path>) -> bool {
         if self.is_error() {
             return matches!(action, Action::Copy(Scope::Error) | Action::Quit);
         }
         match action {
+            Action::BrowserToggle | Action::BrowserSplit => self.opener().is_some(),
+            Action::BrowserSource => self.opener().is_some_and(|target| {
+                target.presentation
+                    != crate::browser::opening::Presentation::Single(
+                        crate::browser::opening::TextMode::Source,
+                    )
+            }),
+            Action::BrowserPreview => self.opener().is_some_and(|target| {
+                target.presentation
+                    != crate::browser::opening::Presentation::Single(
+                        crate::browser::opening::TextMode::Preview,
+                    )
+            }),
             Action::Copy(Scope::Repository) => path.is_some(),
             Action::Copy(scope) => self.content(scope).is_some(),
             _ => true,
@@ -114,6 +136,13 @@ impl Selection {
     }
     pub fn annotation(&self, action: Action) -> Option<&'static str> {
         match action {
+            Action::BrowserToggle => self
+                .opener()
+                .map(|target| target.opening(target.presentation.active()).label()),
+            Action::BrowserSplit => self.opener().map(|target| match target.presentation {
+                crate::browser::opening::Presentation::Single(_) => i18n::tr!(FileSingle),
+                crate::browser::opening::Presentation::Split(_) => i18n::tr!(FileSplit),
+            }),
             Action::Copy(Scope::Repository) => Some(Target::RepositoryPath.label()),
             Action::Copy(scope) => match self.content(scope)? {
                 Content::Text { target, .. } => Some(target.label()),
@@ -148,9 +177,10 @@ impl Selection {
 impl Screen {
     pub(crate) fn copy_selection(&self) -> Selection {
         match &self.mode {
-            Mode::Browser(session) => {
-                Selection::Browser(Content::paths(session.selected().map(|entry| entry.path)))
-            }
+            Mode::Browser(session) => Selection::Browser {
+                content: Content::paths(session.selected().map(|entry| entry.path)),
+                opener: session.open_target(),
+            },
             Mode::Files(files) => Selection::Diff(file_paths(files)),
             Mode::Changes(session) => Selection::Diff(match session.focus {
                 changes::Focus::Files => file_paths(&session.files),

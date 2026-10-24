@@ -1,11 +1,14 @@
 //! Repository file browsing composes a lazy tree and independent latest-only previews.
 mod input;
 mod load;
+pub(crate) mod opening;
+pub(super) mod panes;
 pub(super) mod preview;
 mod tree;
 mod worker;
 use crate::{Service, horizontal, spinner, workspace::Arrangement};
 use engine::local::browser::{Directory, Entry, SearchExtent};
+use opening::{LayoutKey, Memory, Opening, Renderer, TextMode};
 use ratatui::widgets::ListState;
 use std::{
     collections::{BTreeMap, BTreeSet, VecDeque},
@@ -81,6 +84,8 @@ impl Contents {
 pub(super) struct Key {
     revision: u64,
     pub path: PathBuf,
+    opening: Opening,
+    layout: LayoutKey,
 }
 #[derive(Debug)]
 pub(super) enum Preview {
@@ -133,17 +138,14 @@ pub(super) struct Session {
     expanded: BTreeSet<PathBuf>,
     queued: VecDeque<PathBuf>,
     directory_reader: Worker<PathBuf, Directory>,
-    preview_reader: Worker<Key, preview::Document>,
     search_reader: Worker<String, engine::local::browser::Search>,
     search: Search,
     pub query: String,
     pub state: ListState,
     pub focus: Focus,
     pub arrangement: Arrangement,
-    pub preview: Preview,
-    pub scroll: usize,
-    pub horizontal: horizontal::Viewport,
-    revision: u64,
+    pub panes: panes::Panes,
+    memories: BTreeMap<PathBuf, Memory>,
     animation: spinner::Spinner,
 }
 impl Session {
@@ -154,44 +156,49 @@ impl Session {
             expanded: [PathBuf::new()].into(),
             queued: VecDeque::new(),
             directory_reader: Default::default(),
-            preview_reader: Default::default(),
             search_reader: Default::default(),
             search: Search::Idle,
             query: String::new(),
             state: ListState::default(),
             focus: Focus::Tree,
             arrangement: Arrangement::Tiled,
-            preview: Preview::Empty,
-            scroll: 0,
-            horizontal: Default::default(),
-            revision: 0,
+            panes: Default::default(),
+            memories: BTreeMap::new(),
             animation: spinner::Spinner::new(Instant::now()),
         };
         session.load(PathBuf::new());
         session
     }
     fn sync_preview(&mut self) {
+        self.save_position();
         let entry = self.selected().filter(|entry| !entry.directory());
-        if let Some(entry) = entry {
-            if self.preview.key().is_some_and(|key| key.path == entry.path) {
-                return;
+        let presentation = self.presentation();
+        for mode in [TextMode::Source, TextMode::Preview] {
+            let pane = self.panes.get_mut(mode);
+            if let Some(entry) = &entry
+                && presentation.modes().contains(&mode)
+            {
+                let opening = match Opening::for_entry(entry) {
+                    Opening::Text { renderer, .. } => Opening::Text { renderer, mode },
+                    Opening::Standard => Opening::Standard,
+                };
+                let position = self
+                    .memories
+                    .get(&entry.path)
+                    .and_then(|memory| memory.positions.get(&opening))
+                    .cloned()
+                    .unwrap_or_default();
+                pane.sync(&entry.path, opening, position);
+            } else {
+                pane.clear();
             }
-            self.revision += 1;
-            self.preview = Preview::Loading(Key {
-                revision: self.revision,
-                path: entry.path,
-            });
-        } else {
-            self.preview = Preview::Empty;
-            self.preview_reader.clear();
         }
-        self.scroll = 0;
-        self.horizontal = Default::default();
     }
     pub fn search(&mut self, query: String) {
         if query == self.query {
             return;
         }
+        self.save_position();
         self.query = query.clone();
         self.search_reader.clear();
         self.search = if query.is_empty() {
@@ -201,8 +208,7 @@ impl Session {
         };
         self.state = ListState::default();
         self.focus = Focus::Tree;
-        self.preview = Preview::Empty;
-        self.preview_reader.clear();
+        self.panes.clear();
         if self.query.is_empty() {
             self.probe_visible();
             self.select(0);

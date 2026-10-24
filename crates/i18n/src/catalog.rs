@@ -722,6 +722,17 @@ pub enum Message {
     BrowserSymlink,
     BrowserHighlightLimit,
     BrowserNoDiff,
+    FileSource,
+    FileMarkdownPreview,
+    FileSvgPreview,
+    FileSplit,
+    FileSingle,
+    FileToggleCommand,
+    FileSplitCommand,
+    FileSourceCommand,
+    FilePreviewCommand,
+    SvgInvalid,
+    SvgExternal,
     CurrentRepo,
     Global,
     CurrentView,
@@ -3263,6 +3274,34 @@ impl Message {
             (Self::BrowserHighlightLimit, Language::Chinese) => "超过语法高亮处理上限",
             (Self::BrowserNoDiff, Language::English) => "Select a changed file to open its diff",
             (Self::BrowserNoDiff, Language::Chinese) => "请选择有改动的文件以查看差异",
+            (Self::FileSource, Language::English) => "Source",
+            (Self::FileSource, Language::Chinese) => "源码",
+            (Self::FileMarkdownPreview, Language::English) => "Markdown preview",
+            (Self::FileMarkdownPreview, Language::Chinese) => "Markdown 预览",
+            (Self::FileSvgPreview, Language::English) => "Image preview",
+            (Self::FileSvgPreview, Language::Chinese) => "图像预览",
+            (Self::FileSingle, Language::English) => "Single",
+            (Self::FileSingle, Language::Chinese) => "单栏",
+            (Self::FileSplit, Language::English) => "Split",
+            (Self::FileSplit, Language::Chinese) => "分屏",
+            (Self::FileToggleCommand, Language::English) => "Toggle source and rendered preview",
+            (Self::FileToggleCommand, Language::Chinese) => "切换源码和渲染预览",
+            (Self::FileSplitCommand, Language::English) => "Toggle source and preview split",
+            (Self::FileSplitCommand, Language::Chinese) => "开合源码与预览分屏",
+            (Self::FileSourceCommand, Language::English) => "Open the selected file as source",
+            (Self::FileSourceCommand, Language::Chinese) => "以源码打开当前文件",
+            (Self::FilePreviewCommand, Language::English) => {
+                "Open the selected file's rendered preview"
+            }
+            (Self::FilePreviewCommand, Language::Chinese) => "打开当前文件的渲染预览",
+            (Self::SvgInvalid, Language::English) => "SVG preview could not be rendered",
+            (Self::SvgInvalid, Language::Chinese) => "无法渲染 SVG 预览",
+            (Self::SvgExternal, Language::English) => {
+                "SVG references external images; use a self-contained SVG or view its source"
+            }
+            (Self::SvgExternal, Language::Chinese) => {
+                "SVG 引用了外部图片；请使用内嵌资源的 SVG，或切回源码查看"
+            }
             (Self::CurrentRepo, Language::English) => "Current repo",
             (Self::CurrentRepo, Language::Chinese) => "当前仓库",
             (Self::Global, Language::English) => "Global",

@@ -144,7 +144,7 @@ impl Screen {
                 .flatten();
             let before = crate::workspace::Section::focused(&self.mode);
             let browser_focus_before = match &self.mode {
-                Mode::Browser(session) => Some(session.focus),
+                Mode::Browser(session) => Some((session.focus, session.presentation().active())),
                 _ => None,
             };
             let focus_before = match &self.mode {
@@ -201,7 +201,9 @@ impl Screen {
                     }
                 || browser_focus_before
                     != match &self.mode {
-                        Mode::Browser(session) => Some(session.focus),
+                        Mode::Browser(session) => {
+                            Some((session.focus, session.presentation().active()))
+                        }
                         _ => None,
                     });
         }
@@ -295,6 +297,21 @@ impl Screen {
                     return false;
                 }
                 session.focus = focus;
+            }
+            if focus == crate::browser::Focus::Preview
+                && let Some(area) = self.body_area.and_then(|area| {
+                    crate::view::browser::areas(area, session)
+                        .into_iter()
+                        .find(|(_, focus)| *focus == crate::browser::Focus::Preview)
+                        .map(|(area, _)| area)
+                })
+                && let Some(mode) = crate::view::browser::preview_mode_at(area, session, point)
+                && mode != session.presentation().active()
+            {
+                if !self.config.mouse.select_pane {
+                    return false;
+                }
+                session.focus_mode(mode);
             }
         } else if let Mode::Changes(session) = &mut self.mode {
             let panel = self.body_area.and_then(|area| {

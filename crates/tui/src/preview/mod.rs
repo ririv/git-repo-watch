@@ -1,5 +1,6 @@
 //! Decode bounded source snapshots once; terminal-sized rasters are prepared by the graphics worker.
 mod raster;
+pub(crate) mod svg;
 use anyhow::{Context, Result, ensure};
 use engine::{
     cancel::Cancel,
@@ -27,6 +28,10 @@ pub(super) enum Side {
         path: std::path::PathBuf,
         format: media::Format,
         pixels: Arc<RgbaImage>,
+    },
+    Vector {
+        path: std::path::PathBuf,
+        tree: Arc<resvg::usvg::Tree>,
     },
     Failed(String),
 }
@@ -67,7 +72,10 @@ pub(super) fn single(image: media::Image, cancel: &Cancel) -> Result<View> {
     let title = image.path.to_string_lossy().into_owned();
     cancel.check()?;
     let after = side(Source::Image(image), cancel)?;
-    Ok(View {
+    Ok(single_prepared(title, after))
+}
+pub(super) fn single_prepared(title: String, after: Side) -> View {
+    View {
         source: NEXT_SOURCE.fetch_add(1, Ordering::Relaxed),
         title,
         labels: (String::new(), i18n::tr!(Worktree).into()),
@@ -75,7 +83,7 @@ pub(super) fn single(image: media::Image, cancel: &Cancel) -> Result<View> {
             before: Side::Absent,
             after,
         }],
-    })
+    }
 }
 fn side(source: Source, cancel: &Cancel) -> Result<Side> {
     cancel.check()?;

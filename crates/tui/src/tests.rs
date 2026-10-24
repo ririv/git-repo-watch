@@ -19,6 +19,7 @@ mod images;
 mod layout_picker;
 mod mouse;
 mod navigation;
+mod opening;
 mod overview;
 mod prefix_selection;
 mod repository_list;
