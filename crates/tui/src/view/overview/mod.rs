@@ -71,14 +71,9 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
                                 Comparison::Missing => {
                                     format!("{} · {}", safe(name), i18n::tr!(OverviewGone))
                                 }
-                                Comparison::Known { ahead, behind } => format!(
-                                    "{} · {} {} · {} {}",
-                                    safe(name),
-                                    i18n::tr!(OverviewAhead),
-                                    ahead,
-                                    i18n::tr!(OverviewBehind),
-                                    behind
-                                ),
+                                Comparison::Known { ahead, behind } => {
+                                    format!("{} · ↑{ahead} ↓{behind}", safe(name))
+                                }
                             };
                             lines.push(field(i18n::tr!(OverviewUpstream), value, Color::Reset));
                         }
