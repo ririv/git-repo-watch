@@ -116,7 +116,7 @@
 - `/repo diff stage` stages marked files or the cursor file; `/repo diff unstage` unstages them. These actions require an explicit file selection and never open a page.
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
-- `/repo commit` previews staged contents, then takes a message and confirms. Git hooks and signing are preserved.
+- `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Tab`/`Shift+Tab` cycles the editor and horizontal actions; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
 - `/repo push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
 - `/repo terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 

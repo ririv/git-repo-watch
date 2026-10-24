@@ -15,7 +15,7 @@ fn generate_program(
     cancel: &Cancel,
 ) -> anyhow::Result<String> {
     super::generate_using(plan, config, cancel, |config, prompt, cancel| {
-        runner::run(config, prompt, cancel, program)
+        runner::run(config, prompt, cancel, program, &mut |_| {})
     })
 }
 fn executable(directory: &Path, script: &str) -> PathBuf {
@@ -30,6 +30,71 @@ fn executable(directory: &Path, script: &str) -> PathBuf {
     fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
     path
 }
+fn mock_agent(directory: &Path, message: &str, pause: &str) -> PathBuf {
+    use serde_json::json;
+    let split = message
+        .char_indices()
+        .nth(12)
+        .map_or(message.len(), |(index, _)| index);
+    let (first, rest) = message.split_at(split);
+    let item = json!({"type":"agentMessage","id":"message","text":message,"phase":"final_answer"});
+    let codex_first = [
+        json!({"id":3,"result":{"turn":{"id":"turn"}}}),
+        json!({"method":"item/started","params":{"threadId":"thread","turnId":"turn","item":item}}),
+        json!({"method":"item/agentMessage/delta","params":{"threadId":"thread","turnId":"turn","itemId":"message","delta":first}}),
+    ];
+    let codex_rest = [
+        json!({"method":"item/agentMessage/delta","params":{"threadId":"thread","turnId":"turn","itemId":"message","delta":rest}}),
+        json!({"method":"item/completed","params":{"threadId":"thread","turnId":"turn","item":item}}),
+        json!({"method":"turn/completed","params":{"threadId":"thread","turn":{"id":"turn","status":"completed","items":[]}}}),
+    ];
+    let claude_first =
+        [json!({"type":"stream_event","event":{"delta":{"type":"text_delta","text":first}}})];
+    let claude_rest = [
+        json!({"type":"stream_event","event":{"delta":{"type":"text_delta","text":rest}}}),
+        json!({"type":"result","subtype":"success","is_error":false,"result":message}),
+    ];
+    for (name, events) in [
+        ("codex-first", codex_first.as_slice()),
+        ("codex-rest", codex_rest.as_slice()),
+        ("claude-first", claude_first.as_slice()),
+        ("claude-rest", claude_rest.as_slice()),
+    ] {
+        fs::write(
+            directory.join(name),
+            events.iter().map(|e| format!("{e}\n")).collect::<String>(),
+        )
+        .unwrap();
+    }
+    executable(
+        directory,
+        &format!(
+            r#"
+printf '%s\n' "$@" > "$base/arguments"
+pwd > "$base/cwd"
+if [ "$1" = 'app-server' ]; then
+  IFS= read -r initialize
+  printf '%s\n' '{{"id":1,"result":{{}}}}'
+  IFS= read -r initialized
+  IFS= read -r thread
+  printf '%s\n' "$thread" > "$base/thread"
+  printf '%s\n' '{{"id":2,"result":{{"thread":{{"id":"thread"}}}}}}'
+  IFS= read -r turn
+  printf '%s\n' "$turn" > "$base/prompt"
+  cat "$base/codex-first"
+  {pause}
+  cat "$base/codex-rest"
+else
+  cat > "$base/prompt"
+  cat "$base/claude-first"
+  {pause}
+  cat "$base/claude-rest"
+fi
+"#
+        ),
+    )
+}
+
 fn staged(f: &support::Fixture) -> CommitPlan {
     support::write(f.repo.join("中文 staged.txt"), "staged-only-value\n");
     support::git(&f.repo, &["add", "--", "中文 staged.txt"]);
@@ -52,21 +117,7 @@ fn both_adapters_send_only_staged_context_and_keep_repository_untouched() {
     let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
     for agent in [Agent::Codex, Agent::Claude] {
         let directory = tempfile::tempdir().unwrap();
-        let program = executable(
-            directory.path(),
-            r#"
-printf '%s\n' "$@" > "$base/arguments"
-pwd > "$base/cwd"
-cat > "$base/prompt"
-output=''
-while [ "$#" -gt 0 ]; do
-  if [ "$1" = '--output-last-message' ]; then shift; output=$1; fi
-  shift
-done
-if [ -n "$output" ]; then printf '%s\n' 'feat: add staged content' > "$output";
-else printf '%s\n' '{"subtype":"success","is_error":false,"result":"feat: add staged content"}'; fi
-"#,
-        );
+        let program = mock_agent(directory.path(), "feat: add staged content", "");
         let mut config = Config {
             agent,
             prompt: crate::ai::Prompt::Custom {
@@ -83,11 +134,19 @@ else printf '%s\n' '{"subtype":"success","is_error":false,"result":"feat: add st
         assert!(
             prompt.contains("staged-only-value") && prompt.contains("Use conventional commits")
         );
-        assert!(!prompt.contains("Write a Git commit subject"));
+        assert!(!prompt.contains(DEFAULT_PROMPT.trim()));
         assert!(!prompt.contains("unstaged-secret") && !prompt.contains("untracked-secret"));
         assert!(!prompt.contains(f.repo.to_str().unwrap()));
         let arguments = fs::read_to_string(directory.path().join("arguments")).unwrap();
-        assert!(arguments.contains("literal $(echo should-not-run) model\n"));
+        if agent == Agent::Codex {
+            assert!(
+                fs::read_to_string(directory.path().join("thread"))
+                    .unwrap()
+                    .contains("literal $(echo should-not-run) model")
+            );
+        } else {
+            assert!(arguments.contains("literal $(echo should-not-run) model\n"));
+        }
         assert!(!arguments.contains("staged-only-value"));
         assert_ne!(
             fs::read_to_string(directory.path().join("cwd"))
@@ -118,15 +177,10 @@ fn stale_staging_is_rejected_after_agent_completes() {
     let f = support::Fixture::create();
     let plan = staged(&f);
     let directory = tempfile::tempdir().unwrap();
-    let program = executable(
+    let program = mock_agent(
         directory.path(),
-        r#"
-cat > /dev/null
-: > "$base/ready"
-while [ ! -f "$base/release" ]; do sleep 0.01; done
-while [ "$1" != '--output-last-message' ]; do shift; done
-printf 'feat: old snapshot\n' > "$2"
-"#,
+        "feat: old snapshot",
+        r#": > "$base/ready"; while [ ! -f "$base/release" ]; do sleep 0.01; done"#,
     );
     let config = Config::default();
     let handle =
@@ -143,9 +197,9 @@ fn generation_reports_cli_failures_and_invalid_results_without_guessing() {
     let f = support::Fixture::create();
     let plan = staged(&f);
     for script in [
-        "cat >/dev/null; printf 'login required' >&2; exit 7",
-        "cat >/dev/null; while [ \"$1\" != '--output-last-message' ]; do shift; done; printf 'first\\nsecond\\n' > \"$2\"",
-        "cat >/dev/null; while [ \"$1\" != '--output-last-message' ]; do shift; done; : > \"$2\"",
+        "printf 'login required' >&2; exit 7",
+        "printf 'not-json\\n'; exit 0",
+        "exit 0",
     ] {
         let directory = tempfile::tempdir().unwrap();
         let config = Config::default();
@@ -158,22 +212,23 @@ fn generation_reports_cli_failures_and_invalid_results_without_guessing() {
 }
 #[test]
 fn cancellation_timeout_and_output_limits_terminate_background_processes() {
+    use crate::process::conversation::{self, Completion};
     let directory = tempfile::tempdir().unwrap();
     let program = executable(directory.path(), "cat >/dev/null; sleep 30");
     let cancel = Cancel::default();
     let task_cancel = cancel.clone();
-    let cwd = directory.path().to_owned();
     let executable_path = program.clone();
     let started = Instant::now();
     let handle = thread::spawn(move || {
-        crate::process::run_with_input(
-            &executable_path,
-            &[],
-            &cwd,
-            b"input",
+        conversation::run(
+            std::process::Command::new(executable_path),
             &task_cancel,
             Duration::from_secs(30),
-            4096,
+            Completion::Protocol,
+            |input, output| {
+                drop(output);
+                wire::Reader::new(input).next()
+            },
         )
     });
     thread::sleep(Duration::from_millis(60));
@@ -188,30 +243,35 @@ fn cancellation_timeout_and_output_limits_terminate_background_processes() {
     );
     assert!(started.elapsed() < Duration::from_secs(3));
     assert!(
-        crate::process::run_with_input(
-            &program,
-            &[],
-            directory.path(),
-            b"input",
+        conversation::run(
+            std::process::Command::new(&program),
             &Cancel::default(),
             Duration::from_millis(40),
-            4096
+            Completion::Protocol,
+            |input, output| {
+                drop(output);
+                wire::Reader::new(input).next()
+            }
         )
         .is_err()
     );
-    let program = executable(directory.path(), "cat >/dev/null; yes overflow");
+    let program = executable(
+        directory.path(),
+        r#"printf '\"'; head -c 1100000 /dev/zero | tr '\000' 'a'; printf '\"\n'"#,
+    );
+    let error = conversation::run(
+        std::process::Command::new(&program),
+        &Cancel::default(),
+        Duration::from_secs(5),
+        Completion::Protocol,
+        |input, output| {
+            drop(output);
+            wire::Reader::new(input).next()
+        },
+    )
+    .unwrap_err();
     assert_eq!(
-        crate::process::run_with_input(
-            &program,
-            &[],
-            directory.path(),
-            b"input",
-            &Cancel::default(),
-            Duration::from_secs(5),
-            4096
-        )
-        .unwrap_err()
-        .to_string(),
+        error.root_cause().to_string(),
         i18n::tr!(AgentOutputTooLarge)
     );
 }
@@ -240,7 +300,7 @@ fn disabled_ai_rejects_generation_before_invoking_an_agent() {
         ..Default::default()
     };
     assert_eq!(
-        generate(&plan, &config, &Cancel::default())
+        generate(&plan, &config, &Cancel::default(), |_| {})
             .unwrap_err()
             .to_string(),
         i18n::tr!(AiDisabled)
@@ -280,5 +340,106 @@ fn selected_prompt_is_used_whole_and_restoring_default_restores_builtin_rules() 
         })
         .unwrap();
         assert_eq!(message, "feat: staged content");
+    }
+}
+
+#[test]
+fn both_adapters_preserve_multiline_messages_beyond_the_old_subject_limit() {
+    for agent in [Agent::Codex, Agent::Claude] {
+        let f = support::Fixture::create();
+        let plan = staged(&f);
+        let directory = tempfile::tempdir().unwrap();
+        let body = "说明行为变化与设计原因，不截断生成正文。".repeat(40);
+        let message = format!("feat: 完整提交消息\n\n{body}\n\n- 保留分段\n- 保留中文");
+        let program = mock_agent(directory.path(), &message.replace('\n', "\r\n"), "");
+        let config = Config {
+            agent,
+            ..Default::default()
+        };
+        let actual = generate_program(&plan, &config, &program, &Cancel::default()).unwrap();
+        assert_eq!(actual, message);
+        crate::operations::commit::execute(
+            &crate::transport::Git::default(),
+            &plan,
+            &actual,
+            &Cancel::default(),
+        )
+        .unwrap();
+        assert_eq!(
+            support::git(&f.repo, &["log", "-1", "--format=%B"]),
+            message
+        );
+    }
+}
+
+#[test]
+fn multiline_generation_rejects_empty_control_fenced_and_oversized_output_without_truncation() {
+    let f = support::Fixture::create();
+    let plan = staged(&f);
+    for output in [
+        " \n\t".into(),
+        "title\n\ninvalid\0body".into(),
+        "```\nmessage\n```".into(),
+        "a".repeat(MESSAGE_LIMIT + 1),
+    ] {
+        assert!(
+            generate_using(&plan, &Config::default(), &Cancel::default(), |_, _, _| Ok(
+                output
+            ))
+            .is_err()
+        );
+    }
+    let message = "a".repeat(MESSAGE_LIMIT);
+    assert_eq!(
+        generate_using(&plan, &Config::default(), &Cancel::default(), |_, _, _| Ok(
+            message.clone()
+        ))
+        .unwrap(),
+        message
+    );
+}
+
+#[test]
+fn real_deltas_arrive_before_completion_and_cancel_reaps_the_stream() {
+    for agent in [Agent::Codex, Agent::Claude] {
+        let f = support::Fixture::create();
+        let plan = staged(&f);
+        let directory = tempfile::tempdir().unwrap();
+        let program = mock_agent(
+            directory.path(),
+            "feat: actual stream\n\n正文分段",
+            r#": > "$base/ready"; while [ ! -f "$base/release" ]; do sleep 0.01; done"#,
+        );
+        let config = Config {
+            agent,
+            ..Default::default()
+        };
+        let cancel = Cancel::default();
+        let task_cancel = cancel.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        let handle = thread::spawn(move || {
+            generate_using(&plan, &config, &task_cancel, |config, prompt, cancel| {
+                runner::run(config, prompt, cancel, &program, &mut |update| {
+                    tx.send(update).unwrap();
+                })
+            })
+        });
+        await_file(&directory.path().join("ready"));
+        loop {
+            if matches!(rx.recv_timeout(Duration::from_secs(3)).unwrap(), Update::Append(text) if !text.is_empty())
+            {
+                break;
+            }
+        }
+        assert!(!handle.is_finished());
+        cancel.cancel();
+        assert!(
+            handle
+                .join()
+                .unwrap()
+                .unwrap_err()
+                .downcast_ref::<crate::cancel::Cancelled>()
+                .is_some()
+        );
     }
 }

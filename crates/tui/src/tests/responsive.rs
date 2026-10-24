@@ -213,7 +213,7 @@ fn document_editor_uses_its_own_cursor_and_footer_then_restores_the_command_bar(
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings ai prompt");
         let text = draw(&mut s, 100, 28);
-        assert!(text.contains("Write a Git commit subject"));
+        assert!(text.contains("Write a Git commit message"));
         assert!(text.contains("Ctrl+S"));
         assert!(!text.contains('╭'));
         assert!(s.input_area.is_none());

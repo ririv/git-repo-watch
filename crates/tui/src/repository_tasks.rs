@@ -224,10 +224,15 @@ impl Screen {
                 }
             }
             self.focus(selected);
-            let same_view = task.page == self.page
-                && task.revision == self.view_revision
-                && self.scope_path() == task.scope
-                && self.bar.text() == task.input;
+            // 提交中的说明只读；忽略编辑按键或切换操作焦点不应阻止该任务收尾。
+            let submitting_here = task.effect == Effect::Commit
+                && matches!(&self.mode, Mode::CommitMessage { plan, editor, .. }
+                    if plan.path == path && editor.submitting());
+            let same_view = submitting_here
+                || (task.page == self.page
+                    && task.revision == self.view_revision
+                    && self.scope_path() == task.scope
+                    && self.bar.text() == task.input);
             if matches!(
                 task.effect,
                 Effect::RepositoryWrite
@@ -275,9 +280,12 @@ impl Screen {
                     };
                     self.repository_errors.insert(path.clone(), detail.clone());
                     if same_view {
-                        let origin = Box::new(self.take_mode());
+                        let mut origin = self.take_mode();
+                        if let Mode::CommitMessage { editor, .. } = &mut origin {
+                            editor.restore();
+                        }
                         self.mode = Mode::Error {
-                            origin,
+                            origin: Box::new(origin),
                             title: task.title,
                             detail,
                             scroll: 0,

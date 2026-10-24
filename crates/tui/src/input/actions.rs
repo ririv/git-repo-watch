@@ -18,7 +18,23 @@ impl Screen {
             self.message = i18n::tr!(NoMatchingCommands).into();
             return Ok(false);
         }
+        if !matches!(
+            action,
+            Action::Commit | Action::CommitGenerate | Action::Tasks
+        ) && let Mode::CommitMessage { editor, .. } = &mut self.mode
+        {
+            self.commit_generator.cancel();
+            editor.restore();
+        }
         match action {
+            Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
+                if let Mode::CommitMessage { editor, .. } = &mut self.mode {
+                    editor.focus(crate::commit_form::Focus::Message);
+                }
+            }
+            Action::CommitGenerate if matches!(self.mode, Mode::CommitMessage { .. }) => {
+                self.generate_commit_message()
+            }
             Action::SearchMenu => self.search_menu(),
             Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),

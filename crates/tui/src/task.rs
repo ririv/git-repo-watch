@@ -189,7 +189,7 @@ impl Screen {
                 self.workspace.save(origin);
                 self.mode = Mode::CommitMessage {
                     plan,
-                    editor: Editor::default(),
+                    editor: crate::commit_form::Draft::new(String::new()),
                     scroll: 0,
                 }
             }
@@ -254,6 +254,12 @@ impl Screen {
         self.sync_bar();
     }
     pub(super) fn error(&mut self, title: &str, e: anyhow::Error) {
+        if let Mode::CommitMessage { editor, .. } = &mut self.mode
+            && editor.generating()
+        {
+            self.commit_generator.cancel();
+            editor.restore();
+        }
         let origin = Box::new(self.take_mode());
         self.mode = Mode::Error {
             origin,

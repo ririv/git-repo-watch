@@ -17,7 +17,14 @@ impl Screen {
                     Err(error) => format!("{error:#}"),
                 };
             }
-            Mode::CommitMessage { editor, .. } => editor.insert(text),
+            Mode::CommitMessage { editor, .. } if editor.focused() && self.bar.is_plain() => {
+                if let Some(editor) = editor.editable()
+                    && editor.insert(text).is_err()
+                {
+                    self.message = i18n::tr!(AgentMessageInvalid).into();
+                }
+            }
+            Mode::CommitMessage { .. } => {}
             Mode::Browsing
             | Mode::Browser(_)
             | Mode::Panel(_)
@@ -336,8 +343,8 @@ impl Screen {
                 mut scroll,
             } => {
                 match key.code {
+                    KeyCode::Esc if editor.generating() => self.commit_generator.cancel(),
                     KeyCode::Esc => {
-                        self.commit_generator.cancel();
                         if matches!(self.page, Page::View(_)) {
                             self.return_to_view();
                         }
@@ -346,65 +353,46 @@ impl Screen {
                     }
                     KeyCode::PageDown => scroll = scroll.saturating_add(10),
                     KeyCode::PageUp => scroll = scroll.saturating_sub(10),
-                    KeyCode::Enter => {
-                        self.commit_generator.cancel();
-                        if editor.text.trim().is_empty() {
-                            self.message = i18n::tr!(EnterACommitMessage).into()
-                        } else {
-                            self.mode = Mode::CommitConfirm {
-                                choice: Default::default(),
-                                plan,
-                                message: editor.text,
-                                scroll: 0,
-                            };
-                            self.message.clear();
-                            return Ok(false);
+                    KeyCode::Tab | KeyCode::BackTab => {
+                        editor.tab(key.code == KeyCode::BackTab, self.config.ai.enabled);
+                    }
+                    KeyCode::Left | KeyCode::Right if !editor.focused() => {
+                        editor.step(key.code == KeyCode::Left, self.config.ai.enabled);
+                    }
+                    KeyCode::Up if !editor.focused() => {
+                        editor.focus(crate::commit_form::Focus::Message);
+                    }
+                    KeyCode::Enter if !editor.focused() => {
+                        let action = editor.selected().expect("focused commit action");
+                        self.mode = Mode::CommitMessage {
+                            plan,
+                            editor,
+                            scroll,
+                        };
+                        self.commit_form_action(action);
+                        return Ok(false);
+                    }
+                    KeyCode::Char('s') if key.modifiers == KeyModifiers::CONTROL => {
+                        self.mode = Mode::CommitMessage {
+                            plan,
+                            editor,
+                            scroll,
+                        };
+                        self.submit_commit();
+                        return Ok(false);
+                    }
+                    _ if editor.focused() => {
+                        if let Some(editor) = editor.editable()
+                            && editor.key(key).is_err()
+                        {
+                            self.message = i18n::tr!(AgentMessageInvalid).into();
                         }
                     }
-                    _ => editor.key(key),
+                    _ => {}
                 }
                 self.mode = Mode::CommitMessage {
                     plan,
                     editor,
-                    scroll,
-                };
-            }
-            Mode::CommitConfirm {
-                mut choice,
-                plan,
-                message,
-                mut scroll,
-            } => {
-                match choice.input(key.code) {
-                    confirmation::Input::Execute => {
-                        self.start_repository(
-                            plan.path.clone(),
-                            i18n::tr!(CommitStagedContents),
-                            Effect::Commit,
-                            move |service, cancel, _| {
-                                Ok(Outcome::Committed(
-                                    service.commit(&plan, &message, &cancel)?,
-                                ))
-                            },
-                        );
-                        return Ok(false);
-                    }
-                    confirmation::Input::Return => {
-                        self.mode = Mode::CommitMessage {
-                            plan,
-                            editor: Editor::new(message),
-                            scroll,
-                        };
-                        self.message.clear();
-                        self.sync_bar();
-                        return Ok(false);
-                    }
-                    confirmation::Input::Pending => scroll_key(&mut scroll, key),
-                }
-                self.mode = Mode::CommitConfirm {
-                    choice,
-                    plan,
-                    message,
                     scroll,
                 };
             }

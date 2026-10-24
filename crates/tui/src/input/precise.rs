@@ -197,8 +197,12 @@ impl Screen {
                         _ => unreachable!(),
                     }
                 }
+                ScrollTarget::CommitMessage => match &mut self.mode {
+                    Mode::CommitMessage { editor, .. } => editor.display().scroll = offset,
+                    _ => return false,
+                },
                 ScrollTarget::Text => match &mut self.mode {
-                    Mode::PromptEditor(session) => session.scroll = offset,
+                    Mode::PromptEditor(session) => session.editor.scroll = offset,
                     Mode::Branches(view) => match view.as_mut() {
                         branches::View::Detail { scroll, .. } => *scroll = offset,
                         _ => return false,
@@ -208,7 +212,6 @@ impl Screen {
                         _ => return false,
                     },
                     Mode::CommitMessage { scroll, .. }
-                    | Mode::CommitConfirm { scroll, .. }
                     | Mode::PushConfirm { scroll, .. }
                     | Mode::Error { scroll, .. } => *scroll = offset,
                     Mode::Browsing if matches!(self.page, Page::Help | Page::Configuration(_)) => {

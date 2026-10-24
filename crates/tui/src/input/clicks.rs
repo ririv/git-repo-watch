@@ -14,6 +14,10 @@ const INTERVAL: Duration = Duration::from_millis(400);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Identity {
     Task(String),
+    CommitAction {
+        repository: PathBuf,
+        action: crate::commit_form::Action,
+    },
     Browser {
         repository: PathBuf,
         path: PathBuf,

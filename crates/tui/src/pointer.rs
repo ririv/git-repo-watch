@@ -18,6 +18,7 @@ pub(crate) enum ScrollTarget {
     BrowserPreview(crate::browser::opening::TextMode),
     BrowserHorizontal(crate::browser::opening::TextMode),
     Text,
+    CommitMessage,
     Overview,
     Diff,
     HistoryMessage,

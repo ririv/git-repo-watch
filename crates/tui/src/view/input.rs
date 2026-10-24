@@ -157,6 +157,9 @@ enum Content<'a> {
     Layout {
         selected: crate::diff::Preference,
     },
+    CommitActions {
+        draft: &'a crate::commit_form::Draft,
+    },
     Choices {
         choice: confirmation::Choice,
         execute: &'static str,
@@ -198,6 +201,17 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             }
             crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
         },
+        Mode::CommitMessage { editor, .. } if editor.generating() => {
+            i18n::tr!(CommitGeneratingHint)
+        }
+        Mode::CommitMessage { editor, .. } if editor.submitting() => {
+            i18n::tr!(CommitSubmittingHint)
+        }
+        Mode::CommitMessage { editor, .. } if editor.focused() && screen.config.ai.enabled => {
+            i18n::tr!(AgentHint)
+        }
+        Mode::CommitMessage { editor, .. } if editor.focused() => i18n::tr!(CommitEditingHint),
+        Mode::CommitMessage { .. } => i18n::tr!(CommitActionsHint),
         Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
         Mode::Changes(session) => match session.focus {
             crate::changes::Focus::Files => i18n::tr!(ChangesInputHint),
@@ -207,7 +221,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
     }
 }
 
-pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: Rect) {
+pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_area: Rect) {
     let (title, content, hint) = if screen.focus_mode == crate::focus::State::Selecting {
         (
             i18n::tr!(PaneFocusTitle),
@@ -296,18 +310,9 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
             }
             Mode::PromptEditor(_) => unreachable!("the document editor has a compact footer"),
             Mode::CommitMessage { editor, .. } => (
-                i18n::tr!(CommitMessageAlt),
-                Content::Editable {
-                    editor,
-                    placeholder: i18n::tr!(DescribeThisCommit),
-                },
-                if !screen.config.ai.enabled {
-                    i18n::tr!(EnterConfirmEscCancelPgupPgdnReview)
-                } else if screen.commit_generator.running() {
-                    i18n::tr!(AgentRunningHint)
-                } else {
-                    i18n::tr!(AgentHint)
-                },
+                i18n::tr!(ConfirmOperationAlt),
+                Content::CommitActions { draft: editor },
+                browsing_hint(screen),
             ),
             Mode::Confirm { operation, choice } => (
                 i18n::tr!(ConfirmOperationAlt),
@@ -340,15 +345,6 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                     },
                 },
                 i18n::tr!(ConfirmSelectHint),
-            ),
-            Mode::CommitConfirm { choice, .. } => (
-                i18n::tr!(ConfirmCommitAlt),
-                Content::Choices {
-                    choice: *choice,
-                    execute: i18n::tr!(ActionCommit),
-                    back: i18n::tr!(ActionReturnEdit),
-                },
-                i18n::tr!(ConfirmReviewHint),
             ),
             Mode::PushConfirm { choice, .. } => (
                 i18n::tr!(ConfirmPushAlt),
@@ -400,13 +396,15 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
     } else {
         title.to_owned()
     };
-    let active = matches!(
-        content,
-        Content::CommandEntry
-            | Content::Editable { .. }
-            | Content::Choices { .. }
-            | Content::Layout { .. }
-    );
+    let active = !matches!(&screen.mode, Mode::CommitMessage { editor, .. } if editor.focused())
+        && matches!(
+            content,
+            Content::CommandEntry
+                | Content::Editable { .. }
+                | Content::Choices { .. }
+                | Content::CommitActions { .. }
+                | Content::Layout { .. }
+        );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
     let accent = if active {
         active_accent(screen)
@@ -503,6 +501,21 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                     Paragraph::new(Span::styled(
                         label,
                         if selected == preference {
+                            Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
+                        } else {
+                            Style::default().fg(Color::Gray)
+                        },
+                    )),
+                    area,
+                );
+            }
+        }
+        Content::CommitActions { draft } => {
+            for (area, action) in super::commit::options(inner, draft, screen.config.ai.enabled) {
+                frame.render_widget(
+                    Paragraph::new(Span::styled(
+                        format!(" {} ", action.label()),
+                        if draft.selected() == Some(action) {
                             Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
                         } else {
                             Style::default().fg(Color::Gray)

@@ -6,6 +6,7 @@ pub(super) mod browser;
 mod candidates;
 pub(super) mod changes;
 mod commands;
+pub(crate) mod commit;
 mod completion;
 mod diff;
 mod document;
@@ -25,6 +26,7 @@ mod settings;
 mod shell;
 mod stashes;
 mod tasks;
+mod text_editor;
 mod workspace;
 use super::*;
 use body::render_body;
@@ -129,10 +131,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
         screen.bar.is_plain()
             && !matches!(
                 screen.mode,
-                Mode::Confirm { .. }
-                    | Mode::PushConfirm { .. }
-                    | Mode::CommitConfirm { .. }
-                    | Mode::Busy(_)
+                Mode::Confirm { .. } | Mode::PushConfirm { .. } | Mode::Busy(_)
             ),
     );
     screen.pointer.links.paths = screen.config.repositories.clone();

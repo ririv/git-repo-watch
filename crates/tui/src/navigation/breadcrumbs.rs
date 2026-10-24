@@ -106,9 +106,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         Mode::Changes(_) if !matches!(page, Page::View(View::Diff)) => {
             push(i18n::tr!(ChangesTitle).into(), Level::Page)
         }
-        Mode::CommitMessage { .. } | Mode::CommitConfirm { .. } => {
-            push(i18n::tr!(CommitStagedContents).into(), Level::Page)
-        }
+        Mode::CommitMessage { .. } => push(i18n::tr!(CommitStagedContents).into(), Level::Page),
         Mode::PromptEditor(_) => push(i18n::tr!(AgentPrompt).into(), Level::Page),
         Mode::PushConfirm { .. } => push(i18n::tr!(PushCurrentBranch).into(), Level::Page),
         _ => {}

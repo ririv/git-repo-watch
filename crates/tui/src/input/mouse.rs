@@ -76,6 +76,72 @@ impl Screen {
         }
         self.view_revision += 1;
         let precise = self.config.mouse.precise_click;
+        if self.bar.is_plain()
+            && let Mode::CommitMessage {
+                plan,
+                editor,
+                scroll,
+            } = &mut self.mode
+        {
+            let point = Position::new(event.column, event.row);
+            if click
+                && precise
+                && let Some(input) = self.input_area
+                && let Some((_, action)) = crate::view::commit::options(
+                    crate::view::input::content_area(input),
+                    editor,
+                    self.config.ai.enabled,
+                )
+                .into_iter()
+                .find(|(area, _)| area.contains(point))
+            {
+                editor.select(action);
+                let execute = self.clicks.press(
+                    super::clicks::Identity::CommitAction {
+                        repository: plan.path.clone(),
+                        action,
+                    },
+                    point,
+                    std::time::Instant::now(),
+                );
+                if execute {
+                    self.commit_form_action(action);
+                }
+                return Ok(true);
+            }
+            if let Some(body) = self.body_area {
+                let (message, review) = crate::view::commit::areas(body);
+                if click
+                    && precise
+                    && message
+                        .inner(ratatui::layout::Margin::new(2, 1))
+                        .contains(point)
+                {
+                    editor.focus(crate::commit_form::Focus::Message);
+                    return Ok(true);
+                }
+                if wheel
+                    && matches!(
+                        event.kind,
+                        MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+                    )
+                    && (message.contains(point) || review.contains(point))
+                {
+                    let offset = if message.contains(point) {
+                        &mut editor.display().scroll
+                    } else {
+                        scroll
+                    };
+                    *offset = if event.kind == MouseEventKind::ScrollUp {
+                        offset.saturating_sub(3)
+                    } else {
+                        offset.saturating_add(3)
+                    };
+                    return Ok(true);
+                }
+            }
+        }
+
         if precise
             && click
             && self.bar.is_plain()

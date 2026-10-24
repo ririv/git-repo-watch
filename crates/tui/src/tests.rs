@@ -359,27 +359,18 @@ fn file_selection_commit_and_push_through_command_bar() {
         wait(&mut s);
         assert!(matches!(s.mode, Mode::CommitMessage { .. }));
         s.paste("通过命令栏提交");
-        key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
         let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
-        key(&mut s, KeyCode::Char('y'));
-        assert!(matches!(s.mode, Mode::CommitConfirm { .. }));
-        key(&mut s, KeyCode::Right);
-        key(&mut s, KeyCode::Enter);
-        assert!(
-            matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text == "通过命令栏提交")
-        );
-        key(&mut s, KeyCode::Enter);
-        key(&mut s, KeyCode::Esc);
-        assert!(
-            matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text == "通过命令栏提交")
-        );
-        key(&mut s, KeyCode::Enter);
         key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::Char('y'));
+        key(&mut s, KeyCode::Right);
+        assert!(
+            matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text() == "通过命令栏提交")
+        );
         key(&mut s, KeyCode::Left);
         for size in [(60, 18), (80, 24), (150, 32)] {
             let text = render(&mut s, size.0, size.1);
-            assert!(text.contains(i18n::tr!(ConfirmCommit)));
+            assert!(text.contains(i18n::tr!(CommitMessageAlt).trim()));
+            assert!(text.contains(i18n::tr!(ActionCommit)));
             assert!(text.contains(if language == i18n::Language::English {
                 "Enter confirm"
             } else {

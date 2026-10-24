@@ -7,6 +7,7 @@ mod checks;
 mod clipboard;
 mod command;
 mod command_trigger;
+mod commit_form;
 mod commit_message;
 mod confirmation;
 mod diff;
@@ -22,6 +23,7 @@ mod interaction;
 mod layout_picker;
 mod links;
 mod markdown;
+mod multiline_editor;
 mod mutations;
 mod navigation;
 mod overview;
@@ -96,13 +98,7 @@ enum Mode {
     Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,
-        editor: Editor,
-        scroll: usize,
-    },
-    CommitConfirm {
-        choice: confirmation::Choice,
-        plan: CommitPlan,
-        message: String,
+        editor: commit_form::Draft,
         scroll: usize,
     },
     PushConfirm {
@@ -341,6 +337,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::CommitMessage { plan, .. } = &self.mode {
+            return Some(plan.path.clone());
+        }
         if let Mode::Browser(session) = &self.mode {
             return Some(session.root.clone());
         }

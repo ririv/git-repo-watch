@@ -35,10 +35,7 @@ impl Section {
         match mode {
             Mode::Panel(section) => Some(*section),
             Mode::Branches(_) => Some(Self::Branches),
-            Mode::Files(_)
-            | Mode::Changes(_)
-            | Mode::CommitMessage { .. }
-            | Mode::CommitConfirm { .. } => Some(Self::Worktree),
+            Mode::Files(_) | Mode::Changes(_) | Mode::CommitMessage { .. } => Some(Self::Worktree),
             Mode::History(_) => Some(Self::History),
             Mode::Busy(pending) => Self::focused(&pending.origin),
             Mode::Error { origin, .. } => Self::focused(origin),

@@ -2,6 +2,16 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    AgentStreamIncomplete,
+    AgentStreamUnexpectedRequest,
+    CommitGeneratingHint,
+    CommitEditingHint,
+    CommitActionsHint,
+    CommitRegenerateAction,
+    CommitSubmitting,
+    CommitSubmittingHint,
+    CommitCancelAction,
+    CommitReturnAction,
     SearchInputTitle,
     SearchModeCommand,
     SearchFilterCommand,
@@ -932,6 +942,46 @@ impl Message {
             (Self::DiffPreviewInputHint, Language::Chinese) => {
                 "↑↓滚动 · ←→平移 · Tab文件 · Esc返回 · /命令"
             }
+            (Self::AgentStreamIncomplete, Language::English) => {
+                "Agent stream ended without a completed message."
+            }
+            (Self::AgentStreamIncomplete, Language::Chinese) => "生成流在消息完成前结束。",
+            (Self::AgentStreamUnexpectedRequest, Language::English) => {
+                "Unexpected agent request; generation cannot request tools or approval."
+            }
+            (Self::AgentStreamUnexpectedRequest, Language::Chinese) => {
+                "生成工具发出了不支持的请求；消息生成不调用工具或请求审批。"
+            }
+            (Self::CommitGeneratingHint, Language::English) => {
+                "Read only · Enter / Ctrl+R / Esc cancel"
+            }
+            (Self::CommitGeneratingHint, Language::Chinese) => {
+                "说明只读 · Enter / Ctrl+R / Esc 取消生成"
+            }
+            (Self::CommitEditingHint, Language::English) => {
+                "Enter newline · Tab actions · Ctrl+S commit · Esc back"
+            }
+            (Self::CommitEditingHint, Language::Chinese) => {
+                "Enter 换行 · Tab 操作栏 · Ctrl+S 提交 · Esc 返回"
+            }
+            (Self::CommitActionsHint, Language::English) => {
+                "←→ select · Tab focus · Enter confirm · ↑ edit · Esc back"
+            }
+            (Self::CommitActionsHint, Language::Chinese) => {
+                "←→ 选择 · Tab 切换 · Enter 确认 · ↑ 编辑 · Esc 返回"
+            }
+            (Self::CommitRegenerateAction, Language::English) => "Regenerate",
+            (Self::CommitRegenerateAction, Language::Chinese) => "重新生成",
+            (Self::CommitSubmitting, Language::English) => "Committing",
+            (Self::CommitSubmitting, Language::Chinese) => "正在提交",
+            (Self::CommitSubmittingHint, Language::English) => {
+                "Committing in background · Enter / Esc back"
+            }
+            (Self::CommitSubmittingHint, Language::Chinese) => "正在后台提交 · Enter / Esc 返回",
+            (Self::CommitCancelAction, Language::English) => "Cancel generation",
+            (Self::CommitCancelAction, Language::Chinese) => "取消生成",
+            (Self::CommitReturnAction, Language::English) => "Back",
+            (Self::CommitReturnAction, Language::Chinese) => "返回",
             (Self::SearchInputTitle, Language::English) => "{mode} {target}",
             (Self::SearchInputTitle, Language::Chinese) => "{mode}{target}",
             (Self::SearchModeCommand, Language::English) => "Choose filter or locate for this view",
@@ -1146,10 +1196,10 @@ impl Message {
             (Self::AgentPromptEditorHint, Language::English) => "Ctrl+S save · Esc cancel",
             (Self::AgentPromptEditorHint, Language::Chinese) => "Ctrl+S 保存 · Esc 放弃修改",
             (Self::AgentPromptHint, Language::English) => {
-                "Edit the complete generation prompt. Output must be a single-line subject."
+                "Edit the complete prompt; the message may include a body when useful."
             }
             (Self::AgentPromptHint, Language::Chinese) => {
-                "完整编辑生成指令，结果需为单行提交标题。"
+                "完整编辑生成指令，可根据改动生成标题和正文。"
             }
             (Self::AgentDefault, Language::English | Language::Chinese) => "Default",
             (Self::AgentNone, Language::English) => "None",
@@ -1175,16 +1225,16 @@ impl Message {
             (Self::AgentCancelled, Language::English) => "Generation cancelled; draft retained.",
             (Self::AgentCancelled, Language::Chinese) => "已取消生成，保留原草稿。",
             (Self::AgentHint, Language::English) => {
-                "Ctrl+R generate · Enter review · Esc return · PgUp/PgDn scroll"
+                "Enter ↵ · Tab actions · Ctrl+S commit · Ctrl+R redo · Esc"
             }
             (Self::AgentHint, Language::Chinese) => {
-                "Ctrl+R 生成 · Enter 确认 · Esc 返回 · PgUp/PgDn 滚动"
+                "Enter 换行 · Tab 操作 · Ctrl+S 提交 · Ctrl+R 生成 · Esc"
             }
             (Self::AgentRunningHint, Language::English) => {
-                "Generating… Ctrl+R cancel · Esc return; editing is still available"
+                "Generating… Ctrl+R cancel · Ctrl+J newline · Enter review · Esc return"
             }
             (Self::AgentRunningHint, Language::Chinese) => {
-                "生成中… Ctrl+R 取消 · Esc 返回；仍可编辑消息"
+                "生成中… Ctrl+R 取消 · Ctrl+J 换行 · Enter 确认 · Esc 返回"
             }
             (Self::AgentModelInvalid, Language::English) => {
                 "Model must have no control characters and be at most 256 bytes."
@@ -1209,10 +1259,10 @@ impl Message {
             }
             (Self::AgentOutputTooLarge, Language::Chinese) => "生成工具的输出超过大小限制。",
             (Self::AgentMessageInvalid, Language::English) => {
-                "Expected one nonempty plain-text commit subject (at most 500 characters)."
+                "Expected a nonempty plain-text commit message (up to 64 KiB), without code fences or control characters other than newlines and tabs."
             }
             (Self::AgentMessageInvalid, Language::Chinese) => {
-                "生成结果必须是非空的单行提交标题，最多 500 个字符。"
+                "提交消息必须为非空纯文本，最多 64 KiB；不能有代码围栏及换行、制表以外的控制字符。"
             }
             (Self::SettingsChecks, Language::English) => "Checks",
             (Self::SettingsChecks, Language::Chinese) => "检查",
@@ -3881,10 +3931,10 @@ impl Message {
             (Self::DescribeThisCommit, Language::English) => "Describe this commit",
             (Self::DescribeThisCommit, Language::Chinese) => "请输入本次提交的说明",
             (Self::EnterConfirmEscCancelPgupPgdnReview, Language::English) => {
-                "Enter confirm · Esc cancel · PgUp/PgDn review"
+                "Ctrl+J newline · Enter review · Esc cancel · PgUp/PgDn review"
             }
             (Self::EnterConfirmEscCancelPgupPgdnReview, Language::Chinese) => {
-                "Enter 确认 · Esc 取消 · PgUp/PgDn 查看"
+                "Ctrl+J 换行 · Enter 确认 · Esc 取消 · PgUp/PgDn 查看"
             }
             (Self::OpenRepositoryOverview, Language::English) => {
                 "Open the selected repository overview"

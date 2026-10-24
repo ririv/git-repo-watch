@@ -333,8 +333,12 @@ fn successful_commit_refreshes_inactive_file_and_history_snapshots() {
     wait(&mut s);
     assert!(matches!(s.mode, Mode::CommitMessage { .. }));
     s.paste("workspace commit");
-    key(&mut s, KeyCode::Enter);
-    key(&mut s, KeyCode::Enter);
+    s.key(
+        KeyEvent::new(KeyCode::Char('s'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert!(matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.submitting()));
     wait(&mut s);
     assert_eq!(
         support::git(&f.repo, &["log", "-1", "--format=%s"]),

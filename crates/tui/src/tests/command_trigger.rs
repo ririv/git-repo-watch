@@ -194,5 +194,5 @@ fn commit_message_keeps_typed_and_pasted_punctuation() {
     wait(&mut s);
     key(&mut s, KeyCode::Char('、'));
     s.paste("、正文");
-    assert!(matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text == "、、正文"));
+    assert!(matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text() == "、、正文"));
 }

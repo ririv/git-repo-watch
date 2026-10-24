@@ -1,9 +1,10 @@
 //! Cancellable subprocess execution with process-group cleanup.
+pub(crate) mod conversation;
 use crate::cancel::Cancel;
 use anyhow::{Context, Result, bail};
 use std::{
     ffi::OsString,
-    io::{Read, Seek, Write},
+    io::Read,
     os::unix::process::CommandExt,
     path::Path,
     process::{Command, Stdio},
@@ -57,30 +58,7 @@ pub fn run(
         );
     execute(command, cancel, timeout, usize::MAX)
 }
-/// Run a bounded non-interactive request with private file-backed stdin.
-pub fn run_with_input(
-    program: &Path,
-    args: &[OsString],
-    cwd: &Path,
-    input: &[u8],
-    cancel: &Cancel,
-    timeout: Duration,
-    limit: usize,
-) -> Result<Output> {
-    cancel.check()?;
-    let mut stdin = tempfile::tempfile()?;
-    stdin.write_all(input)?;
-    stdin.rewind()?;
-    let mut command = Command::new(program);
-    command
-        .args(args)
-        .current_dir(cwd)
-        .stdin(Stdio::from(stdin))
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0);
-    execute(command, cancel, timeout, limit)
-}
+
 fn execute(
     mut command: Command,
     cancel: &Cancel,

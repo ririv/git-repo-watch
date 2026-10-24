@@ -65,26 +65,18 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &mut screen.graphics,
             &mut screen.pointer,
         ),
-        Mode::CommitMessage { plan, scroll, .. } => text_view(
-            frame,
-            area,
-            &commit_review(plan),
-            scroll,
-            i18n::tr!(CommitPreview),
-            &mut screen.pointer,
-        ),
-        Mode::CommitConfirm {
+        Mode::CommitMessage {
             plan,
-            message,
+            editor,
             scroll,
-            ..
-        } => text_view(
+        } => commit::render(
             frame,
             area,
-            &i18n::tf!(CommitMessage, safe(message), commit_review(plan)),
+            plan,
+            editor,
             scroll,
-            i18n::tr!(ConfirmCommit),
             &mut screen.pointer,
+            screen.bar.is_plain(),
         ),
         Mode::PushConfirm { plan, scroll, .. } => text_view(
             frame,

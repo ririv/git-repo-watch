@@ -12,37 +12,13 @@ pub(super) fn render(
     if inner.is_empty() {
         return;
     }
-    let document = session.view(inner.width.into(), inner.height.into());
-    let count = document.lines.len();
-    frame.render_widget(
-        Paragraph::new(
-            document
-                .lines
-                .into_iter()
-                .map(|line| Line::from(safe(&line)))
-                .collect::<Vec<_>>(),
-        )
-        .scroll((session.scroll.min(u16::MAX as usize) as u16, 0)),
-        inner,
-    );
-    if document.cursor.1 >= session.scroll
-        && document.cursor.1 < session.scroll + usize::from(inner.height)
-    {
-        frame.set_cursor_position((
-            inner.x
-                + document
-                    .cursor
-                    .0
-                    .min(usize::from(inner.width.saturating_sub(1))) as u16,
-            inner.y + (document.cursor.1 - session.scroll) as u16,
-        ));
-    }
+    let count = super::text_editor::render(frame, inner, &mut session.editor, "", true);
     hits.vertical(
         area,
         inner,
         count.saturating_sub(inner.height.into()),
-        session.scroll,
+        session.editor.scroll,
         crate::pointer::ScrollTarget::Text,
     );
-    crate::scrollbar::vertical(frame, area, inner, count, session.scroll);
+    crate::scrollbar::vertical(frame, area, inner, count, session.editor.scroll);
 }
