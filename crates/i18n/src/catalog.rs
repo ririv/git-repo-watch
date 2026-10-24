@@ -2,6 +2,20 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    SearchInputTitle,
+    SearchModeCommand,
+    SearchFilterCommand,
+    SearchLocateCommand,
+    SearchFilter,
+    SearchLocate,
+    SearchLocateHint,
+    SearchCommandOnly,
+    SearchUnavailable,
+    SearchTargetRepositories,
+    SearchTargetFiles,
+    SearchTargetBranches,
+    SearchTargetStashes,
+    SearchTargetCommits,
     PaneFocusCommand,
     PaneFocusTitle,
     PaneFocusHint,
@@ -318,6 +332,7 @@ pub enum Message {
     HistoryEmpty,
     HistoryEnd,
     HistoryMore,
+    HistoryMoreSearch,
     HistoryLoaded,
     HistoryScope,
     HistoryNoMore,
@@ -900,6 +915,43 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::SearchInputTitle, Language::English) => "{mode} {target}",
+            (Self::SearchInputTitle, Language::Chinese) => "{mode}{target}",
+            (Self::SearchModeCommand, Language::English) => "Choose filter or locate for this view",
+            (Self::SearchModeCommand, Language::Chinese) => "选择当前视图的过滤或定位方式",
+            (Self::SearchFilterCommand, Language::English) => "Filter the current list by input",
+            (Self::SearchFilterCommand, Language::Chinese) => "输入时只显示列表中的匹配项",
+            (Self::SearchLocateCommand, Language::English) => {
+                "Keep the full list; ↑/↓ move between matches"
+            }
+            (Self::SearchLocateCommand, Language::Chinese) => "保留完整列表，↑/↓切换匹配项",
+            (Self::SearchFilter, Language::English) => "Filter",
+            (Self::SearchFilter, Language::Chinese) => "过滤",
+            (Self::SearchLocate, Language::English) => "Locate",
+            (Self::SearchLocate, Language::Chinese) => "定位",
+            (Self::SearchLocateHint, Language::English) => {
+                "↑/↓ previous/next match · ←/→ edit · Esc clear · / commands"
+            }
+            (Self::SearchLocateHint, Language::Chinese) => {
+                "↑/↓上个/下个匹配 · ←/→编辑 · Esc清空 · /命令"
+            }
+            (Self::SearchCommandOnly, Language::English) => "Type / for commands",
+            (Self::SearchCommandOnly, Language::Chinese) => "输入 / 查看命令",
+            (Self::SearchUnavailable, Language::English) => {
+                "This view does not support that search mode."
+            }
+            (Self::SearchUnavailable, Language::Chinese) => "当前视图不支持该搜索方式。",
+            (Self::SearchTargetRepositories, Language::English) => "repositories",
+            (Self::SearchTargetRepositories, Language::Chinese) => "仓库",
+            (Self::SearchTargetFiles, Language::English) => "files",
+            (Self::SearchTargetFiles, Language::Chinese) => "文件",
+            (Self::SearchTargetBranches, Language::English) => "branches",
+            (Self::SearchTargetBranches, Language::Chinese) => "分支",
+            (Self::SearchTargetStashes, Language::English) => "stashes",
+            (Self::SearchTargetStashes, Language::Chinese) => "贮藏",
+            (Self::SearchTargetCommits, Language::English) => "loaded commits",
+            (Self::SearchTargetCommits, Language::Chinese) => "已加载提交",
+
             (Self::PaneFocusTitle, Language::English) => "Focus mode",
             (Self::PaneFocusTitle, Language::Chinese) => "聚焦模式",
             (Self::PaneFocusHint, Language::English) => {
@@ -1897,6 +1949,8 @@ impl Message {
             (Self::HistoryEmpty, Language::Chinese) => "当前分支和标签中没有提交",
             (Self::HistoryEnd, Language::English) => "End of history",
             (Self::HistoryEnd, Language::Chinese) => "已到历史末尾",
+            (Self::HistoryMoreSearch, Language::English) => "more commits · /repo log more",
+            (Self::HistoryMoreSearch, Language::Chinese) => "还有提交 · /repo log more",
             (Self::HistoryMore, Language::English) => {
                 "More commits · Down at the bottom or /repo log more"
             }
@@ -3969,6 +4023,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (SearchInputTitle $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{mode} {target}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{mode}{target}" $(, $($args)*)?),
+        }
+    };
     (TaskCounts $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("{pending} pending · {running} running" $(, $($args)*)?),

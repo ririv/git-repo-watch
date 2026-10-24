@@ -14,6 +14,7 @@ pub(super) struct Commit {
     pub files: ListState,
     pub scroll: usize,
     pub query: String,
+    pub search_mode: crate::search::Mode,
 }
 impl Commit {
     fn new(graph: Session, detail: Detail) -> Self {
@@ -24,7 +25,25 @@ impl Commit {
             files: ListState::default().with_selected(selected),
             scroll: 0,
             query: String::new(),
+            search_mode: Default::default(),
         }
+    }
+    fn with_detail(&self, detail: Detail) -> Self {
+        let selected = self
+            .files
+            .selected()
+            .and_then(|i| self.rows().get(i).map(|change| change.location.clone()));
+        let mut next = Self::new(self.graph.clone(), detail);
+        next.search_mode = self.search_mode;
+        next.search(self.query.clone());
+        if let Some(index) = selected.and_then(|location| {
+            next.rows()
+                .iter()
+                .position(|change| change.location == location)
+        }) {
+            next.files.select(Some(index));
+        }
+        next
     }
     pub fn advance(&mut self, delta: isize) {
         let count = self.rows().len();
@@ -40,18 +59,61 @@ impl Commit {
             .changes
             .iter()
             .filter(|change| {
-                change
-                    .location
-                    .name()
-                    .to_string_lossy()
-                    .to_lowercase()
-                    .contains(&query)
+                self.search_mode.includes(
+                    change
+                        .location
+                        .name()
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .contains(&query),
+                )
             })
             .collect()
     }
+    pub fn matches(&self) -> crate::search::Matches {
+        let query = self.query.to_lowercase();
+        crate::search::Matches::new(self.rows().iter().map(|change| {
+            change
+                .location
+                .name()
+                .to_string_lossy()
+                .to_lowercase()
+                .contains(&query)
+        }))
+    }
+    pub fn set_search_mode(&mut self, mode: crate::search::Mode) {
+        let selected = self
+            .files
+            .selected()
+            .and_then(|i| self.rows().get(i).map(|change| change.location.clone()));
+        self.search_mode = mode;
+        self.files.select(
+            selected
+                .and_then(|location| {
+                    self.rows()
+                        .iter()
+                        .position(|change| change.location == location)
+                })
+                .or_else(|| (!self.rows().is_empty()).then_some(0)),
+        );
+        if mode == crate::search::Mode::Locate
+            && let Some(index) = self.matches().nearest(self.files.selected())
+        {
+            self.files.select(Some(index));
+        }
+    }
     fn search(&mut self, query: String) {
         self.query = query;
-        self.files.select((!self.rows().is_empty()).then_some(0));
+        match self.search_mode {
+            crate::search::Mode::Filter => {
+                self.files.select((!self.rows().is_empty()).then_some(0))
+            }
+            crate::search::Mode::Locate => {
+                if let Some(index) = self.matches().nearest(self.files.selected()) {
+                    self.files.select(Some(index));
+                }
+            }
+        }
     }
 }
 

@@ -109,8 +109,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
         }
         key(&mut s, KeyCode::Char('/'));
         let names = s
-            .bar
-            .commands(s.config.ai.enabled)
+            .search_commands()
             .unwrap()
             .iter()
             .map(|c| c.name)

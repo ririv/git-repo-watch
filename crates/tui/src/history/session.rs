@@ -86,7 +86,7 @@ impl Session {
             ));
         }
     }
-    fn matches(&self, entry: &Entry) -> bool {
+    pub fn matches_entry(&self, entry: &Entry) -> bool {
         let needle = self.query.to_lowercase();
         entry.oid.to_string().contains(&needle)
             || entry.subject.to_lowercase().contains(&needle)
@@ -101,33 +101,24 @@ impl Session {
                         .any(|label| label.name().to_lowercase().contains(&needle))
                 })
     }
-    pub fn search(&mut self, query: String) {
-        self.query = query;
-        self.state.select(
+    pub fn matches(&self) -> crate::search::Matches {
+        crate::search::Matches::new(
             self.records
                 .iter()
-                .position(|record| self.matches(&record.entry)),
-        );
+                .map(|record| self.matches_entry(&record.entry)),
+        )
+    }
+    pub fn search(&mut self, query: String) {
+        self.query = query;
+        if let Some(index) = self.matches().nearest(self.state.selected()) {
+            self.state.select(Some(index));
+        }
     }
     pub fn next_match(&mut self, backwards: bool) {
-        let count = self.records.len();
-        if count == 0 || self.query.is_empty() {
-            return;
-        }
-        let current = self
-            .state
-            .selected()
-            .unwrap_or(if backwards { 0 } else { count - 1 });
-        for step in 1..=count {
-            let index = if backwards {
-                (current + count - step) % count
-            } else {
-                (current + step) % count
-            };
-            if self.matches(&self.records[index].entry) {
-                self.state.select(Some(index));
-                break;
-            }
+        if !self.query.is_empty()
+            && let Some(index) = self.matches().step(self.state.selected(), backwards)
+        {
+            self.state.select(Some(index));
         }
     }
     pub fn cursor(&self) -> Option<history::Cursor> {

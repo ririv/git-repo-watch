@@ -40,7 +40,7 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         assert_ne!(selected[0].area, selected[1].area);
         let current = files.rows()[files.cursor].clone();
         command(&mut s, "repo diff view");
-        let commands = s.bar.commands(s.config.ai.enabled).unwrap();
+        let commands = s.search_commands().unwrap();
         assert_eq!(commands.len(), 2);
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repo diff view flat");

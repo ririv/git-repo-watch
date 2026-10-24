@@ -4,6 +4,9 @@ use i18n::CommandSummary as Summary;
 impl Command {
     pub fn summary(&self) -> Summary {
         match self.action {
+            Action::SearchMenu => Summary::SearchMode,
+            Action::Search(crate::search::Mode::Filter) => Summary::SearchFilter,
+            Action::Search(crate::search::Mode::Locate) => Summary::SearchLocate,
             Action::Tasks => Summary::Tasks,
             Action::Focus => Summary::PaneFocus,
             Action::Zoom => Summary::PaneZoom,

@@ -88,6 +88,7 @@ impl Screen {
         let parent = detail.parents[(index + 1) % detail.parents.len()];
         let oid = detail.oid;
         let session = commit.graph.clone();
+        let previous = commit.clone();
         self.start_repository(
             session.references.path.clone(),
             i18n::tr!(HistoryReadCommit),
@@ -99,9 +100,9 @@ impl Screen {
                     Parent::Commit(parent),
                     &cancel,
                 )?;
-                Ok(Outcome::History(Box::new(View::Commit(Commit::new(
-                    session, detail,
-                )))))
+                Ok(Outcome::History(Box::new(View::Commit(
+                    previous.with_detail(detail),
+                ))))
             },
         );
     }

@@ -8,6 +8,7 @@ pub(super) struct Session {
     pub snapshot: Arc<Snapshot>,
     pub state: ListState,
     pub query: String,
+    pub search_mode: crate::search::Mode,
 }
 impl Session {
     pub fn new(snapshot: Snapshot) -> Self {
@@ -16,17 +17,14 @@ impl Session {
             snapshot: Arc::new(snapshot),
             state: ListState::default().with_selected(selected),
             query: String::new(),
+            search_mode: Default::default(),
         }
     }
     pub fn rows(&self) -> Vec<&Entry> {
-        let query = self.query.to_lowercase();
         self.snapshot
             .entries
             .iter()
-            .filter(|entry| {
-                entry.message.to_lowercase().contains(&query)
-                    || entry.oid.to_string().contains(&query)
-            })
+            .filter(|entry| self.search_mode.includes(self.matches_entry(entry)))
             .collect()
     }
     pub fn selected(&self) -> Option<&Entry> {
@@ -47,13 +45,44 @@ impl Session {
     pub fn search(&mut self, query: String) {
         if query != self.query {
             self.query = query;
-            self.state.select((!self.rows().is_empty()).then_some(0));
+            match self.search_mode {
+                crate::search::Mode::Filter => {
+                    self.state.select((!self.rows().is_empty()).then_some(0))
+                }
+                crate::search::Mode::Locate => {
+                    if let Some(index) = self.matches().nearest(self.state.selected()) {
+                        self.state.select(Some(index));
+                    }
+                }
+            }
+        }
+    }
+    pub fn matches_entry(&self, entry: &Entry) -> bool {
+        let query = self.query.to_lowercase();
+        entry.message.to_lowercase().contains(&query) || entry.oid.to_string().contains(&query)
+    }
+    pub fn matches(&self) -> crate::search::Matches {
+        crate::search::Matches::new(self.rows().iter().map(|entry| self.matches_entry(entry)))
+    }
+    pub fn set_search_mode(&mut self, mode: crate::search::Mode) {
+        let selected = self.selected().map(|entry| entry.oid);
+        self.search_mode = mode;
+        self.state.select(
+            selected
+                .and_then(|oid| self.rows().iter().position(|entry| entry.oid == oid))
+                .or_else(|| (!self.rows().is_empty()).then_some(0)),
+        );
+        if mode == crate::search::Mode::Locate
+            && let Some(index) = self.matches().nearest(self.state.selected())
+        {
+            self.state.select(Some(index));
         }
     }
     pub fn refreshed(&self, snapshot: Snapshot) -> Self {
         let current = self.selected().map(|entry| entry.oid);
         let mut next = Self::new(snapshot);
         next.query = self.query.clone();
+        next.search_mode = self.search_mode;
         let selected = next
             .rows()
             .iter()

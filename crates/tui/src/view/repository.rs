@@ -180,7 +180,20 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 .into_iter()
                 .take(column_count),
             )
-            .style(Style::default().fg(b.color))
+            .style(
+                if screen.search_mode == crate::search::Mode::Locate
+                    && !screen.query.is_empty()
+                    && row
+                        .path
+                        .to_string_lossy()
+                        .to_lowercase()
+                        .contains(&screen.query.to_lowercase())
+                {
+                    Style::default().fg(b.color).bold()
+                } else {
+                    Style::default().fg(b.color)
+                },
+            )
         })
         .collect::<Vec<_>>();
     let headings = [

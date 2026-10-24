@@ -96,7 +96,17 @@ pub(super) fn render(
                         format!("{} ", change.kind),
                         Style::default().fg(if staged { GOOD } else { WARN }),
                     ),
-                    Span::raw(safe(label)),
+                    Span::styled(
+                        safe(label),
+                        if session.search_mode == crate::search::Mode::Locate
+                            && !session.query.is_empty()
+                            && session.matches_change(change)
+                        {
+                            Style::default().bold()
+                        } else {
+                            Style::default()
+                        },
+                    ),
                 ]))
             })
             .collect::<Vec<_>>();

@@ -85,17 +85,7 @@ pub(crate) fn merge_mode(mode: &mut Mode, readback: Readback) {
         (Readback::Branches(snapshot), Mode::Branches(view))
             if view.session().snapshot.path == snapshot.path =>
         {
-            let previous = view.session();
-            let selected = previous.selected().map(|e| e.reference.clone());
-            let mut next = branches::Session::new(snapshot);
-            next.query = previous.query.clone();
-            next.filter = previous.filter;
-            let selected = next
-                .rows()
-                .iter()
-                .position(|e| Some(&e.reference) == selected.as_ref());
-            next.state
-                .select(selected.or_else(|| (!next.rows().is_empty()).then_some(0)));
+            let next = view.session().refreshed(snapshot);
             **view = match view.as_ref() {
                 branches::View::Detail { entry, scroll, .. } => match next
                     .snapshot

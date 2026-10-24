@@ -104,7 +104,17 @@ pub(super) fn list(
                 ),
                 Span::styled(
                     format!("{} ", safe(&entry.name)),
-                    Style::default().fg(color),
+                    if session.search_mode == crate::search::Mode::Locate
+                        && !session.query.is_empty()
+                        && entry
+                            .name
+                            .to_lowercase()
+                            .contains(&session.query.to_lowercase())
+                    {
+                        Style::default().fg(color).bold()
+                    } else {
+                        Style::default().fg(color)
+                    },
                 ),
                 Span::styled(format!("{kind}{suffix}"), Style::default().fg(MUTED)),
             ]))

@@ -256,19 +256,7 @@ impl Screen {
                                 || matches!(&self.mode, Mode::Branches(view) if matches!(view.as_ref(), branches::View::List(_)))) =>
                     {
                         if let Mode::Branches(current) = &self.mode {
-                            let previous = current.session();
-                            let selected = previous.selected().map(|entry| entry.reference.clone());
-                            branches.filter = previous.filter;
-                            branches.query = previous.query.clone();
-                            let index = selected.and_then(|reference| {
-                                branches
-                                    .rows()
-                                    .iter()
-                                    .position(|entry| entry.reference == reference)
-                            });
-                            branches.state.select(
-                                index.or_else(|| (!branches.rows().is_empty()).then_some(0)),
-                            );
+                            branches = current.session().refreshed((*branches.snapshot).clone());
                         }
                         if let crate::bar::InputBar::Search(editor) = &self.bar {
                             branches.search(editor.text.clone());
@@ -300,7 +288,7 @@ impl Screen {
                             files = current.refreshed(files.snapshot);
                         }
                         if let crate::bar::InputBar::Search(editor) = &self.bar {
-                            files.query = editor.text.clone();
+                            files.search(editor.text.clone());
                         }
                         session.files = Panel::Ready(files.clone());
                         self.mode = Mode::Files(files);

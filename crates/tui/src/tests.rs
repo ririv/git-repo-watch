@@ -29,6 +29,7 @@ mod repository_list;
 mod responsive;
 mod schedule;
 mod scrollbars;
+mod search;
 mod settings_design;
 mod startup;
 mod task_center;
@@ -94,6 +95,7 @@ fn screen(service: Service) -> Screen {
         breadcrumb_items: Vec::new(),
         filter: Filter::All,
         query: String::new(),
+        search_mode: Default::default(),
         order: Order::Priority,
         setting_selected: 0,
         settings_focus: None,
@@ -306,7 +308,7 @@ fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
     let (_temp, mut s) = fixture(vec!["/path/to/a".into()]);
     for size in [(60, 18), (80, 24), (150, 32)] {
         let text = render(&mut s, size.0, size.1);
-        assert!(text.contains("搜索仓库"));
+        assert!(text.contains("过滤仓库"));
         assert!(!text.contains("1 / 1"));
         key(&mut s, KeyCode::Char('/'));
         let text = render(&mut s, size.0, size.1);
@@ -488,8 +490,9 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Delete);
     assert!(matches!(s.bar, crate::bar::InputBar::Search(_)));
-    assert_eq!(s.query, "repo push");
-    assert_eq!(s.page, Page::Repositories);
+    assert!(s.query.is_empty());
+    assert!(s.bar.text().is_empty());
+    assert_eq!(s.page, Page::Configuration(Configuration::General));
 }
 #[test]
 fn full_width_command_panel_keeps_list_and_input_positions_stable() {
@@ -661,7 +664,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
     let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
     for (width, height) in [(60, 18), (80, 24), (150, 32)] {
         let text = render(&mut s, width, height);
-        assert!(text.contains("Search repositories"));
+        assert!(text.contains("Filter repositories"));
         assert!(text.contains("Type to search"));
         assert!(text.contains("Filter: All · Sort: Priority"));
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
@@ -753,6 +756,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
         cursor: 0,
         selected: BTreeSet::new(),
         query: "filter".into(),
+        search_mode: Default::default(),
         offsets: [0; 2],
     });
     s.finish(
@@ -776,13 +780,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             let text = render(&mut s, width, height);
             assert_eq!(s.command_items.len(), 8, "{text}");
             assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
-            for item in s
-                .bar
-                .commands(s.config.ai.enabled)
-                .unwrap()
-                .into_iter()
-                .take(8)
-            {
+            for item in s.search_commands().unwrap().into_iter().take(8) {
                 assert!(text.contains(&format!("/{}", item.name)));
             }
             for _ in 0..command::COMMANDS.len() {
@@ -811,7 +809,7 @@ fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
         assert_eq!(s.command_items.len(), count, "{text}");
         assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
         let (_, index) = s.command_items.last().unwrap();
-        let commands = s.bar.commands(s.config.ai.enabled).unwrap();
+        let commands = s.search_commands().unwrap();
         assert_eq!(*index, commands.len() - 1, "{text}");
         assert!(text.contains("/repo copy"), "{text}");
         key(&mut s, KeyCode::Esc);
@@ -1511,7 +1509,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("//sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/schedule");
-    assert_eq!(s.bar.commands(s.config.ai.enabled).unwrap().len(), 7);
+    assert_eq!(s.search_commands().unwrap().len(), 7);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);
@@ -1555,8 +1553,7 @@ fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     let (_home, mut s) = fixture(vec![]);
     s.paste("//");
     let index = s
-        .bar
-        .commands(s.config.ai.enabled)
+        .search_commands()
         .unwrap()
         .iter()
         .position(|command| command.action == Action::Schedule)

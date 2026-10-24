@@ -2,6 +2,9 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    SearchMode,
+    SearchFilter,
+    SearchLocate,
     PaneFocus,
     PaneZoom,
     PanePan,
@@ -76,6 +79,13 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::SearchMode, Language::English) => "Input search mode",
+            (Self::SearchMode, Language::Chinese) => "输入搜索方式",
+            (Self::SearchFilter, Language::English) => "Show matching items",
+            (Self::SearchFilter, Language::Chinese) => "只显示匹配项",
+            (Self::SearchLocate, Language::English) => "Locate matches in the full list",
+            (Self::SearchLocate, Language::Chinese) => "在完整列表中定位匹配项",
+
             (Self::PaneFocus, Language::English) => "Focus a pane",
             (Self::PaneFocus, Language::Chinese) => "切换面板焦点",
             (Self::PaneZoom, Language::English) => "Maximize or restore",

@@ -20,8 +20,7 @@ fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close(
             assert_eq!(buffer[(width - 1, first.y - 1)].symbol(), "╮");
             assert_eq!(buffer[(0, input.y)].symbol(), "├");
             assert_eq!(buffer[(width - 1, input.y)].symbol(), "┤");
-            let overflowing =
-                s.bar.commands(s.config.ai.enabled).unwrap().len() > s.command_items.len();
+            let overflowing = s.search_commands().unwrap().len() > s.command_items.len();
             assert_eq!(
                 (first.y..input.y).any(|y| buffer[(width - 1, y)].symbol() == "┃"),
                 overflowing
@@ -82,10 +81,7 @@ fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope()
     s.select(1);
     render(&mut s, 180, 36);
     let (area, index) = s.command_items[0];
-    assert_eq!(
-        s.bar.commands(s.config.ai.enabled).unwrap()[index].action,
-        Action::Remove
-    );
+    assert_eq!(s.search_commands().unwrap()[index].action, Action::Remove);
     s.mouse(
         MouseEvent {
             kind: MouseEventKind::Down(MouseButton::Left),
@@ -120,7 +116,7 @@ fn concise_commands_show_values_without_scope_or_detail_rows_and_remain_clickabl
         let items = s.command_items.clone();
         assert_eq!(items.len(), 3);
         for (area, index) in &items {
-            let command = s.bar.commands(s.config.ai.enabled).unwrap()[*index];
+            let command = s.search_commands().unwrap()[*index];
             assert_eq!(area.height, 1);
             let line = text.lines().nth(area.y.into()).unwrap();
             assert!(line.contains(command.summary().text()), "{line}");
@@ -187,7 +183,7 @@ fn command_descriptions_remain_searchable_across_interface_languages() {
         let (_home, mut s) = fixture(vec![]);
         for query in ["填写模型名", "ENTER A MODEL NAME", "设置模型", "SET MODEL"] {
             s.paste(&format!("//{query}"));
-            let matches = s.bar.commands(s.config.ai.enabled).unwrap();
+            let matches = s.search_commands().unwrap();
             assert_eq!(matches.len(), 1);
             assert_eq!(matches[0].action, Action::AiModel);
             let text = render(&mut s, 140, 28);

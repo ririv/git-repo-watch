@@ -94,6 +94,10 @@ pub(crate) enum BarEvent {
 }
 impl Screen {
     pub(crate) fn sync_bar(&mut self) {
+        if self.search_support() == crate::search::Support::Unavailable {
+            self.bar = InputBar::default();
+            return;
+        }
         self.bar = InputBar::Search(Editor::new(if let Mode::Browser(session) = &self.mode {
             session.query.clone()
         } else if let Mode::History(view) = &self.mode {
@@ -123,28 +127,39 @@ impl Screen {
             let InputBar::Command { input, .. } = std::mem::take(&mut self.bar) else {
                 unreachable!()
             };
-            self.bar = InputBar::Search(input.into_search().expect("global command lost slash"));
+            self.bar = if self.search_support() == crate::search::Support::Unavailable {
+                InputBar::default()
+            } else {
+                InputBar::Search(input.into_search().expect("global command lost slash"))
+            };
         }
-        if let InputBar::Search(editor) = &self.bar {
+        if self.search_support() != crate::search::Support::Unavailable
+            && let InputBar::Search(editor) = &self.bar
+        {
             let query = editor.text.clone();
             match &mut self.mode {
                 Mode::Browser(session) => session.search(query),
                 Mode::Stashes(view) => view.search(query),
                 Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
-                Mode::Files(s) if s.query != query => {
-                    s.query = query;
-                    s.cursor = 0
-                }
+                Mode::Files(s) => s.search(query),
                 Mode::Changes(session) if session.files.query != query => {
-                    session.files.query = query;
-                    session.files.cursor = 0;
+                    session.files.search(query);
                     session.focus = crate::changes::Focus::Files;
                 }
                 Mode::Browsing if self.query != query => {
                     self.query = query;
-                    self.select(0);
-                    self.page = Page::Repositories;
+                    match self.search_mode {
+                        crate::search::Mode::Filter => self.select(0),
+                        crate::search::Mode::Locate => {
+                            if let Some(index) = self
+                                .repository_matches()
+                                .nearest(self.repository_viewport.selected())
+                            {
+                                self.select(index);
+                            }
+                        }
+                    }
                 }
                 _ => {}
             }
@@ -166,7 +181,7 @@ impl Screen {
             input.paste_initial(body);
         } else if let InputBar::Command { input, .. } = &mut self.bar {
             input.paste(text);
-        } else {
+        } else if self.search_support() != crate::search::Support::Unavailable {
             self.bar.editor_mut().insert(text);
         }
         self.normalize_bar();
@@ -204,6 +219,7 @@ impl Screen {
         if self.layout_picker_key(key) {
             return Ok(BarEvent::Handled);
         }
+        let search_support = self.search_support();
         if let InputBar::Command {
             input,
             selected,
@@ -252,6 +268,7 @@ impl Screen {
                 .into_iter()
                 .filter(|command| {
                     command.action.available(self.config.ai.enabled)
+                        && search_support.admits(command.action)
                         && selection.admits(command.action, path.as_deref())
                 })
                 .collect::<Vec<_>>();
@@ -431,7 +448,9 @@ impl Screen {
         // 按 / 捕获当前视图和仓库，独立保存命令草稿，保留已有搜索。
         if key.code == KeyCode::Char('/')
             && key.modifiers.is_empty()
-            && (self.repository_list_active() || self.bar.editor().cursor == 0)
+            && (self.repository_list_active()
+                || search_support == crate::search::Support::Unavailable
+                || self.bar.editor().cursor == 0)
         {
             self.open_command_bar();
             self.message.clear();
@@ -447,10 +466,18 @@ impl Screen {
                 | KeyCode::Home
                 | KeyCode::End
         );
-        if editing {
+        if editing && search_support != crate::search::Support::Unavailable {
             self.bar.editor_mut().key(key);
             self.normalize_bar();
             self.message.clear();
+            return Ok(BarEvent::Handled);
+        }
+        if editing
+            && matches!(
+                key.code,
+                KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete
+            )
+        {
             return Ok(BarEvent::Handled);
         }
         Ok(BarEvent::Pass)
@@ -478,13 +505,9 @@ impl Screen {
             Mode::Stashes(view) => view.search(String::new()),
             Mode::Branches(view) => view.search(String::new()),
             Mode::History(view) => view.clear_search(),
-            Mode::Files(s) => {
-                s.query.clear();
-                s.cursor = 0;
-            }
+            Mode::Files(s) => s.search(String::new()),
             Mode::Changes(session) => {
-                session.files.query.clear();
-                session.files.cursor = 0;
+                session.files.search(String::new());
             }
             _ => {
                 self.query.clear();

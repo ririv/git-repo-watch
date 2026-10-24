@@ -150,7 +150,12 @@ impl Screen {
                 self.mode = origin;
                 self.message = i18n::tf!(CheckOneComplete, report.repositories[0].path().display());
             }
-            Outcome::Branches(view) => {
+            Outcome::Branches(mut view) => {
+                if let Mode::Branches(current) = &origin
+                    && let crate::branches::View::List(session) = view.as_mut()
+                {
+                    *session = current.session().refreshed((*session.snapshot).clone());
+                }
                 self.workspace.save(origin);
                 self.mode = Mode::Branches(view);
             }

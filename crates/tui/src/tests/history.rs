@@ -55,7 +55,7 @@ fn graph_is_localized_colored_and_navigable_at_narrow_and_wide_sizes() {
             let text = render(&mut s, width, height);
             for value in [
                 i18n::tr!(HistoryTitle),
-                i18n::tr!(HistorySearch),
+                i18n::tr!(SearchTargetCommits),
                 "HEAD→main",
                 "tag:v1",
                 "merge feature",
@@ -214,11 +214,13 @@ fn search_locates_hash_subject_author_and_refs_without_hiding_graph_nodes() {
     s.paste(&hash);
     assert_eq!(graph(&s).state.selected(), Some(2));
     key(&mut s, KeyCode::Esc);
+    let previous = graph(&s).state.selected();
     s.paste("no match anywhere");
-    assert!(graph(&s).state.selected().is_none());
+    assert_eq!(graph(&s).state.selected(), previous);
+    key(&mut s, KeyCode::Up);
+    key(&mut s, KeyCode::Down);
+    assert_eq!(graph(&s).state.selected(), previous);
     assert!(render(&mut s, 160, 32).contains(i18n::tr!(HistoryNoMatch)));
-    key(&mut s, KeyCode::Enter);
-    assert!(matches!(s.mode, Mode::History(_)));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
@@ -268,8 +270,7 @@ fn paging_keeps_routes_selection_and_origin_while_loading_then_refresh_starts_a_
     key(&mut s, KeyCode::Char('/'));
     key(&mut s, KeyCode::Char('/'));
     assert!(
-        s.bar
-            .commands(s.config.ai.enabled)
+        s.search_commands()
             .unwrap()
             .iter()
             .all(|command| !command.name.contains(' '))
@@ -296,13 +297,12 @@ fn historical_file_search_and_diff_back_navigation_preserve_the_graph() {
     wait(&mut s);
     s.paste("feature");
     assert_eq!(detail(&s).rows().len(), 1);
-    assert!(render(&mut s, 100, 28).contains(i18n::tr!(SearchFiles)));
+    assert!(render(&mut s, 100, 28).contains(i18n::tr!(SearchFilter)));
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     key(&mut s, KeyCode::Esc);
-    assert!(
-        matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
-    );
+    assert_eq!(detail(&s).query, "feature");
+    assert_eq!(s.bar.text(), "feature");
     key(&mut s, KeyCode::Esc);
     assert!(detail(&s).query.is_empty());
     key(&mut s, KeyCode::Esc);

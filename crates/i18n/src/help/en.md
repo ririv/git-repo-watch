@@ -39,6 +39,13 @@
 - Filtering combines with search. Press `/` on the home page to open commands while keeping an existing search; applying or closing returns to that search and keeps the selected repository when visible. Options apply only to this session and do not check repositories or change reports.
 - `Ctrl+R` reloads the report or refreshes the file panel. The mouse wheel scrolls three rows in the repository list.
 
+## Filter and locate
+- Global `/search` lists the modes supported by the current view and marks the current value. `/search filter` shows matching rows; `/search locate` retains the full list. Use `//search` from a view with a context prefix.
+- Repository, worktree, branch, stash and historical file lists support both, defaulting to filtering. Switching preserves the query and any still-visible selection. Each list remembers its mode for this session.
+- Locate emphasizes matches. With a query, `↑` / `↓` wrap through previous/next matches; the input title shows the current match and total. No matches shows `0/0` and keeps the selection. Clearing the query restores ordinary row navigation.
+- The commit graph supports locating loaded commits only, preserving topology; load more to search older commits. The file browser supports background path filtering only.
+- Settings, overview, help and read-only details do not search hidden lists or offer search-mode commands. Search, status filters, sorting and file checkboxes remain independent.
+
 ## Context prefixes
 - `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings, schedule and help also restore their origin on return.
 - The view prefix is a separate locked token: /repo diff for files and diffs, /repo log for history, /repo branch for branches, and /repos, /settings, /schedule for management pages. Home opens global / commands; overview uses /repo and stash uses /repo stash.
@@ -123,7 +130,7 @@
 - `/repo log` reads local branches, remote-tracking branches, tags and HEAD without fetching.
 - `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `Esc` goes back.
 - Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
-- Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `Tab` / `Shift+Tab` selects the next / previous match.
+- Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `↑` / `↓` wraps through previous / next matches (`Tab` / `Shift+Tab` also remains available).
 - `/repo log pan left` / `right` pans a wide graph. Wide terminals show a metadata preview.
 - In commit details, type to filter files, `Tab` switches merge parents and `PgUp` / `PgDn` scrolls metadata and message.
 - Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.

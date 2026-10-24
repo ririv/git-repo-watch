@@ -59,7 +59,17 @@ pub(super) fn render(
                             format!("{} ", &entry.oid.to_string()[..8]),
                             Style::default().fg(WARN),
                         ),
-                        Span::raw(safe(&entry.message)),
+                        Span::styled(
+                            safe(&entry.message),
+                            if session.search_mode == crate::search::Mode::Locate
+                                && !session.query.is_empty()
+                                && session.matches_entry(entry)
+                            {
+                                Style::default().bold()
+                            } else {
+                                Style::default()
+                            },
+                        ),
                     ]))
                 })
                 .collect::<Vec<_>>();

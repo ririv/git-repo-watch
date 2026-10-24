@@ -114,6 +114,21 @@ pub(super) fn render(
                     change.kind.symbol(),
                     safe(&change.location.display())
                 ))
+                .style(
+                    if commit.search_mode == crate::search::Mode::Locate
+                        && !commit.query.is_empty()
+                        && change
+                            .location
+                            .name()
+                            .to_string_lossy()
+                            .to_lowercase()
+                            .contains(&commit.query.to_lowercase())
+                    {
+                        Style::default().bold()
+                    } else {
+                        Style::default()
+                    },
+                )
             })
             .collect();
         frame.render_stateful_widget(

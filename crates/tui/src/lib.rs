@@ -31,6 +31,7 @@ mod prompt_editor;
 mod repository_list;
 mod repository_tasks;
 mod scrollbar;
+mod search;
 mod settings;
 mod spinner;
 mod stashes;
@@ -226,6 +227,7 @@ struct Screen {
     breadcrumb_items: Vec<(ratatui::layout::Rect, navigation::breadcrumbs::Destination)>,
     filter: Filter,
     query: String,
+    search_mode: search::Mode,
     order: Order,
     setting_selected: usize,
     settings_focus: Option<settings::Focus>,
@@ -283,6 +285,7 @@ impl Screen {
             breadcrumb_items: Vec::new(),
             filter: Filter::All,
             query: String::new(),
+            search_mode: Default::default(),
             order: Order::Priority,
             setting_selected: 0,
             settings_focus: None,
@@ -308,10 +311,11 @@ impl Screen {
             if !self.filter.matches(result) {
                 continue;
             }
-            if !path
-                .to_string_lossy()
-                .to_lowercase()
-                .contains(&self.query.to_lowercase())
+            if self.search_mode == search::Mode::Filter
+                && !path
+                    .to_string_lossy()
+                    .to_lowercase()
+                    .contains(&self.query.to_lowercase())
             {
                 continue;
             }

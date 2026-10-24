@@ -145,8 +145,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         command::completion::Menu::Commands => {}
     }
     let entries = screen
-        .bar
-        .commands(screen.config.ai.enabled)
+        .search_commands()
         .expect("command candidates")
         .into_iter()
         .map(|command| {

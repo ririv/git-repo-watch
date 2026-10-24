@@ -73,6 +73,9 @@ impl Screen {
         ) {
             self.scroll_input.keyboard(std::time::Instant::now());
         }
+        if self.focus_mode == crate::focus::State::Inactive && self.locate_key(key) {
+            return Ok(false);
+        }
         self.dispatch_key(key, root)
     }
     pub(super) fn dispatch_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {

@@ -14,6 +14,8 @@ pub(crate) use input::{Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Tasks,
+    SearchMenu,
+    Search(crate::search::Mode),
     Focus,
     Zoom,
     PanLeft,
@@ -420,6 +422,21 @@ pub const COMMANDS: &[Command] = &[
         name: "repo copy",
         action: Copy(crate::clipboard::Scope::Repository),
         description: i18n::Message::CopyRepositoryCommand,
+    },
+    Command {
+        name: "search",
+        action: SearchMenu,
+        description: i18n::Message::SearchModeCommand,
+    },
+    Command {
+        name: "search filter",
+        action: Search(crate::search::Mode::Filter),
+        description: i18n::Message::SearchFilterCommand,
+    },
+    Command {
+        name: "search locate",
+        action: Search(crate::search::Mode::Locate),
+        description: i18n::Message::SearchLocateCommand,
     },
     Command {
         name: "focus",

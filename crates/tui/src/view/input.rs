@@ -216,6 +216,13 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                             _ => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
                         },
                     }
+                } else if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview)
+                {
+                    i18n::tr!(ChangesInputHint)
+                } else if !screen.bar.editor().text.is_empty()
+                    && screen.search_support().mode() == Some(crate::search::Mode::Locate)
+                {
+                    i18n::tr!(SearchLocateHint)
                 } else if !screen.bar.editor().text.is_empty() {
                     i18n::tr!(SearchEditingHint)
                 } else {
@@ -274,6 +281,8 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                             .is_some_and(|input| input.menu_context().is_some())
                         {
                             i18n::tr!(ContextCommandPlaceholder)
+                        } else if screen.search_support() == crate::search::Support::Unavailable {
+                            i18n::tr!(SearchCommandOnly)
                         } else if matches!(screen.mode, Mode::Browser(_)) {
                             i18n::tr!(BrowserPlaceholder)
                         } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
@@ -382,6 +391,15 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                 i18n::tr!(EscCtrlCCancelAndWaitFor),
             ),
         }
+    };
+    let title = if matches!(screen.bar, crate::bar::InputBar::Search(_))
+        && screen.focus_mode == crate::focus::State::Inactive
+        && matches!(content, Content::Editable { .. })
+        && !matches!(screen.mode, Mode::CommitMessage { .. })
+    {
+        screen.search_title()
+    } else {
+        title.to_owned()
     };
     let active = matches!(
         content,

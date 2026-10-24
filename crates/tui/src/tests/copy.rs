@@ -78,8 +78,7 @@ fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views
         let rx = capture(&mut s);
         s.paste("//copy");
         assert_eq!(
-            s.bar
-                .commands(s.config.ai.enabled)
+            s.search_commands()
                 .unwrap()
                 .iter()
                 .filter(|c| matches!(c.action, Action::Copy(_)))
@@ -277,7 +276,7 @@ fn errors_have_their_own_context_and_copy_complete_details_without_git_or_config
         key(&mut s, KeyCode::Char('/'));
         s.paste("schedule interval 1h");
         key(&mut s, KeyCode::Enter);
-        assert!(s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
+        assert!(s.search_commands().unwrap().is_empty());
         assert!(matches!(s.mode, Mode::Error { .. }));
         key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Error { .. }));

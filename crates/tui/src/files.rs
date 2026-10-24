@@ -25,6 +25,7 @@ pub(super) struct FileSession {
     pub offsets: [usize; 2],
     pub selected: BTreeSet<usize>,
     pub query: String,
+    pub search_mode: crate::search::Mode,
 }
 impl FileSession {
     pub fn new(snapshot: Files) -> Self {
@@ -34,6 +35,7 @@ impl FileSession {
             offsets: [0; 2],
             selected: BTreeSet::new(),
             query: String::new(),
+            search_mode: Default::default(),
         }
     }
     pub fn refreshed(&self, snapshot: Files) -> Self {
@@ -51,6 +53,7 @@ impl FileSession {
             .collect::<Vec<_>>();
         let mut next = Self::new(snapshot);
         next.query = self.query.clone();
+        next.search_mode = self.search_mode;
         next.selected = next
             .snapshot
             .changes
@@ -82,14 +85,7 @@ impl FileSession {
             .snapshot
             .changes
             .iter()
-            .filter(|change| {
-                change
-                    .location
-                    .name()
-                    .to_string_lossy()
-                    .to_lowercase()
-                    .contains(&self.query.to_lowercase())
-            })
+            .filter(|change| self.search_mode.includes(self.matches_change(change)))
             .collect::<Vec<_>>();
         rows.sort_by(|a, b| {
             (a.area == Area::Staged)
@@ -97,6 +93,50 @@ impl FileSession {
                 .then_with(|| a.location.name().cmp(b.location.name()))
         });
         rows
+    }
+    pub fn matches_change(&self, change: &Change) -> bool {
+        change
+            .location
+            .name()
+            .to_string_lossy()
+            .to_lowercase()
+            .contains(&self.query.to_lowercase())
+    }
+    pub fn matches(&self) -> crate::search::Matches {
+        crate::search::Matches::new(self.rows().iter().map(|change| self.matches_change(change)))
+    }
+    pub fn search(&mut self, query: String) {
+        if query == self.query {
+            return;
+        }
+        self.query = query;
+        self.cursor = match self.search_mode {
+            crate::search::Mode::Filter => 0,
+            crate::search::Mode::Locate => self
+                .matches()
+                .nearest(Some(self.cursor))
+                .unwrap_or(self.cursor),
+        };
+    }
+    pub fn set_search_mode(&mut self, mode: crate::search::Mode) {
+        let current = self
+            .rows()
+            .get(self.cursor)
+            .map(|change| self.change_index(change));
+        self.search_mode = mode;
+        self.cursor = current
+            .and_then(|index| {
+                self.rows()
+                    .iter()
+                    .position(|change| self.change_index(change) == index)
+            })
+            .unwrap_or(0);
+        if mode == crate::search::Mode::Locate {
+            self.cursor = self
+                .matches()
+                .nearest(Some(self.cursor))
+                .unwrap_or(self.cursor);
+        }
     }
     pub fn change_index(&self, change: &Change) -> usize {
         self.snapshot

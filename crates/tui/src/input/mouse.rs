@@ -143,10 +143,7 @@ impl Screen {
                 .command_input()
                 .is_some_and(|input| input.prefix_selected())
             {
-                let command = self
-                    .bar
-                    .commands(self.config.ai.enabled)
-                    .expect("command candidates")[index];
+                let command = self.search_commands().expect("command candidates")[index];
                 if let bar::InputBar::Command {
                     input, selected, ..
                 } = &mut self.bar

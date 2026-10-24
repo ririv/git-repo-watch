@@ -3,6 +3,7 @@ use crate::command::Context;
 
 fn select_prefix(s: &mut Screen) {
     s.page = Page::Configuration(Configuration::Repositories);
+    s.sync_bar();
     key(s, KeyCode::Home);
     key(s, KeyCode::Char('/'));
     key(s, KeyCode::Backspace);
@@ -33,7 +34,7 @@ fn selected_prefix_is_replaced_by_typing_including_shift_and_unicode() {
         assert_eq!(input.context(), None);
         assert_eq!(input.text(), format!("/{text}"));
         assert_eq!(input.editor().cursor, input.editor().text.len());
-        assert!(!s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
+        assert!(!s.search_commands().unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Esc);
@@ -61,7 +62,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
         assert_eq!(s.bar.editor().cursor, expected.len());
         assert!(s.repository_tasks.is_empty());
         assert_eq!(
-            s.bar.commands(s.config.ai.enabled).unwrap()[0].name,
+            s.search_commands().unwrap()[0].name,
             if expected.contains(" add ") {
                 "repos add"
             } else if expected == "/终端" {
@@ -95,7 +96,7 @@ fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() 
         assert!(s.repository_tasks.is_empty());
         key(&mut s, KeyCode::Backspace);
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.editor().text, "alpha");
+        assert!(s.bar.editor().text.is_empty());
         assert!(matches!(s.bar, bar::InputBar::Search(_)));
         assert_eq!(s.selected_path(), Some("/example/alpha".into()));
     }
@@ -108,8 +109,7 @@ fn typing_slash_over_a_selected_prefix_opens_the_global_menu() {
     assert_eq!(s.bar.text(), "/");
     assert_eq!(s.bar.command_input().unwrap().context(), None);
     assert!(
-        s.bar
-            .commands(s.config.ai.enabled)
+        s.search_commands()
             .unwrap()
             .iter()
             .all(|c| !c.name.contains(' '))
@@ -153,8 +153,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             key(&mut s, KeyCode::Backspace);
             let selected_text = render(&mut s, width, height);
             let selected_names = s
-                .bar
-                .commands(s.config.ai.enabled)
+                .search_commands()
                 .unwrap()
                 .iter()
                 .map(|c| c.name)
@@ -180,8 +179,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             let global_text = render(&mut s, width, height);
             assert_eq!(
                 selected_names,
-                s.bar
-                    .commands(s.config.ai.enabled)
+                s.search_commands()
                     .unwrap()
                     .iter()
                     .map(|c| c.name)
@@ -212,8 +210,7 @@ fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected
     let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
     select_prefix(&mut s);
     let index = s
-        .bar
-        .commands(s.config.ai.enabled)
+        .search_commands()
         .unwrap()
         .iter()
         .position(|c| c.action == Action::Schedule)
@@ -236,8 +233,7 @@ fn clicking_a_global_candidate_replaces_the_selected_prefix_before_opening_the_v
     let (_home, mut s) = fixture(vec![]);
     select_prefix(&mut s);
     let index = s
-        .bar
-        .commands(s.config.ai.enabled)
+        .search_commands()
         .unwrap()
         .iter()
         .position(|c| c.action == Action::Schedule)
@@ -276,12 +272,12 @@ fn deleting_a_selected_prefix_closes_commands_and_restores_search() {
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Backspace);
         assert!(matches!(s.bar, bar::InputBar::Search(_)));
-        assert_eq!(s.bar.text(), query);
+        assert!(s.bar.text().is_empty());
         assert_eq!(s.query, query);
         assert_eq!(s.selected_path(), path);
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         assert!(s.repository_tasks.is_empty());
-        assert!(s.bar.commands(s.config.ai.enabled).is_none());
+        assert!(s.search_commands().is_none());
         key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(s.bar.text(), "/repos ");

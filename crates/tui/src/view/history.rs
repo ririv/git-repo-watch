@@ -111,7 +111,7 @@ fn graph(
     let panel = block(title);
     let inner = panel.inner(parts[0]);
     frame.render_widget(panel, parts[0]);
-    let query_missing = !session.query.is_empty() && session.state.selected().is_none();
+    let query_missing = !session.query.is_empty() && session.matches().is_empty();
     let shallow = session.references.depth == engine::local::history::Depth::Shallow;
     let header_rows = 2 + u16::from(query_missing) + u16::from(shallow);
     let body = Layout::vertical([Constraint::Length(header_rows), Constraint::Min(1)]).split(inner);
@@ -123,8 +123,10 @@ fn graph(
             session.records.len(),
             if matches!(session.continuation, Continuation::End) {
                 i18n::tr!(HistoryEnd)
-            } else {
+            } else if session.query.is_empty() {
                 i18n::tr!(HistoryMore)
+            } else {
+                i18n::tr!(HistoryMoreSearch)
             }
         )),
     ];
@@ -192,7 +194,13 @@ fn graph(
             spans.extend(
                 crate::horizontal::clip(&line, session.horizontal.offset(), text_width).spans,
             );
-            ListItem::new(Line::from(spans))
+            ListItem::new(Line::from(spans)).style(
+                if !session.query.is_empty() && session.matches_entry(&record.entry) {
+                    Style::default().bold()
+                } else {
+                    Style::default()
+                },
+            )
         })
         .collect();
     if items.is_empty() {

@@ -14,11 +14,13 @@ impl Screen {
         selection: crate::clipboard::Selection,
         root: &Cancel,
     ) -> Result<bool> {
-        if !action.available(self.config.ai.enabled) {
+        if !action.available(self.config.ai.enabled) || !self.search_support().admits(action) {
             self.message = i18n::tr!(NoMatchingCommands).into();
             return Ok(false);
         }
         match action {
+            Action::SearchMenu => self.search_menu(),
+            Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),
             Action::Focus => self.enter_focus(),
             Action::Zoom => self.zoom_pane(),

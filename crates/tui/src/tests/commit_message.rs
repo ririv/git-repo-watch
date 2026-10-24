@@ -216,7 +216,7 @@ fn disabled_ai_is_hidden_and_can_only_be_restored_from_general_settings() {
         ] {
             command(&mut s, text);
             assert_eq!(s.page, Page::Configuration(Configuration::General));
-            assert!(s.bar.commands(s.config.ai.enabled).unwrap().is_empty());
+            assert!(s.search_commands().unwrap().is_empty());
             assert!(!s.config.ai.enabled && !s.commit_generator.running());
             let text = render(&mut s, 140, 40);
             assert!(!text.contains(i18n::tr!(AgentModelHint)));
