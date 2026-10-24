@@ -10,9 +10,13 @@ impl Screen {
         }
         match &self.mode {
             Mode::Browsing if self.page == Page::Repositories => Support::Both(self.search_mode),
-            Mode::Browser(_) => Support::Filter,
+            Mode::Browser(session) if session.focus == crate::browser::Focus::Tree => {
+                Support::Filter
+            }
             Mode::Files(files) => Support::Both(files.search_mode),
-            Mode::Changes(session) => Support::Both(session.files.search_mode),
+            Mode::Changes(session) if session.focus == crate::changes::Focus::Files => {
+                Support::Both(session.files.search_mode)
+            }
             Mode::Branches(view) => match view.as_ref() {
                 branches::View::List(session) => Support::Both(session.search_mode),
                 branches::View::Detail { .. } => Support::Unavailable,

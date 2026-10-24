@@ -13,6 +13,7 @@ pub(crate) struct CommandDraft {
 #[derive(Debug)]
 pub(crate) enum InputBar {
     Search(Editor),
+    CommandsOnly,
     Layout {
         selected: crate::diff::Preference,
         command_cursor: usize,
@@ -32,18 +33,20 @@ impl Default for InputBar {
     }
 }
 impl InputBar {
+    pub fn is_plain(&self) -> bool {
+        matches!(self, Self::Search(_) | Self::CommandsOnly)
+    }
     pub fn editor(&self) -> &Editor {
+        // 命令入口没有可编辑的搜索草稿，只提供空内容用于读取光标和显示状态。
+        static EMPTY: Editor = Editor {
+            text: String::new(),
+            cursor: 0,
+        };
         match self {
             Self::Search(editor) => editor,
+            Self::CommandsOnly => &EMPTY,
             Self::Command { input, .. } => input.editor(),
             Self::Layout { draft, .. } => draft.input.editor(),
-        }
-    }
-    pub fn editor_mut(&mut self) -> &mut Editor {
-        match self {
-            Self::Search(editor) => editor,
-            Self::Command { input, .. } => input.editor_mut(),
-            Self::Layout { draft, .. } => draft.input.editor_mut(),
         }
     }
     pub fn commands(&self, ai_enabled: bool) -> Option<Vec<&'static command::Command>> {
@@ -63,7 +66,7 @@ impl InputBar {
                     })
                     .collect(),
             ),
-            Self::Search(_) | Self::Layout { .. } => None,
+            Self::Search(_) | Self::CommandsOnly | Self::Layout { .. } => None,
         }
     }
     pub fn text(&self) -> String {
@@ -71,6 +74,7 @@ impl InputBar {
             Self::Command { input, .. } => input.text(),
             Self::Layout { draft, .. } => draft.input.text(),
             Self::Search(editor) => editor.text.clone(),
+            Self::CommandsOnly => String::new(),
         }
     }
     pub fn command_input(&self) -> Option<&command::Input> {
@@ -93,33 +97,34 @@ pub(crate) enum BarEvent {
     Quit,
 }
 impl Screen {
-    pub(crate) fn sync_bar(&mut self) {
-        if self.search_support() == crate::search::Support::Unavailable {
-            self.bar = InputBar::default();
+    pub(crate) fn sync_plain_bar(&mut self) {
+        if self.tasks.session.open() {
             return;
         }
-        self.bar = InputBar::Search(Editor::new(if let Mode::Browser(session) = &self.mode {
-            session.query.clone()
-        } else if let Mode::History(view) = &self.mode {
-            view.query().to_owned()
-        } else if let Mode::Stashes(view) = &self.mode {
-            view.session().query.clone()
-        } else if let Mode::Branches(view) = &self.mode {
-            view.session().query.clone()
-        } else if matches!(self.mode, Mode::Panel(_))
-            || (!matches!(
-                self.page,
-                Page::Repositories | Page::Configuration(crate::Configuration::Repositories)
-            ) && matches!(self.mode, Mode::Browsing))
-        {
-            // 非列表页面不借用首页搜索词，否则 Esc 会清空首页筛选而非按面包屑返回。
-            String::new()
-        } else {
-            self.mode
-                .file_session()
-                .map(|s| s.query.clone())
-                .unwrap_or_else(|| self.query.clone())
-        }))
+        let searchable = self.search_support() != crate::search::Support::Unavailable;
+        if matches!(
+            (&self.bar, searchable),
+            (InputBar::CommandsOnly, true) | (InputBar::Search(_), false)
+        ) {
+            self.sync_bar();
+        }
+    }
+    pub(crate) fn sync_bar(&mut self) {
+        if self.search_support() == crate::search::Support::Unavailable {
+            self.bar = InputBar::CommandsOnly;
+            return;
+        }
+        let query = match &self.mode {
+            Mode::Browsing => self.query.clone(),
+            Mode::Browser(session) => session.query.clone(),
+            Mode::History(view) => view.query().to_owned(),
+            Mode::Stashes(view) => view.session().query.clone(),
+            Mode::Branches(view) => view.session().query.clone(),
+            Mode::Files(files) => files.query.clone(),
+            Mode::Changes(session) => session.files.query.clone(),
+            _ => unreachable!("search capability requires a visible searchable list"),
+        };
+        self.bar = InputBar::Search(Editor::new(query));
     }
     fn normalize_bar(&mut self) {
         if matches!(&self.bar, InputBar::Command { input: command::Input::Global(editor), .. } if !editor.text.starts_with('/'))
@@ -128,7 +133,7 @@ impl Screen {
                 unreachable!()
             };
             self.bar = if self.search_support() == crate::search::Support::Unavailable {
-                InputBar::default()
+                InputBar::CommandsOnly
             } else {
                 InputBar::Search(input.into_search().expect("global command lost slash"))
             };
@@ -171,7 +176,7 @@ impl Screen {
         if matches!(self.bar, InputBar::Layout { .. }) {
             return;
         }
-        if matches!(self.bar, InputBar::Search(_))
+        if self.bar.is_plain()
             && let Some(body) = text.strip_prefix('/')
         {
             self.open_command_bar();
@@ -181,8 +186,8 @@ impl Screen {
             input.paste_initial(body);
         } else if let InputBar::Command { input, .. } = &mut self.bar {
             input.paste(text);
-        } else if self.search_support() != crate::search::Support::Unavailable {
-            self.bar.editor_mut().insert(text);
+        } else if let InputBar::Search(editor) = &mut self.bar {
+            editor.insert(text);
         }
         self.normalize_bar();
         if let InputBar::Command { selected, menu, .. } = &mut self.bar {
@@ -439,7 +444,8 @@ impl Screen {
         {
             return Ok(BarEvent::Pass);
         }
-        if matches!(&self.bar, InputBar::Search(editor) if editor.text.is_empty())
+        if self.bar.is_plain()
+            && self.bar.editor().text.is_empty()
             && key.modifiers.is_empty()
             && matches!(key.code, KeyCode::Left | KeyCode::Right)
         {
@@ -466,8 +472,8 @@ impl Screen {
                 | KeyCode::Home
                 | KeyCode::End
         );
-        if editing && search_support != crate::search::Support::Unavailable {
-            self.bar.editor_mut().key(key);
+        if editing && let InputBar::Search(editor) = &mut self.bar {
+            editor.key(key);
             self.normalize_bar();
             self.message.clear();
             return Ok(BarEvent::Handled);

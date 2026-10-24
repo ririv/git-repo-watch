@@ -44,7 +44,7 @@
 - Repository, worktree, branch, stash and historical file lists support both, defaulting to filtering. Switching preserves the query and any still-visible selection. Each list remembers its mode for this session.
 - Locate emphasizes matches. With a query, `↑` / `↓` wrap through previous/next matches; the input title shows the current match and total. No matches shows `0/0` and keeps the selection. Clearing the query restores ordinary row navigation.
 - The commit graph supports locating loaded commits only, preserving topology; load more to search older commits. The file browser supports background path filtering only.
-- Settings, overview, help and read-only details do not search hidden lists or offer search-mode commands. Search, status filters, sorting and file checkboxes remain independent.
+- Settings, overview, help, read-only details and file/diff content previews offer command input only. They do not search hidden lists or offer search-mode commands. Returning to a list restores its query; keyboard, clicks and wheel focus changes behave consistently. Search, status filters, sorting and file checkboxes remain independent.
 
 ## Context prefixes
 - `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings, schedule and help also restore their origin on return.

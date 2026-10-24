@@ -9,6 +9,7 @@ impl Screen {
     }
     fn at_command_entry(&self) -> bool {
         match &self.bar {
+            InputBar::CommandsOnly => true,
             InputBar::Search(editor) => {
                 matches!(self.mode, Mode::Error { .. })
                     || self.repository_list_active()
@@ -35,7 +36,7 @@ impl Screen {
     pub(crate) fn command_trigger_text<'a>(&self, text: &'a str) -> Cow<'a, str> {
         // 粘贴沿用 / 的入口语义；只规范开头最多两个触发符，正文不做全局替换。
         if !self.chinese_command_trigger_enabled()
-            || !(matches!(self.bar, InputBar::Search(_)) || self.at_command_entry())
+            || !(self.bar.is_plain() || self.at_command_entry())
         {
             return Cow::Borrowed(text);
         }

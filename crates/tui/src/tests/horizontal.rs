@@ -118,9 +118,10 @@ fn mouse_and_editor_are_scoped_and_new_files_reset_horizontal_position() {
     s.paste("a");
     wait(&mut s);
     render(&mut s, 100, 32);
-    let offset = diff(&s).horizontal.offset();
+    assert!(matches!(s.bar, crate::bar::InputBar::CommandsOnly));
+    let previous = diff(&s).horizontal.offset();
     key(&mut s, KeyCode::Left);
-    assert_eq!(s.bar.editor().cursor, 0);
+    let offset = previous.saturating_sub(4);
     assert_eq!(diff(&s).horizontal.offset(), offset);
     key(&mut s, KeyCode::Esc);
     command(&mut s, "repo diff layout");
@@ -135,7 +136,7 @@ fn mouse_and_editor_are_scoped_and_new_files_reset_horizontal_position() {
     assert_eq!(diff(&s).horizontal.offset(), offset);
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
-    // 搜索已聚焦文件列表；退出放大后换文件，新预览具有独立滚动位置。
+    // 预览不接收普通文字；回到文件列表后换文件，新预览具有独立滚动位置。
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Down);
     wait(&mut s);

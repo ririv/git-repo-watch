@@ -76,7 +76,9 @@ impl Screen {
         if self.focus_mode == crate::focus::State::Inactive && self.locate_key(key) {
             return Ok(false);
         }
-        self.dispatch_key(key, root)
+        let result = self.dispatch_key(key, root);
+        self.sync_plain_bar();
+        result
     }
     pub(super) fn dispatch_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         if let Mode::Busy(p) = &mut self.mode {

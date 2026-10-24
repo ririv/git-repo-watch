@@ -1,11 +1,11 @@
 //! Route horizontal scrolling without stealing editor or confirmation keys.
-use crate::{Mode, Screen, bar::InputBar, changes, document, history};
+use crate::{Mode, Screen, changes, document, history};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl Screen {
     pub(super) fn horizontal_key(&mut self, key: KeyEvent) -> bool {
         if key.modifiers != KeyModifiers::NONE
-            || !matches!(self.bar, InputBar::Search(_))
+            || !self.bar.is_plain()
             || !self.bar.editor().text.is_empty()
         {
             return false;

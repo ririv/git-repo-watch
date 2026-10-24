@@ -126,7 +126,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.command_items.clear();
     screen.pointer.clear();
     screen.pointer.links.reset(
-        matches!(screen.bar, crate::bar::InputBar::Search(_))
+        screen.bar.is_plain()
             && !matches!(
                 screen.mode,
                 Mode::Confirm { .. }

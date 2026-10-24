@@ -139,7 +139,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
         for expected in [false, true] {
             key(&mut s, KeyCode::Enter);
             assert!(matches!(s.mode, Mode::Busy(_)));
-            assert!(matches!(s.bar, InputBar::Search(_)));
+            assert!(matches!(s.bar, InputBar::CommandsOnly));
             wait(&mut s);
             assert!(matches!(s.mode, Mode::Browsing));
             assert_eq!(s.page, Page::Configuration(Configuration::General));

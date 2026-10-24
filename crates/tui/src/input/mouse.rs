@@ -4,6 +4,11 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        let result = self.pointer_event(event, root);
+        self.sync_plain_bar();
+        result
+    }
+    fn pointer_event(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
         if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {
             return Ok(false);
         }
@@ -20,7 +25,7 @@ impl Screen {
             MouseEventKind::Drag(crossterm::event::MouseButton::Left)
         ) {
             self.clicks.reset();
-            if !self.config.mouse.precise_click || !matches!(self.bar, bar::InputBar::Search(_)) {
+            if !self.config.mouse.precise_click || !self.bar.is_plain() {
                 self.drag = None;
                 return Ok(false);
             }
@@ -73,7 +78,7 @@ impl Screen {
         let precise = self.config.mouse.precise_click;
         if precise
             && click
-            && matches!(self.bar, bar::InputBar::Search(_))
+            && self.bar.is_plain()
             && let Some(target) = self
                 .pointer
                 .links
@@ -88,7 +93,7 @@ impl Screen {
             return Ok(true);
         }
         if precise
-            && matches!(self.bar, bar::InputBar::Search(_))
+            && self.bar.is_plain()
             && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && let Some(destination) = self
                 .breadcrumb_items
@@ -156,7 +161,7 @@ impl Screen {
             return Ok(true);
         }
         if click {
-            if !matches!(self.bar, bar::InputBar::Search(_)) {
+            if !self.bar.is_plain() {
                 self.clicks.reset();
                 return Ok(false);
             }
@@ -240,7 +245,7 @@ impl Screen {
             _ => None,
         };
         if let Some(code) = horizontal {
-            if !matches!(self.bar, bar::InputBar::Search(_))
+            if !self.bar.is_plain()
                 || !self.bar.editor().text.is_empty()
                 || !self
                     .body_area
@@ -274,7 +279,7 @@ impl Screen {
         // 主列表只在自身区域响应，避免在右侧预览和底部输入时改变选中仓库。
         let area = if matches!(self.mode, Mode::Browsing)
             && self.page == Page::Repositories
-            && matches!(self.bar, bar::InputBar::Search(_))
+            && self.bar.is_plain()
         {
             self.repository_area
         } else {
@@ -294,7 +299,7 @@ impl Screen {
         {
             return Ok(false);
         }
-        if matches!(self.bar, bar::InputBar::Search(_)) && !self.pointer_focus(event) {
+        if self.bar.is_plain() && !self.pointer_focus(event) {
             return Ok(false);
         }
         for _ in 0..3 {

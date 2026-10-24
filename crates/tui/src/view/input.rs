@@ -148,6 +148,7 @@ pub(crate) fn content_area(area: Rect) -> Rect {
 }
 
 enum Content<'a> {
+    CommandEntry,
     Editable {
         editor: &'a Editor,
         placeholder: &'static str,
@@ -161,6 +162,49 @@ enum Content<'a> {
         execute: &'static str,
         back: &'static str,
     },
+}
+
+fn browsing_hint(screen: &Screen) -> &'static str {
+    match &screen.mode {
+        Mode::Browsing => match screen.page {
+            Page::Repositories => i18n::tr!(RepositoryListHint),
+            Page::Detail => i18n::tr!(OverviewInputHint),
+            Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
+            Page::Configuration(_) => i18n::tr!(SelectEnterEditBackCommands),
+            Page::Help => i18n::tr!(PgdnScrollEscBackCommands),
+            Page::View(_) => i18n::tr!(PaneReadHint),
+        },
+        Mode::Panel(crate::workspace::Section::Overview) => i18n::tr!(OverviewInputHint),
+        Mode::Panel(_) => i18n::tr!(PaneReadHint),
+        Mode::Browser(session) => match session.focus {
+            crate::browser::Focus::Tree => i18n::tr!(BrowserHint),
+            crate::browser::Focus::Preview => i18n::tr!(BrowserPreviewHint),
+        },
+        Mode::Branches(view) => match view.as_ref() {
+            crate::branches::View::List(_) => i18n::tr!(BranchHint),
+            crate::branches::View::Detail { .. } => i18n::tr!(OverviewInputHint),
+        },
+        Mode::Stashes(view) => match view.as_ref() {
+            crate::stashes::View::List(_) => i18n::tr!(StashHint),
+            crate::stashes::View::Detail { .. } => i18n::tr!(PgdnScrollEscBackCommands),
+        },
+        Mode::History(view) => match view.as_ref() {
+            crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
+            crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
+            crate::history::View::Diff { content, .. }
+                if matches!(content.as_ref(), crate::document::View::Images(_)) =>
+            {
+                i18n::tr!(ImageInputHint)
+            }
+            crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
+        },
+        Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
+        Mode::Changes(session) => match session.focus {
+            crate::changes::Focus::Files => i18n::tr!(ChangesInputHint),
+            crate::changes::Focus::Preview => i18n::tr!(DiffPreviewInputHint),
+        },
+        _ => unreachable!("browsing hints require a browsing view"),
+    }
 }
 
 pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: Rect) {
@@ -189,7 +233,6 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
             | Mode::Changes(_)
             | Mode::History(_) => {
                 let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
-                let files = screen.mode.file_session().is_some();
                 let hint = if matches!(
                     &screen.bar,
                     crate::bar::InputBar::Command {
@@ -216,9 +259,6 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                             _ => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
                         },
                     }
-                } else if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview)
-                {
-                    i18n::tr!(ChangesInputHint)
                 } else if !screen.bar.editor().text.is_empty()
                     && screen.search_support().mode() == Some(crate::search::Mode::Locate)
                 {
@@ -226,71 +266,30 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
                 } else if !screen.bar.editor().text.is_empty() {
                     i18n::tr!(SearchEditingHint)
                 } else {
-                    match screen.mode {
-                        Mode::Browser(_) => i18n::tr!(BrowserHint),
-                        Mode::Stashes(_) => i18n::tr!(StashHint),
-                        Mode::Branches(ref view) => match view.as_ref() {
-                            crate::branches::View::List(_) => i18n::tr!(BranchHint),
-                            crate::branches::View::Detail { .. } => i18n::tr!(OverviewInputHint),
-                        },
-                        Mode::History(ref view) => match view.as_ref() {
-                            crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
-                            crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
-                            crate::history::View::Diff { content, .. }
-                                if matches!(content.as_ref(), crate::document::View::Images(_)) =>
-                            {
-                                i18n::tr!(ImageInputHint)
-                            }
-                            crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
-                        },
-                        Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
-                        Mode::Changes(_) => i18n::tr!(ChangesInputHint),
-                        _ => match screen.page {
-                            Page::Repositories => i18n::tr!(RepositoryListHint),
-                            Page::Detail => i18n::tr!(OverviewInputHint),
-                            Page::Configuration(Configuration::Schedule) => {
-                                i18n::tr!(ScheduleHelpHint)
-                            }
-                            Page::Configuration(_) => i18n::tr!(SelectEnterEditBackCommands),
-                            _ => i18n::tr!(PgdnScrollEscBackCommands),
-                        },
-                    }
+                    browsing_hint(screen)
                 };
                 (
-                    if command {
-                        i18n::tr!(CommandsAlt)
-                    } else if matches!(screen.mode, Mode::Browser(_)) {
-                        i18n::tr!(BrowserSearch)
-                    } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
-                    {
-                        i18n::tr!(HistorySearch)
-                    } else if matches!(screen.mode, Mode::Stashes(_)) {
-                        i18n::tr!(StashSearch)
-                    } else if matches!(screen.mode, Mode::Branches(_)) {
-                        i18n::tr!(BranchSearch)
-                    } else if files || matches!(screen.mode, Mode::History(_)) {
-                        i18n::tr!(SearchFiles)
+                    if matches!(screen.bar, crate::bar::InputBar::CommandsOnly) {
+                        ""
                     } else {
-                        i18n::tr!(SearchRepositories)
+                        i18n::tr!(CommandsAlt)
                     },
-                    Content::Editable {
-                        editor: screen.bar.editor(),
-                        placeholder: if screen
-                            .bar
-                            .command_input()
-                            .is_some_and(|input| input.menu_context().is_some())
-                        {
-                            i18n::tr!(ContextCommandPlaceholder)
-                        } else if screen.search_support() == crate::search::Support::Unavailable {
-                            i18n::tr!(SearchCommandOnly)
-                        } else if matches!(screen.mode, Mode::Browser(_)) {
-                            i18n::tr!(BrowserPlaceholder)
-                        } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
-                        {
-                            i18n::tr!(HistorySearchHint)
-                        } else {
-                            i18n::tr!(TypeToSearchOrForCommands)
-                        },
+                    if matches!(screen.bar, crate::bar::InputBar::CommandsOnly) {
+                        Content::CommandEntry
+                    } else {
+                        Content::Editable {
+                            editor: screen.bar.editor(),
+                            placeholder: if command {
+                                i18n::tr!(ContextCommandPlaceholder)
+                            } else if matches!(screen.mode, Mode::Browser(_)) {
+                                i18n::tr!(BrowserPlaceholder)
+                            } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+                            {
+                                i18n::tr!(HistorySearchHint)
+                            } else {
+                                i18n::tr!(TypeToSearchOrForCommands)
+                            },
+                        }
                     },
                     hint,
                 )
@@ -403,7 +402,10 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
     };
     let active = matches!(
         content,
-        Content::Editable { .. } | Content::Choices { .. } | Content::Layout { .. }
+        Content::CommandEntry
+            | Content::Editable { .. }
+            | Content::Choices { .. }
+            | Content::Layout { .. }
     );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
     let accent = if active {
@@ -417,12 +419,29 @@ pub(super) fn render(frame: &mut Frame, screen: &Screen, area: Rect, hint_area: 
         .title_style(Style::default().fg(accent))
         .border_style(Style::default().fg(accent))
         .style(input_style);
-    if area.height >= 3 {
+    if area.height >= 3 && !title.trim().is_empty() {
         block = block.title(format!(" {} ", title.trim()));
     }
     let inner = block.inner(area);
     frame.render_widget(block, area);
     match content {
+        Content::CommandEntry => {
+            let width = inner.width.saturating_sub(2) as usize;
+            frame.render_widget(
+                Paragraph::new(Line::from(vec![
+                    Span::styled("› ", Style::default().fg(INPUT_ACCENT)),
+                    Span::styled(
+                        truncate(i18n::tr!(SearchCommandOnly), width),
+                        Style::default().fg(MUTED),
+                    ),
+                ]))
+                .style(input_style),
+                inner,
+            );
+            if !inner.is_empty() {
+                frame.set_cursor_position(((inner.x + 2).min(inner.right() - 1), inner.y));
+            }
+        }
         Content::Editable {
             editor,
             placeholder,

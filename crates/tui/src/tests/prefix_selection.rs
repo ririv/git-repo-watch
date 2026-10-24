@@ -97,7 +97,7 @@ fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() 
         key(&mut s, KeyCode::Backspace);
         key(&mut s, KeyCode::Esc);
         assert!(s.bar.editor().text.is_empty());
-        assert!(matches!(s.bar, bar::InputBar::Search(_)));
+        assert!(matches!(s.bar, bar::InputBar::CommandsOnly));
         assert_eq!(s.selected_path(), Some("/example/alpha".into()));
     }
 }
@@ -271,7 +271,7 @@ fn deleting_a_selected_prefix_closes_commands_and_restores_search() {
         select_prefix(&mut s);
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Backspace);
-        assert!(matches!(s.bar, bar::InputBar::Search(_)));
+        assert!(matches!(s.bar, bar::InputBar::CommandsOnly));
         assert!(s.bar.text().is_empty());
         assert_eq!(s.query, query);
         assert_eq!(s.selected_path(), path);

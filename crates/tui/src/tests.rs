@@ -18,6 +18,7 @@ mod help;
 mod history;
 mod horizontal;
 mod images;
+mod input_surface;
 mod layout_picker;
 mod links;
 mod mouse;
@@ -489,7 +490,7 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     s.paste("//repo push");
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Delete);
-    assert!(matches!(s.bar, crate::bar::InputBar::Search(_)));
+    assert!(matches!(s.bar, crate::bar::InputBar::CommandsOnly));
     assert!(s.query.is_empty());
     assert!(s.bar.text().is_empty());
     assert_eq!(s.page, Page::Configuration(Configuration::General));

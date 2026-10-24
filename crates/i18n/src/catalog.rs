@@ -16,6 +16,9 @@ pub enum Message {
     SearchTargetBranches,
     SearchTargetStashes,
     SearchTargetCommits,
+    PaneReadHint,
+    BrowserPreviewHint,
+    DiffPreviewInputHint,
     PaneFocusCommand,
     PaneFocusTitle,
     PaneFocusHint,
@@ -915,6 +918,20 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::PaneReadHint, Language::English) => "Enter reload · ←/Esc back · / commands",
+            (Self::PaneReadHint, Language::Chinese) => "Enter重新读取 · ←/Esc返回 · /命令",
+            (Self::BrowserPreviewHint, Language::English) => {
+                "↑↓ scroll · ←→ pan · Tab panes · Esc files · / commands"
+            }
+            (Self::BrowserPreviewHint, Language::Chinese) => {
+                "↑↓滚动 · ←→平移 · Tab面板 · Esc文件 · /命令"
+            }
+            (Self::DiffPreviewInputHint, Language::English) => {
+                "↑↓ scroll · ←→ pan · Tab files · Esc back · / commands"
+            }
+            (Self::DiffPreviewInputHint, Language::Chinese) => {
+                "↑↓滚动 · ←→平移 · Tab文件 · Esc返回 · /命令"
+            }
             (Self::SearchInputTitle, Language::English) => "{mode} {target}",
             (Self::SearchInputTitle, Language::Chinese) => "{mode}{target}",
             (Self::SearchModeCommand, Language::English) => "Choose filter or locate for this view",
@@ -935,8 +952,8 @@ impl Message {
             (Self::SearchLocateHint, Language::Chinese) => {
                 "↑/↓上个/下个匹配 · ←/→编辑 · Esc清空 · /命令"
             }
-            (Self::SearchCommandOnly, Language::English) => "Type / for commands",
-            (Self::SearchCommandOnly, Language::Chinese) => "输入 / 查看命令",
+            (Self::SearchCommandOnly, Language::English) => "Press / to open the command menu",
+            (Self::SearchCommandOnly, Language::Chinese) => "按 / 打开命令菜单",
             (Self::SearchUnavailable, Language::English) => {
                 "This view does not support that search mode."
             }

@@ -341,6 +341,9 @@ impl Screen {
                 },
             }
         }
+        if changed {
+            self.sync_plain_bar();
+        }
         changed
     }
     pub(super) fn park_workspace(&mut self) {
