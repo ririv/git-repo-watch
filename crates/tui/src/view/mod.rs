@@ -4,6 +4,7 @@ mod branches;
 mod breadcrumbs;
 pub(super) mod browser;
 pub(super) mod changes;
+mod commands;
 mod completion;
 mod diff;
 mod document;
@@ -171,7 +172,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     if !body.is_empty() {
         render_body(frame, screen, body);
     }
-    render_commands(frame, screen, body);
+    commands::render(frame, screen, body);
 }
 fn truncate(text: &str, width: usize) -> String {
     if width == 0 {
@@ -199,187 +200,6 @@ fn local_time(value: &str) -> String {
             .to_string(),
         Err(_) => i18n::tf!(InvalidReportTimestampValue, value = value),
     }
-}
-
-fn render_commands(frame: &mut Frame, screen: &mut Screen, body: Rect) {
-    let crate::bar::InputBar::Command {
-        input,
-        selected,
-        path,
-        ..
-    } = &screen.bar
-    else {
-        return;
-    };
-    if !matches!(
-        screen.mode,
-        Mode::Browsing
-            | Mode::Browser(_)
-            | Mode::Panel(_)
-            | Mode::Stashes(_)
-            | Mode::Branches(_)
-            | Mode::Files(_)
-            | Mode::Changes(_)
-            | Mode::History(_)
-            | Mode::Error { .. }
-    ) {
-        return;
-    }
-    if let crate::bar::InputBar::Command {
-        menu: command::completion::Menu::Directories(directories),
-        ..
-    } = &screen.bar
-    {
-        completion::render(frame, directories, body);
-        return;
-    }
-    if let crate::bar::InputBar::Command {
-        menu: command::completion::Menu::Values(values),
-        ..
-    } = &screen.bar
-    {
-        completion::render_values(frame, values, body);
-        return;
-    }
-    let matches = screen
-        .bar
-        .commands(screen.config.ai.enabled)
-        .expect("command bar provides candidates");
-    let name_width = matches
-        .iter()
-        .map(|command| input.usage(command).len())
-        .max()
-        .unwrap_or(0)
-        .max(13);
-    let items = matches
-        .iter()
-        .map(|c| {
-            let scope = match c.scope {
-                command::Scope::Repository => i18n::tr!(CurrentRepo),
-                command::Scope::Global => i18n::tr!(Global),
-                command::Scope::View => i18n::tr!(CurrentView),
-            };
-            let annotation = repository_list::annotation(c.action, screen)
-                .or_else(|| layout_picker::annotation(c.action, screen, body))
-                .or_else(|| settings::annotation(c.action, screen))
-                .or_else(|| {
-                    screen
-                        .bar
-                        .selection()?
-                        .annotation(c.action)
-                        .map(str::to_owned)
-                });
-            let annotation_width = annotation
-                .as_deref()
-                .map_or(0, |text| unicode_width::UnicodeWidthStr::width(text) + 3);
-            let description_width = (body.width as usize).saturating_sub(
-                2 + name_width
-                    + 2
-                    + 4
-                    + unicode_width::UnicodeWidthStr::width(scope)
-                    + annotation_width,
-            );
-            let description = truncate(c.description.text(), description_width);
-            let padding = description_width
-                .saturating_sub(unicode_width::UnicodeWidthStr::width(description.as_str()));
-            let mut spans = vec![Span::styled(
-                format!(
-                    "{}{}",
-                    if input.menu_context().is_some() {
-                        ""
-                    } else {
-                        "/"
-                    },
-                    input.name(c)
-                ),
-                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-            )];
-            if let Some(argument) = c.action.argument() {
-                spans.push(Span::styled(
-                    format!(" {}", argument.placeholder()),
-                    Style::default()
-                        .fg(Color::LightCyan)
-                        .add_modifier(Modifier::ITALIC),
-                ));
-            }
-            let usage_width = input.usage(c).len();
-            spans.push(Span::raw(" ".repeat(name_width - usage_width + 1)));
-            if let Some(annotation) = annotation {
-                spans.push(Span::styled(
-                    format!("[{annotation}] "),
-                    Style::default().fg(GOOD),
-                ));
-            }
-            spans.push(Span::raw(format!("{description}{}", " ".repeat(padding))));
-            spans.push(Span::styled(
-                format!("  · {scope}"),
-                Style::default().fg(MUTED),
-            ));
-            ListItem::new(Line::from(spans))
-        })
-        .collect::<Vec<_>>();
-    // 高度充足时保留视图标题；矮窗口优先给命令候选留出空间。
-    let available_height = body.height.saturating_sub(u16::from(body.height >= 9)) as usize;
-    let height = (items.len().clamp(1, 8) + 2).min(available_height) as u16;
-    let area = Rect::new(
-        body.x,
-        body.bottom().saturating_sub(height),
-        body.width,
-        height,
-    );
-    let title = input
-        .menu_context()
-        .map(|context| {
-            format!(
-                "/{} · {}",
-                context.name(),
-                repository_list::menu_title(screen).unwrap_or(i18n::tr!(ContextCommands))
-            )
-        })
-        .or_else(|| repository_list::menu_title(screen).map(str::to_owned))
-        .unwrap_or_else(|| {
-            i18n::tf!(
-                Commands,
-                path.as_deref()
-                    .map(name)
-                    .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into())
-            )
-        });
-    let mut state = ListState::default().with_selected(if items.is_empty() {
-        None
-    } else {
-        Some(*selected)
-    });
-    let count = items.len();
-    let border = if area.height >= 3 {
-        block(title)
-    } else {
-        Block::default()
-    };
-    let inner = border.inner(area);
-    frame.render_widget(Clear, area);
-    frame.render_stateful_widget(
-        List::new(if items.is_empty() {
-            vec![ListItem::new(i18n::tr!(NoMatchingCommands))]
-        } else {
-            items
-        })
-        .block(border)
-        .highlight_style(selected_style()),
-        area,
-        &mut state,
-    );
-    crate::scrollbar::vertical(frame, area, inner, count, state.offset());
-    screen.command_items = (state.offset()..count)
-        .take(inner.height as usize)
-        .enumerate()
-        .map(|(row, index)| {
-            (
-                Rect::new(inner.x, inner.y + row as u16, inner.width, 1),
-                index,
-            )
-        })
-        .collect();
 }
 
 #[cfg(test)]

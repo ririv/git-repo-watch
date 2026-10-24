@@ -124,7 +124,9 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(text.contains("Default"));
         s.paste("/model");
         assert!(
-            render(&mut s, 140, 48).contains(&format!("[{}: Default]", i18n::tr!(LayoutCurrent)))
+            render(&mut s, 140, 48)
+                .lines()
+                .any(|line| line.contains("model <model|default>") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Configuration(Configuration::General));
@@ -138,15 +140,18 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert_eq!(s.config.ai.claude.model, "example-model");
         s.paste("/model");
         assert!(
-            render(&mut s, 140, 48)
-                .contains(&format!("[{}: example-model]", i18n::tr!(LayoutCurrent)))
+            render(&mut s, 140, 48).lines().any(
+                |line| line.contains("model <model|default>") && line.contains("example-model")
+            )
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent codex");
         wait(&mut s);
         s.paste("/model");
         assert!(
-            render(&mut s, 140, 48).contains(&format!("[{}: Default]", i18n::tr!(LayoutCurrent)))
+            render(&mut s, 140, 48)
+                .lines()
+                .any(|line| line.contains("model <model|default>") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent claude");

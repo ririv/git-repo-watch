@@ -91,9 +91,9 @@ impl ArgumentAction {
             Self::Autopush => i18n::tr!(PolicyArgumentHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::StartupCheck => i18n::tr!(StartupCheckArgumentHint),
-            Self::AiAgent => i18n::tr!(AgentNameHint),
-            Self::AiModel => i18n::tr!(AgentModelHint),
-            Self::AiPrompt => i18n::tr!(AgentPromptHint),
+            Self::AiAgent => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+            Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+            Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
         }
     }
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {

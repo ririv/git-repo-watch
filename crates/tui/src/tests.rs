@@ -660,7 +660,8 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         s.paste("//");
         let candidates = render(&mut s, width, height);
-        assert!(candidates.contains("Current repo"));
+        assert!(!candidates.contains("Current repo"));
+        assert!(candidates.contains("Open repository"));
         assert!(candidates.contains("Tab complete"));
         assert!(candidates.contains("/repo"));
         key(&mut s, KeyCode::Esc);
@@ -767,6 +768,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             s.paste("/repo");
             let text = render(&mut s, width, height);
             assert_eq!(s.command_items.len(), 8, "{text}");
+            assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
             for item in s
                 .bar
                 .commands(s.config.ai.enabled)
@@ -784,6 +786,28 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             assert!(last.contains("/repo copy"));
             key(&mut s, KeyCode::Esc);
         }
+    }
+}
+
+#[test]
+fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
+    let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+    for height in [12, 17, 18, 21, 24] {
+        s.paste("/repo");
+        render(&mut s, 60, height);
+        let count = s.command_items.len();
+        assert!((1..=8).contains(&count));
+        for _ in 0..command::COMMANDS.len() {
+            key(&mut s, KeyCode::Down);
+        }
+        let text = render(&mut s, 60, height);
+        assert_eq!(s.command_items.len(), count, "{text}");
+        assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
+        let (_, index) = s.command_items.last().unwrap();
+        let commands = s.bar.commands(s.config.ai.enabled).unwrap();
+        assert_eq!(*index, commands.len() - 1, "{text}");
+        assert!(text.contains("/repo copy"), "{text}");
+        key(&mut s, KeyCode::Esc);
     }
 }
 

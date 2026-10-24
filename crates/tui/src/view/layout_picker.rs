@@ -43,30 +43,14 @@ fn effective(view: &document::View, area: Rect, preference: Preference) -> Optio
 }
 pub(super) fn annotation(action: Action, screen: &Screen, body: Rect) -> Option<String> {
     match action {
-        Action::InteractionMenu => Some(format!(
-            "{}: {}",
-            i18n::tr!(LayoutCurrent),
-            crate::interaction::label(screen.config.interaction_mode)
-        )),
-        Action::Interaction(mode) if mode == screen.config.interaction_mode => {
-            Some(format!("✓ {}", i18n::tr!(LayoutCurrent)))
+        Action::InteractionMenu => {
+            Some(crate::interaction::label(screen.config.interaction_mode).into())
         }
-        Action::FileLayoutMenu => Some(format!(
-            "{}: {}",
-            i18n::tr!(LayoutCurrent),
-            screen.file_layout.label()
-        )),
-        Action::FileLayout(layout) if layout == screen.file_layout => {
-            Some(format!("✓ {}", i18n::tr!(LayoutCurrent)))
-        }
-        Action::Diff | Action::DiffLayoutMenu => Some(format!(
-            "{}: {}",
-            i18n::tr!(LayoutCurrent),
-            summary(screen, body)
-        )),
-        Action::DiffLayout(preference) if preference == screen.diff_preference => {
-            Some(format!("✓ {}", i18n::tr!(LayoutCurrent)))
-        }
+        Action::Interaction(mode) if mode == screen.config.interaction_mode => Some("✓".into()),
+        Action::FileLayoutMenu => Some(screen.file_layout.label().into()),
+        Action::FileLayout(layout) if layout == screen.file_layout => Some("✓".into()),
+        Action::DiffLayoutMenu => Some(summary(screen, body)),
+        Action::DiffLayout(preference) if preference == screen.diff_preference => Some("✓".into()),
         _ => None,
     }
 }

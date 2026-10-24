@@ -188,16 +188,16 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         assert_eq!(s.diff_preference, Preference::Split);
         s.paste("//repo diff layout ");
         let text = render(&mut s, 100, 28);
-        let current = format!("✓ {}", i18n::tr!(LayoutCurrent));
+        let current = "✓";
         assert!(
             text.lines()
-                .any(|line| line.contains("/repo diff layout split") && line.contains(&current)),
+                .any(|line| line.contains("/repo diff layout split") && line.contains(current)),
             "{text}"
         );
         assert!(
             !text
                 .lines()
-                .any(|line| line.contains("/repo diff layout unified") && line.contains(&current))
+                .any(|line| line.contains("/repo diff layout unified") && line.contains(current))
         );
         assert!(s.repository_tasks.is_empty());
     }
@@ -208,11 +208,12 @@ fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_thei
     let (_home, mut s) = fixture(vec![]);
     s.paste("//repo diff ");
     let text = render(&mut s, 100, 28);
-    assert!(text.contains(&format!(
-        "[{}: {}]",
-        i18n::tr!(LayoutCurrent),
-        Preference::Auto.label()
-    )));
+    assert!(
+        text.lines()
+            .any(|line| line.contains("/repo diff layout")
+                && line.contains(Preference::Auto.label())),
+        "{text}"
+    );
     assert!(!text.contains(&format!("({} ", i18n::tr!(LayoutVisible))));
     let f = support::Fixture::create();
     f.commit("source.rs", "fn initial() {}\n");

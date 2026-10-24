@@ -174,7 +174,12 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 1, .. }));
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
-            assert!(text.contains("[✓]"), "{text}");
+            assert!(
+                text.lines()
+                    .any(|line| line.contains("/repos sort name") && line.contains('✓')),
+                "{text}"
+            );
+            assert!(!text.contains("[✓]"), "{text}");
             assert!(text.contains(i18n::tr!(RepositorySortCommand)), "{text}");
         }
         key(&mut s, KeyCode::Esc);

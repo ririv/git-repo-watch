@@ -62,3 +62,94 @@ fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope()
     );
     assert!(s.repository_tasks.is_empty());
 }
+
+#[test]
+fn concise_commands_show_values_without_scope_or_detail_rows_and_remain_clickable() {
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        command(&mut s, "settings ai");
+        let configuration = std::fs::read(s.service.store.config_path()).unwrap();
+        s.paste("/");
+        let text = render(&mut s, 140, 32);
+        let items = s.command_items.clone();
+        assert_eq!(items.len(), 3);
+        for (area, index) in &items {
+            let command = s.bar.commands(s.config.ai.enabled).unwrap()[*index];
+            assert_eq!(area.height, 1);
+            let line = text.lines().nth(area.y.into()).unwrap();
+            assert!(line.contains(command.summary().text()), "{line}");
+            for absent in [
+                i18n::tr!(Global),
+                i18n::tr!(CurrentRepo),
+                i18n::tr!(CurrentView),
+                i18n::tr!(LayoutCurrent),
+                "[",
+                "]",
+            ] {
+                assert!(!line.contains(absent), "{line}");
+            }
+        }
+        assert!(
+            items
+                .windows(2)
+                .all(|pair| pair[0].0.bottom() == pair[1].0.y)
+        );
+        assert!(
+            text.lines()
+                .nth(items[0].0.y.into())
+                .unwrap()
+                .contains("Codex")
+        );
+        assert!(
+            text.lines()
+                .nth(items[1].0.y.into())
+                .unwrap()
+                .contains("Default")
+        );
+        assert!(!text.contains(i18n::tr!(AgentNameHint)));
+        key(&mut s, KeyCode::Down);
+        let text = render(&mut s, 140, 32);
+        assert_eq!(s.command_items, items);
+        assert!(text.contains(i18n::CommandSummary::AiModel.text()));
+        let model = items[1].0;
+        assert!(
+            s.mouse(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: model.x + 2,
+                    row: model.y,
+                    modifiers: KeyModifiers::NONE,
+                },
+                &Cancel::default()
+            )
+            .unwrap()
+        );
+        assert_eq!(s.bar.text(), "/settings ai model ");
+        assert!(matches!(s.mode, Mode::Browsing));
+        assert_eq!(
+            std::fs::read(s.service.store.config_path()).unwrap(),
+            configuration
+        );
+        s.shutdown();
+    }
+}
+
+#[test]
+fn command_descriptions_remain_searchable_across_interface_languages() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        for query in ["填写模型名", "ENTER A MODEL NAME", "设置模型", "SET MODEL"] {
+            s.paste(&format!("//{query}"));
+            let matches = s.bar.commands(s.config.ai.enabled).unwrap();
+            assert_eq!(matches.len(), 1);
+            assert_eq!(matches[0].action, Action::AiModel);
+            let text = render(&mut s, 140, 28);
+            assert!(text.contains(i18n::CommandSummary::AiModel.text()));
+            key(&mut s, KeyCode::Esc);
+        }
+        s.shutdown();
+    }
+}

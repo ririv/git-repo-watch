@@ -15,5 +15,5 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
         Action::AiAgent => screen.config.ai.agent.label().into(),
         _ => return None,
     };
-    Some(format!("{}: {value}", i18n::tr!(LayoutCurrent)))
+    Some(value)
 }

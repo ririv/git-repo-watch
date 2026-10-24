@@ -1,4 +1,6 @@
 //! Typed bilingual messages and process-wide system language selection.
+mod command;
+pub use command::CommandSummary;
 mod catalog;
 mod system;
 pub use catalog::Message;

@@ -214,6 +214,8 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
+命令列表每项显示一行，命令、参数和短说明左对齐，配置类命令的当前值在右侧右对齐；不显示作用域、“当前”标签或括号，也不另设详情区。复制命令的短说明显示本次复制目标。窗口足够时最多显示八项。输入命令名、短说明或完整说明均可筛选候选，说明支持中英文搜索。
+
 全局菜单只显示顶层入口；继续输入可按命令名称或中英文提示说明筛选，英文忽略大小写。例如 `//终端`、`//频率`、`//live diff` 都能找到对应命令，Tab 将选中结果补全为实际命令。完整名称前缀、命令词开头、名称中包含的文字、说明文字依次优先匹配，结果不重复；父命令末尾的空格会限定为子命令。输入命令前缀后显示所有匹配的子命令，不必先输入空格。例如 `/repo diff` 同时显示入口、`stage`、`unstage`、`layout` 及其三个布局快捷命令，`/repo diff layout` 显示布局入口和三个快捷命令；末尾加空格可只显示子命令。父命令排在子命令之前，输入 `/repo diff` 后直接按 Enter 仍进入变更界面。选中候选后按 Enter 执行对应入口，Tab 只补全命令名称。选中或点击 `/repo diff layout` 会打开底部横向选择器；左右键、Tab／Shift+Tab 切换候选，Enter 应用，Esc 返回原命令草稿。打开时定位当前设置，候选移动不立即应用；鼠标单击选项定位候选，双击或按 Enter 应用。输入 `/repo diff layout ` 仍可补全 `auto`、`split`、`unified` 快捷子命令。命令列表会标记当前选项，`/repo diff` 和 `/repo diff layout` 的候选直接显示布局设置；自动模式还显示当前预览实际使用的统一／双栏视图，并随窗口大小更新。例如 `/schedule interval` 修改执行间隔，`/repos remove` 移除选中仓库的注册。命令行 CLI 的 `gw interval` 等命令保持不变。
 
 首页的 `/repos filter` 和 `/repos sort` 按 Enter 后展开选项，定位当前设置；移动候选不会立即应用，Esc 关闭菜单。也可直接执行 `/repos filter all`、`/repos filter problems`、`/repos filter clean`、`/repos filter failed`、`/repos filter unchecked`、`/repos filter no-upstream`、`/repos filter pushes`，或 `/repos sort priority`、`/repos sort name`、`/repos sort path`、`/repos sort updated`。名称排序忽略英文大小写，名称或时间相同时按完整路径排序；最近更新使用每个仓库状态记录的时间（包括检查和仓库操作后的本地刷新），从新到旧，未检查排最后。无上游与推送记录筛选独立于问题分类，问题包含需关注和检查失败。筛选与文字搜索同时生效，切换选项保留仍可见的选中仓库，否则选中首项；空列表仍可修改条件。这些选项只影响本次 TUI 会话，不修改配置、报告或定时任务，也不触发检查。首页仅显示当前条件和当前列表数量。
