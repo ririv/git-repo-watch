@@ -2,6 +2,36 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    TasksCheck,
+    TasksScheduledCheck,
+    TaskInterrupted,
+    Tasks,
+    TasksHint,
+    TasksEmpty,
+    TasksPending,
+    TasksRunning,
+    TasksCancelling,
+    TasksSuccess,
+    TasksFailedHandled,
+    TasksCancelled,
+    TasksHistory,
+    TasksUnavailable,
+    TasksSummary,
+    TasksDetailsHint,
+    TasksInteractive,
+    TasksScheduled,
+    TasksImported,
+    TasksStarted,
+    TasksFinished,
+    TasksDetails,
+    TasksFailureReason,
+    TasksProgress,
+    TasksSource,
+    TasksScope,
+    TasksAll,
+    TasksApplication,
+    TasksStorageError,
+
     ExpandOperationResult,
     OperationResultReaderHint,
     Ai,
@@ -863,6 +893,85 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::TasksCheck, Language::English) => "Check",
+            (Self::TasksCheck, Language::Chinese) => "检查",
+            (Self::TasksScheduledCheck, Language::English) => "Scheduled check",
+            (Self::TasksScheduledCheck, Language::Chinese) => "定时检查",
+            (Self::TaskInterrupted, Language::English) => {
+                "Task interrupted: its worker is no longer running. Review the repository before retrying."
+            }
+            (Self::TaskInterrupted, Language::Chinese) => {
+                "任务中断：执行进程已退出。重试前请检查仓库状态。"
+            }
+            (Self::Tasks, Language::English) => "Tasks",
+            (Self::Tasks, Language::Chinese) => "任务",
+            (Self::TasksHint, Language::English) => {
+                "↑↓ select · Enter details · c cancel · r retry · d mark handled · Esc return"
+            }
+            (Self::TasksHint, Language::Chinese) => {
+                "↑↓选择 · Enter 详情 · c 取消 · r 重试 · d 标记已处理 · Esc 返回"
+            }
+            (Self::TasksEmpty, Language::English) => "No tasks yet",
+            (Self::TasksEmpty, Language::Chinese) => "暂无任务",
+            (Self::TasksPending, Language::English) => "Needs action",
+            (Self::TasksPending, Language::Chinese) => "待处理",
+            (Self::TasksRunning, Language::English) => "Running",
+            (Self::TasksRunning, Language::Chinese) => "运行中",
+            (Self::TasksCancelling, Language::English) => "Cancelling",
+            (Self::TasksCancelling, Language::Chinese) => "正在取消",
+            (Self::TasksSuccess, Language::English) => "Succeeded",
+            (Self::TasksSuccess, Language::Chinese) => "成功",
+            (Self::TasksFailedHandled, Language::English) => "Failed · handled",
+            (Self::TasksFailedHandled, Language::Chinese) => "失败 · 已处理",
+            (Self::TasksCancelled, Language::English) => "Cancelled",
+            (Self::TasksCancelled, Language::Chinese) => "已取消",
+            (Self::TasksHistory, Language::English) => "History",
+            (Self::TasksHistory, Language::Chinese) => "历史",
+            (Self::TasksUnavailable, Language::English) => {
+                "This task cannot be retried here. Review its details and run the operation again."
+            }
+            (Self::TasksUnavailable, Language::Chinese) => {
+                "此任务不支持直接重试，请查看详情后重新执行操作。"
+            }
+            (Self::TasksSummary, Language::English) => {
+                "{pending} pending · {running} running · Alt+Enter tasks"
+            }
+            (Self::TasksSummary, Language::Chinese) => {
+                "{pending} 待处理 · {running} 运行中 · Alt+Enter 任务"
+            }
+            (Self::TasksDetailsHint, Language::English) => {
+                "↑↓ scroll · c cancel · r retry · d mark handled · Esc return"
+            }
+            (Self::TasksDetailsHint, Language::Chinese) => {
+                "↑↓滚动 · c 取消 · r 重试 · d 标记已处理 · Esc 返回"
+            }
+            (Self::TasksInteractive, Language::English) => "Interactive",
+            (Self::TasksInteractive, Language::Chinese) => "手动",
+            (Self::TasksScheduled, Language::English) => "Scheduled",
+            (Self::TasksScheduled, Language::Chinese) => "定时",
+            (Self::TasksImported, Language::English) => "Previous history",
+            (Self::TasksImported, Language::Chinese) => "此前记录",
+            (Self::TasksStarted, Language::English) => "Started",
+            (Self::TasksStarted, Language::Chinese) => "开始",
+            (Self::TasksFinished, Language::English) => "Finished",
+            (Self::TasksFinished, Language::Chinese) => "结束",
+            (Self::TasksDetails, Language::English) => "Task details",
+            (Self::TasksDetails, Language::Chinese) => "任务详情",
+            (Self::TasksFailureReason, Language::English) => "Failure reason",
+            (Self::TasksFailureReason, Language::Chinese) => "失败原因",
+            (Self::TasksProgress, Language::English) => "Progress",
+            (Self::TasksProgress, Language::Chinese) => "进度",
+            (Self::TasksSource, Language::English) => "Source",
+            (Self::TasksSource, Language::Chinese) => "来源",
+            (Self::TasksScope, Language::English) => "Scope",
+            (Self::TasksScope, Language::Chinese) => "范围",
+            (Self::TasksAll, Language::English) => "All repositories",
+            (Self::TasksAll, Language::Chinese) => "全部仓库",
+            (Self::TasksApplication, Language::English) => "Application",
+            (Self::TasksApplication, Language::Chinese) => "应用",
+            (Self::TasksStorageError, Language::English) => "Task history error",
+            (Self::TasksStorageError, Language::Chinese) => "任务记录错误",
+
             (Self::ExpandOperationResult, Language::English) => "Show full result · Alt+Enter",
             (Self::ExpandOperationResult, Language::Chinese) => "展开完整结果 · Alt+Enter",
             (Self::OperationResultReaderHint, Language::English) => {
@@ -3831,6 +3940,18 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (TaskCounts $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{pending} pending · {running} running" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中" $(, $($args)*)?),
+        }
+    };
+    (TasksSummary $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{pending} pending · {running} running · Alt+Enter tasks" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中 · Alt+Enter 任务" $(, $($args)*)?),
+        }
+    };
     (LinkPathMissing $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Path does not exist: {}" $(, $($args)*)?),

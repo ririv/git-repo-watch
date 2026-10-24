@@ -15,9 +15,21 @@ impl Screen {
         let service = self.service.clone();
         let (tx, rx) = mpsc::channel();
         let language = i18n::language();
+        let spec =
+            crate::task_center::spec(title, self.scope_path(), engine::tasks::Retry::Unavailable);
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
-            let result = task(service, task_cancel, tx.clone());
+            let result = (|| {
+                let run = engine::tasks::Run::begin(&service.store, spec.clone(), &task_cancel)?;
+                let result = task(service, task_cancel.clone(), tx.clone());
+                run.finish(crate::task_center::outcome(
+                    &result,
+                    &task_cancel,
+                    &spec.title,
+                    effect,
+                ))?;
+                result
+            })();
             let _ = tx.send(WorkerEvent::Done(result));
         });
         self.mode = Mode::Busy(Pending {

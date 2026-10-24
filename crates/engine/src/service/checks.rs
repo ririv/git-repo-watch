@@ -7,20 +7,29 @@ enum CheckInvocation {
 impl Service {
     /// Check all registered repositories without publishing commits.
     pub fn run(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
-        self.run_batch(CheckInvocation::Manual, cancel, emit)
+        self.run_batch(CheckInvocation::Manual, cancel, emit, None)
     }
     /// Apply the saved automatic push policy for a scheduled check.
     pub fn run_scheduled(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
-        self.run_batch(CheckInvocation::Scheduled, cancel, emit)
+        self.run_batch(CheckInvocation::Scheduled, cancel, emit, None)
+    }
+    pub fn retry_check_all(
+        &self,
+        cancel: &Cancel,
+        emit: impl FnMut(Event),
+        parent: String,
+    ) -> Result<Report> {
+        self.run_batch(CheckInvocation::Manual, cancel, emit, Some(parent))
     }
     fn run_batch(
         &self,
         invocation: CheckInvocation,
         cancel: &Cancel,
         emit: impl FnMut(Event),
+        retry_of: Option<String>,
     ) -> Result<Report> {
         let _batch = self.store.batch_lock()?;
-        self.execute_batch(invocation, cancel, emit)
+        self.execute_batch(invocation, cancel, emit, retry_of)
     }
     pub(super) fn run_due(
         &self,
@@ -47,7 +56,7 @@ impl Service {
                 return Ok(None);
             }
         }
-        self.execute_batch(CheckInvocation::Scheduled, cancel, emit)
+        self.execute_batch(CheckInvocation::Scheduled, cancel, emit, None)
             .map(Some)
     }
     fn execute_batch(
@@ -55,34 +64,114 @@ impl Service {
         invocation: CheckInvocation,
         cancel: &Cancel,
         mut emit: impl FnMut(Event),
+        retry_of: Option<String>,
     ) -> Result<Report> {
-        let mut config = self.store.config()?;
-        if matches!(invocation, CheckInvocation::Manual) {
-            config.push_policy = PushPolicy::Disabled;
-        }
-        // 提前校验旧数据；执行期间只在写入单个结果时持有短事务锁。
-        self.store.repository_reports()?;
-        let report = self.execute_checks(&config, cancel, &mut emit)?;
-        cancel.check()?;
-        self.store.save_report(&report)?;
-        Ok(report)
+        let source = match invocation {
+            CheckInvocation::Manual => crate::tasks::Source::Interactive,
+            CheckInvocation::Scheduled => crate::tasks::Source::Scheduled,
+        };
+        let title = match invocation {
+            CheckInvocation::Manual => i18n::tr!(TasksCheck),
+            CheckInvocation::Scheduled => i18n::tr!(TasksScheduledCheck),
+        };
+        let mut run = crate::tasks::Run::begin(
+            &self.store,
+            crate::tasks::Spec {
+                title: title.into(),
+                scope: crate::tasks::Scope::All,
+                source,
+                retry: match invocation {
+                    CheckInvocation::Manual => crate::tasks::Retry::CheckAll,
+                    CheckInvocation::Scheduled => crate::tasks::Retry::Unavailable,
+                },
+                retry_of,
+            },
+            cancel,
+        )?;
+        let mut done = 0;
+        let mut progress_error = None;
+        let result = (|| {
+            let mut config = self.store.config()?;
+            if matches!(invocation, CheckInvocation::Manual) {
+                config.push_policy = PushPolicy::Disabled;
+            }
+            // 提前校验旧数据；执行期间只在写入单个结果时持有短事务锁。
+            self.store.repository_reports()?;
+            let total = config.repositories.len();
+            let report = self.execute_checks(&config, cancel, &mut |event| {
+                if let Event::Checked { .. } = &event {
+                    done += 1;
+                    if let Err(error) = run.progress(format!("{done}/{total}")) {
+                        progress_error = Some(error);
+                    }
+                }
+                emit(event);
+            })?;
+            if let Some(error) = progress_error {
+                return Err(error);
+            }
+            cancel.check()?;
+            self.store.save_report(&report)?;
+            Ok(report)
+        })();
+        let outcome = check_outcome(&result, cancel);
+        run.finish(outcome)?;
+        result
     }
     pub fn check_repository(
         &self,
         path: &Path,
         cancel: &Cancel,
-        mut emit: impl FnMut(Event),
+        emit: impl FnMut(Event),
     ) -> Result<Report> {
-        self.store.repository_reports()?;
-        emit(Event::Checking(path.to_owned()));
-        let report = self.check_one(path, PushPolicy::Disabled, cancel)?;
-        emit(Event::Checked {
-            result: report.repositories[0].clone(),
-            finished_at: report.finished_at.clone(),
-            revision: report.repository_revisions[path],
-        });
-        Ok(report)
+        self.check_repository_task(path, cancel, emit, None)
     }
+    pub fn retry_check_repository(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+        emit: impl FnMut(Event),
+        parent: String,
+    ) -> Result<Report> {
+        self.check_repository_task(path, cancel, emit, Some(parent))
+    }
+    fn check_repository_task(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+        mut emit: impl FnMut(Event),
+        retry_of: Option<String>,
+    ) -> Result<Report> {
+        let run = crate::tasks::Run::begin(
+            &self.store,
+            crate::tasks::Spec {
+                title: i18n::tr!(TasksCheck).into(),
+                scope: crate::tasks::Scope::Repository {
+                    path: path.to_owned(),
+                },
+                source: crate::tasks::Source::Interactive,
+                retry: crate::tasks::Retry::CheckRepository {
+                    path: path.to_owned(),
+                },
+                retry_of,
+            },
+            cancel,
+        )?;
+        let result = (|| {
+            self.store.repository_reports()?;
+            emit(Event::Checking(path.to_owned()));
+            let report = self.check_one(path, PushPolicy::Disabled, cancel)?;
+            emit(Event::Checked {
+                result: report.repositories[0].clone(),
+                finished_at: report.finished_at.clone(),
+                revision: report.repository_revisions[path],
+            });
+            Ok(report)
+        })();
+        run.finish(check_outcome(&result, cancel))?;
+        result
+    }
+
     fn check_one(&self, path: &Path, policy: PushPolicy, cancel: &Cancel) -> Result<Report> {
         let _repository = self.repository_lock(path, cancel)?;
         let started_at = state::now();
@@ -275,5 +364,47 @@ pub fn group(paths: &[PathBuf]) -> Groups {
     Groups {
         jobs: jobs.into_values().collect(),
         failures,
+    }
+}
+
+fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outcome {
+    use crate::tasks::{Outcome, Resolution};
+    let Ok(report) = result else {
+        return Outcome::capture(result, cancel, |_| unreachable!());
+    };
+    let mut failures = Vec::new();
+    for repository in &report.repositories {
+        if let RepositoryResult::Failed { path, error, .. } = repository {
+            failures.push(format!("{}: {error}", path.display()));
+        }
+        for publication in repository.pushes() {
+            if let Publication::Failed { error, .. } = publication {
+                failures.push(format!("{}: {error}", repository.path().display()));
+            }
+        }
+    }
+    if failures.is_empty() {
+        Outcome::Succeeded {
+            detail: {
+                let stats = crate::domain::Stats::of(report);
+                let summary = i18n::tf!(
+                    CheckCompleteCleanAttentionFailed,
+                    stats.clean,
+                    stats.attention,
+                    stats.failed
+                );
+                std::iter::once(summary)
+                    .chain(report.repositories.iter().map(|repository| {
+                        format!("{} · {}", repository.path().display(), repository.label())
+                    }))
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            },
+        }
+    } else {
+        Outcome::Failed {
+            detail: failures.join("\n\n"),
+            resolution: Resolution::Pending,
+        }
     }
 }

@@ -149,7 +149,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             key(&mut s, KeyCode::Char('/'));
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|f| view::render(f, &mut s)).unwrap();
-            let ordinary = terminal.backend().buffer()[(2, height - 3)].clone();
+            let ordinary = terminal.backend().buffer()[(2, height - 4)].clone();
             key(&mut s, KeyCode::Backspace);
             let selected_text = render(&mut s, width, height);
             let selected_names = s
@@ -160,7 +160,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
                 .map(|c| c.name)
                 .collect::<Vec<_>>();
             terminal.draw(|f| view::render(f, &mut s)).unwrap();
-            let selected = &terminal.backend().buffer()[(2, height - 3)];
+            let selected = &terminal.backend().buffer()[(2, height - 4)];
             assert_eq!(selected.symbol(), "/");
             assert_eq!(selected.fg, Color::Black);
             assert_eq!(selected.bg, Color::Rgb(180, 145, 220));
@@ -198,7 +198,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
             }
             key(&mut s, KeyCode::Right);
             terminal.draw(|f| view::render(f, &mut s)).unwrap();
-            assert_eq!(terminal.backend().buffer()[(2, height - 3)].bg, ordinary.bg);
+            assert_eq!(terminal.backend().buffer()[(2, height - 4)].bg, ordinary.bg);
             assert!(terminal.backend().cursor_visible());
         }
     }

@@ -12,7 +12,6 @@ mod confirmation;
 mod diff;
 mod document;
 mod editor;
-mod feedback;
 mod files;
 mod graphics;
 mod history;
@@ -35,6 +34,7 @@ mod settings;
 mod spinner;
 mod stashes;
 mod task;
+mod task_center;
 mod view;
 mod workspace;
 use anyhow::{Context, Result};
@@ -229,7 +229,7 @@ struct Screen {
     settings_focus: Option<settings::Focus>,
     scroll: usize,
     message: String,
-    feedback: feedback::Feedback,
+    tasks: task_center::Center,
     check_task: Option<checks::CheckTask>,
     repository_tasks: BTreeMap<PathBuf, repository_tasks::Task>,
     repository_errors: BTreeMap<PathBuf, String>,
@@ -285,7 +285,7 @@ impl Screen {
             settings_focus: None,
             scroll: 0,
             message: String::new(),
-            feedback: Default::default(),
+            tasks: Default::default(),
             check_task: None,
             repository_tasks: BTreeMap::new(),
             repository_errors: BTreeMap::new(),
@@ -453,6 +453,7 @@ pub fn run(service: Service, root: Cancel) -> Result<()> {
                 | screen.poll_clipboard()
                 | screen.poll_links()
                 | screen.poll_interaction()
+                | screen.poll_tasks()
                 | screen.workspace.animate()
                 | screen.animate_check()
                 | screen.animate_task()

@@ -178,7 +178,7 @@ impl Screen {
     }
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
         let key = self.command_trigger_key(key);
-        // 错误页只开放复制与退出；Esc 先关闭命令，再交给错误页返回。
+        // 错误页开放复制、任务与退出；Esc 先关闭命令，再交给错误页返回。
         if matches!(self.mode, Mode::Error { .. }) && !matches!(self.bar, InputBar::Command { .. })
         {
             if key.code == KeyCode::Char('/') && key.modifiers.is_empty() {

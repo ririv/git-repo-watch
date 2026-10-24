@@ -1,7 +1,14 @@
 //! Schema changes are transactional and identified independently of the executable name.
-pub(super) const VERSION: i64 = 3;
+pub(super) const VERSION: i64 = 4;
 pub(super) const APPLICATION_ID: i64 = 0x52575053;
 pub(super) const CREATE: &str = r#"
+CREATE TABLE tasks (
+    id TEXT PRIMARY KEY,
+    priority INTEGER NOT NULL CHECK(priority IN (0,1,2)),
+    started_at TEXT NOT NULL,
+    record TEXT NOT NULL CHECK(json_valid(record))
+) STRICT;
+CREATE INDEX task_priority ON tasks(priority,started_at DESC);
 CREATE TABLE batch_reports (
     id INTEGER PRIMARY KEY,
     finished_at TEXT NOT NULL,
@@ -61,4 +68,13 @@ INSERT INTO operation_events_v3 SELECT id,path,revision,at,kind,record FROM oper
 DROP TABLE operation_events;
 ALTER TABLE operation_events_v3 RENAME TO operation_events;
 CREATE INDEX operation_repository ON operation_events(path,id DESC);
+"#;
+
+pub(super) const UPGRADE_V3: &str = r#"CREATE TABLE tasks (
+    id TEXT PRIMARY KEY,
+    priority INTEGER NOT NULL CHECK(priority IN (0,1,2)),
+    started_at TEXT NOT NULL,
+    record TEXT NOT NULL CHECK(json_valid(record))
+) STRICT;
+CREATE INDEX task_priority ON tasks(priority,started_at DESC);
 "#;

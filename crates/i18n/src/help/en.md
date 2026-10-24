@@ -23,7 +23,8 @@
 - At a pane root, Esc leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
 ## Search and commands
-- The command menu sits directly above the input. Key hints follow the input, then wrapped operation results. Click Show full result or press `Alt+Enter` for long results; arrows, PgUp/PgDn and the wheel scroll. `Esc` / `Enter` returns to the unchanged page and input draft.
+- The command menu sits directly above the input, followed by key hints and one reserved task-status row. Success notices disappear after 5 seconds; pending failures and running tasks remain. Use `/tasks`, `Alt+Enter`, or click the status row to open tasks and return to the original page and input draft.
+- Tasks show pending failures, running work, and the latest 200 completed records, retaining all active and pending tasks. `Enter` opens full details; `c` requests cancellation, `r` retries manual checks or fetch, and `d` marks a failure handled. Viewing a failure does not dismiss it. A successful retry resolves its original failure. Scheduled checks share this history.
 - Type to search repositories, or files in the file panel. Input is always active.
 - With empty search, `/` opens this view's full-width command menu. `↑↓` selects, `Tab` completes, Enter opens. `//` opens global commands directly.
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.

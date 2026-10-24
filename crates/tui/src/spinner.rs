@@ -6,6 +6,11 @@ pub(super) struct Spinner {
     frame: usize,
     last_tick: Instant,
 }
+impl Default for Spinner {
+    fn default() -> Self {
+        Self::new(Instant::now())
+    }
+}
 impl Spinner {
     pub(super) fn new(now: Instant) -> Self {
         Self {

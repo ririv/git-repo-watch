@@ -73,15 +73,33 @@ impl Screen {
         let cancel = Cancel::default();
         let task_cancel = cancel.clone();
         let language = i18n::language();
+        let store = self.service.store.clone();
         #[cfg(test)]
         let response = self.commit_generator.response;
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
+            let run = engine::tasks::Run::begin(
+                &store,
+                crate::task_center::spec(
+                    i18n::tr!(AgentGenerating),
+                    Some(task_plan.path.clone()),
+                    engine::tasks::Retry::Unavailable,
+                ),
+                &task_cancel,
+            )?;
             #[cfg(test)]
-            if let Some(response) = response {
-                return response(&task_cancel);
-            }
-            commit_message::generate(&task_plan, &config, &task_cancel)
+            let result = match response {
+                Some(response) => response(&task_cancel),
+                None => commit_message::generate(&task_plan, &config, &task_cancel),
+            };
+            #[cfg(not(test))]
+            let result = commit_message::generate(&task_plan, &config, &task_cancel);
+            run.finish(engine::tasks::Outcome::capture(
+                &result,
+                &task_cancel,
+                Clone::clone,
+            ))?;
+            result
         });
         self.commit_generator.request = Some(Request {
             draft_id: self.commit_draft_id,

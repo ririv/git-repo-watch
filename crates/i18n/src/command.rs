@@ -2,6 +2,7 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    Tasks,
     Branches,
     BranchCreate,
     BranchSwitch,
@@ -72,6 +73,8 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::Tasks, Language::English) => "Background tasks and history",
+            (Self::Tasks, Language::Chinese) => "后台任务和历史记录",
             (Self::Branches, Language::English) => "Browse branches",
             (Self::Branches, Language::Chinese) => "浏览分支",
             (Self::BranchCreate, Language::English) => "Create branch",

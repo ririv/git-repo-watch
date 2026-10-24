@@ -12,7 +12,6 @@ mod copy;
 mod daily_operations;
 mod diff;
 mod double_click;
-mod feedback;
 mod file_tree;
 mod help;
 mod history;
@@ -31,6 +30,7 @@ mod schedule;
 mod scrollbars;
 mod settings_design;
 mod startup;
+mod task_center;
 mod text_selection;
 mod workspace;
 use super::*;
@@ -97,7 +97,7 @@ fn screen(service: Service) -> Screen {
         settings_focus: None,
         scroll: 0,
         message: String::new(),
-        feedback: Default::default(),
+        tasks: Default::default(),
         check_task: None,
         repository_tasks: BTreeMap::new(),
         repository_errors: BTreeMap::new(),
@@ -596,20 +596,20 @@ fn input_border_placeholder_text_and_cursor_are_distinct() {
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
         assert!(terminal.backend().cursor_visible());
         let cursor = terminal.backend().cursor_position();
-        assert_eq!(cursor, (3, height - 3).into());
+        assert_eq!(cursor, (3, height - 4).into());
         let buffer = terminal.backend().buffer();
-        assert_eq!(buffer[(0, height - 4)].symbol(), "╭");
-        assert_eq!(buffer[(width - 1, height - 2)].symbol(), "╯");
-        let placeholder = &buffer[(3, height - 3)];
+        assert_eq!(buffer[(0, height - 5)].symbol(), "╭");
+        assert_eq!(buffer[(width - 1, height - 3)].symbol(), "╯");
+        let placeholder = &buffer[(3, height - 4)];
         assert_eq!(placeholder.fg, Color::DarkGray);
         assert!(placeholder.modifier.contains(Modifier::ITALIC));
         s.paste("中文1234");
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
         assert_eq!(
             terminal.backend().cursor_position(),
-            (11, height - 3).into()
+            (11, height - 4).into()
         );
-        let text = &terminal.backend().buffer()[(3, height - 3)];
+        let text = &terminal.backend().buffer()[(3, height - 4)];
         assert_eq!(text.fg, Color::Reset);
         assert!(!text.modifier.contains(Modifier::ITALIC));
         key(&mut s, KeyCode::Esc);
@@ -1336,7 +1336,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
                 let buffer = terminal.backend().buffer();
                 (0..width)
                     .filter(|x| {
-                        let cell = &buffer[(*x, height - 3)];
+                        let cell = &buffer[(*x, height - 4)];
                         cell.bg == Color::Rgb(180, 145, 220)
                             && cell.modifier.contains(Modifier::BOLD)
                     })

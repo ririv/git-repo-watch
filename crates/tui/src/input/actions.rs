@@ -19,6 +19,7 @@ impl Screen {
             return Ok(false);
         }
         match action {
+            Action::Tasks => self.open_tasks(),
             Action::BrowseFiles => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Files, path);

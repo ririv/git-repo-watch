@@ -23,6 +23,7 @@ mod schedule;
 mod settings;
 mod shell;
 mod stashes;
+mod tasks;
 mod workspace;
 use super::*;
 use body::render_body;
@@ -157,11 +158,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     if area.is_empty() {
         return;
     }
-    if let crate::feedback::Feedback::Reading(reader) = &mut screen.feedback {
-        feedback::reader(frame, area, reader);
+    if screen.tasks.session.open() {
+        tasks::render(frame, screen, area);
         return;
     }
-    screen.feedback = Default::default();
     let mut header = if area.height >= 6 {
         header(screen, area)
     } else {

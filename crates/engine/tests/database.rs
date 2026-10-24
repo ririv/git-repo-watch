@@ -24,7 +24,7 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
         .save_repository_report(&mut observation, &Cancel::default())
         .unwrap();
     let db = Connection::open(store.database_path()).unwrap();
-    db.execute_batch("DROP TABLE scheduled_occurrences; PRAGMA user_version=1;")
+    db.execute_batch("DROP TABLE tasks; DROP TABLE scheduled_occurrences; PRAGMA user_version=1;")
         .unwrap();
     let before: i64 = db
         .query_row("SELECT count(*) FROM repository_observations", [], |row| {
@@ -62,7 +62,7 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
             .unwrap(),
-        3
+        4
     );
     assert_eq!(
         db.query_row("SELECT count(*) FROM repository_observations", [], |row| {
@@ -703,7 +703,7 @@ fn version_two_upgrade_preserves_events_ids_observations_and_schedule_claims() {
         DROP TABLE operation_events;
         ALTER TABLE operation_events_v2 RENAME TO operation_events;
         CREATE INDEX operation_repository ON operation_events(path,id DESC);
-        PRAGMA user_version=2; COMMIT;",
+        DROP TABLE tasks; PRAGMA user_version=2; COMMIT;",
     )
     .unwrap();
     drop(db);
@@ -712,7 +712,7 @@ fn version_two_upgrade_preserves_events_ids_observations_and_schedule_claims() {
     assert_eq!(
         db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
             .unwrap(),
-        3
+        4
     );
     let after: (i64, String, i64) = db
         .query_row("SELECT id,record,revision FROM operation_events", [], |r| {

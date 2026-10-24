@@ -4,6 +4,7 @@ use i18n::CommandSummary as Summary;
 impl Command {
     pub fn summary(&self) -> Summary {
         match self.action {
+            Action::Tasks => Summary::Tasks,
             Action::Branches => Summary::Branches,
             Action::BranchCreate => Summary::BranchCreate,
             Action::BranchSwitch => Summary::BranchSwitch,

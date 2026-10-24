@@ -168,17 +168,21 @@ impl Screen {
         self.start_check(CheckTarget::All);
     }
     pub(crate) fn start_check(&mut self, target: CheckTarget) {
+        self.start_check_retry(target, None);
+    }
+    pub(crate) fn start_check_retry(&mut self, target: CheckTarget, parent: Option<String>) {
         if let CheckTarget::Repository(path) = target {
             self.start_repository(
                 path.clone(),
-                i18n::tr!(CheckingAlt),
+                i18n::tr!(TasksCheck),
                 Effect::Check,
                 move |service, cancel, _| {
-                    Ok(Outcome::Checked(service.check_repository(
-                        &path,
-                        &cancel,
-                        |_| {},
-                    )?))
+                    Ok(Outcome::Checked(match parent {
+                        Some(parent) => {
+                            service.retry_check_repository(&path, &cancel, |_| {}, parent)?
+                        }
+                        None => service.check_repository(&path, &cancel, |_| {})?,
+                    }))
                 },
             );
             return;
@@ -205,7 +209,10 @@ impl Screen {
             let emit = |event| {
                 let _ = tx.send(Event::Progress(event));
             };
-            let result = service.run(&worker_cancel, emit);
+            let result = match parent {
+                Some(parent) => service.retry_check_all(&worker_cancel, emit, parent),
+                None => service.run(&worker_cancel, emit),
+            };
             let _ = tx.send(Event::Done(result));
         });
         self.check_task = Some(CheckTask {

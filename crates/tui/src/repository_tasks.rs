@@ -38,6 +38,20 @@ impl Screen {
         + Send
         + 'static,
     ) {
+        let spec =
+            crate::task_center::spec(title, Some(path.clone()), engine::tasks::Retry::Unavailable);
+        self.start_repository_tracked(path, title, effect, spec, task);
+    }
+    pub(super) fn start_repository_tracked(
+        &mut self,
+        path: PathBuf,
+        title: &str,
+        effect: Effect,
+        spec: engine::tasks::Spec,
+        task: impl FnOnce(Arc<Service>, Cancel, mpsc::Sender<WorkerEvent>) -> Result<Outcome>
+        + Send
+        + 'static,
+    ) {
         if self.repository_tasks.contains_key(&path) {
             self.message = i18n::tr!(RepositoryTaskBusy).into();
             return;
@@ -59,13 +73,35 @@ impl Screen {
         let (tx, rx) = mpsc::channel();
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
+            let run = if effect == Effect::Check {
+                Ok(None)
+            } else {
+                engine::tasks::Run::begin(&service.store, spec.clone(), &task_cancel).map(Some)
+            };
+            let run = match run {
+                Ok(run) => run,
+                Err(error) => {
+                    let _ = tx.send(Completion {
+                        outcome: Err(error),
+                        refresh: Refresh::Unchanged,
+                        view: Ok(crate::mutations::readback::Readback::Unchanged),
+                    });
+                    return;
+                }
+            };
             let (progress, _) = mpsc::channel();
-            let outcome =
-                task(service.clone(), task_cancel, progress).and_then(|outcome| match outcome {
-                    Outcome::Published(Publication::Failed { phase, error, .. }) => Err(
-                        anyhow::anyhow!(i18n::tf!(PhasePhaseError, phase = phase, error = error)),
-                    ),
-                    outcome => Ok(outcome),
+            let mut outcome =
+                task(service.clone(), task_cancel.clone(), progress).and_then(|outcome| {
+                    match outcome {
+                        Outcome::Published(Publication::Failed { phase, error, .. }) => {
+                            Err(anyhow::anyhow!(i18n::tf!(
+                                PhasePhaseError,
+                                phase = phase,
+                                error = error
+                            )))
+                        }
+                        outcome => Ok(outcome),
+                    }
                 });
             let refresh = match &outcome {
                 Ok(Outcome::Checked(report)) => Refresh::Updated(Box::new(report.clone())),
@@ -84,6 +120,20 @@ impl Screen {
                 },
             };
             let view = requested.read(&service, &task_path);
+            if let Some(run) = run {
+                let completion = match (&outcome, &refresh, &view) {
+                    (_, Refresh::Failed(error), _) | (_, _, Err(error)) => {
+                        engine::tasks::Outcome::Failed {
+                            detail: format!("{error:#}"),
+                            resolution: engine::tasks::Resolution::Pending,
+                        }
+                    }
+                    _ => crate::task_center::outcome(&outcome, &task_cancel, &spec.title, effect),
+                };
+                if let Err(error) = run.finish(completion) {
+                    outcome = Err(error);
+                }
+            }
             let _ = tx.send(Completion {
                 outcome,
                 refresh,

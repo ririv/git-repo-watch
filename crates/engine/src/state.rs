@@ -87,7 +87,7 @@ impl Store {
         self.prepare_state()?;
         Lock::wait(&self.state_dir().join("check.lock"), cancel)
     }
-    fn prepare_state(&self) -> Result<()> {
+    pub(crate) fn prepare_state(&self) -> Result<()> {
         fs::create_dir_all(self.state_dir())?;
         fs::set_permissions(self.state_dir(), fs::Permissions::from_mode(0o700))?;
         Ok(())

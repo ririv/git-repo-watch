@@ -163,7 +163,7 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
     assert_eq!(
         names(""),
         [
-            "repo", "repos", "cancel", "schedule", "settings", "help", "quit"
+            "repo", "repos", "cancel", "tasks", "schedule", "settings", "help", "quit"
         ]
     );
     for group in ["repo", "repos"] {

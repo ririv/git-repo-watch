@@ -5,7 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
-        if matches!(self.feedback, crate::feedback::Feedback::Reading(_)) {
+        if self.tasks.session.open() {
             return;
         }
         self.clicks.reset();
@@ -26,7 +26,10 @@ impl Screen {
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_) => self.bar_paste(text),
-            Mode::Error { .. } if matches!(self.bar, crate::bar::InputBar::Command { .. }) => {
+            Mode::Error { .. }
+                if matches!(self.bar, crate::bar::InputBar::Command { .. })
+                    || text.starts_with('/') =>
+            {
                 self.bar_paste(text)
             }
             _ => {}
@@ -38,7 +41,7 @@ impl Screen {
         if self.interaction_key(key) {
             return Ok(false);
         }
-        if self.feedback_key(key) {
+        if self.tasks_key(key) {
             return Ok(false);
         }
         if matches!(

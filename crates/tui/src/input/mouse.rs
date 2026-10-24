@@ -7,7 +7,7 @@ impl Screen {
         if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {
             return Ok(false);
         }
-        if self.feedback_mouse(event) {
+        if self.tasks_mouse(event) {
             self.clicks.reset();
             self.drag = None;
             return Ok(true);

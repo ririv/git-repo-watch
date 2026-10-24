@@ -128,10 +128,24 @@ impl Screen {
         );
     }
     pub(crate) fn fetch_repository(&mut self, path: std::path::PathBuf) {
-        self.start_repository(
+        self.fetch_repository_retry(path, None);
+    }
+    pub(crate) fn fetch_repository_retry(
+        &mut self,
+        path: std::path::PathBuf,
+        parent: Option<String>,
+    ) {
+        let mut spec = crate::task_center::spec(
+            i18n::tr!(FetchCommand),
+            Some(path.clone()),
+            engine::tasks::Retry::Fetch { path: path.clone() },
+        );
+        spec.retry_of = parent;
+        self.start_repository_tracked(
             path.clone(),
             i18n::tr!(FetchCommand),
             Effect::RepositoryWrite,
+            spec,
             move |service, cancel, _| {
                 Ok(Outcome::MutationCompleted(service.fetch(&path, &cancel)?))
             },

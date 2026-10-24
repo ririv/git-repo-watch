@@ -3,6 +3,7 @@ mod migration;
 mod reports;
 mod schedule;
 mod schema;
+mod tasks;
 mod transfer;
 use super::{Lock, Store};
 use crate::cancel::Cancel;
@@ -67,7 +68,7 @@ impl Database {
         let id: i64 = connection.pragma_query_value(None, "application_id", |row| row.get(0))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
         drop(connection);
-        if (version == 0 && id == 0) || (matches!(version, 1 | 2) && id == schema::APPLICATION_ID) {
+        if (version == 0 && id == 0) || (matches!(version, 1..=3) && id == schema::APPLICATION_ID) {
             let _migration = Lock::wait(&store.state_dir().join("migration.lock"), cancel)?;
             Self::initialize(store, cancel)?;
         }
@@ -165,12 +166,13 @@ impl Database {
             database.transaction(cancel, |transaction| {
                 transaction.execute_batch(schema::CREATE)?;
                 legacy.import(transaction)?;
+                tasks::import_operations(transaction)?;
                 transaction.pragma_update(None, "application_id", schema::APPLICATION_ID)?;
                 transaction.pragma_update(None, "user_version", schema::VERSION)?;
                 Ok(())
             })?;
             legacy.files.len()
-        } else if matches!(version, 1 | 2) && id == schema::APPLICATION_ID {
+        } else if matches!(version, 1..=3) && id == schema::APPLICATION_ID {
             let journal: String =
                 database
                     .connection
@@ -180,7 +182,11 @@ impl Database {
                 if version == 1 {
                     transaction.execute_batch(schema::UPGRADE_V1)?;
                 }
-                transaction.execute_batch(schema::UPGRADE_V2)?;
+                if version <= 2 {
+                    transaction.execute_batch(schema::UPGRADE_V2)?;
+                }
+                transaction.execute_batch(schema::UPGRADE_V3)?;
+                tasks::import_operations(transaction)?;
                 transaction.pragma_update(None, "user_version", schema::VERSION)?;
                 Ok(())
             })?;

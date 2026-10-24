@@ -113,7 +113,10 @@ impl Selection {
     }
     pub fn admits(&self, action: Action, path: Option<&Path>) -> bool {
         if self.is_error() {
-            return matches!(action, Action::Copy(Scope::Error) | Action::Quit);
+            return matches!(
+                action,
+                Action::Copy(Scope::Error) | Action::Quit | Action::Tasks
+            );
         }
         match action {
             Action::BrowserToggle | Action::BrowserSplit => self.opener().is_some(),

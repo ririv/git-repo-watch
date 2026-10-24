@@ -16,6 +16,7 @@ pub mod process;
 pub mod scheduler;
 pub mod service;
 pub mod state;
+pub mod tasks;
 pub mod terminal;
 pub mod transport;
 

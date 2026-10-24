@@ -13,6 +13,7 @@ pub(crate) use context::Context;
 pub(crate) use input::{Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
+    Tasks,
     Branches,
     BranchCreate,
     BranchSwitch,
@@ -415,6 +416,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo copy",
         action: Copy(crate::clipboard::Scope::Repository),
         description: i18n::Message::CopyRepositoryCommand,
+    },
+    Command {
+        name: "tasks",
+        action: Tasks,
+        description: i18n::Message::Tasks,
     },
     Command {
         name: "schedule",
