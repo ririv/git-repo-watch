@@ -31,9 +31,10 @@
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.
 - The global menu shows top-level entries. A prefix such as `/repo diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
 - Parameter commands stay in the input: `/repos add <path>`, `/settings concurrency <count>`.
+- `[tree|flat]` means an optional fixed choice; `<path>` or `<name>` accepts user input. Long choice lists use `…`; completion shows every value. `<model>|default` accepts a model name or the special value `default`.
 - `/repo diff view` switches between the directory tree (default) and flat list; use `/repo diff view tree` or `/repo diff view flat` directly. Single-child directory chains appear together (for example, `output/imagegen/`). Directories show hierarchy; selection and preview act on files.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
-- On the repository home page, `/repos filter` and `/repos sort` open their options: ↑↓ selects, Enter applies, Esc closes. ✓ marks the current option.
+- On the repository home page, `/repos filter [all|problems|…]` and `/repos sort [priority|name|…]` each have one command entry. A space opens parameter choices. Filter by name or bilingual description; ↑↓ selects, Tab completes, Enter applies, and Esc closes the choices. ✓ marks the current value.
 - Filters: all, problems (attention or failed), clean, failed, unchecked, no-upstream, pushes (recorded successes or failures).
 - Sorting: priority, name (A to Z), path (ascending), updated (latest state first; unchecked last). Direct commands work too, e.g. `/repos sort name`.
 - Filtering combines with search. Press `/` on the home page to open commands while keeping an existing search; applying or closing returns to that search and keeps the selected repository when visible. Options apply only to this session and do not check repositories or change reports.
@@ -111,7 +112,7 @@
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
 - `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
-- `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` changes layout immediately for this TUI session. `Tab` completes these subcommands.
+- `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` changes layout immediately for this TUI session. These are parameter values; a space opens choices and Tab completes the value.
 - Click a file checkbox to toggle its selection; click its name to select the row, or double-click its name to enter. This follows the precise-click preference. `Space` marks a file with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections.
 - `/repo diff stage` stages marked files or the cursor file; `/repo diff unstage` unstages them. These actions require an explicit file selection and never open a page.
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
@@ -143,9 +144,9 @@
 - `/repo` opens the selected repository overview. All repository views and operations live under it. `/repos` returns to the repository list; `/repos manage` opens registration and exclusion settings. Direct commands: `/repos add <path>`, `/repos remove`, `/repos exclude <path>`, `/repos unexclude <path>`.
 - `/repos scan <path>` previews discovery; `/repos import <path>` registers discovered repositories. Scanning follows Git ignore rules.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
-- `/settings startup-check <true|false>` controls startup checks of all repositories; default true, effective next launch.
+- `/settings startup-check [true|false]` controls startup checks of all repositories; default true, effective next launch.
 - `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.
-- `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush <policy>` accepts disabled or fast_forward.
+- `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush [disabled|fast_forward]` accepts disabled or fast_forward.
 - `/schedule anchor <datetime|auto>` sets a local time basis (HH:MM[:SS] or YYYY-MM-DD HH:MM[:SS]); auto regenerates it on enable.
 - The first enable persists an automatic basis when omitted. Restarts and re-enabling preserve it; the schedule page shows the basis and applied next trigger.
 - Durations support s / m / h / d / w (at least 60 seconds). Apply saved changes with `/schedule apply`.

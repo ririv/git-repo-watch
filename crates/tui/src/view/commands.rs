@@ -28,7 +28,7 @@ impl Columns {
             .map(|entry| entry.description.width())
             .max()
             .unwrap_or(0)
-            .min(10);
+            .min(16);
         let value = entries
             .iter()
             .map(|entry| entry.value.width())
@@ -123,6 +123,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         screen.mode,
         Mode::Browsing
             | Mode::Composition(_)
+            | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
             | Mode::Stashes(_)
@@ -141,6 +142,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         }
         command::completion::Menu::Values(values) => {
             completion::render_values(frame, screen, values, body);
+            return;
+        }
+        command::completion::Menu::Options(values) => {
+            screen.command_items = completion::render_options(frame, screen, values, body);
             return;
         }
         command::completion::Menu::Commands => {}

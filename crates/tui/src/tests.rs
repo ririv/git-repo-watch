@@ -25,6 +25,7 @@ mod links;
 mod mouse;
 mod navigation;
 mod opening;
+mod options;
 mod overview;
 mod prefix_selection;
 mod repository_list;
@@ -141,7 +142,10 @@ fn key(s: &mut Screen, code: KeyCode) -> bool {
         .unwrap()
 }
 fn command(s: &mut Screen, text: &str) {
-    if !s.bar.editor().text.is_empty() {
+    while matches!(
+        s.bar,
+        bar::InputBar::Command { .. } | bar::InputBar::Layout { .. }
+    ) {
         key(s, KeyCode::Esc);
     }
     // 既有工作流用显式全局命令；上下文后缀由 contexts 测试直接覆盖。
@@ -1403,8 +1407,6 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             "settings ai agent",
             "settings ai model",
             "settings ai prompt",
-            "settings interaction interactive",
-            "settings interaction text"
         ]
     );
     assert_eq!(
@@ -1414,7 +1416,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         ["repos check"]
     );
-    assert_eq!(command::matches("repos ").len(), 22);
+    assert_eq!(command::matches("repos ").len(), 11);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
         command::matches("repo check")

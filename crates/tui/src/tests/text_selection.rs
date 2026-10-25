@@ -107,23 +107,16 @@ fn preference_persists_and_settings_and_commands_select_current_mode() {
         );
         fresh.shutdown();
         command(&mut s, "settings interaction");
-        let crate::bar::InputBar::Command {
-            input, selected, ..
-        } = &s.bar
-        else {
-            panic!("mode choices")
-        };
-        assert_eq!(
-            input.matches()[*selected].action,
-            Action::Interaction(InteractionMode::TextSelection)
+        assert!(
+            matches!(&s.bar, crate::bar::InputBar::Command { menu: command::completion::Menu::Options(values), .. } if values.options[values.selected].value.action() == Action::Interaction(InteractionMode::TextSelection))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings");
         s.activate_setting(crate::settings::Item::Interaction, &Cancel::default())
             .unwrap();
         let rendered = render(&mut s, 120, 34);
-        assert!(rendered.contains("interaction interactive"));
-        assert!(rendered.contains("interaction text"));
+        assert!(rendered.contains("interactive"));
+        assert!(rendered.contains("text"));
         assert_eq!(
             s.bar.command_input().unwrap().context(),
             Some(command::Context::Settings)

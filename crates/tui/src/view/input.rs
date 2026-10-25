@@ -292,6 +292,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             | Mode::History(_) => {
                 let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
                 let hint = if matches!(
+                    screen.bar,
+                    crate::bar::InputBar::Command {
+                        menu: command::completion::Menu::Options(_),
+                        ..
+                    }
+                ) {
+                    i18n::tr!(OptionCompletionHint)
+                } else if matches!(
                     &screen.bar,
                     crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Directories(_)

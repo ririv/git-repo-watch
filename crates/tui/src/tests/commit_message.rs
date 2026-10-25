@@ -138,7 +138,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model <model|default>") && line.contains("Default"))
+                .any(|line| line.contains("model <model>|default") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Configuration(Configuration::General));
@@ -153,7 +153,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         s.paste("/model");
         assert!(
             render(&mut s, 140, 48).lines().any(
-                |line| line.contains("model <model|default>") && line.contains("example-model")
+                |line| line.contains("model <model>|default") && line.contains("example-model")
             )
         );
         key(&mut s, KeyCode::Esc);
@@ -163,7 +163,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model <model|default>") && line.contains("Default"))
+                .any(|line| line.contains("model <model>|default") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent claude");
@@ -332,7 +332,7 @@ fn agent_is_one_parameter_command_and_completion_never_changes_preferences_befor
         command(&mut s, "settings ai");
         let catalog = command::matches("settings ai agent ");
         assert_eq!(catalog.len(), 1);
-        assert_eq!(catalog[0].usage(), "settings ai agent <name>");
+        assert_eq!(catalog[0].usage(), "settings ai agent [codex|claude]");
         s.paste("//settings ai agent ");
         key(&mut s, KeyCode::Tab);
         let bar::InputBar::Command {

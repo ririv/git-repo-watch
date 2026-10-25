@@ -234,10 +234,10 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 
 - `/repos add <path>`、`/repos exclude <path>`、`/repos unexclude <path>`、`/repos scan <path>`、`/repos import <path>`。
 - `/schedule interval <duration>`，例如 `/schedule interval 6h`、`/schedule interval 1w`。
-- `/schedule anchor <datetime|auto>`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
-- `/schedule autopush <policy>`，取值 `disabled` 或 `fast_forward`。
+- `/schedule anchor <datetime>|auto`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
+- `/schedule autopush [disabled|fast_forward]`，取值 `disabled` 或 `fast_forward`。
 - `/settings concurrency <count>`，范围 1 至 32。
-- `/settings startup-check <true|false>`，控制启动时检查全部仓库，默认 `true`。
+- `/settings startup-check [true|false]`，控制启动时检查全部仓库，默认 `true`。
 
 通用设置包含独立的“鼠标与触控板”分组，精确点击、滚轮滚动、选择子视图默认均开启，可分别关闭，保存后立即生效。精确点击按实际显示的行选择仓库、文件、分支、stash 和提交，点击横纵滚动条可定位。同一条目双击等同于选中后按 Enter，沿用现有导航和确认流程；标题、空白与滚动条不触发 Enter。关闭精确点击也会关闭双击。关闭“选择子视图”后，指针只操作已聚焦面板，不会因点击或滚动切换面板；键盘操作始终保留。配置保存在 TOML 的 `[mouse]` 表中，对应 `precise_click`、`scroll`、`select_pane`。
 
@@ -279,7 +279,7 @@ Diff 同时显示代码语法颜色和增删背景：新增行浅绿底、删除
 
 `/repo commit generate` 根据暂存区快照生成提交消息，由改动决定是否需要正文，不强制单行、正文或固定模板。暂存预览在上、提交说明在下，底部横向依次显示提交、返回和重新生成操作。`Enter` 在说明中换行、`↑↓` 移动光标，`Tab`／`Shift+Tab` 在说明和各操作间切换；操作栏中 `←→` 选择、`Enter` 执行，`↑` 回到说明。选择提交后直接执行，不再打开重复预览；`Ctrl+S` 也可提交，Git 提交保留完整消息。普通 `/repo commit` 消息框中的 `Ctrl+R` 也可生成，再按一次取消；`Esc` 在生成时取消，编辑时返回。生成在独立后台任务中执行，真实文本增量显示在只读说明区；期间不能编辑或提交。生成时底部仅显示取消生成，`Enter`、`Ctrl+R` 或 `Esc` 取消生成，取消或失败恢复原草稿；完成后开放编辑。生成前后都会校验 HEAD、分支和暂存树，变化时明确要求重新预览，不把旧内容的说明套到新提交上。
 
-`/settings` 的 AI 分组直接显示启用开关、生成工具、模型和生成指令，不再打开二级设置页。`/settings ai` 直接定位到这个分组。默认选择 Codex，也可切换 Claude Code。AI 默认开启；关闭后隐藏所有 AI 命令（包括 `/settings ai`）、生成快捷键提示和 AI 帮助，只能从设置中的 AI 开关重新启用，不提供启用命令。仅通过当前进程的 `PATH` 查找 `codex` 或 `claude`；找不到就报错，不搜索额外安装目录、不自动替换工具，也不配置程序路径。工具通过单个 `/settings ai agent <name>` 参数命令选择，Tab 从支持列表补全名称，例如 `codex`、`claude`，不为每个工具增加命令。两个工具分别保存模型名，空字符串沿用 CLI 自身的模型。生成指令使用 `prompt` 命名，可直接编辑完整内容，保存后整体替换默认指令。`/settings ai prompt` 打开多行编辑页：`Ctrl+S` 保存、`Esc` 放弃修改。模型未指定时明确显示 `Default`，沿用工具模型；模型命令列表也显示当前值。
+`/settings` 的 AI 分组直接显示启用开关、生成工具、模型和生成指令，不再打开二级设置页。`/settings ai` 直接定位到这个分组。默认选择 Codex，也可切换 Claude Code。AI 默认开启；关闭后隐藏所有 AI 命令（包括 `/settings ai`）、生成快捷键提示和 AI 帮助，只能从设置中的 AI 开关重新启用，不提供启用命令。仅通过当前进程的 `PATH` 查找 `codex` 或 `claude`；找不到就报错，不搜索额外安装目录、不自动替换工具，也不配置程序路径。工具通过单个 `/settings ai agent [codex|claude]` 参数命令选择，Tab 从支持列表补全名称，例如 `codex`、`claude`，不为每个工具增加命令。两个工具分别保存模型名，空字符串沿用 CLI 自身的模型。生成指令使用 `prompt` 命名，可直接编辑完整内容，保存后整体替换默认指令。`/settings ai prompt` 打开多行编辑页：`Ctrl+S` 保存、`Esc` 放弃修改。模型未指定时明确显示 `Default`，沿用工具模型；模型命令列表也显示当前值。
 
 ```toml
 [ai]
@@ -299,7 +299,7 @@ model = ""
 ```
 
 ```text
-/settings ai agent <name>
+/settings ai agent [codex|claude]
 /settings ai model default
 /settings ai prompt
 ```
@@ -618,3 +618,9 @@ AI 只返回已有改动块的分组、顺序和各条提交说明，不生成�
 `commit` 总是确认并执行计划中的下一项，保留 Git 钩子及签名。每项在后台独立执行，执行前核验 HEAD、暂存树与工作区快照，并提前编译整个剩余计划。使用临时索引构造本次提交，真实索引在 `index.lock` 保护下原子更新；未提交的工作区内容不改写，其它暂存意图保留。失败或取消时不撤销已经创建的提交。钩子改变提交内容时核对实际提交、同步可无冲突保留的索引并停止；无法无损同步时保留原索引，明确报告提交 ID，交由用户核对。进程被强制终止可能留下标准 `index.lock`；它包含待同步索引，需结合 HEAD 检查后手动处理，不自动删除外部锁。
 
 生成和执行均可从后台任务页查看结果。当前未完成计划保存在本次 TUI 会话内存中，重启后需根据剩余改动重新生成；已经完成的提交和操作记录仍保留。输入上限为 512 个块、128 KiB 差异，未暂存的单文件最多 16 MiB，计划最多 64 项；超出明确报错。编排不推送，也不更改定时任务策略。
+
+### 固定选项参数
+
+`/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；超过三个选项时只简写前两个和 `…`，完整范围在参数菜单中展示。像 `<model>|default` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
+
+完整输入如 `/repos filter failed` 仍然直接生效，非法值明确报错，不改变设置。`/repo diff layout` 不带参数时保留横向选择器；目录和 AI 工具名称仍使用各自的补全方式。

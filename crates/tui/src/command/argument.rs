@@ -23,6 +23,7 @@ pub enum ArgumentAction {
     AiAgent,
     AiModel,
     AiPrompt,
+    Option(super::options::Kind),
 }
 impl ArgumentAction {
     pub fn is_path(self) -> bool {
@@ -54,6 +55,7 @@ impl ArgumentAction {
             Self::AiAgent => Action::AiAgent,
             Self::AiModel => Action::AiModel,
             Self::AiPrompt => Action::AiPrompt,
+            Self::Option(kind) => kind.action(),
         }
     }
     pub fn command(self) -> &'static Command {
@@ -62,21 +64,40 @@ impl ArgumentAction {
             .find(|command| command.action == self.action())
             .expect("argument command catalog")
     }
-    pub fn placeholder(self) -> &'static str {
-        match self {
+    pub fn placeholder(self) -> String {
+        let open = match self {
             Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => "<path>",
             Self::Interval => "<duration>",
-            Self::Anchor => "<datetime|auto>",
-            Self::Autopush => "<policy>",
+            Self::Anchor => "<datetime>|auto",
+            Self::Autopush => {
+                return choices(
+                    [
+                        engine::domain::PushPolicy::Disabled,
+                        engine::domain::PushPolicy::FastForward,
+                    ]
+                    .into_iter()
+                    .map(|policy| policy.to_string()),
+                );
+            }
             Self::Concurrency => "<count>",
-            Self::StartupCheck => "<true|false>",
-            Self::AiAgent => "<name>",
-            Self::AiModel => "<model|default>",
+            Self::StartupCheck => "[true|false]",
+            Self::AiAgent => {
+                return choices(
+                    engine::ai::Agent::ALL
+                        .iter()
+                        .map(|agent| agent.name().into()),
+                );
+            }
+            Self::Option(kind) => {
+                return choices(kind.options().map(|option| option.token.into()));
+            }
+            Self::AiModel => "<model>|default",
             Self::AiPrompt => "<text>",
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::StashSave | Self::StashSaveAll => "<message>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
-        }
+        };
+        open.into()
     }
     pub fn hint(self) -> &'static str {
         match self {
@@ -94,6 +115,7 @@ impl ArgumentAction {
             Self::AiAgent => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+            Self::Option(_) => i18n::tr!(OptionCompletionHint),
         }
     }
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
@@ -103,6 +125,15 @@ impl ArgumentAction {
             i18n::tf!(MissingCommandArgument, self.placeholder())
         );
         match self {
+            Self::Option(kind) => {
+                let value = kind.parse(value)?;
+                Ok(kind
+                    .options()
+                    .find(|option| option.value == value)
+                    .expect("parsed option")
+                    .token
+                    .into())
+            }
             Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => {
                 let value = match value.chars().next() {
                     Some(quote @ ('\'' | '"')) => {
@@ -181,9 +212,28 @@ impl ArgumentAction {
         }
     }
 }
+
+fn choices(values: impl Iterator<Item = String>) -> String {
+    let mut values = values.collect::<Vec<_>>();
+    // 长枚举只在命令行中简写；参数候选菜单仍展示完整选项。
+    if values.len() > 3 {
+        values.truncate(2);
+        values.push("…".into());
+    }
+    format!("[{}]", values.join("|"))
+}
+
 impl Action {
     pub fn argument(self) -> Option<ArgumentAction> {
         match self {
+            Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
+            Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
+            Self::FileLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::FileView)),
+            Self::DiffLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::DiffLayout)),
+            Self::SearchMenu => Some(ArgumentAction::Option(super::options::Kind::Search)),
+            Self::InteractionMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::Interaction))
+            }
             Self::Add => Some(ArgumentAction::Add),
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
@@ -229,7 +279,7 @@ impl Command {
     }
 }
 pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
-    COMMANDS.iter().find_map(|command| {
+    let canonical = COMMANDS.iter().find_map(|command| {
         let argument = command.action.argument()?;
         let input = input.trim_start();
         if !input
@@ -240,7 +290,27 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
         }
         let value = input.get(command.name.len()..)?.strip_prefix(' ')?;
         Some((argument, value))
-    })
+    });
+    if canonical.is_some() {
+        return canonical;
+    }
+    // 保留命令菜单原有的唯一后缀输入；只解析明确的选项命令，不猜测参数内容。
+    let input = input.trim_start();
+    let mut aliases = COMMANDS.iter().filter_map(|command| {
+        let argument @ ArgumentAction::Option(_) = command.action.argument()? else {
+            return None;
+        };
+        command.name.match_indices(' ').find_map(|(index, _)| {
+            let alias = &command.name[index + 1..];
+            input
+                .get(..alias.len())?
+                .eq_ignore_ascii_case(alias)
+                .then_some(())?;
+            Some((argument, input.get(alias.len()..)?.strip_prefix(' ')?))
+        })
+    });
+    let matched = aliases.next()?;
+    aliases.next().is_none().then_some(matched)
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

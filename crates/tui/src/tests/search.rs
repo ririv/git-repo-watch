@@ -67,14 +67,9 @@ fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
     s.paste("//search");
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.bar.text(), "/search ");
-    assert_eq!(s.search_commands().unwrap().len(), 2);
-    let selected = match s.bar {
-        bar::InputBar::Command { selected, .. } => selected,
-        _ => panic!(),
-    };
-    assert_eq!(
-        s.search_commands().unwrap()[selected].action,
-        Action::Search(SearchMode::Filter)
+    assert_eq!(s.search_commands().unwrap().len(), 1);
+    assert!(
+        matches!(&s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(values), .. } if values.options[values.selected].value.action() == Action::Search(SearchMode::Filter))
     );
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
@@ -85,6 +80,7 @@ fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
     assert_eq!(s.rows().len(), 2);
     s.paste("//search");
     key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), "alpha");
 }
@@ -209,7 +205,10 @@ fn browser_and_graph_offer_only_supported_modes_while_static_pages_offer_none() 
         s.paste("//search ");
         let commands = s.search_commands().unwrap();
         assert_eq!(commands.len(), 1);
-        assert_eq!(commands[0].action, Action::Search(allowed));
+        assert_eq!(commands[0].action, Action::SearchMenu);
+        assert!(
+            matches!(&s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(values), .. } if values.options.len() == 1 && values.options[0].value.action() == Action::Search(allowed))
+        );
         key(&mut s, KeyCode::Esc);
     }
     for entry in ["settings", "help", "schedule"] {

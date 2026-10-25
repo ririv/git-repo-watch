@@ -41,7 +41,10 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         let current = files.rows()[files.cursor].clone();
         command(&mut s, "repo diff view");
         let commands = s.search_commands().unwrap();
-        assert_eq!(commands.len(), 2);
+        assert_eq!(commands.len(), 1);
+        assert!(
+            matches!(&s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(values), .. } if values.options.len() == 2)
+        );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repo diff view flat");
         assert_eq!(s.file_layout, Layout::Flat);

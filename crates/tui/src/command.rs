@@ -3,6 +3,7 @@ mod argument;
 pub(crate) mod completion;
 pub(crate) mod context;
 mod input;
+pub(crate) mod options;
 pub(crate) mod path;
 mod summary;
 #[cfg(test)]
@@ -175,21 +176,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::ChangesLayout,
     },
     Command {
-        name: "repo diff layout auto",
-        action: DiffLayout(crate::diff::Preference::Auto),
-        description: i18n::Message::DiffChooseAuto,
-    },
-    Command {
-        name: "repo diff layout split",
-        action: DiffLayout(crate::diff::Preference::Split),
-        description: i18n::Message::DiffChooseSplit,
-    },
-    Command {
-        name: "repo diff layout unified",
-        action: DiffLayout(crate::diff::Preference::Unified),
-        description: i18n::Message::DiffChooseUnified,
-    },
-    Command {
         name: "repo diff refresh",
         action: Refresh,
         description: i18n::Message::RefreshContextView,
@@ -203,16 +189,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff view",
         action: FileLayoutMenu,
         description: i18n::Message::FilesLayout,
-    },
-    Command {
-        name: "repo diff view tree",
-        action: FileLayout(crate::files::Layout::Tree),
-        description: i18n::Message::FilesTree,
-    },
-    Command {
-        name: "repo diff view flat",
-        action: FileLayout(crate::files::Layout::Flat),
-        description: i18n::Message::FilesFlat,
     },
     Command {
         name: "repo files",
@@ -395,64 +371,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::RepositoryFilterCommand,
     },
     Command {
-        name: "repos filter all",
-        action: Filter(crate::repository_list::Filter::All),
-        description: i18n::Message::RepositoryFilterAll,
-    },
-    Command {
-        name: "repos filter problems",
-        action: Filter(crate::repository_list::Filter::Problems),
-        description: i18n::Message::RepositoryFilterProblems,
-    },
-    Command {
-        name: "repos filter clean",
-        action: Filter(crate::repository_list::Filter::Clean),
-        description: i18n::Message::RepositoryFilterClean,
-    },
-    Command {
-        name: "repos filter failed",
-        action: Filter(crate::repository_list::Filter::Failed),
-        description: i18n::Message::RepositoryFilterFailed,
-    },
-    Command {
-        name: "repos filter unchecked",
-        action: Filter(crate::repository_list::Filter::Unchecked),
-        description: i18n::Message::RepositoryFilterUnchecked,
-    },
-    Command {
-        name: "repos filter no-upstream",
-        action: Filter(crate::repository_list::Filter::WithoutUpstream),
-        description: i18n::Message::RepositoryFilterNoUpstream,
-    },
-    Command {
-        name: "repos filter pushes",
-        action: Filter(crate::repository_list::Filter::Pushes),
-        description: i18n::Message::RepositoryFilterPushes,
-    },
-    Command {
         name: "repos sort",
         action: SortMenu,
         description: i18n::Message::RepositorySortCommand,
-    },
-    Command {
-        name: "repos sort priority",
-        action: Sort(crate::repository_list::Order::Priority),
-        description: i18n::Message::RepositorySortPriority,
-    },
-    Command {
-        name: "repos sort name",
-        action: Sort(crate::repository_list::Order::Name),
-        description: i18n::Message::RepositorySortName,
-    },
-    Command {
-        name: "repos sort path",
-        action: Sort(crate::repository_list::Order::Path),
-        description: i18n::Message::RepositorySortPath,
-    },
-    Command {
-        name: "repos sort updated",
-        action: Sort(crate::repository_list::Order::Updated),
-        description: i18n::Message::RepositorySortUpdated,
     },
     Command {
         name: "repos refresh",
@@ -473,16 +394,6 @@ pub const COMMANDS: &[Command] = &[
         name: "search",
         action: SearchMenu,
         description: i18n::Message::SearchModeCommand,
-    },
-    Command {
-        name: "search filter",
-        action: Search(crate::search::Mode::Filter),
-        description: i18n::Message::SearchFilterCommand,
-    },
-    Command {
-        name: "search locate",
-        action: Search(crate::search::Mode::Locate),
-        description: i18n::Message::SearchLocateCommand,
     },
     Command {
         name: "focus",
@@ -590,16 +501,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::AgentPromptHint,
     },
     Command {
-        name: "settings interaction interactive",
-        action: Interaction(engine::state::InteractionMode::Application),
-        description: i18n::Message::InteractionApplicationCommand,
-    },
-    Command {
-        name: "settings interaction text",
-        action: Interaction(engine::state::InteractionMode::TextSelection),
-        description: i18n::Message::InteractionTextCommand,
-    },
-    Command {
         name: "schedule apply",
         action: Apply,
         description: i18n::Message::ApplySystemScheduleWithoutStartingACheck,
@@ -698,16 +599,17 @@ impl Command {
             Some(MatchKind::NameWordPrefix)
         } else if name.contains(query) {
             Some(MatchKind::NameSubstring)
-        } else if [i18n::Language::English, i18n::Language::Chinese]
-            .into_iter()
-            .any(|language| {
-                [
-                    self.description.in_language(language),
-                    self.summary().in_language(language),
-                ]
-                .iter()
-                .any(|text| text.to_lowercase().contains(query))
-            })
+        } else if matches!(self.action.argument(), Some(ArgumentAction::Option(kind)) if kind.options().any(|option| option.token.contains(query) || [i18n::Language::English, i18n::Language::Chinese].iter().any(|language| option.description.in_language(*language).to_lowercase().contains(query))))
+            || [i18n::Language::English, i18n::Language::Chinese]
+                .into_iter()
+                .any(|language| {
+                    [
+                        self.description.in_language(language),
+                        self.summary().in_language(language),
+                    ]
+                    .iter()
+                    .any(|text| text.to_lowercase().contains(query))
+                })
         {
             Some(MatchKind::Description)
         } else {
@@ -745,6 +647,9 @@ impl Configuration {
     }
 }
 pub fn description(action: Action) -> &'static str {
+    if let Some(description) = options::description(action) {
+        return description;
+    }
     COMMANDS
         .iter()
         .find(|c| c.action == action)

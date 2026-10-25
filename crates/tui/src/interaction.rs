@@ -134,24 +134,10 @@ impl Screen {
         true
     }
     pub(crate) fn interaction_menu(&mut self) {
-        let editor = crate::Editor::new("/settings interaction ".into());
-        let context = self
-            .command_context()
-            .filter(|context| *context == crate::command::Context::Settings);
-        let input = crate::command::Input::from_canonical(context, editor);
-        let selected = input
-            .matches()
-            .iter()
-            .position(|command| {
-                command.action == crate::Action::Interaction(self.config.interaction_mode)
-            })
-            .expect("interaction mode has a command");
-        self.bar = crate::bar::InputBar::Command {
-            input,
-            selected,
-            menu: Default::default(),
-            path: self.selected_path(),
-            selection: crate::clipboard::Selection::None,
-        };
+        self.open_option_menu(
+            crate::command::options::Kind::Interaction,
+            self.selected_path(),
+            crate::clipboard::Selection::None,
+        );
     }
 }

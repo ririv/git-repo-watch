@@ -185,13 +185,13 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         let current = "✓";
         assert!(
             text.lines()
-                .any(|line| line.contains("/repo diff layout split") && line.contains(current)),
+                .any(|line| line.contains("split") && line.contains(current)),
             "{text}"
         );
         assert!(
             !text
                 .lines()
-                .any(|line| line.contains("/repo diff layout unified") && line.contains(current))
+                .any(|line| line.contains("unified") && line.contains(current))
         );
         assert!(s.repository_tasks.is_empty());
     }

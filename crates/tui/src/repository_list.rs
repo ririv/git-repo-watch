@@ -1,5 +1,5 @@
 //! Session-local repository filters, ordering, and command menu transitions.
-use crate::{Action, Editor, Mode, Page, Row, Screen, bar::InputBar};
+use crate::{Mode, Page, Row, Screen};
 use chrono::{DateTime, FixedOffset};
 use engine::{domain::RepositoryResult, service::CachedReport};
 use std::{cmp::Reverse, path::Path};
@@ -85,26 +85,13 @@ impl Screen {
             self.message = i18n::tr!(RepositoryListOnly).into();
             return;
         }
-        let (name, current) = match menu {
-            Menu::Filter => ("filter", Action::Filter(self.filter)),
-            Menu::Sort => ("sort", Action::Sort(self.order)),
+        let kind = match menu {
+            Menu::Filter => crate::command::options::Kind::Filter,
+            Menu::Sort => crate::command::options::Kind::Sort,
         };
-        let input = format!("repos {name} ");
-        let selected = crate::command::matches(&input)
-            .iter()
-            .position(|command| command.action == current)
-            .expect("current list option has a command");
-        self.bar = InputBar::Command {
-            input: crate::command::Input::from_canonical(
-                self.command_context(),
-                Editor::new(format!("/{input}")),
-            ),
-            selected,
-            menu: Default::default(),
-            path: self.selected_path(),
-            selection: self.copy_selection(),
-        };
+        self.open_option_menu(kind, self.selected_path(), self.copy_selection());
     }
+
     pub(crate) fn filter_repositories(&mut self, filter: Filter) {
         if !self.repository_list_active() {
             self.message = i18n::tr!(RepositoryListOnly).into();

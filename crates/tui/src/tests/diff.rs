@@ -98,11 +98,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         )));
         s.paste("//repo diff layout ");
         let menu = render(&mut s, 160, 32);
-        for name in [
-            "repo diff layout auto",
-            "repo diff layout split",
-            "repo diff layout unified",
-        ] {
+        for name in ["auto", "split", "unified"] {
             assert!(menu.contains(name));
         }
         key(&mut s, KeyCode::Down);

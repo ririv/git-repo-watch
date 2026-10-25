@@ -23,6 +23,9 @@ pub enum Message {
     ComposeDone,
     ComposeHint,
     ComposeEditHint,
+    OptionCompletionHint,
+    UnknownOptionValue,
+    NoMatchingOptions,
     ComposeWaitingHint,
     ComposeRetryHint,
     ComposeGenerationFailed,
@@ -1052,6 +1055,18 @@ impl Message {
                 "Enter newline · Ctrl+S save · Esc discard"
             }
             (Self::ComposeEditHint, Language::Chinese) => "Enter 换行 · Ctrl+S 保存 · Esc 放弃",
+            (Self::OptionCompletionHint, Language::English) => {
+                "↑↓ choose · Tab complete · Enter apply · Esc close options"
+            }
+            (Self::OptionCompletionHint, Language::Chinese) => {
+                "↑↓ 选择 · Tab 补全 · Enter 应用 · Esc 收起选项"
+            }
+            (Self::UnknownOptionValue, Language::English) => {
+                "Unknown value: {value}. Allowed values: {choices}"
+            }
+            (Self::UnknownOptionValue, Language::Chinese) => "未知参数：{value}。可选值：{choices}",
+            (Self::NoMatchingOptions, Language::English) => "No matching option is available",
+            (Self::NoMatchingOptions, Language::Chinese) => "没有匹配的可用选项",
             (Self::ComposeWaitingHint, Language::English) => "Esc cancel and return · / commands",
             (Self::ComposeWaitingHint, Language::Chinese) => "Esc 取消并返回 · / 命令",
             (Self::ComposeRetryHint, Language::English) => {
@@ -4259,6 +4274,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (UnknownOptionValue $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Unknown value: {value}. Allowed values: {choices}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("未知参数：{value}。可选值：{choices}" $(, $($args)*)?),
+        }
+    };
     (SearchInputTitle $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("{mode} {target}" $(, $($args)*)?),

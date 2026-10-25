@@ -175,21 +175,7 @@ impl Screen {
                 }
             }
             Action::FileLayoutMenu => {
-                let input = "repo diff view ";
-                let selected = command::matches(input)
-                    .iter()
-                    .position(|c| c.action == Action::FileLayout(self.file_layout))
-                    .expect("file layout has a command");
-                self.bar = crate::bar::InputBar::Command {
-                    input: command::Input::from_canonical(
-                        self.command_context(),
-                        Editor::new(format!("/{input}")),
-                    ),
-                    selected,
-                    menu: Default::default(),
-                    path,
-                    selection,
-                };
+                self.open_option_menu(command::options::Kind::FileView, path, selection);
             }
             Action::FileLayout(layout) => {
                 self.file_layout = layout;

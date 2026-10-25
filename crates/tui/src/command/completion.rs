@@ -8,6 +8,7 @@ pub(crate) enum Menu {
     Commands,
     Directories(path::Directories),
     Values(values::Candidates),
+    Options(super::options::Candidates),
 }
 pub(crate) trait Selection {
     fn advance(&mut self, backwards: bool);
@@ -32,7 +33,7 @@ impl Selection for values::Candidates {
 impl Menu {
     pub fn selection(&mut self) -> Option<&mut dyn Selection> {
         match self {
-            Self::Commands => None,
+            Self::Commands | Self::Options(_) => None,
             Self::Directories(values) => Some(values),
             Self::Values(values) => Some(values),
         }

@@ -205,10 +205,14 @@ impl Screen {
                 .iter()
                 .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
                 .map(|(_, index)| *index)
-            && let bar::InputBar::Command { selected, .. } = &mut self.bar
+            && let bar::InputBar::Command { selected, menu, .. } = &mut self.bar
         {
             self.clicks.reset();
-            *selected = index;
+            if let command::completion::Menu::Options(options) = menu {
+                options.selected = index;
+            } else {
+                *selected = index;
+            }
             if self
                 .bar
                 .command_input()

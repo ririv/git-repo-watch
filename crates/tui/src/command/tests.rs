@@ -11,23 +11,18 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff stage",
         "repo diff unstage",
         "repo diff layout",
-        "repo diff layout auto",
-        "repo diff layout split",
-        "repo diff layout unified",
         "repo diff refresh",
         "repo diff copy",
         "repo diff view",
-        "repo diff view tree",
-        "repo diff view flat",
     ];
     for input in ["di", "repo diff", "  diff"] {
         assert_eq!(&names(input)[..expected.len()], expected);
     }
     assert_eq!(names("repo diff "), expected[1..]);
-    assert_eq!(names("repo diff lay"), expected[3..7]);
-    assert_eq!(names("repo diff layout"), expected[3..7]);
-    assert_eq!(names("repo diff layout "), expected[4..7]);
-    assert_eq!(names("repo diff layout s"), ["repo diff layout split"]);
+    assert_eq!(names("repo diff lay"), expected[3..4]);
+    assert_eq!(names("repo diff layout"), expected[3..4]);
+    assert_eq!(names("repo diff layout "), expected[3..4]);
+    assert_eq!(names("repo diff layout s"), ["repo diff layout"]);
     assert!(names("repo diff unknown").is_empty());
 }
 
@@ -88,10 +83,7 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
         ] {
             assert_eq!(names(query), [expected]);
         }
-        assert_eq!(
-            names("终端"),
-            ["repo terminal", "settings interaction text"]
-        );
+        assert_eq!(names("终端"), ["repo terminal", "settings interaction"]);
         let staging = names("暂存");
         assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
@@ -136,13 +128,9 @@ fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() 
 
 #[test]
 fn interaction_is_nested_under_settings_and_uses_its_context() {
-    let expected = [
-        "settings interaction",
-        "settings interaction interactive",
-        "settings interaction text",
-    ];
+    let expected = ["settings interaction"];
     assert_eq!(names("settings interaction"), expected);
-    assert_eq!(names("settings interaction "), expected[1..]);
+    assert_eq!(names("settings interaction "), expected);
     assert!(
         COMMANDS
             .iter()

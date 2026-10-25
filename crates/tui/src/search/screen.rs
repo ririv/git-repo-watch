@@ -1,6 +1,6 @@
 //! Bind supported search operations to the currently displayed list.
 use super::{Matches, Mode as SearchMode, Support};
-use crate::{Action, Editor, Mode, Page, Screen, bar::InputBar, branches, history, stashes};
+use crate::{Mode, Page, Screen, bar::InputBar, branches, history, stashes};
 use crossterm::event::{KeyCode, KeyEvent};
 
 impl Screen {
@@ -43,31 +43,15 @@ impl Screen {
         })
     }
     pub(crate) fn search_menu(&mut self) {
-        let Some(mode) = self.search_support().mode() else {
+        if self.search_support().mode().is_none() {
             self.message = i18n::tr!(SearchUnavailable).into();
             return;
-        };
-        let mut input = crate::command::Input::new(None);
-        input.replace_canonical(Editor::new("/search ".into()));
-        self.bar = InputBar::Command {
-            input,
-            selected: 0,
-            menu: Default::default(),
-            path: self.scope_path(),
-            selection: self.copy_selection(),
-        };
-        let selected = self
-            .search_commands()
-            .expect("search commands")
-            .iter()
-            .position(|command| command.action == Action::Search(mode))
-            .expect("supported mode has a command");
-        if let InputBar::Command {
-            selected: cursor, ..
-        } = &mut self.bar
-        {
-            *cursor = selected;
         }
+        self.open_option_menu(
+            crate::command::options::Kind::Search,
+            self.scope_path(),
+            self.copy_selection(),
+        );
     }
     pub(crate) fn set_search_mode(&mut self, mode: SearchMode) {
         match &mut self.mode {

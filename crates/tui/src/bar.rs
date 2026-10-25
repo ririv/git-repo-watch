@@ -1,4 +1,5 @@
 //! Persistent input: plain text filters the current list; slash-prefixed text selects commands.
+mod options;
 use crate::{Action, Editor, Mode, Page, Screen, command};
 use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -194,6 +195,7 @@ impl Screen {
             *menu = Default::default();
             *selected = 0
         }
+        self.refresh_option_candidates();
         self.message.clear();
     }
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
@@ -231,6 +233,9 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         let search_support = self.search_support();
+        if self.option_candidate_key(key, root)? {
+            return Ok(BarEvent::Handled);
+        }
         if let InputBar::Command {
             input,
             selected,
@@ -290,7 +295,12 @@ impl Screen {
                 KeyCode::Down => *selected = (*selected + 1).min(matches.len().saturating_sub(1)),
                 KeyCode::Tab => {
                     if let Some(c) = matches.get(*selected) {
-                        if command::argument_input(&query).is_some() {
+                        if matches!(
+                            command::argument_input(&query),
+                            Some((command::ArgumentAction::Option(_), _))
+                        ) {
+                            self.message.clear();
+                        } else if command::argument_input(&query).is_some() {
                             let mut canonical = input.canonical_editor();
                             match command::completion::complete(
                                 &mut canonical,
@@ -317,6 +327,19 @@ impl Screen {
                     {
                         if !argument.action().available(self.config.ai.enabled) {
                             self.message = i18n::tr!(NoMatchingCommands).into();
+                            return Ok(BarEvent::Handled);
+                        }
+                        if let command::ArgumentAction::Option(kind) = argument {
+                            let action = kind.parse(value).map(|value| value.action());
+                            let target = path.clone();
+                            let selection = selection.clone();
+                            match action {
+                                Ok(action) => {
+                                    self.sync_bar();
+                                    self.activate(action, target, selection, root)?;
+                                }
+                                Err(error) => self.message = format!("{error:#}"),
+                            }
                             return Ok(BarEvent::Handled);
                         }
                         if argument.action() == Action::AiPrompt && value.trim().is_empty() {
@@ -386,6 +409,7 @@ impl Screen {
                     self.message.clear();
                 }
             }
+            self.refresh_option_candidates();
             return Ok(BarEvent::Handled);
         }
         if key.code == KeyCode::Esc && !self.bar.editor().text.is_empty() {

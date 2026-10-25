@@ -171,12 +171,14 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         assert_eq!(s.order, Order::Name);
         assert_eq!(s.selected_path(), selected);
         command(&mut s, "repos sort");
-        assert!(matches!(s.bar, bar::InputBar::Command { selected: 1, .. }));
+        assert!(
+            matches!(s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(ref values), .. } if values.selected == 1)
+        );
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
             assert!(
                 text.lines()
-                    .any(|line| line.contains("/repos sort name") && line.contains('✓')),
+                    .any(|line| line.contains("name") && line.contains('✓')),
                 "{text}"
             );
             assert!(!text.contains("[✓]"), "{text}");
@@ -188,9 +190,10 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         assert_eq!(s.selected_path(), None);
         assert!(render(&mut s, 60, 18).contains(i18n::tr!(RepositoryListNoMatches)));
         command(&mut s, "repos filter");
-        assert!(matches!(s.bar, bar::InputBar::Command { selected: 3, .. }));
-        key(&mut s, KeyCode::Home);
-        // Home 编辑命令光标，不改变选项；↑ 与 Enter 仍可恢复全部。
+        assert!(
+            matches!(s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(ref values), .. } if values.selected == 3)
+        );
+        // 参数候选中的 ↑ 与 Enter 可恢复全部。
         for _ in 0..3 {
             key(&mut s, KeyCode::Up);
         }
@@ -221,6 +224,7 @@ fn list_commands_combine_with_search_and_keep_repo_scope_after_reordering() {
     s.paste("filter");
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.query, "中文");
     assert_eq!(s.bar.editor().text, "中文");
@@ -258,7 +262,7 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
         .command_items
         .iter()
         .find(|(_, index)| {
-            s.search_commands().unwrap()[*index].action == Action::Filter(Filter::Unchecked)
+            matches!(&s.bar, bar::InputBar::Command { menu: command::completion::Menu::Options(values), .. } if values.options[*index].value.action() == Action::Filter(Filter::Unchecked))
         })
         .copied()
         .unwrap();

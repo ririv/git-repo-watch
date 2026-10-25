@@ -31,9 +31,10 @@
 - 命令支持按名称或中英文提示说明筛选，英文不区分大小写，如 `/终端`、`/频率`、`/live diff`；名称匹配优先，Tab 补全选中项的实际命令。
 - 全局菜单只展示顶层命令；输入 `/repo diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
 - 带参数命令直接在输入栏填写，如 `/repos add <path>`、`/settings concurrency <count>`。
+- `[tree|flat]` 表示可选的固定选项，`<path>`、`<name>` 表示自行输入。长选项列表以 `…` 简写，补全菜单展示完整范围；`<model>|default` 表示模型名或特殊值 `default`。
 - `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。单一子目录链合并显示（如 `output/imagegen/`）；目录只展示层级，文件仍可勾选和预览。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
-- 仓库首页用 `/repos filter` 筛选、`/repos sort` 排序；按 Enter 展开选项，`↑↓` 选择，Enter 应用，Esc 关闭，✓ 标记当前选项。
+- 仓库首页用 `/repos filter [all|problems|…]` 筛选、`/repos sort [priority|name|…]` 排序；各只有一个命令入口，空格后自动展开参数选项。按参数名或中英文说明筛选，`↑↓` 选择、Tab 补全、Enter 应用、Esc 收起；✓ 标记当前值。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
 - 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`。
 - 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。只影响当前会话，不检查仓库或修改报告。
@@ -111,7 +112,7 @@
 - 差异默认在宽屏使用左右对比，窄屏使用统一视图；两侧同步滚动，长行保持一行，横向同步平移。
 - `/repo diff layout` 打开横向选择器并定位当前设置；`←→` / `Tab` / `Shift+Tab` 切换候选，`Enter` 应用，`Esc` 返回命令草稿。鼠标单击选项只移动候选，双击或按 Enter 应用。
 - 命令列表标记当前选项，自动模式还显示当前实际的统一／双栏视图，并随窗口大小更新；可点击候选行或按 `Enter` 进入。
-- `/repo diff layout auto`、`/repo diff layout split`、`/repo diff layout unified` 立即切换布局，本次 TUI 会话生效；`Tab` 可补全子命令。
+- `/repo diff layout auto`、`/repo diff layout split`、`/repo diff layout unified` 立即切换布局，本次 TUI 会话生效；这些值是布局参数；空格后自动显示候选，`Tab` 补全参数。
 - 点击文件前的复选框勾选／取消，点击文件名只定位，双击文件名进入；沿用设置中的精确点击开关。空输入时 `Space` 勾选，`Insert` 始终勾选，`Ctrl+A` 勾选全部可见项；筛选隐藏文件时保留勾选。
 - `/repo diff stage` 暂存全部勾选项，`/repo diff unstage` 取消暂存；未勾选时作用于光标文件。必须先明确选择文件，操作命令不再兼任打开页面。
 - 暂存仅接受未暂存项，取消暂存仅接受已暂存项；跨组勾选会明确报错，不修改索引。完成后只刷新当前仓库，保留焦点和新命令草稿。
@@ -143,9 +144,9 @@
 - `/repo` 打开选中仓库的概览，所有仓库视图和操作归入其下；`/repos` 返回仓库列表，`/repos manage` 查看注册和排除配置；也可直接使用：`/repos add <path>`、`/repos remove`、`/repos exclude <path>`、`/repos unexclude <path>`。
 - `/repos scan <path>` 预览发现结果，`/repos import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
-- `/settings startup-check <true|false>` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
+- `/settings startup-check [true|false]` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
 - `/schedule` 打开任务管理页，查看状态和待应用间隔、修改配置并启停任务。
-- `/schedule interval <duration>` 设置间隔，如 6h；`/schedule autopush <policy>` 接受 disabled 或 fast_forward。
+- `/schedule interval <duration>` 设置间隔，如 6h；`/schedule autopush [disabled|fast_forward]` 接受 disabled 或 fast_forward。
 - `/schedule anchor <datetime|auto>` 设置本地时间基准，可填 HH:MM[:SS] 或 YYYY-MM-DD HH:MM[:SS]；auto 在启用时重新生成。
 - 基准缺省时，首次启用会自动生成并保存，后续启停和重启沿用；定时任务页显示基准与当前已应用任务的下次触发。
 - 间隔支持 s / m / h / d / w（秒、分、小时、天、周，至少 60 秒），保存后用 `/schedule apply` 应用。

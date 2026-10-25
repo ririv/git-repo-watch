@@ -124,8 +124,6 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
                 "settings ai agent",
                 "settings ai model",
                 "settings ai prompt",
-                "settings interaction interactive",
-                "settings interaction text"
             ]
         );
         assert!(command::argument_input("settings chinese-command-trigger false").is_none());

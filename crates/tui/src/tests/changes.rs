@@ -62,14 +62,9 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff stage",
                 "repo diff unstage",
                 "repo diff layout",
-                "repo diff layout auto",
-                "repo diff layout split",
-                "repo diff layout unified",
                 "repo diff refresh",
                 "repo diff copy",
                 "repo diff view",
-                "repo diff view tree",
-                "repo diff view flat",
             ]
         );
         assert_eq!(
@@ -77,11 +72,7 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 .iter()
                 .map(|command| command.name)
                 .collect::<Vec<_>>(),
-            [
-                "repo diff layout auto",
-                "repo diff layout split",
-                "repo diff layout unified"
-            ]
+            ["repo diff layout"]
         );
         command(&mut s, "repo diff stage");
         assert!(matches!(s.mode, Mode::Browsing));
@@ -114,7 +105,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         s.paste("//di");
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff");
-        assert_eq!(s.search_commands().unwrap().len(), 11);
+        assert_eq!(s.search_commands().unwrap().len(), 6);
         let text = render(&mut s, 180, 36);
         for command in s.search_commands().unwrap().into_iter().take(8) {
             assert!(text.contains(&format!("/{}", command.name)), "{text}");
