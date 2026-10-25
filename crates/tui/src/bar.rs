@@ -233,7 +233,7 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         let search_support = self.search_support();
-        if self.option_candidate_key(key, root)? {
+        if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
         }
         if let InputBar::Command {
@@ -295,17 +295,15 @@ impl Screen {
                 KeyCode::Down => *selected = (*selected + 1).min(matches.len().saturating_sub(1)),
                 KeyCode::Tab => {
                     if let Some(c) = matches.get(*selected) {
-                        if matches!(
-                            command::argument_input(&query),
-                            Some((command::ArgumentAction::Option(_), _))
-                        ) {
+                        if command::argument_input(&query)
+                            .is_some_and(|(argument, _)| argument.options().is_some())
+                        {
                             self.message.clear();
                         } else if command::argument_input(&query).is_some() {
                             let mut canonical = input.canonical_editor();
                             match command::completion::complete(
                                 &mut canonical,
                                 self.service.scheduler.user_home(),
-                                self.config.ai.agent,
                             ) {
                                 Ok(completion) => {
                                     input.replace_canonical(canonical);

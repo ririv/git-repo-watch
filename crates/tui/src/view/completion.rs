@@ -20,32 +20,6 @@ pub(super) fn render(
     render_candidates(frame, screen, items, directories.selected(), body);
 }
 
-pub(super) fn render_values(
-    frame: &mut Frame,
-    screen: &Screen,
-    values: &command::values::Candidates,
-    body: Rect,
-) {
-    let items = values
-        .agents()
-        .iter()
-        .map(|agent| {
-            ListItem::new(Line::from(vec![
-                Span::styled(agent.name(), Style::default().fg(ACCENT)),
-                Span::styled(
-                    if *agent == values.current {
-                        format!("  ✓ {}", i18n::tr!(LayoutCurrent))
-                    } else {
-                        String::new()
-                    },
-                    Style::default().fg(GOOD),
-                ),
-            ]))
-        })
-        .collect();
-    render_candidates(frame, screen, items, values.selected(), body);
-}
-
 pub(super) fn render_options(
     frame: &mut Frame,
     screen: &Screen,

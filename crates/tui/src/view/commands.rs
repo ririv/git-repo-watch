@@ -1,12 +1,13 @@
 //! Single-line command rows separate usage, concise descriptions and configuration values.
+mod argument;
 use super::*;
 use ratatui::layout::Alignment;
 use unicode_width::UnicodeWidthStr;
 
 struct Entry {
-    command: &'static command::Command,
     name: String,
-    usage: String,
+    usage_width: usize,
+    argument: Option<command::ArgumentSyntax>,
     description: String,
     value: String,
 }
@@ -17,12 +18,16 @@ struct Columns {
 }
 impl Columns {
     fn fit(entries: &[Entry], width: usize) -> Self {
-        let name = entries
+        let desired_name = entries
             .iter()
-            .map(|entry| entry.usage.width())
+            .map(|entry| entry.usage_width)
             .max()
-            .unwrap_or(0)
-            .min(width);
+            .unwrap_or(0);
+        let minimum_name = entries
+            .iter()
+            .map(Entry::minimum_usage_width)
+            .max()
+            .unwrap_or(0);
         let minimum_description = entries
             .iter()
             .map(|entry| entry.description.width())
@@ -34,6 +39,10 @@ impl Columns {
             .map(|entry| entry.value.width())
             .max()
             .unwrap_or(0);
+        // 优先给说明和当前值留空间；枚举只使用剩余宽度，参数名按完整词省略。
+        let name_budget =
+            width.saturating_sub(minimum_description + 2 + if value > 0 { value + 2 } else { 0 });
+        let name = desired_name.min(name_budget.max(minimum_name)).min(width);
         let free = width.saturating_sub(name + 2);
         // 窄屏优先保留命令、参数和短说明；配置值在剩余空间中右对齐。
         let value = value.min(free.saturating_sub(minimum_description + 2));
@@ -46,18 +55,25 @@ impl Columns {
     }
 }
 impl Entry {
+    fn minimum_usage_width(&self) -> usize {
+        self.name.width()
+            + match &self.argument {
+                Some(command::ArgumentSyntax::Input(text)) => text.width() + 1,
+                Some(command::ArgumentSyntax::Choices(_)) => " […]".width(),
+                None => 0,
+            }
+    }
     fn item(&self, columns: &Columns) -> ListItem<'static> {
         let name = clipped(&self.name, columns.name);
         let mut used = name.width();
         let mut spans = vec![Span::styled(name, Style::default().fg(ACCENT).bold())];
-        if let Some(argument) = self.command.action.argument() {
-            let argument = clipped(
-                &format!(" {}", argument.placeholder()),
-                columns.name.saturating_sub(used),
-            );
-            used += argument.width();
+        if let Some(argument) = &self.argument
+            && used < columns.name
+        {
+            let argument = argument::fit(argument, columns.name - used - 1);
+            used += argument.width() + 1;
             spans.push(Span::styled(
-                argument,
+                format!(" {argument}"),
                 Style::default().fg(Color::LightCyan).italic(),
             ));
         }
@@ -140,10 +156,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
             completion::render(frame, screen, values, body);
             return;
         }
-        command::completion::Menu::Values(values) => {
-            completion::render_values(frame, screen, values, body);
-            return;
-        }
         command::completion::Menu::Options(values) => {
             screen.command_items = completion::render_options(frame, screen, values, body);
             return;
@@ -177,9 +189,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
                 "/"
             };
             Entry {
-                command,
                 name: format!("{prefix}{}", input.name(command)),
-                usage: format!("{prefix}{}", input.usage(command)),
+                usage_width: prefix.width() + input.usage(command).width(),
+                argument: command.action.argument().map(|argument| argument.syntax()),
                 description: safe(description),
                 value: value.unwrap_or_default(),
             }

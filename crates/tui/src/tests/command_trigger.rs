@@ -65,6 +65,7 @@ fn alias_retains_scope_supports_global_escape_and_replaces_selected_prefix() {
     s.paste("、startup-check false");
     assert_eq!(s.bar.text(), "/settings startup-check false");
     key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('、'));
     key(&mut s, KeyCode::Backspace);
     s.paste("、help");

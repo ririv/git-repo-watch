@@ -6,7 +6,7 @@ use crate::{
     files::Layout,
     repository_list::{Filter, Order},
 };
-use engine::state::InteractionMode;
+use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -16,6 +16,9 @@ pub(crate) enum Kind {
     DiffLayout,
     Search,
     Interaction,
+    StartupCheck,
+    Autopush,
+    AiAgent,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
@@ -25,6 +28,9 @@ pub(crate) enum Value {
     DiffLayout(Preference),
     Search(crate::search::Mode),
     Interaction(InteractionMode),
+    StartupCheck(bool),
+    Autopush(PushPolicy),
+    AiAgent(Agent),
 }
 #[derive(Debug)]
 pub(crate) struct Option {
@@ -134,6 +140,36 @@ const OPTIONS: &[Option] = &[
         token: "text",
         description: M::InteractionTextCommand,
     },
+    Option {
+        value: Value::StartupCheck(true),
+        token: "true",
+        description: M::StartupCheckEnabledOption,
+    },
+    Option {
+        value: Value::StartupCheck(false),
+        token: "false",
+        description: M::StartupCheckDisabledOption,
+    },
+    Option {
+        value: Value::Autopush(PushPolicy::Disabled),
+        token: "disabled",
+        description: M::AutoPushDisabledOption,
+    },
+    Option {
+        value: Value::Autopush(PushPolicy::FastForward),
+        token: "fast_forward",
+        description: M::AutoPushFastForwardOption,
+    },
+    Option {
+        value: Value::AiAgent(Agent::Codex),
+        token: "codex",
+        description: M::AgentCodexOption,
+    },
+    Option {
+        value: Value::AiAgent(Agent::Claude),
+        token: "claude",
+        description: M::AgentClaudeOption,
+    },
 ];
 impl Value {
     pub fn action(self) -> Action {
@@ -144,6 +180,9 @@ impl Value {
             Self::DiffLayout(value) => Action::DiffLayout(value),
             Self::Search(value) => Action::Search(value),
             Self::Interaction(value) => Action::Interaction(value),
+            Self::StartupCheck(_) => Action::StartupCheck,
+            Self::Autopush(_) => Action::Autopush,
+            Self::AiAgent(_) => Action::AiAgent,
         }
     }
     fn kind(self) -> Kind {
@@ -154,6 +193,9 @@ impl Value {
             Self::DiffLayout(_) => Kind::DiffLayout,
             Self::Search(_) => Kind::Search,
             Self::Interaction(_) => Kind::Interaction,
+            Self::StartupCheck(_) => Kind::StartupCheck,
+            Self::Autopush(_) => Kind::Autopush,
+            Self::AiAgent(_) => Kind::AiAgent,
         }
     }
 }
@@ -166,6 +208,9 @@ impl Kind {
             Self::DiffLayout => Action::DiffLayoutMenu,
             Self::Search => Action::SearchMenu,
             Self::Interaction => Action::InteractionMenu,
+            Self::StartupCheck => Action::StartupCheck,
+            Self::Autopush => Action::Autopush,
+            Self::AiAgent => Action::AiAgent,
         }
     }
     pub fn command(self) -> &'static Command {
@@ -182,6 +227,9 @@ impl Kind {
             Self::DiffLayout => Value::DiffLayout(screen.diff_preference),
             Self::Search => Value::Search(screen.search_support().mode()?),
             Self::Interaction => Value::Interaction(screen.config.interaction_mode),
+            Self::StartupCheck => Value::StartupCheck(screen.config.check_on_startup),
+            Self::Autopush => Value::Autopush(screen.config.push_policy),
+            Self::AiAgent => Value::AiAgent(screen.config.ai.agent),
         })
     }
     pub fn parse(self, raw: &str) -> anyhow::Result<Value> {
@@ -207,6 +255,9 @@ impl Kind {
     }
 }
 pub(crate) fn description(action: Action) -> std::option::Option<&'static str> {
+    if action.argument().is_some() {
+        return None;
+    }
     OPTIONS
         .iter()
         .find(|option| option.value.action() == action)

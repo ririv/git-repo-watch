@@ -315,10 +315,7 @@ impl Screen {
                         .basis()
                         .map(|basis| basis.at.format("%Y-%m-%d %H:%M:%S").to_string())
                         .unwrap_or_else(|| "auto".into()),
-                    Action::Autopush => self.config.push_policy.to_string(),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
-                    Action::StartupCheck => self.config.check_on_startup.to_string(),
-                    Action::AiAgent => self.config.ai.agent.name().into(),
                     Action::AiModel => {
                         if self.config.ai.program().model.is_empty() {
                             "default".into()
@@ -339,6 +336,7 @@ impl Screen {
                     path,
                     selection: self.copy_selection(),
                 };
+                self.refresh_option_candidates();
             }
         }
         Ok(false)

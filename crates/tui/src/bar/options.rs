@@ -1,7 +1,6 @@
 //! Value completion owns selection and execution without adding catalog commands.
 use super::*;
 use command::{
-    ArgumentAction,
     completion::Menu,
     options::{Candidates, Kind},
 };
@@ -14,9 +13,12 @@ impl Screen {
                 path,
                 selection,
                 ..
-            } => match command::argument_input(&input.query()) {
-                Some((ArgumentAction::Option(kind), _))
-                    if selection.admits(kind.action(), path.as_deref())
+            } => match command::argument_input(&input.query())
+                .and_then(|(argument, _)| argument.options())
+            {
+                Some(kind)
+                    if kind.action().available(self.config.ai.enabled)
+                        && selection.admits(kind.action(), path.as_deref())
                         && self.search_support().admits(kind.action()) =>
                 {
                     Candidates::new(input, kind, self)
@@ -51,16 +53,14 @@ impl Screen {
         };
         self.refresh_option_candidates();
     }
-    pub(super) fn option_candidate_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+    pub(super) fn option_candidate_key(&mut self, key: KeyEvent) -> bool {
         let InputBar::Command {
             menu: Menu::Options(candidates),
             input,
-            path,
-            selection,
             ..
         } = &mut self.bar
         else {
-            return Ok(false);
+            return false;
         };
         match key.code {
             KeyCode::Esc => {
@@ -76,19 +76,19 @@ impl Screen {
                 }
             }
             KeyCode::Enter => {
-                let Some(option) = candidates.options.get(candidates.selected) else {
+                let Some(editor) = candidates.choose() else {
                     self.message = i18n::tr!(NoMatchingOptions).into();
-                    return Ok(true);
+                    return true;
                 };
-                let action = option.value.action();
-                let path = path.clone();
-                let selection = selection.clone();
-                self.sync_bar();
-                self.message.clear();
-                self.activate(action, path, selection, root)?;
+                input.replace_canonical(editor);
+                if let InputBar::Command { menu, .. } = &mut self.bar {
+                    *menu = Menu::Commands;
+                }
+                // 候选只补齐值；同一次 Enter 继续走原有解析与确认流程。
+                return false;
             }
-            _ => return Ok(false),
+            _ => return false,
         }
-        Ok(true)
+        true
     }
 }

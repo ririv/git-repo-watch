@@ -31,10 +31,11 @@
 - Filter commands by name or Chinese/English descriptions, ignoring English case; e.g. `//live diff` or `//终端`. Name matches come first; Tab completes the selected command.
 - The global menu shows top-level entries. A prefix such as `/repo diff` also shows all matching subcommands; no trailing space is needed. Parent commands come first.
 - Parameter commands stay in the input: `/repos add <path>`, `/settings concurrency <count>`.
-- `[tree|flat]` means an optional fixed choice; `<path>` or `<name>` accepts user input. Long choice lists use `…`; completion shows every value. `<model>|default` accepts a model name or the special value `default`.
+- `[tree|flat]` means an optional fixed choice; `<path>` or `<name>` accepts user input. Choice lists expand to the available width and use `…` only when they do not fit, keeping option names whole; completion always shows every value. `[<model>|default]` accepts a model name or the special value `default`.
 - `/repo diff view` switches between the directory tree (default) and flat list; use `/repo diff view tree` or `/repo diff view flat` directly. Single-child directory chains appear together (for example, `output/imagegen/`). Directories show hierarchy; selection and preview act on files.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
 - On the repository home page, `/repos filter [all|problems|…]` and `/repos sort [priority|name|…]` each have one command entry. A space opens parameter choices. Filter by name or bilingual description; ↑↓ selects, Tab completes, Enter applies, and Esc closes the choices. ✓ marks the current value.
+- Startup checks, auto-push policy and the AI agent use the same parameter menu: Space or Enter opens choices, ↑↓ selects, Tab only completes, and Enter submits the value. Existing confirmation rules still apply; cancelling does not save.
 - Filters: all, problems (attention or failed), clean, failed, unchecked, no-upstream, pushes (recorded successes or failures).
 - Sorting: priority, name (A to Z), path (ascending), updated (latest state first; unchecked last). Direct commands work too, e.g. `/repos sort name`.
 - Filtering combines with search. Press `/` on the home page to open commands while keeping an existing search; applying or closing returns to that search and keeps the selected repository when visible. Options apply only to this session and do not check repositories or change reports.

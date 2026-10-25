@@ -138,7 +138,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model <model>|default") && line.contains("Default"))
+                .any(|line| line.contains("model [<model>|default]") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Configuration(Configuration::General));
@@ -152,9 +152,10 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert_eq!(s.config.ai.claude.model, "example-model");
         s.paste("/model");
         assert!(
-            render(&mut s, 140, 48).lines().any(
-                |line| line.contains("model <model>|default") && line.contains("example-model")
-            )
+            render(&mut s, 140, 48)
+                .lines()
+                .any(|line| line.contains("model [<model>|default]")
+                    && line.contains("example-model"))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent codex");
@@ -163,7 +164,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model <model>|default") && line.contains("Default"))
+                .any(|line| line.contains("model [<model>|default]") && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent claude");
@@ -336,19 +337,30 @@ fn agent_is_one_parameter_command_and_completion_never_changes_preferences_befor
         s.paste("//settings ai agent ");
         key(&mut s, KeyCode::Tab);
         let bar::InputBar::Command {
-            menu: Menu::Values(values),
+            menu: Menu::Options(values),
             ..
         } = &s.bar
         else {
             panic!("argument candidates");
         };
-        assert_eq!(values.agents(), Agent::ALL);
+        assert_eq!(
+            values
+                .options
+                .iter()
+                .map(|option| option.value)
+                .collect::<Vec<_>>(),
+            Agent::ALL
+                .iter()
+                .copied()
+                .map(command::options::Value::AiAgent)
+                .collect::<Vec<_>>()
+        );
         let text = render(&mut s, 120, 28);
         assert!(!text.contains(i18n::tr!(ArgumentCandidates)));
         assert!(text.contains("codex") && text.contains("claude"));
         assert!(!text.contains("/settings ai agent claude"));
         key(&mut s, KeyCode::Down);
-        key(&mut s, KeyCode::Enter);
+        key(&mut s, KeyCode::Tab);
         assert!(s.bar.text().ends_with("agent claude"));
         assert_eq!(s.service.store.config().unwrap().ai.agent, Agent::Codex);
         key(&mut s, KeyCode::Enter);
@@ -362,7 +374,7 @@ fn agent_is_one_parameter_command_and_completion_never_changes_preferences_befor
         wait(&mut s);
         assert_eq!(s.config.ai.agent, Agent::Codex);
         command(&mut s, "settings ai agent unknown-agent");
-        assert!(s.message.contains(i18n::tr!(UnknownAgent)));
+        assert_eq!(s.message, i18n::tr!(NoMatchingOptions));
         assert_eq!(s.service.store.config().unwrap().ai.agent, Agent::Codex);
         assert!(!matches!(s.mode, Mode::Busy(_)));
         s.shutdown();

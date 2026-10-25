@@ -31,10 +31,11 @@
 - 命令支持按名称或中英文提示说明筛选，英文不区分大小写，如 `/终端`、`/频率`、`/live diff`；名称匹配优先，Tab 补全选中项的实际命令。
 - 全局菜单只展示顶层命令；输入 `/repo diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
 - 带参数命令直接在输入栏填写，如 `/repos add <path>`、`/settings concurrency <count>`。
-- `[tree|flat]` 表示可选的固定选项，`<path>`、`<name>` 表示自行输入。长选项列表以 `…` 简写，补全菜单展示完整范围；`<model>|default` 表示模型名或特殊值 `default`。
+- `[tree|flat]` 表示可选的固定选项，`<path>`、`<name>` 表示自行输入。选项按可用宽度完整显示，放不下时按完整选项以 `…` 简写，补全菜单始终展示完整范围；`[<model>|default]` 表示模型名或特殊值 `default`。
 - `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。单一子目录链合并显示（如 `output/imagegen/`）；目录只展示层级，文件仍可勾选和预览。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
 - 仓库首页用 `/repos filter [all|problems|…]` 筛选、`/repos sort [priority|name|…]` 排序；各只有一个命令入口，空格后自动展开参数选项。按参数名或中英文说明筛选，`↑↓` 选择、Tab 补全、Enter 应用、Esc 收起；✓ 标记当前值。
+- 启动检查、自动推送策略和 AI 工具也使用同一参数菜单：空格或 Enter 展开，↑↓ 选择、Tab 只补全、Enter 提交所选值。配置确认沿用原有规则，取消不写入。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
 - 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`。
 - 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。只影响当前会话，不检查仓库或修改报告。

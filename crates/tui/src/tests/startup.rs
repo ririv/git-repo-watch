@@ -112,7 +112,7 @@ fn startup_setting_is_localized_editable_persistent_and_effective_only_next_laun
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Right);
-        assert_eq!(s.bar.text(), "/settings startup-check true");
+        assert_eq!(s.bar.text(), "/settings startup-check ");
         command(&mut s, "settings startup-check false");
         assert!(matches!(s.mode, Mode::Confirm { .. }));
         key(&mut s, KeyCode::Esc);

@@ -1,6 +1,20 @@
 //! Typed parameter commands and literal single-value parsing; no shell evaluation.
 use super::{Action, COMMANDS, Command};
 use anyhow::{Context, Result, ensure};
+
+pub(crate) enum ArgumentSyntax {
+    Input(&'static str),
+    Choices(Vec<String>),
+}
+impl ArgumentSyntax {
+    pub fn placeholder(&self) -> String {
+        match self {
+            Self::Input(text) => (*text).into(),
+            Self::Choices(values) => format!("[{}]", values.join("|")),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArgumentAction {
     Add,
@@ -26,6 +40,16 @@ pub enum ArgumentAction {
     Option(super::options::Kind),
 }
 impl ArgumentAction {
+    pub fn options(self) -> Option<super::options::Kind> {
+        use super::options::Kind;
+        match self {
+            Self::Option(kind) => Some(kind),
+            Self::StartupCheck => Some(Kind::StartupCheck),
+            Self::Autopush => Some(Kind::Autopush),
+            Self::AiAgent => Some(Kind::AiAgent),
+            _ => None,
+        }
+    }
     pub fn is_path(self) -> bool {
         matches!(
             self,
@@ -65,39 +89,30 @@ impl ArgumentAction {
             .expect("argument command catalog")
     }
     pub fn placeholder(self) -> String {
+        self.syntax().placeholder()
+    }
+    pub fn syntax(self) -> ArgumentSyntax {
         let open = match self {
             Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => "<path>",
             Self::Interval => "<duration>",
-            Self::Anchor => "<datetime>|auto",
-            Self::Autopush => {
-                return choices(
-                    [
-                        engine::domain::PushPolicy::Disabled,
-                        engine::domain::PushPolicy::FastForward,
-                    ]
-                    .into_iter()
-                    .map(|policy| policy.to_string()),
-                );
-            }
+            Self::Anchor => "[<datetime>|auto]",
             Self::Concurrency => "<count>",
-            Self::StartupCheck => "[true|false]",
-            Self::AiAgent => {
-                return choices(
-                    engine::ai::Agent::ALL
-                        .iter()
-                        .map(|agent| agent.name().into()),
+            Self::Option(_) | Self::Autopush | Self::StartupCheck | Self::AiAgent => {
+                return ArgumentSyntax::Choices(
+                    self.options()
+                        .expect("fixed-value argument")
+                        .options()
+                        .map(|option| option.token.into())
+                        .collect(),
                 );
             }
-            Self::Option(kind) => {
-                return choices(kind.options().map(|option| option.token.into()));
-            }
-            Self::AiModel => "<model>|default",
+            Self::AiModel => "[<model>|default]",
             Self::AiPrompt => "<text>",
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::StashSave | Self::StashSaveAll => "<message>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
-        open.into()
+        ArgumentSyntax::Input(open)
     }
     pub fn hint(self) -> &'static str {
         match self {
@@ -109,13 +124,12 @@ impl ArgumentAction {
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::Interval => i18n::tr!(DurationArgumentHint),
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
-            Self::Autopush => i18n::tr!(PolicyArgumentHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
-            Self::StartupCheck => i18n::tr!(StartupCheckArgumentHint),
-            Self::AiAgent => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
-            Self::Option(_) => i18n::tr!(OptionCompletionHint),
+            Self::Option(_) | Self::Autopush | Self::StartupCheck | Self::AiAgent => {
+                i18n::tr!(OptionCompletionHint)
+            }
         }
     }
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
@@ -213,16 +227,6 @@ impl ArgumentAction {
     }
 }
 
-fn choices(values: impl Iterator<Item = String>) -> String {
-    let mut values = values.collect::<Vec<_>>();
-    // 长枚举只在命令行中简写；参数候选菜单仍展示完整选项。
-    if values.len() > 3 {
-        values.truncate(2);
-        values.push("…".into());
-    }
-    format!("[{}]", values.join("|"))
-}
-
 impl Action {
     pub fn argument(self) -> Option<ArgumentAction> {
         match self {
@@ -297,9 +301,8 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
     // 保留命令菜单原有的唯一后缀输入；只解析明确的选项命令，不猜测参数内容。
     let input = input.trim_start();
     let mut aliases = COMMANDS.iter().filter_map(|command| {
-        let argument @ ArgumentAction::Option(_) = command.action.argument()? else {
-            return None;
-        };
+        let argument = command.action.argument()?;
+        argument.options()?;
         command.name.match_indices(' ').find_map(|(index, _)| {
             let alias = &command.name[index + 1..];
             input

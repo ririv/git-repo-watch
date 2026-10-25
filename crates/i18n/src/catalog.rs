@@ -448,6 +448,12 @@ pub enum Message {
     ChineseCommandTriggerSaved,
     CheckAllOnStartup,
     StartupCheckArgumentHint,
+    StartupCheckEnabledOption,
+    StartupCheckDisabledOption,
+    AutoPushDisabledOption,
+    AutoPushFastForwardOption,
+    AgentCodexOption,
+    AgentClaudeOption,
     BooleanArgumentRequired,
     StartupCheckSavedNextLaunch,
     StartupCheckAlreadyRunning,
@@ -3716,6 +3722,24 @@ impl Message {
             }
             (Self::CheckAllOnStartup, Language::English) => "Check all repositories on startup",
             (Self::CheckAllOnStartup, Language::Chinese) => "启动时检查全部仓库",
+            (Self::StartupCheckEnabledOption, Language::English) => {
+                "Check all repositories on next startup"
+            }
+            (Self::StartupCheckEnabledOption, Language::Chinese) => "下次启动时检查全部仓库",
+            (Self::StartupCheckDisabledOption, Language::English) => "Skip checks on startup",
+            (Self::StartupCheckDisabledOption, Language::Chinese) => "启动时不检查仓库",
+            (Self::AutoPushDisabledOption, Language::English) => {
+                "Do not push during scheduled checks"
+            }
+            (Self::AutoPushDisabledOption, Language::Chinese) => "定时检查时不自动推送",
+            (Self::AutoPushFastForwardOption, Language::English) => {
+                "Push branches that can fast-forward safely"
+            }
+            (Self::AutoPushFastForwardOption, Language::Chinese) => "自动推送可安全快进的分支",
+            (Self::AgentCodexOption, Language::English) => "Use Codex from PATH",
+            (Self::AgentCodexOption, Language::Chinese) => "使用 PATH 中的 Codex",
+            (Self::AgentClaudeOption, Language::English) => "Use Claude Code from PATH",
+            (Self::AgentClaudeOption, Language::Chinese) => "使用 PATH 中的 Claude Code",
             (Self::StartupCheckArgumentHint, Language::English) => {
                 "true / false · Next launch · Enter review · Esc clear"
             }

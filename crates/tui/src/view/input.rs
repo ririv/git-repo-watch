@@ -302,8 +302,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 } else if matches!(
                     &screen.bar,
                     crate::bar::InputBar::Command {
-                        menu: command::completion::Menu::Directories(_)
-                            | command::completion::Menu::Values(_),
+                        menu: command::completion::Menu::Directories(_),
                         ..
                     }
                 ) {

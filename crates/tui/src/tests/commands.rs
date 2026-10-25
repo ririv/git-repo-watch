@@ -125,12 +125,11 @@ fn concise_commands_show_values_without_scope_or_detail_rows_and_remain_clickabl
                 i18n::tr!(CurrentRepo),
                 i18n::tr!(CurrentView),
                 i18n::tr!(LayoutCurrent),
-                "[",
-                "]",
             ] {
                 assert!(!line.contains(absent), "{line}");
             }
         }
+        assert!(text.contains("agent [codex|claude]"));
         assert!(
             items
                 .windows(2)

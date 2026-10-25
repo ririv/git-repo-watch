@@ -234,7 +234,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 
 - `/repos add <path>`、`/repos exclude <path>`、`/repos unexclude <path>`、`/repos scan <path>`、`/repos import <path>`。
 - `/schedule interval <duration>`，例如 `/schedule interval 6h`、`/schedule interval 1w`。
-- `/schedule anchor <datetime>|auto`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
+- `/schedule anchor [<datetime>|auto]`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
 - `/schedule autopush [disabled|fast_forward]`，取值 `disabled` 或 `fast_forward`。
 - `/settings concurrency <count>`，范围 1 至 32。
 - `/settings startup-check [true|false]`，控制启动时检查全部仓库，默认 `true`。
@@ -621,6 +621,6 @@ AI 只返回已有改动块的分组、顺序和各条提交说明，不生成�
 
 ### 固定选项参数
 
-`/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；超过三个选项时只简写前两个和 `…`，完整范围在参数菜单中展示。像 `<model>|default` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
+`/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]`、`/settings startup-check [true|false]`、`/schedule autopush [disabled|fast_forward]` 和 `/settings ai agent [codex|claude]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；选项根据菜单的实际可用宽度显示，放得下时完整列出，放不下时在完整选项后以 `|…]` 省略，缩放终端会重新计算；说明和当前值仍保留空间，完整范围始终可在参数菜单中查看。像 `[<model>|default]` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
 
-完整输入如 `/repos filter failed` 仍然直接生效，非法值明确报错，不改变设置。`/repo diff layout` 不带参数时保留横向选择器；目录和 AI 工具名称仍使用各自的补全方式。
+完整输入如 `/repos filter failed` 仍然直接生效，非法值明确报错，不改变设置。`/repo diff layout` 不带参数时保留横向选择器；所有固定选项共用参数菜单；目录继续使用目录补全。启动检查和自动推送策略选中后先进入配置确认框，取消不写入；AI 工具选中后沿用原有直接保存方式，AI 关闭时不显示工具候选。

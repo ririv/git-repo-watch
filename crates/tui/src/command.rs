@@ -8,7 +8,7 @@ pub(crate) mod path;
 mod summary;
 #[cfg(test)]
 mod tests;
-pub(crate) mod values;
+pub(crate) use argument::ArgumentSyntax;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
 pub(crate) use input::{Input, NamespaceEvent};
@@ -599,7 +599,24 @@ impl Command {
             Some(MatchKind::NameWordPrefix)
         } else if name.contains(query) {
             Some(MatchKind::NameSubstring)
-        } else if matches!(self.action.argument(), Some(ArgumentAction::Option(kind)) if kind.options().any(|option| option.token.contains(query) || [i18n::Language::English, i18n::Language::Chinese].iter().any(|language| option.description.in_language(*language).to_lowercase().contains(query))))
+        } else if self
+            .action
+            .argument()
+            .and_then(|argument| argument.options())
+            .is_some_and(|kind| {
+                kind.options().any(|option| {
+                    option.token.contains(query)
+                        || [i18n::Language::English, i18n::Language::Chinese]
+                            .iter()
+                            .any(|language| {
+                                option
+                                    .description
+                                    .in_language(*language)
+                                    .to_lowercase()
+                                    .contains(query)
+                            })
+                })
+            })
             || [i18n::Language::English, i18n::Language::Chinese]
                 .into_iter()
                 .any(|language| {
