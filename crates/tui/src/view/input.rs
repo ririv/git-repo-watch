@@ -1,4 +1,5 @@
 //! Bordered input with explicit editable and locked states.
+mod prefix;
 use super::feedback::Preview;
 use super::*;
 
@@ -529,16 +530,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             };
             let mut spans = Vec::new();
             if let Some(prefix) = prefix {
-                spans.push(Span::styled(
-                    prefix,
-                    if command.is_some_and(|input| input.prefix_selected()) {
-                        Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
-                    } else {
-                        Style::default()
-                            .fg(Color::LightCyan)
-                            .bg(Color::Rgb(34, 52, 65))
-                            .bold()
-                    },
+                spans.extend(prefix::spans(
+                    &prefix,
+                    command.and_then(|input| input.prefix_selection()),
                 ));
                 spans.push(Span::raw(" "));
             }

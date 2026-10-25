@@ -23,6 +23,22 @@ pub(crate) enum Context {
     Composition,
 }
 impl Context {
+    pub fn parent(self) -> Option<Self> {
+        match self {
+            Self::Diff(_)
+            | Self::History
+            | Self::Branches
+            | Self::Stash
+            | Self::Files
+            | Self::Composition => Some(Self::Repository),
+            Self::Ai => Some(Self::Settings),
+            Self::Repository
+            | Self::Repositories
+            | Self::Settings
+            | Self::Schedule
+            | Self::Error => None,
+        }
+    }
     pub fn name(self) -> &'static str {
         match self {
             Self::Diff(_) => "repo diff",

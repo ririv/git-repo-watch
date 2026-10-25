@@ -1,5 +1,5 @@
 //! A locked context token and its editable suffix have separate ownership.
-use super::{Command, Context};
+use super::{Command, Context, prefix};
 use crate::Editor;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -14,7 +14,7 @@ pub(crate) enum NamespaceEvent {
 pub(crate) enum Input {
     Global(Editor),
     Scoped { context: Context, editor: Editor },
-    Prefix(Context),
+    Prefix(prefix::Selection),
 }
 impl Input {
     pub fn new(context: Option<Context>) -> Self {
@@ -37,13 +37,15 @@ impl Input {
     pub fn context(&self) -> Option<Context> {
         match self {
             Self::Global(_) => None,
-            Self::Scoped { context, .. } | Self::Prefix(context) => Some(*context),
+            Self::Scoped { context, .. } => Some(*context),
+            Self::Prefix(selection) => Some(selection.origin()),
         }
     }
     pub fn menu_context(&self) -> Option<Context> {
         match self {
             Self::Scoped { context, .. } => Some(*context),
-            Self::Global(_) | Self::Prefix(_) => None,
+            Self::Prefix(selection) => selection.parent(),
+            Self::Global(_) => None,
         }
     }
     pub fn editor(&self) -> &Editor {
@@ -58,8 +60,8 @@ impl Input {
         }
     }
     pub fn editor_mut(&mut self) -> &mut Editor {
-        if let Self::Prefix(context) = self {
-            *self = Self::new(Some(*context));
+        if let Self::Prefix(selection) = self {
+            *self = Self::new(Some(selection.origin()));
         }
         match self {
             Self::Global(editor) | Self::Scoped { editor, .. } => editor,
@@ -68,6 +70,12 @@ impl Input {
     }
     pub fn prefix_selected(&self) -> bool {
         matches!(self, Self::Prefix(_))
+    }
+    pub fn prefix_selection(&self) -> Option<std::ops::Range<usize>> {
+        match self {
+            Self::Prefix(selection) => Some(selection.range()),
+            Self::Global(_) | Self::Scoped { .. } => None,
+        }
     }
     pub fn canonical_editor(&self) -> Editor {
         match self.context() {
@@ -85,8 +93,11 @@ impl Input {
         self.canonical_editor().text
     }
     pub fn query(&self) -> String {
-        if self.prefix_selected() {
-            return String::new();
+        if let Self::Prefix(selection) = self {
+            return selection
+                .parent()
+                .map(|parent| format!("{} ", parent.name()))
+                .unwrap_or_default();
         }
         self.text()
             .strip_prefix('/')
@@ -140,17 +151,12 @@ impl Input {
         self.replace_canonical(Editor::new(command.completion()));
     }
     pub fn paste(&mut self, text: &str) {
-        if self.prefix_selected() {
+        if let Self::Prefix(selection) = self {
             // 粘贴与键入采用同一选区语义；空粘贴保留选区，控制字符不进入命令。
             let text = text.chars().filter(|c| !c.is_control()).collect::<String>();
             if !text.is_empty() {
-                let body = text
-                    .strip_prefix("//")
-                    .or_else(|| text.strip_prefix('/'))
-                    .unwrap_or(&text);
-                let mut editor = Editor::new("/".into());
-                editor.insert(body);
-                *self = Self::global(editor);
+                *self = Self::new(selection.parent());
+                self.paste(&text);
             }
             return;
         }
@@ -189,8 +195,15 @@ impl Input {
             )
             && let KeyCode::Char(character) = key.code
         {
-            // 选中的前缀是整个命令选区，首个字符替换它，而非恢复旧上下文。
-            *self = Self::new(None);
+            let Self::Prefix(selection) = self else {
+                unreachable!()
+            };
+            // 保留未选中的父级；显式输入 / 则直接切换到全局命令。
+            *self = Self::new(if character == '/' {
+                None
+            } else {
+                selection.parent()
+            });
             if character != '/' {
                 self.editor_mut().key(key);
             }
@@ -199,23 +212,24 @@ impl Input {
         if !key.modifiers.is_empty() {
             return NamespaceEvent::Pass;
         }
-        if let Self::Prefix(context) = self {
-            if key.code == KeyCode::Backspace {
-                return NamespaceEvent::Close;
+        if let Self::Prefix(selection) = self {
+            match key.code {
+                KeyCode::Left => selection.expand(),
+                KeyCode::Right if selection.shrink() => {}
+                KeyCode::Backspace | KeyCode::Delete => match selection.parent() {
+                    Some(parent) => *self = Self::new(Some(parent)),
+                    None => return NamespaceEvent::Close,
+                },
+                KeyCode::Up | KeyCode::Down | KeyCode::Tab | KeyCode::BackTab => {
+                    return NamespaceEvent::Pass;
+                }
+                _ => *self = Self::new(Some(selection.origin())),
             }
-            // 全局候选可继续选择、补全；Enter 或右键仍只恢复原前缀。
-            if !matches!(
-                key.code,
-                KeyCode::Esc | KeyCode::Up | KeyCode::Down | KeyCode::Tab | KeyCode::BackTab
-            ) {
-                *self = Self::new(Some(*context));
-                return NamespaceEvent::Handled;
-            }
-            return NamespaceEvent::Pass;
+            return NamespaceEvent::Handled;
         }
         match (self.context(), key.code) {
             (Some(context), KeyCode::Backspace) if self.editor().text.is_empty() => {
-                *self = Self::Prefix(context);
+                *self = Self::Prefix(prefix::Selection::last(context));
                 NamespaceEvent::Handled
             }
             (_, KeyCode::Char('/'))

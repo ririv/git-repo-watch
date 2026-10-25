@@ -5,6 +5,7 @@ pub(crate) mod context;
 mod input;
 pub(crate) mod options;
 pub(crate) mod path;
+mod prefix;
 mod summary;
 #[cfg(test)]
 mod tests;

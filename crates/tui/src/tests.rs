@@ -28,6 +28,7 @@ mod navigation;
 mod opening;
 mod options;
 mod overview;
+mod prefix_segments;
 mod prefix_selection;
 mod repository_list;
 mod responsive;

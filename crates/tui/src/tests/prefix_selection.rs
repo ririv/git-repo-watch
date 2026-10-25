@@ -96,6 +96,9 @@ fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() 
         assert!(s.repository_tasks.is_empty());
         key(&mut s, KeyCode::Backspace);
         key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.text(), "/repos ");
+        assert!(!s.bar.command_input().unwrap().prefix_selected());
+        key(&mut s, KeyCode::Esc);
         assert!(s.bar.editor().text.is_empty());
         assert!(matches!(s.bar, bar::InputBar::CommandsOnly));
         assert_eq!(s.selected_path(), Some("/example/alpha".into()));

@@ -1765,15 +1765,17 @@ impl Message {
             (Self::ContextCommandPlaceholder, Language::English) => "Type a command for this view…",
             (Self::ContextCommandPlaceholder, Language::Chinese) => "输入当前视图的操作…",
             (Self::ContextCommandHint, Language::English) => {
-                "Tab complete · Enter run · // global · ⌫ select prefix"
+                "Tab complete · Enter run · // global · ⌫ select last part"
             }
             (Self::ContextCommandHint, Language::Chinese) => {
-                "Tab 补全 · Enter 执行 · // 全局 · ⌫ 选中前缀"
+                "Tab 补全 · Enter 执行 · // 全局 · ⌫ 选中末段"
             }
             (Self::ContextPrefixHint, Language::English) => {
-                "Type: replace · Enter/→: keep · ⌫/Esc: close"
+                "←→ select · Type replace · ⌫ delete · Enter/Esc keep"
             }
-            (Self::ContextPrefixHint, Language::Chinese) => "输入替换 · Enter/→ 保留 · ⌫/Esc 关闭",
+            (Self::ContextPrefixHint, Language::Chinese) => {
+                "←→ 选区 · 输入替换 · ⌫ 删除 · Enter/Esc 保留"
+            }
             (Self::RepositoryFilterCommand, Language::English) => "Filter repositories",
             (Self::RepositoryFilterCommand, Language::Chinese) => "筛选仓库",
             (Self::RepositoryFilterLabel, Language::English) => "Filter",

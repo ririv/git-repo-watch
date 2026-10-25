@@ -44,6 +44,15 @@ fn locked_prefix_selects_before_removal_and_never_executes_on_focus_return() {
     );
     assert_eq!(
         input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+        NamespaceEvent::Handled
+    );
+    assert_eq!(input.text(), "/repo ");
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
+        NamespaceEvent::Handled
+    );
+    assert_eq!(
+        input.namespace_key(KeyEvent::new(KeyCode::Backspace, KeyModifiers::NONE)),
         NamespaceEvent::Close
     );
     for text in ["/settings", "//settings"] {
@@ -106,9 +115,9 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         assert_eq!(s.bar.editor().cursor, cursor);
         assert_eq!(context(&s), Some(Context::Diff(DiffContext::Worktree)));
         control(&mut s, 'u');
-        for _ in 0..2 {
-            key(&mut s, KeyCode::Backspace);
-        }
+        key(&mut s, KeyCode::Backspace);
+        key(&mut s, KeyCode::Left);
+        key(&mut s, KeyCode::Backspace);
         assert_eq!(context(&s), None);
         assert!(matches!(s.mode, Mode::Changes(_)));
         assert!(matches!(s.bar, bar::InputBar::Search(_)));
