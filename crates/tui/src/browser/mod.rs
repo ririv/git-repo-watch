@@ -87,13 +87,13 @@ pub(super) struct Key {
     opening: Opening,
     layout: LayoutKey,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(super) enum Preview {
     Empty,
     Loading(Key),
     Ready {
         key: Key,
-        document: preview::Document,
+        document: Arc<preview::Document>,
     },
     Failed {
         key: Key,
@@ -101,6 +101,13 @@ pub(super) enum Preview {
     },
 }
 impl Preview {
+    #[cfg(test)]
+    pub fn document(&self) -> Option<&preview::Document> {
+        match self {
+            Self::Ready { document, .. } => Some(document.as_ref()),
+            Self::Empty | Self::Loading(_) | Self::Failed { .. } => None,
+        }
+    }
     fn key(&self) -> Option<&Key> {
         match self {
             Self::Empty => None,
@@ -173,26 +180,20 @@ impl Session {
         self.save_position();
         let entry = self.selected().filter(|entry| !entry.directory());
         let presentation = self.presentation();
-        for mode in [TextMode::Source, TextMode::Preview] {
-            let pane = self.panes.get_mut(mode);
-            if let Some(entry) = &entry
-                && presentation.modes().contains(&mode)
-            {
-                let opening = match Opening::for_entry(entry) {
-                    Opening::Text { renderer, .. } => Opening::Text { renderer, mode },
-                    Opening::Standard => Opening::Standard,
-                };
-                let position = self
-                    .memories
-                    .get(&entry.path)
-                    .and_then(|memory| memory.positions.get(&opening))
-                    .cloned()
-                    .unwrap_or_default();
-                pane.sync(&entry.path, opening, position);
-            } else {
-                pane.clear();
-            }
-        }
+        let positions = [TextMode::Source, TextMode::Preview].map(|mode| {
+            entry
+                .as_ref()
+                .and_then(|entry| {
+                    self.memories
+                        .get(&entry.path)?
+                        .positions
+                        .get(&Opening::for_entry(entry).in_mode(mode))
+                        .cloned()
+                })
+                .unwrap_or_default()
+        });
+        self.panes
+            .sync(entry.as_ref(), presentation, positions, Instant::now());
     }
     pub fn search(&mut self, query: String) {
         if query == self.query {

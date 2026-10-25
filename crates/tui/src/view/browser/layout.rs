@@ -1,6 +1,6 @@
 //! Source and rendered preview panes share geometry for rendering and pointer focus.
 use super::*;
-use crate::browser::opening::{Presentation, TextMode};
+use crate::browser::opening::{Opening, Presentation, TextMode};
 
 pub(super) struct Pane {
     pub frame: Rect,
@@ -10,8 +10,22 @@ pub(super) struct Pane {
     pub separator: Option<Rect>,
 }
 pub(super) fn panes(area: Rect, session: &Session) -> Vec<Pane> {
-    let target = session.open_target();
-    let presentation = session.presentation();
+    build(
+        area,
+        session.presentation(),
+        session
+            .open_target()
+            .map(|target| target.opening(TextMode::Source)),
+    )
+}
+pub(super) fn retained(area: Rect, snapshot: &crate::browser::panes::Snapshot) -> Vec<Pane> {
+    build(
+        area,
+        snapshot.target.presentation,
+        Some(snapshot.target.opening),
+    )
+}
+fn build(area: Rect, presentation: Presentation, opening: Option<Opening>) -> Vec<Pane> {
     let inner = Block::bordered().inner(area);
     if !matches!(presentation, Presentation::Split(_)) || inner.width < 2 || inner.height < 2 {
         return vec![Pane {
@@ -72,10 +86,9 @@ pub(super) fn panes(area: Rect, session: &Session) -> Vec<Pane> {
                 mode,
                 heading: Some((
                     heading,
-                    target
-                        .as_ref()
+                    opening
                         .expect("split file capability")
-                        .opening(mode)
+                        .in_mode(mode)
                         .label(),
                 )),
                 separator: (index == 1 && horizontal).then_some(Rect::new(
@@ -87,4 +100,21 @@ pub(super) fn panes(area: Rect, session: &Session) -> Vec<Pane> {
             }
         })
         .collect()
+}
+
+pub(super) fn decorate(frame: &mut Frame, pane: &Pane, active: bool) {
+    if let Some((header, label)) = pane.heading {
+        frame.render_widget(
+            Paragraph::new(label).style(Style::default().fg(if active { ACCENT } else { MUTED })),
+            header,
+        );
+    }
+    if let Some(separator) = pane.separator {
+        frame.render_widget(
+            Block::default()
+                .borders(Borders::LEFT)
+                .border_style(Style::default().fg(MUTED)),
+            separator,
+        );
+    }
 }

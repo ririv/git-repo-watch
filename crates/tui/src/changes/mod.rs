@@ -51,6 +51,7 @@ pub(super) struct Session {
     revision: u64,
     loader: load::Loader,
     animation: spinner::Spinner,
+    pub feedback: crate::loading::Feedback<Box<Preview>>,
 }
 impl Session {
     pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
@@ -63,6 +64,7 @@ impl Session {
             revision: 0,
             loader: Default::default(),
             animation: spinner::Spinner::new(Instant::now()),
+            feedback: Default::default(),
         }
     }
     pub fn refreshed(&mut self, snapshot: Files) {
@@ -76,6 +78,9 @@ impl Session {
         self.animation.symbol()
     }
     pub fn poll(&mut self, service: &Arc<Service>) -> bool {
+        self.poll_at(service, Instant::now())
+    }
+    pub fn poll_at(&mut self, service: &Arc<Service>, now: Instant) -> bool {
         let next = self.files.rows().get(self.files.cursor).map(|change| Key {
             revision: self.revision,
             change: (*change).clone(),
@@ -86,11 +91,18 @@ impl Session {
                 Some(key) => {
                     self.loader
                         .request(key.clone(), self.files.snapshot.clone(), service);
-                    self.preview = Preview::Loading(key.clone());
+                    let previous =
+                        std::mem::replace(&mut self.preview, Preview::Loading(key.clone()));
+                    self.feedback.begin(
+                        (!matches!(previous, Preview::Empty | Preview::Loading(_)))
+                            .then(|| Box::new(previous)),
+                        now,
+                    );
                 }
                 None => {
                     self.loader.clear();
                     self.preview = Preview::Empty;
+                    self.feedback.finish();
                 }
             }
             changed = true;
@@ -106,10 +118,14 @@ impl Session {
                 },
                 Err(error) => Preview::Failed { key, error },
             };
+            self.feedback.finish();
             changed = true;
         }
         if self.pending() {
-            changed |= self.animation.tick(Instant::now());
+            changed |= self.animation.tick(now);
+        }
+        if matches!(self.preview, Preview::Loading(_)) {
+            changed |= self.feedback.tick(now);
         }
         changed
     }

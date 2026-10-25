@@ -30,6 +30,7 @@ mod options;
 mod overview;
 mod prefix_segments;
 mod prefix_selection;
+mod preview_loading;
 mod repository_list;
 mod responsive;
 mod schedule;

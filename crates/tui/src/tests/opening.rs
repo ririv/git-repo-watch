@@ -56,11 +56,8 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
         assert!(text(&mut s).contains("文档 Title"));
         assert!(!text(&mut s).contains("# 文档 Title"));
         assert!(matches!(
-            &session(&mut s).pane().preview,
-            Preview::Ready {
-                document: Document::Text { gutter: 0, .. },
-                ..
-            }
+            session(&mut s).pane().preview.document(),
+            Some(Document::Text { gutter: 0, .. })
         ));
         session(&mut s).pane().position.scroll = 3;
         command(&mut s, "repo files source");
@@ -77,10 +74,7 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
             render(&mut s, width, height);
             ready(&mut s);
             let visible = s.body_area.is_some_and(|area| !area.is_empty());
-            let Preview::Ready {
-                document: Document::Text { text, .. },
-                ..
-            } = &session(&mut s).pane().preview
+            let Some(Document::Text { text, .. }) = session(&mut s).pane().preview.document()
             else {
                 panic!("Markdown layout")
             };
@@ -109,11 +103,7 @@ fn svg_preview_uses_pixels_and_errors_keep_source_available() {
     select(&mut s, "drawing.svg");
     command(&mut s, "repo files preview");
     ready(&mut s);
-    let Preview::Ready {
-        document: Document::Image(view),
-        ..
-    } = &session(&mut s).pane().preview
-    else {
+    let Some(Document::Image(view)) = session(&mut s).pane().preview.document() else {
         panic!("SVG image")
     };
     let crate::preview::Side::Vector { tree, .. } = &view.pairs[0].after else {
@@ -176,10 +166,8 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
             Presentation::Split(TextMode::Preview)
         ));
         for (mode, raw) in [(TextMode::Source, true), (TextMode::Preview, false)] {
-            let Preview::Ready {
-                document: Document::Text { text, .. },
-                ..
-            } = &session(&mut s).panes.get(mode).preview
+            let Some(Document::Text { text, .. }) =
+                session(&mut s).panes.get(mode).preview.document()
             else {
                 panic!("both sides must load")
             };
@@ -252,10 +240,8 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
         command(&mut s, "repo files refresh");
         ready(&mut s);
         for mode in [TextMode::Source, TextMode::Preview] {
-            let Preview::Ready {
-                document: Document::Text { text, .. },
-                ..
-            } = &session(&mut s).panes.get(mode).preview
+            let Some(Document::Text { text, .. }) =
+                session(&mut s).panes.get(mode).preview.document()
             else {
                 panic!("refreshed split")
             };

@@ -34,31 +34,42 @@ pub(super) fn render(
     hits: &mut crate::pointer::Map,
 ) {
     let symbol = session.symbol();
+    let loading_visible = session.feedback.visible();
     for (area, focus) in areas(area, session) {
         match focus {
             Focus::Files => {
                 let title = name(&session.files.snapshot.path);
                 files::render(frame, area, &mut session.files, &title, file_layout, hits);
             }
-            Focus::Preview => match &mut session.preview {
-                Preview::Ready {
-                    content, scroll, ..
-                } => document::render(frame, area, content, scroll, preference, graphics, hits),
-                state => {
-                    let text = match state {
-                        Preview::Empty => i18n::tr!(ChangesSelectFile).to_owned(),
-                        Preview::Loading(_) => format!("{} {}", symbol, i18n::tr!(ReadFileDiff)),
-                        Preview::Failed { error, .. } => multiline(error),
-                        Preview::Ready { .. } => unreachable!(),
-                    };
-                    frame.render_widget(
-                        Paragraph::new(text)
-                            .wrap(Wrap { trim: false })
-                            .block(block(i18n::tr!(FileDiff))),
-                        area,
-                    );
+            Focus::Preview => {
+                let mut retained_hits = crate::pointer::Map::default();
+                let (preview, hits) = match session.feedback.previous_mut() {
+                    Some(previous) => (previous.as_mut(), &mut retained_hits),
+                    None => (&mut session.preview, &mut *hits),
+                };
+                match preview {
+                    Preview::Ready {
+                        content, scroll, ..
+                    } => document::render(frame, area, content, scroll, preference, graphics, hits),
+                    state => {
+                        let text = match state {
+                            Preview::Empty => i18n::tr!(ChangesSelectFile).to_owned(),
+                            Preview::Loading(_) if loading_visible => {
+                                format!("{} {}", symbol, i18n::tr!(ReadFileDiff))
+                            }
+                            Preview::Loading(_) => String::new(),
+                            Preview::Failed { error, .. } => multiline(error),
+                            Preview::Ready { .. } => unreachable!(),
+                        };
+                        frame.render_widget(
+                            Paragraph::new(text)
+                                .wrap(Wrap { trim: false })
+                                .block(block(i18n::tr!(FileDiff))),
+                            area,
+                        );
+                    }
                 }
-            },
+            }
         }
         if focus == session.focus {
             highlight_border(frame, area);

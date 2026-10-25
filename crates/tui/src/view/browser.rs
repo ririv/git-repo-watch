@@ -24,7 +24,7 @@ pub(crate) fn preview_mode_at(
     session: &Session,
     point: ratatui::layout::Position,
 ) -> Option<crate::browser::opening::TextMode> {
-    if point.y == area.y {
+    if point.y == area.y || session.panes.feedback.previous().is_some() {
         return None;
     }
     layout::panes(area, session)
@@ -153,10 +153,25 @@ fn preview(
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
-    let title = session
-        .selected()
-        .map(|entry| safe(&entry.path.to_string_lossy()))
-        .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
+    let current = layout::panes(area, session);
+    for pane in &current {
+        session.preview_width(pane.mode, pane.content.width);
+    }
+    let retained = session.panes.feedback.previous();
+    let title = match retained {
+        Some(snapshot) => safe(&snapshot.target.path.to_string_lossy()),
+        None => session
+            .selected()
+            .map(|entry| safe(&entry.path.to_string_lossy()))
+            .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into()),
+    };
+    let active = retained.map_or_else(
+        || session.presentation().active(),
+        |snapshot| snapshot.target.presentation.active(),
+    );
+    let panes = retained.map_or(current, |snapshot| layout::retained(area, snapshot));
+    let frozen = retained.is_some();
+    let loading_visible = frozen || session.panes.feedback.visible();
     let panel = block(truncate(&title, area.width.saturating_sub(2) as usize));
     frame.render_widget(panel, area);
     let spinner = session.spinner().to_owned();
@@ -164,37 +179,39 @@ fn preview(
         .selected()
         .and_then(|entry| session.directory_notice(&entry.path).map(str::to_owned))
         .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into());
-    for pane in layout::panes(area, session) {
-        if let Some((header, label)) = pane.heading {
-            frame.render_widget(
-                Paragraph::new(label).style(Style::default().fg(
-                    if session.focus == Focus::Preview
-                        && session.presentation().active() == pane.mode
-                    {
-                        ACCENT
-                    } else {
-                        MUTED
-                    },
-                )),
-                header,
-            );
-        }
-        if let Some(separator) = pane.separator {
-            frame.render_widget(
-                Block::default()
-                    .borders(Borders::LEFT)
-                    .border_style(Style::default().fg(MUTED)),
-                separator,
-            );
-        }
-        session.preview_width(pane.mode, pane.content.width);
+    let mut retained_hits = crate::pointer::Map::default();
+    for pane in panes {
+        layout::decorate(
+            frame,
+            &pane,
+            session.focus == Focus::Preview && active == pane.mode,
+        );
+        let (preview, position) = match session.panes.feedback.previous_mut() {
+            Some(snapshot) => {
+                let view = snapshot.get_mut(pane.mode);
+                (&view.preview, &mut view.position)
+            }
+            None => {
+                let view = session.panes.get_mut(pane.mode);
+                (&view.preview, &mut view.position)
+            }
+        };
         content::render(
             frame,
             &pane,
-            session.panes.get_mut(pane.mode),
-            (&spinner, &notice),
+            preview,
+            position,
+            content::Feedback {
+                spinner: &spinner,
+                notice: &notice,
+                visible: loading_visible,
+            },
             graphics,
-            hits,
+            if frozen {
+                &mut retained_hits
+            } else {
+                &mut *hits
+            },
         );
     }
 }

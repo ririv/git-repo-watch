@@ -1,5 +1,5 @@
 use super::*;
-use crate::browser::{Focus, Preview, Session, preview::Document};
+use crate::browser::{Focus, Session, preview::Document};
 
 pub(super) fn session(s: &mut Screen) -> &mut Session {
     let Mode::Browser(session) = &mut s.mode else {
@@ -32,11 +32,8 @@ pub(super) fn select(s: &mut Screen, path: &str) {
     ready(s);
 }
 pub(super) fn text(s: &mut Screen) -> String {
-    match &session(s).pane().preview {
-        Preview::Ready {
-            document: Document::Text { text, .. },
-            ..
-        } => text.to_string(),
+    match session(s).pane().preview.document() {
+        Some(Document::Text { text, .. }) => text.to_string(),
         other => panic!("text preview: {other:?}"),
     }
 }
@@ -81,12 +78,9 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
                 std::path::Path::new("src/中文 空格/code.ts")
             );
         }
-        let Preview::Ready {
-            document: Document::Text {
-                text: highlighted, ..
-            },
-            ..
-        } = &session(&mut s).pane().preview
+        let Some(Document::Text {
+            text: highlighted, ..
+        }) = session(&mut s).pane().preview.document()
         else {
             panic!("highlight")
         };
@@ -387,11 +381,7 @@ fn browser_images_use_the_shared_pixel_view_and_unsupported_terminals_remain_usa
     command(&mut s, "repo files");
     ready(&mut s);
     select(&mut s, "image.png");
-    let Preview::Ready {
-        document: Document::Image(image),
-        ..
-    } = &session(&mut s).pane().preview
-    else {
+    let Some(Document::Image(image)) = session(&mut s).pane().preview.document() else {
         panic!("image")
     };
     assert!(

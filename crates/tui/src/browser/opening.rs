@@ -18,6 +18,12 @@ pub(crate) enum Opening {
     Text { renderer: Renderer, mode: TextMode },
 }
 impl Opening {
+    pub fn in_mode(self, mode: TextMode) -> Self {
+        match self {
+            Self::Standard => Self::Standard,
+            Self::Text { renderer, .. } => Self::Text { renderer, mode },
+        }
+    }
     pub(super) fn for_entry(entry: &Entry) -> Self {
         if !matches!(entry.node, Node::File(_)) {
             return Self::Standard;

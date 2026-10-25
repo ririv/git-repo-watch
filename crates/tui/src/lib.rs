@@ -23,6 +23,7 @@ mod input;
 mod interaction;
 mod layout_picker;
 mod links;
+mod loading;
 mod markdown;
 mod multiline_editor;
 mod mutations;
