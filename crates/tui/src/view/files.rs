@@ -79,7 +79,7 @@ pub(super) fn render(
                     ));
                 };
                 let change = rows[*index];
-                ListItem::new(Line::from(vec![
+                let line = Line::from(vec![
                     Span::styled(
                         format!(
                             "[{}] ",
@@ -93,10 +93,6 @@ pub(super) fn render(
                     ),
                     Span::styled(prefix.clone(), Style::default().fg(MUTED)),
                     Span::styled(
-                        format!("{} ", change.kind),
-                        Style::default().fg(if staged { GOOD } else { WARN }),
-                    ),
-                    Span::styled(
                         safe(label),
                         if session.search_mode == crate::search::Mode::Locate
                             && !session.query.is_empty()
@@ -107,7 +103,19 @@ pub(super) fn render(
                             Style::default()
                         },
                     ),
-                ]))
+                ]);
+                let width = parts[1].width as usize;
+                let mut line = crate::horizontal::clip(&line, 0, width.saturating_sub(2));
+                if width > 0 {
+                    line.spans.push(Span::raw(
+                        " ".repeat(width.saturating_sub(line.width() + 1)),
+                    ));
+                    line.spans.push(Span::styled(
+                        change.kind.to_string(),
+                        Style::default().fg(if staged { GOOD } else { WARN }),
+                    ));
+                }
+                ListItem::new(line)
             })
             .collect::<Vec<_>>();
         let mut state = ListState::default()
