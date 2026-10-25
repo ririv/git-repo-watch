@@ -3,10 +3,10 @@
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
 - `/repos`, `/settings`, and `/schedule` open repositories, general settings, and the scheduled task; `Tab` does not switch these pages.
-- `F1` / `/help` opens this page; `Ctrl+C` / `/quit` exits.
+- `F1` / `/help` opens this page; `/quit` exits immediately. `Ctrl+C` clears nonempty command/search input, including a command prefix. When input is already empty, it immediately shows an exit prompt; the next press quits. Other keys, paste, clicks or scrolling dismiss the prompt. Separate commit-message and prompt editors retain their contents.
 
 ## Mouse & Trackpad
-- `Ctrl+G` toggles Interactive / Text selection; global `/settings interaction` opens choices (`//settings interaction` from a context). `/settings interaction interactive` and `/settings interaction text` switch directly. The preference persists across restarts and is also in Settings. Text selection releases pointer input to the terminal for selection, Copy and context menus; application clicks, scrolling and dragging are disabled without changing pointer preferences. Keyboard navigation, typing, paste and commands remain active; Esc goes back, Ctrl+C quits. Display updates and background tasks continue.
+- `Ctrl+G` toggles Interactive / Text selection; global `/settings interaction` opens choices (`//settings interaction` from a context). `/settings interaction interactive` and `/settings interaction text` switch directly. The preference persists across restarts and is also in Settings. Text selection releases pointer input to the terminal for selection, Copy and context menus; application clicks, scrolling and dragging are disabled without changing pointer preferences. Keyboard navigation, typing, paste and commands remain active; Esc goes back, Ctrl+C uses the input-clearing and exit-confirmation rules above. Display updates and background tasks continue.
 - General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.
 - Single-click an item to select it; double-click to perform its Enter action, keeping existing confirmations. Scrollbar clicks only seek. Titles and blank space never activate Enter. Disabling precise clicks also disables double-clicks.
 - With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.
@@ -157,7 +157,7 @@
 ## Confirmation
 - `←→` / `Tab` selects an action; `Enter` confirms; `Esc` returns. Returning from commit or configuration confirmation retains the draft.
 - Commit messages use the bottom input. Repository reads and writes run in the background; navigation and command input remain available. Completion updates its repository and does not replace another view or a new command draft.
-- `/cancel` cancels repository work; `Esc` returns through views. `Ctrl+C` exits, cancelling and collecting owned tasks and Git processes. Configuration tasks use `Esc` to cancel.
+- `/cancel` cancels repository work; `Esc` returns through views. Confirming `Ctrl+C` exit or executing `/quit` exits, cancelling and collecting owned tasks and Git processes. During blocking operations such as configuration writes, `Esc` / `Ctrl+C` only requests cancellation and waits for child processes; it does not arm exit confirmation.
 
 ## Status legend
 - `✓` Clean     `!` Needs attention     `×` Check failed     `·` Unchecked

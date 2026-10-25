@@ -4,6 +4,7 @@ mod branches;
 mod changes;
 pub(crate) mod clicks;
 mod horizontal;
+pub(crate) mod interrupt;
 mod keys;
 mod mouse;
 mod navigation;

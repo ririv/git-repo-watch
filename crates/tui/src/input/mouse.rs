@@ -4,9 +4,14 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKi
 use ratatui::layout::Position;
 impl Screen {
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        let reset = if matches!(event.kind, MouseEventKind::Moved | MouseEventKind::Up(_)) {
+            false
+        } else {
+            self.exit_sequence.reset()
+        };
         let result = self.pointer_event(event, root);
         self.sync_plain_bar();
-        result
+        result.map(|changed| changed || reset)
     }
     fn pointer_event(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
         if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {

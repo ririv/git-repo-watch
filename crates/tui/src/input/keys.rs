@@ -5,6 +5,7 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
+        self.exit_sequence.reset();
         if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
             return;
         }
@@ -55,8 +56,16 @@ impl Screen {
         }
     }
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+        if key.kind == crossterm::event::KeyEventKind::Release {
+            return Ok(false);
+        }
         self.clicks.reset();
         self.drag = None;
+        if ctrl_c(key) {
+            self.view_revision += 1;
+            return Ok(self.interrupt_key(key));
+        }
+        self.exit_sequence.reset();
         if self.interaction_key(key) {
             return Ok(false);
         }
@@ -101,14 +110,11 @@ impl Screen {
     }
     pub(super) fn dispatch_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         if let Mode::Busy(p) = &mut self.mode {
-            if key.code == KeyCode::Esc || ctrl_c(key) {
+            if key.code == KeyCode::Esc {
                 p.cancel.cancel();
                 p.state = TaskState::Cancelling;
             }
             return Ok(false);
-        }
-        if ctrl_c(key) {
-            return Ok(true);
         }
         if self.config.ai.enabled
             && matches!(self.mode, Mode::CommitMessage { .. })

@@ -81,7 +81,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         Paragraph::new(truncate(hint, parts[2].width.into())).style(Style::default().fg(MUTED)),
         footer_text_area(parts[2]),
     );
-    let notice = screen.tasks.error.as_deref().unwrap_or(&screen.message);
+    let notice = screen
+        .exit_sequence
+        .notice()
+        .or(screen.tasks.error.as_deref())
+        .unwrap_or(&screen.message);
     frame.render_widget(
         Paragraph::new(truncate(
             notice.lines().next().unwrap_or(""),

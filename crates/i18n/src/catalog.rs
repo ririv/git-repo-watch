@@ -2,6 +2,7 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    PressCtrlCAgainToQuit,
     ComposeTooLarge,
     ComposeFileTooLarge,
     ComposeTitle,
@@ -3394,6 +3395,12 @@ impl Message {
             }
             (Self::ShowHelp, Language::English) => "Show help",
             (Self::ShowHelp, Language::Chinese) => "查看帮助",
+            (Self::PressCtrlCAgainToQuit, Language::English) => {
+                "Press Ctrl+C again to quit · Any other input continues"
+            }
+            (Self::PressCtrlCAgainToQuit, Language::Chinese) => {
+                "再按一次 Ctrl+C 退出 · 其它操作继续使用"
+            }
             (Self::Quit, Language::English) => "Quit",
             (Self::Quit, Language::Chinese) => "退出",
             (Self::InteractionCommand, Language::English) => {

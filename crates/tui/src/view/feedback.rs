@@ -25,8 +25,13 @@ impl Preview {
         if matches!(self, Self::Hidden) {
             return;
         }
-        screen.tasks.footer = area;
-        let text = if screen.tasks.error.is_none()
+        let exit_notice = screen.exit_sequence.notice();
+        if exit_notice.is_none() {
+            screen.tasks.footer = area;
+        }
+        let text = if let Some(notice) = exit_notice {
+            notice.into()
+        } else if screen.tasks.error.is_none()
             && !screen
                 .tasks
                 .records
@@ -38,11 +43,12 @@ impl Preview {
         } else {
             screen.tasks.footer_text()
         };
-        let color = if screen
-            .tasks
-            .records
-            .iter()
-            .any(engine::tasks::Record::pending)
+        let color = if exit_notice.is_some()
+            || screen
+                .tasks
+                .records
+                .iter()
+                .any(engine::tasks::Record::pending)
             || screen.tasks.error.is_some()
         {
             WARN

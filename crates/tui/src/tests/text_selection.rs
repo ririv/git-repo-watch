@@ -77,6 +77,13 @@ fn text_selection_preserves_drafts_and_keyboard_operation_but_releases_pointer()
         assert_eq!(s.page, Page::Configuration(Configuration::General));
         assert_eq!(s.config.interaction_mode, InteractionMode::TextSelection);
         assert!(
+            !s.key(
+                KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+                &Cancel::default()
+            )
+            .unwrap()
+        );
+        assert!(
             s.key(
                 KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
                 &Cancel::default()

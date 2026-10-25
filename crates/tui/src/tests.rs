@@ -20,6 +20,7 @@ mod history;
 mod horizontal;
 mod images;
 mod input_surface;
+mod interrupt;
 mod layout_picker;
 mod links;
 mod mouse;
@@ -82,6 +83,7 @@ fn screen(service: Service) -> Screen {
         file_layout: Default::default(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
+        exit_sequence: Default::default(),
         clipboard: Default::default(),
         link_opener: Default::default(),
         commit_generator: Default::default(),

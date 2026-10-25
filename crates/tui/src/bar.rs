@@ -525,6 +525,23 @@ impl Screen {
             selection: self.copy_selection(),
         };
     }
+    pub(crate) fn clear_input_bar(&mut self) {
+        // 任务页没有可见输入；保留它覆盖的页面草稿和独立的多行编辑器。
+        if self.tasks.session.open() {
+            return;
+        }
+        if self.search_support() == crate::search::Support::Unavailable {
+            self.bar = InputBar::CommandsOnly;
+        } else {
+            let path = self.selected_path();
+            self.bar = InputBar::default();
+            self.normalize_bar();
+            if self.page == Page::Repositories && matches!(self.mode, Mode::Browsing) {
+                self.focus(path);
+            }
+        }
+        self.message.clear();
+    }
     fn clear_bar(&mut self) {
         if matches!(self.bar, InputBar::Command { .. }) {
             self.sync_bar();

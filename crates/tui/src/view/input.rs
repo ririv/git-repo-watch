@@ -45,6 +45,12 @@ impl Footer {
             0
         };
         let preview = Preview::fit(&status_text(screen, area), area.width, budget);
+        if matches!(preview, Preview::Hidden)
+            && let Some(hint) = screen.exit_sequence.notice()
+        {
+            // 极矮窗口没有结果栏时，复用现有输入行，保证退出前能看到提示。
+            return Self::Compact { hint, preview };
+        }
         match &screen.mode {
             Mode::Composition(session)
                 if matches!(session.state, crate::composition::State::Editing(_)) =>
