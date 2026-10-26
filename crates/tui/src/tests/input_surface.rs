@@ -241,7 +241,7 @@ fn removing_or_replacing_context_prefix_clears_every_old_background_cell() {
                 };
                 terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
                 let old_inner = view::input::content_area(s.input_area.unwrap());
-                let gap = (old_inner.x + " /repo diff ".len() as u16, old_inner.y);
+                let gap = (old_inner.x + "/repo diff".len() as u16, old_inner.y);
                 // 终端保留标签尾部的色块，但应用缓存里该分隔空格仍是默认背景。
                 let mut stale = terminal.backend().buffer()[gap].clone();
                 stale.set_bg(Color::Rgb(34, 52, 65));

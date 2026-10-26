@@ -288,13 +288,23 @@ fn partial_highlight_has_distinct_spans_and_survives_narrow_layouts() {
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             if width >= 60 {
                 let inner = view::input::content_area(s.input_area.unwrap());
-                let slash = &terminal.backend().buffer()[(inner.x + 1, inner.y)];
-                let leaf = &terminal.backend().buffer()[(inner.x + 7, inner.y)];
+                let slash = &terminal.backend().buffer()[(inner.x, inner.y)];
+                let leaf = &terminal.backend().buffer()[(inner.x + 6, inner.y)];
                 assert_eq!(slash.fg, Color::LightCyan);
                 assert_eq!(slash.bg, Color::Rgb(34, 52, 65));
                 assert_eq!(leaf.symbol(), "b");
                 assert_eq!(leaf.fg, Color::Black);
                 assert_eq!(leaf.bg, Color::Rgb(180, 145, 220));
+                assert_eq!(
+                    terminal.backend().buffer()[(inner.x + "/repo branch".len() as u16, inner.y)]
+                        .bg,
+                    Color::Reset
+                );
+                assert_eq!(
+                    terminal.backend().buffer()[(inner.x + "/repo branch ".len() as u16, inner.y)]
+                        .symbol(),
+                    "›"
+                );
                 assert!(!terminal.backend().cursor_visible());
             }
             key(&mut s, KeyCode::Left);

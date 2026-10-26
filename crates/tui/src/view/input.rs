@@ -520,7 +520,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             let prefix = command
                 .and_then(|input| input.context())
                 .map(|context| {
-                    let prefix = format!(" /{} ", context.name());
+                    let prefix = format!("/{}", context.name());
                     let budget = inner.width.saturating_sub(4) as usize;
                     if unicode_width::UnicodeWidthStr::width(prefix.as_str()) <= budget {
                         prefix
