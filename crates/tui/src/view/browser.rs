@@ -36,13 +36,14 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
+    wrap: bool,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
     for (area, focus) in areas(area, session) {
         match focus {
             Focus::Tree => tree(frame, area, session, hits),
-            Focus::Preview => preview(frame, area, session, graphics, hits),
+            Focus::Preview => preview(frame, area, session, wrap, graphics, hits),
         }
         if focus == session.focus {
             highlight_border(frame, area);
@@ -150,6 +151,7 @@ fn preview(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
+    wrap: bool,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -186,25 +188,33 @@ fn preview(
             &pane,
             session.focus == Focus::Preview && active == pane.mode,
         );
-        let (preview, position) = match session.panes.feedback.previous_mut() {
+        let view = match session.panes.feedback.previous_mut() {
             Some(snapshot) => {
                 let view = snapshot.get_mut(pane.mode);
-                (&view.preview, &mut view.position)
+                content::View {
+                    preview: &view.preview,
+                    position: &mut view.position,
+                    layout: &mut view.layout,
+                }
             }
             None => {
                 let view = session.panes.get_mut(pane.mode);
-                (&view.preview, &mut view.position)
+                content::View {
+                    preview: &view.preview,
+                    position: &mut view.position,
+                    layout: &mut view.layout,
+                }
             }
         };
         content::render(
             frame,
             &pane,
-            preview,
-            position,
-            content::Feedback {
+            view,
+            content::Options {
                 spinner: &spinner,
                 notice: &notice,
                 visible: loading_visible,
+                wrap,
             },
             graphics,
             if frozen {

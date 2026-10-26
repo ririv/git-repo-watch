@@ -146,6 +146,7 @@
 - `/repos scan <path>` previews discovery; `/repos import <path>` registers discovered repositories. Scanning follows Git ignore rules.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
 - `/settings startup-check [true|false]` controls startup checks of all repositories; default true, effective next launch.
+- `/settings wrap [true|false]` saves text wrapping for file previews and diffs (off by default). Gutters stay fixed, split diffs remain aligned, and links keep their complete targets. When off, use horizontal scrolling. The same option is in Settings → Display.
 - `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.
 - `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush [disabled|fast_forward]` accepts disabled or fast_forward.
 - `/schedule anchor <datetime|auto>` sets a local time basis (HH:MM[:SS] or YYYY-MM-DD HH:MM[:SS]); auto regenerates it on enable.

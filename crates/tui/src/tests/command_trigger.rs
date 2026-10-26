@@ -95,6 +95,19 @@ fn punctuation_inside_arguments_and_search_is_not_rewritten() {
     assert_eq!(s.bar.text(), "/repo diff ");
 }
 
+fn trigger_index(s: &Screen) -> usize {
+    Configuration::General
+        .items(s.snapshot.registration, &s.config.ai)
+        .iter()
+        .position(|item| *item == crate::settings::Item::ChineseCommandTrigger)
+        .unwrap()
+}
+fn select_trigger(s: &mut Screen) {
+    for _ in 0..trigger_index(s) {
+        key(s, KeyCode::Down);
+    }
+}
+
 #[test]
 fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
@@ -102,6 +115,9 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings");
         let visible = language == i18n::Language::Chinese;
+        if visible {
+            select_trigger(&mut s);
+        }
         for (width, height) in [(60, 18), (120, 30)] {
             assert_eq!(
                 render(&mut s, width, height).contains(i18n::tr!(ChineseCommandTrigger)),
@@ -120,6 +136,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             [
                 "settings concurrency",
                 "settings startup-check",
+                "settings wrap",
                 "settings interaction",
                 "settings ai",
                 "settings ai agent",
@@ -133,8 +150,6 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             continue;
         }
         key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Down);
-        key(&mut s, KeyCode::Down);
         for expected in [false, true] {
             key(&mut s, KeyCode::Enter);
             assert!(matches!(s.mode, Mode::Busy(_)));
@@ -142,7 +157,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             wait(&mut s);
             assert!(matches!(s.mode, Mode::Browsing));
             assert_eq!(s.page, Page::Configuration(Configuration::General));
-            assert_eq!(s.setting_selected, 2);
+            assert_eq!(s.setting_selected, trigger_index(&s));
             assert_eq!(s.config.chinese_command_trigger, expected);
             assert_eq!(
                 s.service.store.config().unwrap().chinese_command_trigger,
@@ -153,8 +168,7 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             key(&mut s, KeyCode::Esc);
             // 关闭别名时，普通文字沿用搜索行为；重新打开设置验证持久化值。
             command(&mut s, "settings");
-            key(&mut s, KeyCode::Down);
-            key(&mut s, KeyCode::Down);
+            select_trigger(&mut s);
         }
     }
 }
@@ -164,8 +178,7 @@ fn failed_toggle_save_keeps_the_previous_value_and_returns_to_the_setting() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "settings");
-    key(&mut s, KeyCode::Down);
-    key(&mut s, KeyCode::Down);
+    select_trigger(&mut s);
     let path = s.service.store.config_path();
     let text = std::fs::read_to_string(&path).unwrap();
     let invalid = format!("{text}unknown_key = true\n");
@@ -179,7 +192,7 @@ fn failed_toggle_save_keeps_the_previous_value_and_returns_to_the_setting() {
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(s.page, Page::Configuration(Configuration::General));
-    assert_eq!(s.setting_selected, 2);
+    assert_eq!(s.setting_selected, trigger_index(&s));
 }
 
 #[test]

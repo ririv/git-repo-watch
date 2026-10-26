@@ -22,6 +22,7 @@ impl Default for Config {
             push_policy: PushPolicy::Disabled,
             max_concurrency: 4,
             check_on_startup: true,
+            text_wrap: false,
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: MouseConfig::default(),
@@ -48,6 +49,8 @@ pub struct Config {
     pub max_concurrency: usize,
     #[serde(default = "default_startup_check")]
     pub check_on_startup: bool,
+    #[serde(default)]
+    pub text_wrap: bool,
     #[serde(default = "default_chinese_command_trigger")]
     pub chinese_command_trigger: bool,
     #[serde(default)]
@@ -144,13 +147,14 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 9] = [
+const FIELDS: [&str; 10] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
     "push_policy",
     "max_concurrency",
     "check_on_startup",
+    "text_wrap",
     "chinese_command_trigger",
     "schedule_anchor",
     "interaction_mode",
@@ -187,8 +191,8 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     let mut desired = toml_edit::ser::to_document(config)?;
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
     for key in FIELDS {
-        // 旧配置没有交互模式时沿用默认值，不因无关配置更新而补写字段。
-        if key == "interaction_mode"
+        // 旧配置缺少显示或交互偏好时沿用默认值，不因无关配置更新而补写字段。
+        if matches!(key, "interaction_mode" | "text_wrap")
             && before
                 .as_ref()
                 .is_some_and(|before| before.get(key) == after.get(key))

@@ -6,13 +6,13 @@ use test_support::*;
 
 fn styled(title: &str, document: Document, cancel: &Cancel) -> Result<Text<'static>> {
     let view = prepare(title, document, Area::Unstaged, cancel)?;
-    let cache = layout::arrange(&view.rows, view.digits, 200, Layout::Unified);
+    let cache = layout::arrange(&view.rows, view.digits, 200, Layout::Unified, false, &[]);
     Ok(Text::from(
         cache
             .rows
             .into_iter()
             .map(|row| match row {
-                VisualRow::Full { line, .. } => line,
+                VisualRow::Full { line, .. } => line.text,
                 VisualRow::Columns { .. } => unreachable!(),
             })
             .collect::<Vec<_>>(),

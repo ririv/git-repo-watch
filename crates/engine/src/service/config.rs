@@ -58,6 +58,7 @@ impl Service {
             ConfigEdit::Policy(value) => config.push_policy = value,
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
             ConfigEdit::StartupCheck(value) => config.check_on_startup = value,
+            ConfigEdit::TextWrap(value) => config.text_wrap = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),
             ConfigEdit::Interaction(mode) => config.interaction_mode = mode,

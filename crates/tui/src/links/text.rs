@@ -63,6 +63,36 @@ impl Line {
             self.anchors.push(Anchor { columns, target });
         }
     }
+    /// Wrap only the body, retaining the first gutter and blank continuation gutters.
+    pub fn wrap_pinned(&self, width: usize, fixed: usize) -> Vec<Self> {
+        let fixed = fixed.min(width);
+        if width == fixed {
+            return vec![self.slice(0, width)];
+        }
+        let prefix = self.slice(0, fixed);
+        self.slice(fixed, self.width())
+            .wrap(width - fixed, false)
+            .into_iter()
+            .enumerate()
+            .map(|(index, mut line)| {
+                if index == 0 {
+                    let mut first = prefix.clone();
+                    first.append(line);
+                    first
+                } else {
+                    line.prepend(vec![Span::styled(" ".repeat(fixed), self.text.style)]);
+                    line
+                }
+            })
+            .collect()
+    }
+    fn slice(&self, start: usize, width: usize) -> Self {
+        self.wrapped_line(
+            crate::horizontal::clip(&self.text, start, width),
+            start,
+            start + width,
+        )
+    }
     pub fn wrap(&self, width: usize, words: bool) -> Vec<Self> {
         let mut result = Vec::new();
         let mut pending: Vec<(String, Style, usize)> = Vec::new();
@@ -124,7 +154,7 @@ impl Line {
     }
     fn wrapped_line(&self, text: PlainLine<'static>, start: usize, end: usize) -> Self {
         Self {
-            text,
+            text: text.style(self.text.style),
             anchors: self
                 .anchors
                 .iter()
@@ -169,5 +199,11 @@ impl Text {
 impl std::fmt::Display for Text {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.plain())
+    }
+}
+
+impl std::fmt::Display for Line {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.text)
     }
 }

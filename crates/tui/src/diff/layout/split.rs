@@ -54,7 +54,7 @@ pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
     }
     out
 }
-fn column((row, code, mark): Entry<'_>, digits: u16) -> (Line<'static>, Anchor) {
+fn column((row, code, mark): Entry<'_>, digits: u16) -> (crate::links::Line, Anchor) {
     let number_width = usize::from(digits);
     (
         decorate(
@@ -74,11 +74,11 @@ fn pair(out: &mut Vec<VisualRow>, entry: Pair<'_>, digits: u16) {
         }
         Pair::Removed(old) => {
             let (left, anchor) = column(old, digits);
-            (left, Line::default(), Anchors::One(anchor))
+            (left, Line::default().into(), Anchors::One(anchor))
         }
         Pair::Added(new) => {
             let (right, anchor) = column(new, digits);
-            (Line::default(), right, Anchors::One(anchor))
+            (Line::default().into(), right, Anchors::One(anchor))
         }
     };
     out.push(VisualRow::Columns {

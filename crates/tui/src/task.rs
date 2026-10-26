@@ -118,7 +118,7 @@ impl Screen {
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
-        if !matches!(outcome, Outcome::Opened(_)) {
+        if !matches!(outcome, Outcome::Opened(_) | Outcome::TextWrapConfigured(_)) {
             self.scroll = 0;
         }
         match outcome {
@@ -259,6 +259,11 @@ impl Screen {
                     }
                 }
             },
+            Outcome::TextWrapConfigured(enabled) => {
+                self.config.text_wrap = enabled;
+                self.mode = origin;
+                self.message = i18n::tr!(PreferenceSaved).into();
+            }
             Outcome::Text(message) => {
                 self.workspace.save(origin);
                 self.mode = Mode::Browsing;

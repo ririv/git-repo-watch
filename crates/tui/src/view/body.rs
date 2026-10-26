@@ -25,6 +25,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             frame,
             area,
             session,
+            screen.config.text_wrap,
             &mut screen.graphics,
             &mut screen.pointer,
         ),
@@ -34,7 +35,10 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             frame,
             area,
             view,
-            screen.diff_preference,
+            crate::diff::Options {
+                layout: screen.diff_preference,
+                wrap: screen.config.text_wrap,
+            },
             &mut screen.graphics,
             &mut screen.pointer,
         ),
@@ -46,7 +50,10 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 frame,
                 area,
                 view,
-                screen.diff_preference,
+                crate::diff::Options {
+                    layout: screen.diff_preference,
+                    wrap: screen.config.text_wrap,
+                },
                 &mut screen.graphics,
                 &mut screen.pointer,
             );
@@ -66,7 +73,10 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             frame,
             area,
             session,
-            screen.diff_preference,
+            crate::diff::Options {
+                layout: screen.diff_preference,
+                wrap: screen.config.text_wrap,
+            },
             screen.file_layout,
             &mut screen.graphics,
             &mut screen.pointer,

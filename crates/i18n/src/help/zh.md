@@ -146,6 +146,7 @@
 - `/repos scan <path>` 预览发现结果，`/repos import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
 - `/settings startup-check [true|false]` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
+- `/settings wrap [true|false]` 设置文件文本与 diff 的自动换行，默认关闭并保存到配置。开启后行号固定，双栏 diff 保持前后版本对齐，链接仍可点击；关闭时使用横向滚动。也可在设置页的“显示”组修改。
 - `/schedule` 打开任务管理页，查看状态和待应用间隔、修改配置并启停任务。
 - `/schedule interval <duration>` 设置间隔，如 6h；`/schedule autopush [disabled|fast_forward]` 接受 disabled 或 fast_forward。
 - `/schedule anchor <datetime|auto>` 设置本地时间基准，可填 HH:MM[:SS] 或 YYYY-MM-DD HH:MM[:SS]；auto 在启用时重新生成。

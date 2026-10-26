@@ -197,3 +197,78 @@ fn command_entry_keeps_cursor_and_prompt_while_the_title_tracks_command_editing(
         s.shutdown();
     }
 }
+
+#[test]
+fn removing_or_replacing_context_prefix_clears_every_old_background_cell() {
+    use ratatui::{backend::Backend, style::Color};
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        for width in [76, 100, 180] {
+            let (_home, mut s) = fixture(vec![]);
+            let mut terminal = Terminal::new(TestBackend::new(width, 40)).unwrap();
+            for (keys, expected) in [
+                (vec![KeyCode::Char('/')], "/"),
+                (
+                    vec![KeyCode::Backspace, KeyCode::Left, KeyCode::Char('/')],
+                    "/",
+                ),
+                (
+                    vec![
+                        KeyCode::Backspace,
+                        KeyCode::Backspace,
+                        KeyCode::Backspace,
+                        KeyCode::Backspace,
+                    ],
+                    "",
+                ),
+                (
+                    vec![KeyCode::Backspace, KeyCode::Left, KeyCode::Backspace],
+                    "",
+                ),
+                (
+                    vec![KeyCode::Backspace, KeyCode::Left, KeyCode::Char('s')],
+                    "/s",
+                ),
+            ] {
+                s.bar = InputBar::Command {
+                    input: crate::command::Input::new(Some(Context::Diff(
+                        crate::command::context::DiffContext::Worktree,
+                    ))),
+                    selected: 0,
+                    menu: Default::default(),
+                    path: None,
+                    selection: Default::default(),
+                };
+                terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+                let old_inner = view::input::content_area(s.input_area.unwrap());
+                let gap = (old_inner.x + " /repo diff ".len() as u16, old_inner.y);
+                // 终端保留标签尾部的色块，但应用缓存里该分隔空格仍是默认背景。
+                let mut stale = terminal.backend().buffer()[gap].clone();
+                stale.set_bg(Color::Rgb(34, 52, 65));
+                terminal
+                    .backend_mut()
+                    .draw(std::iter::once((gap.0, gap.1, &stale)))
+                    .unwrap();
+                for code in keys {
+                    key(&mut s, code);
+                    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+                }
+                assert_eq!(s.bar.text(), expected);
+                let inner = view::input::content_area(s.input_area.unwrap());
+                let mut x = inner.x;
+                while x < inner.right() {
+                    let cell = &terminal.backend().buffer()[(x, inner.y)];
+                    assert_eq!(
+                        cell.bg,
+                        Color::Reset,
+                        "orphaned background at {x}, language={language:?}, width={width}"
+                    );
+                    // TestBackend 仅写入字形起始格；终端会把宽字形的样式铺满其占用的格子。
+                    x += unicode_width::UnicodeWidthStr::width(cell.symbol()).max(1) as u16;
+                }
+                assert!(terminal.backend().cursor_visible());
+            }
+            s.shutdown();
+        }
+    }
+}

@@ -28,7 +28,7 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
-    preference: crate::diff::Preference,
+    preference: crate::diff::Options,
     file_layout: crate::files::Layout,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,

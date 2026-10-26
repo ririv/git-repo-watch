@@ -128,6 +128,19 @@ impl Screen {
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
+            Action::WrapMenu => {
+                self.open_option_menu(command::options::Kind::TextWrap, path, selection);
+            }
+            Action::Wrap(enabled) => {
+                self.start(
+                    i18n::tr!(TextWrap),
+                    Effect::Configuration,
+                    move |service, _, _| {
+                        service.configure(ConfigEdit::TextWrap(enabled))?;
+                        Ok(Outcome::TextWrapConfigured(enabled))
+                    },
+                );
+            }
             Action::InteractionMenu => self.interaction_menu(),
             Action::Interaction(mode) => self.set_interaction(mode),
             Action::RepositoryRefresh => {

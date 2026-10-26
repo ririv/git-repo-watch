@@ -3,6 +3,16 @@ mod general;
 use super::*;
 use crate::settings::Item;
 pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
+    if action == Action::WrapMenu {
+        return Some(
+            if screen.config.text_wrap {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
+        );
+    }
     ai::annotation(action, screen)
 }
 pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, section: Configuration) {

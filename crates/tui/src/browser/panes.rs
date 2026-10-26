@@ -4,6 +4,7 @@ use super::{opening::Position, *};
 pub(crate) struct Pane {
     pub preview: Preview,
     pub position: Position,
+    pub layout: crate::flow::Cache,
     pub width: u16,
     reader: Worker<Key, preview::Document>,
     revision: u64,
@@ -13,6 +14,7 @@ impl Default for Pane {
         Self {
             preview: Preview::Empty,
             position: Position::default(),
+            layout: Default::default(),
             width: 80,
             reader: Worker::default(),
             revision: 0,
@@ -24,6 +26,7 @@ impl Pane {
         let changed = !matches!(self.preview, Preview::Empty);
         self.preview = Preview::Empty;
         self.position = Position::default();
+        self.layout = Default::default();
         self.reader.clear();
         changed
     }
@@ -43,6 +46,7 @@ impl Pane {
             return false;
         }
         self.position = position;
+        self.layout = Default::default();
         self.revision += 1;
         self.preview = Preview::Loading(Key {
             revision: self.revision,
@@ -112,6 +116,7 @@ pub(crate) struct Target {
 pub(crate) struct View {
     pub preview: Preview,
     pub position: Position,
+    pub layout: crate::flow::Cache,
 }
 #[derive(Debug)]
 pub(crate) struct Snapshot {
@@ -136,6 +141,7 @@ impl Panes {
         let view = |pane: &Pane| View {
             preview: pane.preview.clone(),
             position: pane.position.clone(),
+            layout: pane.layout.clone(),
         };
         Some(Snapshot {
             target: self.target.clone()?,

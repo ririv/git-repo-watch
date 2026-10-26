@@ -15,6 +15,7 @@ mod diff;
 mod document;
 mod editor;
 mod files;
+mod flow;
 mod focus;
 mod graphics;
 mod history;
@@ -199,6 +200,7 @@ enum Outcome {
     Committed(CommitResult),
     Published(Publication),
     Text(String),
+    TextWrapConfigured(bool),
 }
 struct Screen {
     service: Arc<Service>,
@@ -234,6 +236,7 @@ struct Screen {
     order: Order,
     setting_selected: usize,
     settings_focus: Option<settings::Focus>,
+    input_prefix: view::input::PrefixSurface,
     scroll: usize,
     message: String,
     tasks: task_center::Center,
@@ -293,6 +296,7 @@ impl Screen {
             order: Order::Priority,
             setting_selected: 0,
             settings_focus: None,
+            input_prefix: Default::default(),
             scroll: 0,
             message: String::new(),
             tasks: Default::default(),

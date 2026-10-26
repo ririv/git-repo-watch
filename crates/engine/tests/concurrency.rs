@@ -29,6 +29,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
             max_concurrency: concurrency,
             check_on_startup: false,
             chinese_command_trigger: true,
+            text_wrap: false,
             interaction_mode: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),

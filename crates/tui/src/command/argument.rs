@@ -232,6 +232,7 @@ impl Action {
         match self {
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
+            Self::WrapMenu => Some(ArgumentAction::Option(super::options::Kind::TextWrap)),
             Self::FileLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::FileView)),
             Self::DiffLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::DiffLayout)),
             Self::SearchMenu => Some(ArgumentAction::Option(super::options::Kind::Search)),

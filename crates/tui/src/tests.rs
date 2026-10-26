@@ -41,6 +41,7 @@ mod startup;
 mod task_center;
 mod text_selection;
 mod workspace;
+mod wrapping;
 use super::*;
 use crate::repository_list::{Filter, Order};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
@@ -106,6 +107,7 @@ fn screen(service: Service) -> Screen {
         order: Order::Priority,
         setting_selected: 0,
         settings_focus: None,
+        input_prefix: Default::default(),
         scroll: 0,
         message: String::new(),
         tasks: Default::default(),
@@ -132,6 +134,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             max_concurrency: 4,
             check_on_startup: false,
             chinese_command_trigger: true,
+            text_wrap: false,
             interaction_mode: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
@@ -1406,6 +1409,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
         [
             "settings concurrency",
             "settings startup-check",
+            "settings wrap",
             "settings interaction",
             "settings ai",
             "settings ai agent",

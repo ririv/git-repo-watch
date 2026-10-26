@@ -101,6 +101,7 @@ pub enum ConfigEdit {
     Policy(PushPolicy),
     Concurrency(usize),
     StartupCheck(bool),
+    TextWrap(bool),
     ChineseCommandTrigger(bool),
     Mouse(state::MouseSetting, bool),
     Interaction(state::InteractionMode),

@@ -639,6 +639,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         max_concurrency: 8,
         check_on_startup: false,
         chinese_command_trigger: true,
+        text_wrap: false,
         mouse: Default::default(),
         ai: Default::default(),
         ..engine::state::Config::default()

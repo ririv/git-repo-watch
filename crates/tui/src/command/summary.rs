@@ -78,6 +78,7 @@ impl Command {
             Action::Autopush => Summary::Autopush,
             Action::Concurrency => Summary::Concurrency,
             Action::StartupCheck => Summary::StartupCheck,
+            Action::WrapMenu | Action::Wrap(_) => Summary::TextWrap,
             Action::Apply => Summary::Apply,
             Action::EnableSchedule => Summary::EnableSchedule,
             Action::DisableSchedule => Summary::DisableSchedule,

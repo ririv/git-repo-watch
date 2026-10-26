@@ -109,6 +109,7 @@ fn intervals_and_schema_boundaries() {
         max_concurrency: 32,
         check_on_startup: true,
         chinese_command_trigger: true,
+        text_wrap: false,
         interaction_mode: Default::default(),
         mouse: Default::default(),
         ai: Default::default(),

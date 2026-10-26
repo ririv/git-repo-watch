@@ -457,6 +457,15 @@ pub enum Message {
     AgentClaudeOption,
     BooleanArgumentRequired,
     StartupCheckSavedNextLaunch,
+    BrowserWrappedPreviewHint,
+    HistoryWrappedDiffHint,
+    WrappedDiffPreviewHint,
+    WrappedChangesInputHint,
+    TextWrap,
+    TextWrapHint,
+    TextWrapEnabled,
+    TextWrapDisabled,
+    SettingsDisplay,
     StartupCheckAlreadyRunning,
     StartupCheckStatus,
     PathArgumentHint,
@@ -3757,6 +3766,46 @@ impl Message {
             }
             (Self::BooleanArgumentRequired, Language::English) => "Expected true or false",
             (Self::BooleanArgumentRequired, Language::Chinese) => "请输入 true 或 false",
+            (Self::BrowserWrappedPreviewHint, Language::English) => {
+                "↑↓ scroll · Tab panes · Esc files · / commands"
+            }
+            (Self::BrowserWrappedPreviewHint, Language::Chinese) => {
+                "↑↓滚动 · Tab面板 · Esc文件 · /命令"
+            }
+            (Self::HistoryWrappedDiffHint, Language::English) => {
+                "↑↓ scroll · Esc commit · /repo diff layout"
+            }
+            (Self::HistoryWrappedDiffHint, Language::Chinese) => {
+                "↑↓滚动 · Esc提交详情 · /repo diff layout 布局"
+            }
+            (Self::WrappedChangesInputHint, Language::English) => {
+                "↑↓ navigate · Tab focus · //zoom maximize · Esc back"
+            }
+            (Self::WrappedChangesInputHint, Language::Chinese) => {
+                "↑↓选择/滚动 · Tab切换 · //zoom放大 · Esc返回"
+            }
+            (Self::WrappedDiffPreviewHint, Language::English) => {
+                "↑↓ scroll · Tab files · Esc back · / commands"
+            }
+            (Self::WrappedDiffPreviewHint, Language::Chinese) => {
+                "↑↓滚动 · Tab文件 · Esc返回 · /命令"
+            }
+            (Self::TextWrap, Language::English) => "Text wrapping",
+            (Self::TextWrap, Language::Chinese) => "自动换行",
+            (Self::TextWrapHint, Language::English) => {
+                "Wrap file text and diff lines to the panel width; keep line numbers fixed"
+            }
+            (Self::TextWrapHint, Language::Chinese) => {
+                "文件文本与 diff 随面板宽度换行，行号保持固定"
+            }
+            (Self::TextWrapEnabled, Language::English) => "Wrap long lines",
+            (Self::TextWrapEnabled, Language::Chinese) => "长行自动换行",
+            (Self::TextWrapDisabled, Language::English) => {
+                "Keep long lines and scroll horizontally"
+            }
+            (Self::TextWrapDisabled, Language::Chinese) => "保留长行，使用横向滚动",
+            (Self::SettingsDisplay, Language::English) => "Display",
+            (Self::SettingsDisplay, Language::Chinese) => "显示",
             (Self::StartupCheckSavedNextLaunch, Language::English) => {
                 "Startup check preference saved; takes effect on the next TUI launch"
             }

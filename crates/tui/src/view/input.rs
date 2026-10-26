@@ -2,6 +2,7 @@
 mod prefix;
 use super::feedback::Preview;
 use super::*;
+pub(crate) use prefix::Surface as PrefixSurface;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
@@ -196,6 +197,9 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         Mode::Panel(_) => i18n::tr!(PaneReadHint),
         Mode::Browser(session) => match session.focus {
             crate::browser::Focus::Tree => i18n::tr!(BrowserHint),
+            crate::browser::Focus::Preview if screen.config.text_wrap => {
+                i18n::tr!(BrowserWrappedPreviewHint)
+            }
             crate::browser::Focus::Preview => i18n::tr!(BrowserPreviewHint),
         },
         Mode::Branches(view) => match view.as_ref() {
@@ -214,6 +218,9 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             {
                 i18n::tr!(ImageInputHint)
             }
+            crate::history::View::Diff { .. } if screen.config.text_wrap => {
+                i18n::tr!(HistoryWrappedDiffHint)
+            }
             crate::history::View::Diff { .. } => i18n::tr!(HistoryDiffHint),
         },
         Mode::Composition(_) => i18n::tr!(ComposeHint),
@@ -231,7 +238,13 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         Mode::CommitMessage { .. } => i18n::tr!(CommitActionsHint),
         Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
         Mode::Changes(session) => match session.focus {
+            crate::changes::Focus::Files if screen.config.text_wrap => {
+                i18n::tr!(WrappedChangesInputHint)
+            }
             crate::changes::Focus::Files => i18n::tr!(ChangesInputHint),
+            crate::changes::Focus::Preview if screen.config.text_wrap => {
+                i18n::tr!(WrappedDiffPreviewHint)
+            }
             crate::changes::Focus::Preview => i18n::tr!(DiffPreviewInputHint),
         },
         _ => unreachable!("browsing hints require a browsing view"),
@@ -480,6 +493,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     }
     let inner = block.inner(area);
     frame.render_widget(block, area);
+    let mut prefix_surface = PrefixSurface::Plain;
     match content {
         Content::CommandEntry => {
             let width = inner.width.saturating_sub(2) as usize;
@@ -518,6 +532,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             let prefix_width = prefix.as_deref().map_or(0, |prefix| {
                 unicode_width::UnicodeWidthStr::width(prefix) as u16 + 1
             });
+            if prefix.is_some() {
+                prefix_surface = PrefixSurface::Label(Rect::new(
+                    inner.x,
+                    inner.y,
+                    prefix_width.min(inner.width),
+                    inner.height.min(1),
+                ));
+            }
             let width = inner.width.saturating_sub(2 + prefix_width) as usize;
             let (text, cursor) = editor.viewport(width);
             let value = if editor.text.is_empty() {
@@ -609,6 +631,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             inner,
         ),
     }
+    screen.input_prefix.update(frame, prefix_surface);
     render_hint(frame, hint_area, hint);
 }
 fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {

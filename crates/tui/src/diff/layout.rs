@@ -28,13 +28,13 @@ impl Anchors {
 #[derive(Debug)]
 pub(crate) enum VisualRow {
     Full {
-        line: Line<'static>,
+        line: crate::links::Line,
         fixed: usize,
         anchor: Anchor,
     },
     Columns {
-        left: Line<'static>,
-        right: Line<'static>,
+        left: crate::links::Line,
+        right: crate::links::Line,
         anchors: Anchors,
         fixed: usize,
     },
@@ -51,6 +51,8 @@ impl VisualRow {
 pub(crate) struct Cache {
     pub width: u16,
     pub mode: Layout,
+    pub wrap: bool,
+    paths: Vec<std::path::PathBuf>,
     pub rows: Vec<VisualRow>,
     maximum: usize,
     position: Option<Position>,
@@ -61,6 +63,9 @@ struct Position {
     scroll: usize,
 }
 impl Cache {
+    pub fn matches_paths(&self, paths: &[std::path::PathBuf]) -> bool {
+        self.paths == paths
+    }
     pub fn horizontal_maximum(&self) -> usize {
         self.maximum
     }
@@ -88,15 +93,39 @@ impl Cache {
     }
 }
 
-pub(super) fn arrange(rows: &[Row], digits: u16, width: u16, mode: Layout) -> Cache {
+pub(super) fn arrange(
+    rows: &[Row],
+    digits: u16,
+    width: u16,
+    mode: Layout,
+    wrap: bool,
+    paths: &[std::path::PathBuf],
+) -> Cache {
     let rows = match mode {
         Layout::Unified => unified::arrange(rows, digits),
         Layout::Split => split::arrange(rows, digits),
     };
-    let maximum = horizontal_maximum(&rows, width);
+    let mut rows = rows;
+    for row in &mut rows {
+        match row {
+            VisualRow::Full { line, .. } => line.detect(paths),
+            VisualRow::Columns { left, right, .. } => {
+                left.detect(paths);
+                right.detect(paths);
+            }
+        }
+    }
+    let rows = if wrap { wrapped(rows, width) } else { rows };
+    let maximum = if wrap {
+        0
+    } else {
+        horizontal_maximum(&rows, width)
+    };
     Cache {
         width,
         mode,
+        wrap,
+        paths: paths.to_vec(),
         rows,
         maximum,
         position: None,
@@ -121,7 +150,7 @@ fn horizontal_maximum(rows: &[VisualRow], width: u16) -> usize {
 
 fn full(out: &mut Vec<VisualRow>, row: usize, line: &Line<'static>) {
     out.push(VisualRow::Full {
-        line: line.clone(),
+        line: line.clone().into(),
         fixed: 0,
         anchor: Anchor { row },
     });
@@ -149,10 +178,58 @@ impl Mark {
         Span::styled(text, self.style().fg(color))
     }
 }
-fn decorate(part: Line<'static>, gutter: String, mark: Mark) -> Line<'static> {
+fn decorate(part: Line<'static>, gutter: String, mark: Mark) -> crate::links::Line {
     let base = mark.style();
     let mut spans = vec![Span::styled(gutter, base.fg(MUTED))];
     spans.push(mark.prefix());
     spans.extend(part.spans);
-    Line::from(spans).style(base)
+    Line::from(spans).style(base).into()
+}
+
+fn wrapped(rows: Vec<VisualRow>, width: u16) -> Vec<VisualRow> {
+    let width = usize::from(width);
+    let left_width = width.saturating_sub(1) / 2;
+    let right_width = width.saturating_sub(1) - left_width;
+    let wrap = |line: crate::links::Line, width, fixed| line.wrap_pinned(width, fixed);
+    rows.into_iter()
+        .flat_map(|row| match row {
+            VisualRow::Full {
+                line,
+                fixed,
+                anchor,
+            } => wrap(line, width, fixed)
+                .into_iter()
+                .map(|line| VisualRow::Full {
+                    line,
+                    fixed,
+                    anchor,
+                })
+                .collect(),
+            VisualRow::Columns {
+                left,
+                right,
+                anchors,
+                fixed,
+            } => {
+                let left_style = left.text.style;
+                let right_style = right.text.style;
+                let left = wrap(left, left_width, fixed);
+                let right = wrap(right, right_width, fixed);
+                (0..left.len().max(right.len()))
+                    .map(|index| VisualRow::Columns {
+                        left: left
+                            .get(index)
+                            .cloned()
+                            .unwrap_or_else(|| Line::default().style(left_style).into()),
+                        right: right
+                            .get(index)
+                            .cloned()
+                            .unwrap_or_else(|| Line::default().style(right_style).into()),
+                        anchors,
+                        fixed,
+                    })
+                    .collect::<Vec<_>>()
+            }
+        })
+        .collect()
 }

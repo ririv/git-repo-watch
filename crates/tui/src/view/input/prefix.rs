@@ -22,3 +22,32 @@ pub(super) fn spans(text: &str, selection: Option<Range<usize>>) -> Vec<Span<'st
         })
         .collect()
 }
+
+/// Repaint a changing prefix boundary even if its blank separator matches the cached frame.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub(crate) enum Surface {
+    #[default]
+    Plain,
+    Label(ratatui::layout::Rect),
+}
+impl Surface {
+    pub fn update(&mut self, frame: &mut ratatui::Frame, next: Self) {
+        if *self == next {
+            return;
+        }
+        let previous = std::mem::replace(self, next);
+        // 标签删除或缩短时，其后的空格在缓存里可能一直是默认背景，增量绘制会跳过它。
+        // 把旧标签及分隔空格一起刷回当前样式；新标签的边界也显式写出，避免终端留下色块。
+        for surface in [&previous, &*self] {
+            if let Self::Label(area) = surface {
+                let area = area.intersection(frame.area());
+                for y in area.y..area.bottom() {
+                    for x in area.x..area.right() {
+                        frame.buffer_mut()[(x, y)]
+                            .set_diff_option(ratatui::buffer::CellDiffOption::AlwaysUpdate);
+                    }
+                }
+            }
+        }
+    }
+}

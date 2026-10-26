@@ -18,6 +18,9 @@ max_concurrency = 4
 # 启动 TUI 时是否在后台检查全部仓库。
 check_on_startup = true
 
+# 文件文本预览和 diff 自动换行；关闭时使用横向滚动。
+text_wrap = false
+
 # 中文界面中输入 、 打开命令菜单；英文界面不启用。
 chinese_command_trigger = true
 

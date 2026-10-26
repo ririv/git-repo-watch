@@ -7,7 +7,7 @@ pub(super) fn render(
     area: Rect,
     view: &mut View,
     scroll: &mut usize,
-    preference: crate::diff::Preference,
+    preference: crate::diff::Options,
     graphics: &mut Display,
     hits: &mut crate::pointer::Map,
 ) {

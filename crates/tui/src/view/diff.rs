@@ -7,9 +7,10 @@ pub(super) fn render(
     area: Rect,
     content: &mut crate::diff::View,
     scroll: &mut usize,
-    preference: Preference,
+    options: crate::diff::Options,
     hits: &mut crate::pointer::Map,
 ) {
+    let preference = options.layout;
     let width = area.width.saturating_sub(2);
     let mode = content.selected_layout(width, preference);
     let mode_label = if preference == Preference::Auto {
@@ -64,7 +65,13 @@ pub(super) fn render(
             );
         }
     }
-    content.arrange(inner.width, preference, scroll);
+    content.arrange(
+        inner.width,
+        preference,
+        options.wrap,
+        &hits.links.paths,
+        scroll,
+    );
     let horizontal = content.horizontal.clone();
     let gutter = content.gutter_width(mode);
     match mode {
@@ -93,7 +100,13 @@ pub(super) fn render(
         }
     }
     let offset = horizontal.offset();
-    let cache = content.arrange(inner.width, preference, scroll);
+    let cache = content.arrange(
+        inner.width,
+        preference,
+        options.wrap,
+        &hits.links.paths,
+        scroll,
+    );
     *scroll = (*scroll).min(cache.rows.len().saturating_sub(body.height as usize));
     cache.settle(*scroll);
     crate::scrollbar::vertical(frame, area, body, cache.rows.len(), *scroll);
@@ -113,7 +126,7 @@ pub(super) fn render(
     {
         let y = body.y + index as u16;
         match row {
-            VisualRow::Full { line, fixed, .. } => hits.links.plain_line(
+            VisualRow::Full { line, fixed, .. } => hits.links.line(
                 frame,
                 Rect::new(body.x, y, body.width, 1),
                 line,
@@ -123,7 +136,7 @@ pub(super) fn render(
             VisualRow::Columns {
                 left, right, fixed, ..
             } => {
-                hits.links.plain_line(
+                hits.links.line(
                     frame,
                     Rect::new(body.x, y, left_width, 1),
                     left,
@@ -134,7 +147,7 @@ pub(super) fn render(
                     Line::styled("│", Style::default().fg(MUTED)),
                     Rect::new(body.x + left_width, y, 1, 1),
                 );
-                hits.links.plain_line(
+                hits.links.line(
                     frame,
                     Rect::new(body.x + left_width + 1, y, right_width, 1),
                     right,

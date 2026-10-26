@@ -84,18 +84,6 @@ impl Map {
             .render(area, &mut shadow);
         self.publish(frame, shadow, &targets);
     }
-    pub fn plain_line(
-        &mut self,
-        frame: &mut Frame,
-        area: Rect,
-        line: &ratatui::text::Line<'static>,
-        fixed: usize,
-        offset: usize,
-    ) {
-        let mut line = Line::from(line.clone());
-        line.detect(&self.paths);
-        self.line(frame, area, &line, fixed, offset);
-    }
     pub fn line(
         &mut self,
         frame: &mut Frame,

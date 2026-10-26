@@ -17,6 +17,7 @@ pub(crate) enum Kind {
     Search,
     Interaction,
     StartupCheck,
+    TextWrap,
     Autopush,
     AiAgent,
 }
@@ -29,6 +30,7 @@ pub(crate) enum Value {
     Search(crate::search::Mode),
     Interaction(InteractionMode),
     StartupCheck(bool),
+    TextWrap(bool),
     Autopush(PushPolicy),
     AiAgent(Agent),
 }
@@ -40,6 +42,16 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::TextWrap(true),
+        token: "true",
+        description: M::TextWrapEnabled,
+    },
+    Option {
+        value: Value::TextWrap(false),
+        token: "false",
+        description: M::TextWrapDisabled,
+    },
     Option {
         value: Value::Filter(Filter::All),
         token: "all",
@@ -181,6 +193,7 @@ impl Value {
             Self::Search(value) => Action::Search(value),
             Self::Interaction(value) => Action::Interaction(value),
             Self::StartupCheck(_) => Action::StartupCheck,
+            Self::TextWrap(value) => Action::Wrap(value),
             Self::Autopush(_) => Action::Autopush,
             Self::AiAgent(_) => Action::AiAgent,
         }
@@ -194,6 +207,7 @@ impl Value {
             Self::Search(_) => Kind::Search,
             Self::Interaction(_) => Kind::Interaction,
             Self::StartupCheck(_) => Kind::StartupCheck,
+            Self::TextWrap(_) => Kind::TextWrap,
             Self::Autopush(_) => Kind::Autopush,
             Self::AiAgent(_) => Kind::AiAgent,
         }
@@ -209,6 +223,7 @@ impl Kind {
             Self::Search => Action::SearchMenu,
             Self::Interaction => Action::InteractionMenu,
             Self::StartupCheck => Action::StartupCheck,
+            Self::TextWrap => Action::WrapMenu,
             Self::Autopush => Action::Autopush,
             Self::AiAgent => Action::AiAgent,
         }
@@ -228,6 +243,7 @@ impl Kind {
             Self::Search => Value::Search(screen.search_support().mode()?),
             Self::Interaction => Value::Interaction(screen.config.interaction_mode),
             Self::StartupCheck => Value::StartupCheck(screen.config.check_on_startup),
+            Self::TextWrap => Value::TextWrap(screen.config.text_wrap),
             Self::Autopush => Value::Autopush(screen.config.push_policy),
             Self::AiAgent => Value::AiAgent(screen.config.ai.agent),
         })

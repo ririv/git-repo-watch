@@ -6,6 +6,7 @@ use unicode_width::UnicodeWidthStr;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Group {
     Checks,
+    Display,
     Input,
     Pointer,
     Ai,
@@ -14,6 +15,7 @@ impl Group {
     fn title(self) -> &'static str {
         match self {
             Self::Checks => i18n::tr!(SettingsChecks),
+            Self::Display => i18n::tr!(SettingsDisplay),
             Self::Input => i18n::tr!(SettingsInput),
             Self::Pointer => i18n::tr!(MouseSettings),
             Self::Ai => i18n::tr!(Ai),
@@ -46,6 +48,12 @@ impl Entry {
                 i18n::tr!(SettingsStartup),
                 i18n::tr!(SettingsStartupHint),
                 Value::Toggle(screen.config.check_on_startup),
+            ),
+            Item::Command(Action::WrapMenu) => (
+                Group::Display,
+                i18n::tr!(TextWrap),
+                i18n::tr!(TextWrapHint),
+                Value::Toggle(screen.config.text_wrap),
             ),
             Item::ChineseCommandTrigger => (
                 Group::Input,

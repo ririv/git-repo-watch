@@ -36,6 +36,11 @@ pub(crate) enum Preference {
     Split,
     Unified,
 }
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Options {
+    pub layout: Preference,
+    pub wrap: bool,
+}
 impl Preference {
     pub const ALL: [Self; 3] = [Self::Auto, Self::Split, Self::Unified];
     pub fn advance(self, backwards: bool) -> Self {
@@ -165,16 +170,19 @@ impl View {
         &mut self,
         width: u16,
         preference: Preference,
+        wrap: bool,
+        paths: &[std::path::PathBuf],
         scroll: &mut usize,
     ) -> &mut Cache {
         let mode = preference.resolve(width, self.digits);
-        if self
-            .cache
-            .as_ref()
-            .is_none_or(|cache| cache.width != width || cache.mode != mode)
-        {
+        if self.cache.as_ref().is_none_or(|cache| {
+            cache.width != width
+                || cache.mode != mode
+                || cache.wrap != wrap
+                || !cache.matches_paths(paths)
+        }) {
             let anchor = self.cache.as_ref().and_then(|cache| cache.anchor(*scroll));
-            let mut cache = layout::arrange(&self.rows, self.digits, width, mode);
+            let mut cache = layout::arrange(&self.rows, self.digits, width, mode, wrap, paths);
             if let Some(anchor) = anchor {
                 *scroll = cache.locate(anchor);
                 cache.restore(anchor, *scroll);

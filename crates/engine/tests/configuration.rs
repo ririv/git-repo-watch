@@ -214,6 +214,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         max_concurrency: 8,
         check_on_startup: false,
         chinese_command_trigger: true,
+        text_wrap: false,
         mouse: Default::default(),
         ai: Default::default(),
         ..Config::default()
@@ -412,4 +413,34 @@ fn conflicting_legacy_instructions_and_full_prompt_leave_configuration_untouched
     );
     assert!(store.save_config(&Config::default()).is_err());
     assert_eq!(fs::read_to_string(store.config_path()).unwrap(), text);
+}
+
+#[test]
+fn text_wrap_defaults_off_and_updates_only_its_preference_with_comments_retained() {
+    use engine::{
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+    };
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let text = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("text_wrap = false\n", "");
+    fs::write(store.config_path(), &text).unwrap();
+    let original = store.config().unwrap();
+    assert!(!original.text_wrap);
+    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let service = Service::new(store.clone(), manager);
+    service.configure(ConfigEdit::TextWrap(true)).unwrap();
+    let mut saved = store.config().unwrap();
+    assert!(saved.text_wrap);
+    saved.text_wrap = false;
+    assert_eq!(saved, original);
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("# 文件文本预览")
+    );
+    service.configure(ConfigEdit::TextWrap(false)).unwrap();
+    assert_eq!(store.config().unwrap(), original);
 }

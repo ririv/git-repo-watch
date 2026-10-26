@@ -4,28 +4,39 @@ use crate::{
     browser::{Preview, preview::Document},
     pointer::ScrollTarget,
 };
-pub(super) struct Feedback<'a> {
+pub(super) struct View<'a> {
+    pub preview: &'a Preview,
+    pub position: &'a mut crate::browser::opening::Position,
+    pub layout: &'a mut crate::flow::Cache,
+}
+pub(super) struct Options<'a> {
     pub spinner: &'a str,
     pub notice: &'a str,
     pub visible: bool,
+    pub wrap: bool,
 }
 pub(super) fn render(
     frame: &mut Frame,
     layout: &layout::Pane,
-    preview: &Preview,
-    position: &mut crate::browser::opening::Position,
-    feedback: Feedback<'_>,
+    view: View<'_>,
+    options: Options<'_>,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
+    let View {
+        preview,
+        position,
+        layout: text_layout,
+    } = view;
     let area = layout.frame;
     let inner = layout.content;
     let mode = layout.mode;
-    let Feedback {
+    let Options {
         spinner,
         notice,
         visible: loading_visible,
-    } = feedback;
+        wrap,
+    } = options;
     match preview {
         Preview::Ready { document, .. } => match document.as_ref() {
             Document::Text {
@@ -33,14 +44,23 @@ pub(super) fn render(
                 width,
                 gutter,
             } => {
-                position
-                    .horizontal
-                    .constrain(width.saturating_sub(inner.width as usize));
+                position.horizontal.constrain(if wrap {
+                    0
+                } else {
+                    width.saturating_sub(inner.width as usize)
+                });
+                let layout = text_layout.arrange(
+                    text,
+                    inner.width as usize,
+                    *gutter,
+                    wrap,
+                    &mut position.scroll,
+                );
                 position.scroll = position
                     .scroll
-                    .min(text.lines.len().saturating_sub(inner.height as usize));
-                for (index, line) in text
-                    .lines
+                    .min(layout.rows.len().saturating_sub(inner.height as usize));
+                for (index, row) in layout
+                    .rows
                     .iter()
                     .skip(position.scroll)
                     .take(inner.height as usize)
@@ -49,16 +69,16 @@ pub(super) fn render(
                     hits.links.line(
                         frame,
                         Rect::new(inner.x, inner.y + index as u16, inner.width, 1),
-                        line,
+                        &row.line,
                         (*gutter).min(inner.width as usize),
                         position.horizontal.offset(),
                     );
                 }
-                crate::scrollbar::vertical(frame, area, inner, text.lines.len(), position.scroll);
+                crate::scrollbar::vertical(frame, area, inner, layout.rows.len(), position.scroll);
                 hits.vertical(
                     area,
                     inner,
-                    text.lines.len().saturating_sub(inner.height as usize),
+                    layout.rows.len().saturating_sub(inner.height as usize),
                     position.scroll,
                     ScrollTarget::BrowserPreview(mode),
                 );
