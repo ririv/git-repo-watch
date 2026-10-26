@@ -306,7 +306,6 @@ impl Screen {
                 confirmation::Input::Pending => self.mode = Mode::Confirm { operation, choice },
             },
             Mode::Files(mut session) => {
-                let count = session.rows().len();
                 match key.code {
                     KeyCode::Esc | KeyCode::Left => {
                         self.message.clear();
@@ -319,35 +318,15 @@ impl Screen {
                         }
                         return Ok(false);
                     }
-                    KeyCode::Tab => {
-                        let rows = session.rows();
-                        let staged = rows
-                            .get(session.cursor)
-                            .is_some_and(|change| change.area == Area::Staged);
-                        if let Some(index) = rows
-                            .iter()
-                            .position(|change| (change.area == Area::Staged) != staged)
-                        {
-                            session.cursor = index;
-                        }
-                    }
-                    KeyCode::Up => session.cursor = session.cursor.saturating_sub(1),
-                    KeyCode::Down => {
-                        session.cursor = (session.cursor + 1).min(count.saturating_sub(1))
-                    }
-                    KeyCode::Home => session.cursor = 0,
-                    KeyCode::End => session.cursor = count.saturating_sub(1),
-                    KeyCode::PageDown => {
-                        session.cursor = (session.cursor + 10).min(count.saturating_sub(1))
-                    }
-                    KeyCode::PageUp => session.cursor = session.cursor.saturating_sub(10),
-                    KeyCode::Char(' ') | KeyCode::Insert if count > 0 => {
-                        let index = session.change_index(session.rows()[session.cursor]);
-                        if !session.selected.remove(&index) {
-                            session.selected.insert(index);
-                        }
-                    }
-                    KeyCode::Enter | KeyCode::Right => {
+                    KeyCode::Tab => session.switch_group(self.file_layout),
+                    KeyCode::Up => session.move_cursor(-1, self.file_layout),
+                    KeyCode::Down => session.move_cursor(1, self.file_layout),
+                    KeyCode::Home => session.edge(false, self.file_layout),
+                    KeyCode::End => session.edge(true, self.file_layout),
+                    KeyCode::PageDown => session.move_cursor(10, self.file_layout),
+                    KeyCode::PageUp => session.move_cursor(-10, self.file_layout),
+                    KeyCode::Char(' ') | KeyCode::Insert => session.toggle_current(),
+                    KeyCode::Enter | KeyCode::Right if session.current().is_some() => {
                         self.mode = Mode::Files(session);
                         self.show_diff();
                         return Ok(false);

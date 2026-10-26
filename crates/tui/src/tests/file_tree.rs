@@ -1,6 +1,214 @@
 use super::*;
+use crate::files::{CheckState, Cursor, Group};
 use crate::{files::Layout, pointer::Hit};
 use ratatui::layout::Position;
+
+fn directory_fixture() -> support::Fixture {
+    let f = support::Fixture::create();
+    std::fs::create_dir_all(f.repo.join("src/中文 目录")).unwrap();
+    std::fs::create_dir_all(f.repo.join("outside")).unwrap();
+    f.commit("src/中文 目录/a.ts", "old a\n");
+    f.commit("src/中文 目录/b.ts", "old b\n");
+    f.commit("outside/other.txt", "old outside\n");
+    for file in ["a", "b"] {
+        support::write(
+            f.repo.join(format!("src/中文 目录/{file}.ts")),
+            &format!("staged {file}\n"),
+        );
+    }
+    support::git(&f.repo, &["add", "."]);
+    for file in ["a", "b"] {
+        support::write(
+            f.repo.join(format!("src/中文 目录/{file}.ts")),
+            &format!("working {file}\n"),
+        );
+    }
+    support::write(f.repo.join("outside/other.txt"), "working outside\n");
+    f
+}
+
+fn directory_id(s: &Screen, group: Group) -> usize {
+    let mut index = 0;
+    for (section, entries) in s
+        .mode
+        .file_session()
+        .unwrap()
+        .entries(Layout::Tree)
+        .iter()
+        .enumerate()
+    {
+        for entry in entries {
+            if entry.cursor(Group::from_index(section))
+                == (Cursor::Directory {
+                    group,
+                    path: "src/中文 目录".into(),
+                })
+            {
+                return index;
+            }
+            index += 1;
+        }
+    }
+    panic!("directory row is visible")
+}
+
+fn checkbox_point(s: &Screen, index: usize) -> Position {
+    (0..40).find_map(|y| (0..45).find_map(|x| {
+        let point = Position::new(x, y);
+        matches!(s.pointer.hit(point), Some(Hit::FileCheckbox(candidate)) if candidate == index).then_some(point)
+    })).expect("visible checkbox")
+}
+
+#[test]
+fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_partial_checks() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = directory_fixture();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        command(&mut s, "repo diff");
+        wait(&mut s);
+        render(&mut s, 160, 40);
+        let id = directory_id(&s, Group::Unstaged);
+        let checkbox = checkbox_point(&s, id);
+        click(&mut s, Position::new(checkbox.x + 5, checkbox.y));
+        let files = s.mode.file_session().unwrap();
+        assert!(files.current().is_none());
+        assert!(files.selected.is_empty());
+        assert_eq!(files.selection().len(), 2);
+        assert!(
+            files
+                .selection()
+                .iter()
+                .all(|change| change.area == Area::Unstaged)
+        );
+        assert!(
+            matches!(&s.mode, Mode::Changes(session) if matches!(session.preview, crate::changes::Preview::Directory { count: 2, .. }))
+        );
+        key(&mut s, KeyCode::Insert);
+        assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Insert);
+        key(&mut s, KeyCode::Up);
+        let files = s.mode.file_session().unwrap();
+        let entries = files.entries(Layout::Tree);
+        let directory = entries[0]
+            .iter()
+            .find(|row| row.cursor(Group::Unstaged) == files.cursor)
+            .unwrap();
+        assert_eq!(
+            files.check_state(directory, &files.rows()),
+            CheckState::Mixed
+        );
+        assert!(render(&mut s, 160, 40).contains("[−]"));
+        key(&mut s, KeyCode::Insert);
+        let mut terminal = Terminal::new(TestBackend::new(160, 40)).unwrap();
+        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+        let marks = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .filter(|cell| cell.symbol() == "✓")
+            .collect::<Vec<_>>();
+        assert_eq!(marks.len(), 3);
+        assert!(
+            marks
+                .iter()
+                .all(|cell| cell.fg == ratatui::style::Color::Rgb(73, 199, 140)
+                    && cell.modifier.contains(ratatui::style::Modifier::BOLD))
+        );
+        let snapshot = s.service.files(&f.repo, &Cancel::default()).unwrap();
+        let current = s.mode.file_session().unwrap();
+        let refreshed = current.refreshed(snapshot);
+        assert_eq!(refreshed.cursor, current.cursor);
+        assert_eq!(refreshed.selection(), current.selection());
+        key(&mut s, KeyCode::Insert);
+        render(&mut s, 160, 40);
+        click(&mut s, checkbox);
+        assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
+        click(&mut s, checkbox);
+        assert!(s.mode.file_session().unwrap().selected.is_empty());
+        render(&mut s, 160, 40);
+        let staged = checkbox_point(&s, directory_id(&s, Group::Staged));
+        click(&mut s, staged);
+        assert!(
+            s.mode
+                .file_session()
+                .unwrap()
+                .selection()
+                .iter()
+                .all(|change| change.area == Area::Staged)
+        );
+        command(&mut s, "repo diff unstage");
+        wait(&mut s);
+        let snapshot = s.service.files(&f.repo, &Cancel::default()).unwrap();
+        assert!(
+            snapshot
+                .changes
+                .iter()
+                .all(|change| change.area != Area::Staged)
+        );
+        assert_eq!(
+            std::fs::read_to_string(f.repo.join("outside/other.txt")).unwrap(),
+            "working outside\n"
+        );
+        s.shutdown();
+    }
+}
+
+#[test]
+fn filtered_directory_operations_only_stage_visible_files_and_flat_layout_preserves_checks() {
+    let f = directory_fixture();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    s.paste("b.ts");
+    render(&mut s, 160, 40);
+    let point = checkbox_point(&s, directory_id(&s, Group::Unstaged));
+    click(&mut s, Position::new(point.x + 5, point.y));
+    let files = s.mode.file_session().unwrap();
+    assert!(files.selected.is_empty());
+    assert_eq!(files.selection().len(), 1);
+    assert_eq!(
+        files.selection()[0].location.name(),
+        std::path::Path::new("src/中文 目录/b.ts")
+    );
+    key(&mut s, KeyCode::Insert);
+    let selected = s.mode.file_session().unwrap().selection();
+    command(&mut s, "repo diff view flat");
+    assert!(s.mode.file_session().unwrap().current().is_some());
+    assert_eq!(s.mode.file_session().unwrap().selection(), selected);
+    command(&mut s, "repo diff view tree");
+    render(&mut s, 160, 40);
+    let point = checkbox_point(&s, directory_id(&s, Group::Unstaged));
+    click(&mut s, point);
+    assert!(s.mode.file_session().unwrap().selected.is_empty());
+    command(&mut s, "repo diff stage");
+    wait(&mut s);
+    let snapshot = s.service.files(&f.repo, &Cancel::default()).unwrap();
+    assert!(
+        snapshot
+            .changes
+            .iter()
+            .any(|change| change.area == Area::Unstaged
+                && change.location.name() == std::path::Path::new("src/中文 目录/a.ts"))
+    );
+    assert!(
+        !snapshot
+            .changes
+            .iter()
+            .any(|change| change.area == Area::Unstaged
+                && change.location.name() == std::path::Path::new("src/中文 目录/b.ts"))
+    );
+    assert!(
+        snapshot
+            .changes
+            .iter()
+            .any(|change| change.area == Area::Unstaged
+                && change.location.name() == std::path::Path::new("outside/other.txt"))
+    );
+    s.shutdown();
+}
 
 #[test]
 fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() {
@@ -20,12 +228,22 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         assert_eq!(s.file_layout, Layout::Tree);
         let text = render(&mut s, 160, 40);
         assert!(text.contains("src/") && text.contains("中文 目录/"));
-        // 同一路径的暂存与未暂存身份分别点击勾选，目录行不产生文件命中。
+        // 目录与文件各有命中行；同一路径在暂存与未暂存区的文件身份仍然独立。
+        let entries = s
+            .mode
+            .file_session()
+            .unwrap()
+            .entries(Layout::Tree)
+            .into_iter()
+            .flatten()
+            .collect::<Vec<_>>();
         let mut points = BTreeMap::new();
         for y in 0..40 {
             for x in 0..45 {
-                if let Some(Hit::FileCheckbox(index)) = s.pointer.hit(Position::new(x, y)) {
-                    points.entry(index).or_insert(Position::new(x, y));
+                if let Some(Hit::FileCheckbox(index)) = s.pointer.hit(Position::new(x, y))
+                    && let crate::files::tree::Row::File { index, .. } = &entries[index]
+                {
+                    points.entry(*index).or_insert(Position::new(x, y));
                 }
             }
         }
@@ -38,7 +256,7 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         let selected = files.selection();
         assert_eq!(selected.len(), 2);
         assert_ne!(selected[0].area, selected[1].area);
-        let current = files.rows()[files.cursor].clone();
+        let current = files.current().unwrap().clone();
         command(&mut s, "repo diff view");
         let commands = s.search_commands().unwrap();
         assert_eq!(commands.len(), 1);
@@ -51,18 +269,30 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         assert!(render(&mut s, 160, 40).contains("src/中文 目录/a.ts"));
         let files = s.mode.file_session().unwrap();
         assert_eq!(files.selection(), selected);
-        assert_eq!(*files.rows()[files.cursor], current);
+        assert_eq!(*files.current().unwrap(), current);
         command(&mut s, "repo diff view tree");
         render(&mut s, 160, 40);
         assert_eq!(s.mode.file_session().unwrap().selection(), selected);
-        // 目录不能作为点击目标；文件名命中仍指向文件的可见索引。
-        assert!(s.pointer.hit(Position::new(12, 3)).is_none());
+        assert!(matches!(
+            s.pointer.hit(Position::new(12, 3)),
+            Some(Hit::Item(crate::pointer::Target::Files, 0))
+        ));
         key(&mut s, KeyCode::Home);
+        assert!(matches!(
+            s.mode.file_session().unwrap().cursor,
+            crate::files::Cursor::Directory { .. }
+        ));
         key(&mut s, KeyCode::Down);
         wait(&mut s);
         assert_eq!(
-            s.mode.file_session().unwrap().rows()[1].location.name(),
-            std::path::Path::new("src/中文 目录/b.ts")
+            s.mode
+                .file_session()
+                .unwrap()
+                .current()
+                .unwrap()
+                .location
+                .name(),
+            std::path::Path::new("src/中文 目录/a.ts")
         );
         assert_eq!(
             std::fs::read(f.repo.join(".git/index")).unwrap(),
@@ -111,7 +341,7 @@ fn tree_scrollbar_drag_uses_projected_rows_and_preserves_both_group_offsets() {
             })
         })
         .expect("tree scrollbar thumb");
-    let initial = s.mode.file_session().unwrap().cursor;
+    let initial = s.mode.file_session().unwrap().cursor.clone();
     click(&mut s, thumb);
     assert_eq!(s.mode.file_session().unwrap().cursor, initial);
     for (row, expect_bottom) in [(31, true), (thumb.y, false)] {

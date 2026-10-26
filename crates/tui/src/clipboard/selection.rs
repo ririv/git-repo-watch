@@ -189,6 +189,9 @@ impl Screen {
                 changes::Focus::Files => file_paths(&session.files),
                 changes::Focus::Preview => match &session.preview {
                     changes::Preview::Empty => Content::Unavailable(Unavailable::Empty),
+                    changes::Preview::Directory { path, .. } => {
+                        Content::paths(std::iter::once(path.clone()))
+                    }
                     changes::Preview::Loading(_) => Content::Unavailable(Unavailable::Loading),
                     changes::Preview::Failed { error, .. } => {
                         Content::text(Target::Error, error.clone())

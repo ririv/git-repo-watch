@@ -191,6 +191,7 @@ fn changes_replace_fast_diff_previews_directly_without_exposing_old_content_to_c
         .rows()
         .iter()
         .position(|change| change.location.name() == std::path::Path::new("b.rs"))
+        .map(crate::files::Cursor::File)
         .unwrap();
     let now = Instant::now();
     changes.poll_at(&service, now);

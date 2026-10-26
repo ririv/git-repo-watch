@@ -99,7 +99,7 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
         command(&mut s, "repo files diff");
         wait(&mut s);
         assert!(
-            matches!(&s.mode, Mode::Changes(changes) if changes.files.rows()[changes.files.cursor].location.name() == std::path::Path::new("src/中文 空格/code.ts"))
+            matches!(&s.mode, Mode::Changes(changes) if changes.files.current().unwrap().location.name() == std::path::Path::new("src/中文 空格/code.ts"))
         );
         assert!(render(&mut s, 150, 32).contains("value = 2"));
         key(&mut s, KeyCode::Esc);

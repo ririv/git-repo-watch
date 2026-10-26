@@ -57,7 +57,7 @@ impl crate::Screen {
                         })
                     })
                     .ok_or_else(|| anyhow::anyhow!(i18n::tr!(BrowserNoDiff)))?;
-                files.cursor = cursor;
+                files.cursor = crate::files::Cursor::File(cursor);
                 Ok(crate::Outcome::BrowserDiff { files })
             },
         );

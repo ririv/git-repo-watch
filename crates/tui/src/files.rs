@@ -1,6 +1,8 @@
 //! Shared file selection with explicit staged and unstaged identities.
+mod cursor;
 pub(super) mod tree;
 use crate::{Area, Change, Files};
+pub(crate) use cursor::{CheckState, Cursor, Group};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Layout {
@@ -21,7 +23,7 @@ use std::collections::BTreeSet;
 #[derive(Debug, Clone)]
 pub(super) struct FileSession {
     pub snapshot: Files,
-    pub cursor: usize,
+    pub cursor: Cursor,
     pub offsets: [usize; 2],
     pub selected: BTreeSet<usize>,
     pub query: String,
@@ -29,9 +31,14 @@ pub(super) struct FileSession {
 }
 impl FileSession {
     pub fn new(snapshot: Files) -> Self {
+        let cursor = if snapshot.changes.is_empty() {
+            Cursor::Empty
+        } else {
+            Cursor::File(0)
+        };
         Self {
             snapshot,
-            cursor: 0,
+            cursor,
             offsets: [0; 2],
             selected: BTreeSet::new(),
             query: String::new(),
@@ -40,8 +47,7 @@ impl FileSession {
     }
     pub fn refreshed(&self, snapshot: Files) -> Self {
         let current = self
-            .rows()
-            .get(self.cursor)
+            .current()
             .map(|change| (change.area, change.location.clone()));
         let selected = self
             .snapshot
@@ -54,6 +60,9 @@ impl FileSession {
         let mut next = Self::new(snapshot);
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
+        if next.rows().is_empty() {
+            next.cursor = Cursor::Empty;
+        }
         next.selected = next
             .snapshot
             .changes
@@ -77,7 +86,22 @@ impl FileSession {
                             .position(|change| change.location == location)
                     })
             })
-            .unwrap_or_else(|| self.cursor.min(next.rows().len().saturating_sub(1)));
+            .map(Cursor::File)
+            .unwrap_or_else(|| match self.cursor.index() {
+                Some(index) if !next.rows().is_empty() => {
+                    Cursor::File(index.min(next.rows().len() - 1))
+                }
+                _ => next.cursor.clone(),
+            });
+        if let Cursor::Directory { .. } = &self.cursor {
+            let entries = next.entries(Layout::Tree);
+            if entries.iter().enumerate().any(|(group, rows)| {
+                rows.iter()
+                    .any(|row| row.cursor(Group::from_index(group)) == self.cursor)
+            }) {
+                next.cursor = self.cursor.clone();
+            }
+        }
         next
     }
     pub fn rows(&self) -> Vec<&Change> {
@@ -111,18 +135,22 @@ impl FileSession {
         }
         self.query = query;
         self.cursor = match self.search_mode {
-            crate::search::Mode::Filter => 0,
+            crate::search::Mode::Filter => {
+                if self.rows().is_empty() {
+                    Cursor::Empty
+                } else {
+                    Cursor::File(0)
+                }
+            }
             crate::search::Mode::Locate => self
                 .matches()
-                .nearest(Some(self.cursor))
-                .unwrap_or(self.cursor),
+                .nearest(self.cursor.index())
+                .map(Cursor::File)
+                .unwrap_or_else(|| self.cursor.clone()),
         };
     }
     pub fn set_search_mode(&mut self, mode: crate::search::Mode) {
-        let current = self
-            .rows()
-            .get(self.cursor)
-            .map(|change| self.change_index(change));
+        let current = self.current().map(|change| self.change_index(change));
         self.search_mode = mode;
         self.cursor = current
             .and_then(|index| {
@@ -130,12 +158,20 @@ impl FileSession {
                     .iter()
                     .position(|change| self.change_index(change) == index)
             })
-            .unwrap_or(0);
+            .map(Cursor::File)
+            .unwrap_or_else(|| {
+                if self.rows().is_empty() {
+                    Cursor::Empty
+                } else {
+                    Cursor::File(0)
+                }
+            });
         if mode == crate::search::Mode::Locate {
             self.cursor = self
                 .matches()
-                .nearest(Some(self.cursor))
-                .unwrap_or(self.cursor);
+                .nearest(self.cursor.index())
+                .map(Cursor::File)
+                .unwrap_or_else(|| self.cursor.clone());
         }
     }
     pub fn change_index(&self, change: &Change) -> usize {
@@ -146,11 +182,8 @@ impl FileSession {
             .expect("visible change belongs to snapshot")
     }
     pub fn selection(&self) -> Vec<Change> {
-        let rows = self.rows();
         if self.selected.is_empty() {
-            rows.get(self.cursor)
-                .map(|c| vec![(*c).clone()])
-                .unwrap_or_default()
+            self.focused_changes().into_iter().cloned().collect()
         } else {
             self.snapshot
                 .changes

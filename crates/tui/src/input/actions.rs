@@ -191,6 +191,11 @@ impl Screen {
                 self.open_option_menu(command::options::Kind::FileView, path, selection);
             }
             Action::FileLayout(layout) => {
+                match &mut self.mode {
+                    Mode::Files(files) => files.set_layout(layout),
+                    Mode::Changes(session) => session.files.set_layout(layout),
+                    _ => {}
+                }
                 self.file_layout = layout;
             }
             Action::DiffLayout(preference) => {

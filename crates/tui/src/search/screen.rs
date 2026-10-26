@@ -121,14 +121,14 @@ impl Screen {
                 }
             }
             Mode::Files(files) => {
-                if let Some(index) = files.matches().step(Some(files.cursor), backwards) {
-                    files.cursor = index;
+                if let Some(index) = files.matches().step(files.cursor.index(), backwards) {
+                    files.cursor = crate::files::Cursor::File(index);
                 }
             }
             Mode::Changes(session) => {
                 let files = &mut session.files;
-                if let Some(index) = files.matches().step(Some(files.cursor), backwards) {
-                    files.cursor = index;
+                if let Some(index) = files.matches().step(files.cursor.index(), backwards) {
+                    files.cursor = crate::files::Cursor::File(index);
                 }
                 session.focus = crate::changes::Focus::Files;
             }
@@ -182,8 +182,8 @@ impl Screen {
                     self.repository_matches(),
                     self.repository_viewport.selected(),
                 ),
-                Mode::Files(files) => (files.matches(), Some(files.cursor)),
-                Mode::Changes(session) => (session.files.matches(), Some(session.files.cursor)),
+                Mode::Files(files) => (files.matches(), files.cursor.index()),
+                Mode::Changes(session) => (session.files.matches(), session.files.cursor.index()),
                 Mode::Branches(view) => (view.session().matches(), view.session().state.selected()),
                 Mode::Stashes(view) => (view.session().matches(), view.session().state.selected()),
                 Mode::History(view) => match view.as_ref() {

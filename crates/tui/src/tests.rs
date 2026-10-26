@@ -757,7 +757,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     let (_temp, mut s) = fixture(vec![f.repo.clone()]);
     let origin = Mode::Files(FileSession {
         snapshot: s.service.files(&f.repo, &Cancel::default()).unwrap(),
-        cursor: 0,
+        cursor: crate::files::Cursor::File(0),
         selected: BTreeSet::new(),
         query: "filter".into(),
         search_mode: Default::default(),

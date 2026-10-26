@@ -135,7 +135,10 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
             panic!("changes");
         };
         assert!(
-            session.files.rows()[session.files.cursor]
+            session
+                .files
+                .current()
+                .unwrap()
                 .location
                 .display()
                 .contains("staged-18.rs")
@@ -150,7 +153,10 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
             panic!("changes");
         };
         assert!(
-            session.files.rows()[session.files.cursor]
+            session
+                .files
+                .current()
+                .unwrap()
                 .location
                 .display()
                 .contains("staged-18.rs")

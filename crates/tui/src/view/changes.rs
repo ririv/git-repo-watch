@@ -54,6 +54,11 @@ pub(super) fn render(
                     state => {
                         let text = match state {
                             Preview::Empty => i18n::tr!(ChangesSelectFile).to_owned(),
+                            Preview::Directory { path, count } => format!(
+                                "{}/\n{} · {count}",
+                                safe(&path.display().to_string()),
+                                i18n::tr!(HistoryChanges)
+                            ),
                             Preview::Loading(_) if loading_visible => {
                                 format!("{} {}", symbol, i18n::tr!(ReadFileDiff))
                             }

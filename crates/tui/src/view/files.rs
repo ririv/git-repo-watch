@@ -1,5 +1,6 @@
-//! Two explicit groups retain their headings even in compact repository panes.
+//! Staged and unstaged trees share selectable rows and tri-state directory checkboxes.
 use super::*;
+use crate::files::{CheckState, Group};
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -8,20 +9,13 @@ pub(super) fn render(
     layout: crate::files::Layout,
     hits: &mut crate::pointer::Map,
 ) {
+    session.set_layout(layout);
     let border = block(title.to_owned());
     let inner = border.inner(area);
     frame.render_widget(border, area);
     let mut offsets = session.offsets;
     let rows = session.rows();
-    let projected = [false, true].map(|staged| {
-        let changes = rows
-            .iter()
-            .copied()
-            .enumerate()
-            .filter(|(_, change)| (change.area == Area::Staged) == staged)
-            .collect::<Vec<_>>();
-        crate::files::tree::project(&changes, layout)
-    });
+    let projected = session.entries(layout);
     let unstaged = rows
         .iter()
         .filter(|change| change.area != Area::Staged)
@@ -38,6 +32,7 @@ pub(super) fn render(
     };
     let groups =
         Layout::vertical([Constraint::Length(first_height), Constraint::Min(0)]).split(inner);
+    let mut row_offset = 0;
     for (group, staged) in groups.iter().zip([false, true]) {
         let entries = &projected[usize::from(staged)];
         let count = if staged {
@@ -64,6 +59,7 @@ pub(super) fn render(
         let items = entries
             .iter()
             .map(|entry| {
+                let mut spans = checkbox(session.check_state(entry, &rows));
                 let crate::files::tree::Row::File {
                     index,
                     prefix,
@@ -73,24 +69,11 @@ pub(super) fn render(
                     let crate::files::tree::Row::Directory { label, .. } = entry else {
                         unreachable!()
                     };
-                    return ListItem::new(Line::styled(
-                        format!("    {}", safe(label)),
-                        Style::default().fg(ACCENT),
-                    ));
+                    spans.push(Span::styled(safe(label), Style::default().fg(ACCENT)));
+                    return ListItem::new(Line::from(spans));
                 };
                 let change = rows[*index];
-                let line = Line::from(vec![
-                    Span::styled(
-                        format!(
-                            "[{}] ",
-                            if session.selected.contains(&session.change_index(change)) {
-                                "✓"
-                            } else {
-                                " "
-                            }
-                        ),
-                        Style::default().fg(MUTED),
-                    ),
+                spans.extend([
                     Span::styled(prefix.clone(), Style::default().fg(MUTED)),
                     Span::styled(
                         safe(label),
@@ -104,6 +87,7 @@ pub(super) fn render(
                         },
                     ),
                 ]);
+                let line = Line::from(spans);
                 ListItem::new(marked_line(
                     &line,
                     change.kind,
@@ -114,7 +98,9 @@ pub(super) fn render(
             .collect::<Vec<_>>();
         let mut state = ListState::default()
             .with_offset(offsets[usize::from(staged)])
-            .with_selected(entries.iter().position(|entry| matches!(entry, crate::files::tree::Row::File {index, ..} if *index == session.cursor)));
+            .with_selected(entries.iter().position(|entry| {
+                entry.cursor(Group::from_index(usize::from(staged))) == session.cursor
+            }));
         frame.render_stateful_widget(
             List::new(items).highlight_style(selected_style()),
             parts[1],
@@ -122,41 +108,42 @@ pub(super) fn render(
         );
         offsets[usize::from(staged)] = state.offset();
         crate::scrollbar::vertical(frame, area, parts[1], entries.len(), state.offset());
-        hits.list_headings(
+        hits.list(
             area,
             parts[1],
-            &entries
-                .iter()
-                .map(|entry| match entry {
-                    crate::files::tree::Row::File { index, .. } => {
-                        crate::pointer::ListRow::Item(*index)
-                    }
-                    crate::files::tree::Row::Directory { following, .. } => {
-                        crate::pointer::ListRow::Heading {
-                            following: *following,
-                        }
-                    }
-                })
-                .collect::<Vec<_>>(),
+            &(row_offset..row_offset + entries.len()).collect::<Vec<_>>(),
             state.offset(),
             crate::pointer::Target::Files,
         );
         // 复选框单独命中，点击文件名仍只定位；复选框不参与双击进入。
-        for (row, entry) in entries
+        for (row, _) in entries
             .iter()
             .skip(state.offset())
             .take(parts[1].height as usize)
             .enumerate()
         {
-            let crate::files::tree::Row::File { index, .. } = entry else {
-                continue;
-            };
             let checkbox =
                 Rect::new(parts[1].x, parts[1].y + row as u16, 3, 1).intersection(parts[1]);
-            hits.file_checkbox(checkbox, *index);
+            hits.file_checkbox(checkbox, row_offset + state.offset() + row);
         }
+        row_offset += entries.len();
     }
     session.offsets = offsets;
+}
+
+fn checkbox(state: CheckState) -> Vec<Span<'static>> {
+    let mark = match state {
+        CheckState::Unchecked => Span::raw(" "),
+        CheckState::Mixed => Span::styled("−", Style::default().fg(WARN).bold()),
+        CheckState::Checked => {
+            Span::styled("✓", Style::default().fg(Color::Rgb(73, 199, 140)).bold())
+        }
+    };
+    vec![
+        Span::styled("[", Style::default().fg(MUTED)),
+        mark,
+        Span::styled("] ", Style::default().fg(MUTED)),
+    ]
 }
 
 /// Keep a file status marker pinned to the last column, clipping only the label.

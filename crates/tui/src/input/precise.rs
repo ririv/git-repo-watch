@@ -40,9 +40,9 @@ impl Screen {
                             Mode::Changes(session) => &mut session.files,
                             _ => return false,
                         };
-                        let staged =
-                            files.rows()[files.cursor].area == engine::local::files::Area::Staged;
-                        files.offsets[usize::from(staged)] = offset;
+                        if let Some(group) = files.group() {
+                            files.offsets[group.index()] = offset;
+                        }
                     }
                     Target::Branches => {
                         if let Mode::Branches(view) = &mut self.mode
@@ -82,14 +82,10 @@ impl Screen {
                     Mode::Changes(session) => &mut session.files,
                     _ => return false,
                 };
-                let Some(change) = files.rows().get(index).copied() else {
+                if !files.select_row(index, self.file_layout) {
                     return false;
-                };
-                let identity = files.change_index(change);
-                files.cursor = index;
-                if !files.selected.remove(&identity) {
-                    files.selected.insert(identity);
                 }
+                files.toggle_current();
                 if matches!(self.mode, Mode::Changes(_)) {
                     self.poll_changes();
                 }
@@ -129,9 +125,15 @@ impl Screen {
                     self.setting_selected = index
                 }
                 Target::Files => match &mut self.mode {
-                    Mode::Files(files) if index < files.rows().len() => files.cursor = index,
-                    Mode::Changes(session) if index < session.files.rows().len() => {
-                        session.files.cursor = index;
+                    Mode::Files(files) => {
+                        if !files.select_row(index, self.file_layout) {
+                            return false;
+                        }
+                    }
+                    Mode::Changes(session) => {
+                        if !session.files.select_row(index, self.file_layout) {
+                            return false;
+                        }
                         self.poll_changes();
                     }
                     _ => return false,

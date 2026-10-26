@@ -1,12 +1,17 @@
-//! File-list projection keeps directory headings separate from selectable changes.
+//! File-list projection preserves selectable directories and their descendant identities.
 use super::Layout;
 use crate::Change;
-use std::{collections::BTreeMap, ffi::OsString};
+use std::{
+    collections::BTreeMap,
+    ffi::OsString,
+    path::{Path, PathBuf},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Row {
     Directory {
-        following: usize,
+        path: PathBuf,
+        indices: Vec<usize>,
         label: String,
     },
     File {
@@ -25,14 +30,10 @@ enum Node<'a> {
     File(usize, &'a Change),
 }
 impl Node<'_> {
-    fn first(&self) -> usize {
+    fn indices(&self) -> Vec<usize> {
         match self {
-            Self::File(index, _) => *index,
-            Self::Directory(children) => children
-                .first_key_value()
-                .expect("nonempty directory")
-                .1
-                .first(),
+            Self::File(index, _) => vec![*index],
+            Self::Directory(children) => children.values().flat_map(Self::indices).collect(),
         }
     }
 }
@@ -71,15 +72,21 @@ pub(crate) fn project(changes: &[(usize, &Change)], layout: Layout) -> Vec<Row> 
         );
     }
     let mut rows = Vec::new();
-    emit(&roots, "", &mut rows);
+    emit(&roots, Path::new(""), "", &mut rows);
     rows
 }
-fn emit(children: &BTreeMap<(OsString, Kind), Node<'_>>, prefix: &str, rows: &mut Vec<Row>) {
+fn emit(
+    children: &BTreeMap<(OsString, Kind), Node<'_>>,
+    parent: &Path,
+    prefix: &str,
+    rows: &mut Vec<Row>,
+) {
     for ((name, _), node) in children {
         match node {
             Node::Directory(nested) => {
                 let mut nested = nested;
                 let mut label = name.to_string_lossy().into_owned();
+                let mut path = parent.join(name);
                 // 只压缩单一子目录链；遇到文件或分叉就保留层级。
                 while nested.len() == 1 {
                     let ((child_name, _), child) = nested.first_key_value().expect("single child");
@@ -88,13 +95,15 @@ fn emit(children: &BTreeMap<(OsString, Kind), Node<'_>>, prefix: &str, rows: &mu
                     };
                     label.push('/');
                     label.push_str(&child_name.to_string_lossy());
+                    path.push(child_name);
                     nested = children;
                 }
                 rows.push(Row::Directory {
-                    following: node.first(),
+                    path: path.clone(),
+                    indices: node.indices(),
                     label: format!("{prefix}{label}/"),
                 });
-                emit(nested, &format!("{prefix}  "), rows);
+                emit(nested, &path, &format!("{prefix}  "), rows);
             }
             Node::File(index, change) => {
                 // 重命名保留两端路径，避免同名文件隐藏来源信息。
@@ -136,7 +145,8 @@ mod tests {
             tree,
             vec![
                 Row::Directory {
-                    following: 0,
+                    path: "src/中文 目录".into(),
+                    indices: vec![0, 1],
                     label: "src/中文 目录/".into()
                 },
                 Row::File {
@@ -160,7 +170,7 @@ mod tests {
         let filtered = project(&[(1, &files[1])], Layout::Tree);
         assert_eq!(filtered.len(), 2);
         assert!(
-            matches!(&filtered[0], Row::Directory{following: 1, label} if label == "src/中文 目录/")
+            matches!(&filtered[0], Row::Directory{indices, label, ..} if indices == &[1] && label == "src/中文 目录/")
         );
     }
     #[test]

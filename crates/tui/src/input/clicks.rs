@@ -106,7 +106,7 @@ impl Screen {
                 let files = self.mode.file_session()?;
                 Some(Identity::File {
                     repository: files.snapshot.path.clone(),
-                    change: (*files.rows().get(files.cursor)?).clone(),
+                    change: files.current()?.clone(),
                 })
             }
             Target::Branches => match &self.mode {

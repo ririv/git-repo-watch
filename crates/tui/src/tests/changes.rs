@@ -27,6 +27,7 @@ fn choose(s: &mut Screen, name: &str, area: Area) {
         .position(|change| {
             change.area == area && change.location.name() == std::path::Path::new(name)
         })
+        .map(crate::files::Cursor::File)
         .unwrap();
     s.poll_changes();
     wait(s);
@@ -211,9 +212,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
         "alpha"
     );
     assert_eq!(
-        review(&s).files.rows()[review(&s).files.cursor]
-            .location
-            .name(),
+        review(&s).files.current().unwrap().location.name(),
         std::path::Path::new("alpha")
     );
     ctrl(&mut s, 'a');

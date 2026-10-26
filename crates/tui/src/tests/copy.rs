@@ -126,7 +126,10 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
     let Mode::Changes(session) = &s.mode else {
         panic!("changes expected")
     };
-    let path = session.files.rows()[session.files.cursor]
+    let path = session
+        .files
+        .current()
+        .unwrap()
         .location
         .name()
         .to_string_lossy()
@@ -139,13 +142,13 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
     let Mode::Changes(session) = &mut s.mode else {
         panic!("changes expected")
     };
-    session.files.cursor = 1;
+    session.files.cursor = crate::files::Cursor::File(1);
     key(&mut s, KeyCode::Enter);
     assert_eq!(copied(&mut s, &rx), path);
     let Mode::Changes(session) = &mut s.mode else {
         panic!("changes expected")
     };
-    session.files.cursor = 0;
+    session.files.cursor = crate::files::Cursor::File(0);
     key(&mut s, KeyCode::Char(' '));
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Char(' '));
@@ -168,7 +171,10 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
         panic!("changes expected")
     };
     assert_eq!(session.focus, crate::changes::Focus::Preview);
-    let path = session.files.rows()[session.files.cursor]
+    let path = session
+        .files
+        .current()
+        .unwrap()
         .location
         .name()
         .to_str()

@@ -100,11 +100,11 @@ fn worktree_locates_both_stages_keeps_checked_identities_and_survives_readback()
     let files = s.mode.file_session().unwrap();
     let count = files.rows().len();
     assert_eq!(count, 3);
-    let first = files.rows()[files.cursor].area;
+    let first = files.current().unwrap().area;
     key(&mut s, KeyCode::Insert);
     key(&mut s, KeyCode::Down);
     let files = s.mode.file_session().unwrap();
-    assert_ne!(files.rows()[files.cursor].area, first);
+    assert_ne!(files.current().unwrap().area, first);
     assert!(s.search_title().contains("2/2"));
     key(&mut s, KeyCode::Insert);
     let before = s.mode.file_session().unwrap().selection();
@@ -289,7 +289,7 @@ fn locating_files_does_not_take_arrows_from_focus_mode_or_the_diff_preview() {
     render(&mut s, 160, 32);
     s.paste("//focus");
     key(&mut s, KeyCode::Enter);
-    let cursor = s.mode.file_session().unwrap().cursor;
+    let cursor = s.mode.file_session().unwrap().cursor.clone();
     key(&mut s, KeyCode::Down);
     assert_eq!(s.mode.file_session().unwrap().cursor, cursor);
     key(&mut s, KeyCode::Right);

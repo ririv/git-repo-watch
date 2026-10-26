@@ -34,23 +34,17 @@ impl Screen {
             };
         } else if session.focus == Focus::Files {
             let files = &mut session.files;
-            let count = files.rows().len();
             match key.code {
-                KeyCode::Up => files.cursor = files.cursor.saturating_sub(1),
-                KeyCode::Down => files.cursor = (files.cursor + 1).min(count.saturating_sub(1)),
-                KeyCode::PageUp => files.cursor = files.cursor.saturating_sub(10),
-                KeyCode::PageDown => {
-                    files.cursor = (files.cursor + 10).min(count.saturating_sub(1))
+                KeyCode::Up => files.move_cursor(-1, self.file_layout),
+                KeyCode::Down => files.move_cursor(1, self.file_layout),
+                KeyCode::PageUp => files.move_cursor(-10, self.file_layout),
+                KeyCode::PageDown => files.move_cursor(10, self.file_layout),
+                KeyCode::Home => files.edge(false, self.file_layout),
+                KeyCode::End => files.edge(true, self.file_layout),
+                KeyCode::Char(' ') | KeyCode::Insert => files.toggle_current(),
+                KeyCode::Enter | KeyCode::Right if files.current().is_some() => {
+                    session.focus = Focus::Preview
                 }
-                KeyCode::Home => files.cursor = 0,
-                KeyCode::End => files.cursor = count.saturating_sub(1),
-                KeyCode::Char(' ') | KeyCode::Insert if count > 0 => {
-                    let index = files.change_index(files.rows()[files.cursor]);
-                    if !files.selected.remove(&index) {
-                        files.selected.insert(index);
-                    }
-                }
-                KeyCode::Enter | KeyCode::Right => session.focus = Focus::Preview,
                 _ => {}
             }
         } else if let Preview::Ready { scroll, .. } = &mut session.preview {

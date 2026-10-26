@@ -12,6 +12,10 @@ pub(super) struct Key {
 #[derive(Debug)]
 pub(super) enum Preview {
     Empty,
+    Directory {
+        path: std::path::PathBuf,
+        count: usize,
+    },
     Loading(Key),
     Ready {
         key: Key,
@@ -26,7 +30,7 @@ pub(super) enum Preview {
 impl Preview {
     fn key(&self) -> Option<&Key> {
         match self {
-            Self::Empty => None,
+            Self::Empty | Self::Directory { .. } => None,
             Self::Loading(key) | Self::Ready { key, .. } | Self::Failed { key, .. } => Some(key),
         }
     }
@@ -81,12 +85,26 @@ impl Session {
         self.poll_at(service, Instant::now())
     }
     pub fn poll_at(&mut self, service: &Arc<Service>, now: Instant) -> bool {
-        let next = self.files.rows().get(self.files.cursor).map(|change| Key {
+        if let crate::files::Cursor::Directory { path, .. } = &self.files.cursor {
+            let count = self.files.focused_changes().len();
+            let changed = !matches!(&self.preview, Preview::Directory { path: current, count: current_count } if current == path && *current_count == count);
+            self.loader.clear();
+            self.feedback.finish();
+            if changed {
+                self.preview = Preview::Directory {
+                    path: path.clone(),
+                    count,
+                };
+            }
+            return changed;
+        }
+        let next = self.files.current().map(|change| Key {
             revision: self.revision,
-            change: (*change).clone(),
+            change: change.clone(),
         });
         let mut changed = false;
-        if self.preview.key() != next.as_ref() {
+        if self.preview.key() != next.as_ref() || matches!(self.preview, Preview::Directory { .. })
+        {
             match &next {
                 Some(key) => {
                     self.loader
