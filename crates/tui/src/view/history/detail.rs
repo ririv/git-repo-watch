@@ -36,25 +36,43 @@ pub(super) fn render(
             )
         }
     };
+    let different_times = detail.author.seconds != detail.committer.seconds;
     let mut lines = vec![
         field(i18n::tr!(HistoryHash), detail.oid.to_string()),
         field(
             i18n::tr!(HistoryAuthor),
             format!("{} <{}>", detail.author.name, detail.author.email),
         ),
-        field(i18n::tr!(HistoryTime), time(detail.author.seconds)),
         field(
+            if different_times {
+                i18n::tr!(HistoryAuthorTime)
+            } else {
+                i18n::tr!(HistoryTime)
+            },
+            time(detail.author.seconds),
+        ),
+    ];
+    if detail.author.name != detail.committer.name || detail.author.email != detail.committer.email
+    {
+        lines.push(field(
             i18n::tr!(HistoryCommitter),
             format!("{} <{}>", detail.committer.name, detail.committer.email),
-        ),
-        field(i18n::tr!(HistoryTime), time(detail.committer.seconds)),
+        ));
+    }
+    if different_times {
+        lines.push(field(
+            i18n::tr!(HistoryCommitterTime),
+            time(detail.committer.seconds),
+        ));
+    }
+    lines.extend([
         field(i18n::tr!(HistoryCompare), comparison),
         Line::default(),
         Line::styled(
             i18n::tr!(HistoryMessage),
             Style::default().fg(ACCENT).bold(),
         ),
-    ];
+    ]);
     lines.extend(
         multiline(detail.message.text())
             .lines()
