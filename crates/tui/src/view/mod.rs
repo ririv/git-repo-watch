@@ -92,7 +92,7 @@ pub(super) fn name(path: &std::path::Path) -> String {
     )
 }
 fn selected_style() -> Style {
-    Style::default().bg(Color::Rgb(25, 65, 95)).fg(Color::White)
+    Style::default().bg(Color::Rgb(25, 65, 95))
 }
 fn block(title: impl Into<String>) -> Block<'static> {
     Block::default()

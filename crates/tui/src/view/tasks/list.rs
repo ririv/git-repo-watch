@@ -144,10 +144,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .map(|lines| ListItem::new(Text::from(lines))),
     )
     .block(panel)
-    .highlight_style(Style {
-        fg: None,
-        ..selected_style()
-    });
+    .highlight_style(selected_style());
     frame.render_stateful_widget(widget, area, &mut screen.tasks.viewport);
     let mut row = 0usize;
     let offset = screen.tasks.viewport.offset();
