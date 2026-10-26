@@ -1,7 +1,10 @@
 //! Commit metadata and changed files are separate panes; merge parents switch explicitly.
 use super::*;
 use crate::history::Commit;
-use engine::local::history::{Base, Message};
+use engine::local::{
+    files::Location,
+    history::{Base, Kind, Message},
+};
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -127,10 +130,23 @@ pub(super) fn render(
         let items: Vec<_> = rows
             .iter()
             .map(|change| {
-                ListItem::new(format!(
-                    "{} {}",
+                let path = match &change.location {
+                    Location::Path(path) => path.display().to_string(),
+                    Location::Rename { before, after } | Location::Copy { before, after } => {
+                        format!("{} → {}", before.display(), after.display())
+                    }
+                };
+                let color = match change.kind {
+                    Kind::Added => GOOD,
+                    Kind::Deleted => BAD,
+                    Kind::Modified | Kind::Typechange => WARN,
+                    Kind::Renamed | Kind::Copied => ACCENT,
+                };
+                ListItem::new(crate::view::files::marked_line(
+                    &Line::raw(safe(&path)),
                     change.kind.symbol(),
-                    safe(&change.location.display())
+                    color,
+                    inner.width as usize,
                 ))
                 .style(
                     if commit.search_mode == crate::search::Mode::Locate

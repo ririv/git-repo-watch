@@ -104,18 +104,12 @@ pub(super) fn render(
                         },
                     ),
                 ]);
-                let width = parts[1].width as usize;
-                let mut line = crate::horizontal::clip(&line, 0, width.saturating_sub(2));
-                if width > 0 {
-                    line.spans.push(Span::raw(
-                        " ".repeat(width.saturating_sub(line.width() + 1)),
-                    ));
-                    line.spans.push(Span::styled(
-                        change.kind.to_string(),
-                        Style::default().fg(if staged { GOOD } else { WARN }),
-                    ));
-                }
-                ListItem::new(line)
+                ListItem::new(marked_line(
+                    &line,
+                    change.kind,
+                    if staged { GOOD } else { WARN },
+                    parts[1].width as usize,
+                ))
             })
             .collect::<Vec<_>>();
         let mut state = ListState::default()
@@ -163,4 +157,22 @@ pub(super) fn render(
         }
     }
     session.offsets = offsets;
+}
+
+/// Keep a file status marker pinned to the last column, clipping only the label.
+pub(super) fn marked_line(
+    label: &Line<'_>,
+    marker: char,
+    color: Color,
+    width: usize,
+) -> Line<'static> {
+    let mut line = crate::horizontal::clip(label, 0, width.saturating_sub(2));
+    if width > 0 {
+        line.spans.push(Span::raw(
+            " ".repeat(width.saturating_sub(line.width() + 1)),
+        ));
+        line.spans
+            .push(Span::styled(marker.to_string(), Style::default().fg(color)));
+    }
+    line
 }
