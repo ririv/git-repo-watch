@@ -1381,11 +1381,9 @@ impl Message {
             (Self::ArgumentCandidates, Language::Chinese) => "参数候选",
             (Self::AgentChoice, Language::Chinese) => "生成工具",
             (Self::AgentChoiceHint, Language::English) => {
-                "Use an installed CLI and its existing login; invoked only on request."
+                "Use an installed CLI with its existing login."
             }
-            (Self::AgentChoiceHint, Language::Chinese) => {
-                "调用本机 CLI 与现有登录状态，仅在手动请求时运行。"
-            }
+            (Self::AgentChoiceHint, Language::Chinese) => "调用本机 CLI，沿用其登录状态。",
             (Self::AgentModel, Language::English) => "Model",
             (Self::AgentModel, Language::Chinese) => "模型",
             (Self::AgentModelHint, Language::English) => {
@@ -1400,12 +1398,8 @@ impl Message {
             (Self::AgentPrompt, Language::Chinese) => "生成指令",
             (Self::AgentPromptEditorHint, Language::English) => "Ctrl+S save · Esc cancel",
             (Self::AgentPromptEditorHint, Language::Chinese) => "Ctrl+S 保存 · Esc 放弃修改",
-            (Self::AgentPromptHint, Language::English) => {
-                "Edit the complete prompt; the message may include a body when useful."
-            }
-            (Self::AgentPromptHint, Language::Chinese) => {
-                "完整编辑生成指令，可根据改动生成标题和正文。"
-            }
+            (Self::AgentPromptHint, Language::English) => "Edit the commit message prompt.",
+            (Self::AgentPromptHint, Language::Chinese) => "编辑提交消息的生成指令。",
             (Self::AgentDefault, Language::English | Language::Chinese) => "Default",
             (Self::AgentNone, Language::English) => "None",
             (Self::AgentNone, Language::Chinese) => "无",
@@ -1482,17 +1476,15 @@ impl Message {
             (Self::SettingsStartup, Language::English) => "Check on startup",
             (Self::SettingsStartup, Language::Chinese) => "启动时检查",
             (Self::SettingsStartupHint, Language::English) => {
-                "Check all repositories on next launch; never push"
+                "Check all repositories on next launch"
             }
-            (Self::SettingsStartupHint, Language::Chinese) => "下次启动时检查全部仓库，不执行推送",
+            (Self::SettingsStartupHint, Language::Chinese) => "下次启动时检查全部仓库",
             (Self::SettingsChineseTrigger, Language::English) => "Chinese command trigger",
             (Self::SettingsChineseTrigger, Language::Chinese) => "中文命令触发",
             (Self::SettingsChineseTriggerHint, Language::English) => {
                 "Type 、 to open the command menu"
             }
-            (Self::SettingsChineseTriggerHint, Language::Chinese) => {
-                "输入 、 打开命令菜单，保存后立即生效"
-            }
+            (Self::SettingsChineseTriggerHint, Language::Chinese) => "输入 、 打开命令菜单",
             (Self::SettingsPreciseClick, Language::English) => "Precise clicks",
             (Self::SettingsPreciseClick, Language::Chinese) => "精确点击",
             (Self::SettingsPreciseClickHint, Language::English) => {
@@ -1519,17 +1511,15 @@ impl Message {
                 "恢复 stash 时产生冲突，原 stash 已保留。请先解决冲突。"
             }
             (Self::BranchCreateCommand, Language::English) => {
-                "Create a local branch at the current commit without switching"
+                "Create a local branch at the current commit"
             }
-            (Self::BranchCreateCommand, Language::Chinese) => "在当前提交创建本地分支，不切换分支",
+            (Self::BranchCreateCommand, Language::Chinese) => "在当前提交创建本地分支",
             (Self::BranchSwitchCommand, Language::English) => {
                 "Switch to an existing local branch after review"
             }
             (Self::BranchSwitchCommand, Language::Chinese) => "预览后切换到已有本地分支",
-            (Self::FetchCommand, Language::English) => {
-                "Fetch configured remote-tracking branches without changing the worktree"
-            }
-            (Self::FetchCommand, Language::Chinese) => "获取远程跟踪分支，不修改工作区",
+            (Self::FetchCommand, Language::English) => "Fetch configured remote-tracking branches",
+            (Self::FetchCommand, Language::Chinese) => "获取远程跟踪分支",
             (Self::PullCommand, Language::English) => "Fetch and review a fast-forward-only pull",
             (Self::PullCommand, Language::Chinese) => "获取并预览仅允许快进的拉取",
             (Self::StashTitle, Language::English) => "Stashes",
@@ -1542,20 +1532,16 @@ impl Message {
             (Self::StashCommand, Language::Chinese) => "浏览并管理保存的工作",
             (Self::StashSaveCommand, Language::English) => "Save tracked changes with a message",
             (Self::StashSaveCommand, Language::Chinese) => "填写消息并保存已跟踪文件的变更",
-            (Self::StashSaveAllCommand, Language::English) => {
-                "Save tracked and untracked changes, excluding ignored files"
-            }
-            (Self::StashSaveAllCommand, Language::Chinese) => {
-                "保存已跟踪和未跟踪变更，不包含忽略文件"
-            }
+            (Self::StashSaveAllCommand, Language::English) => "Save tracked and untracked changes",
+            (Self::StashSaveAllCommand, Language::Chinese) => "保存已跟踪和未跟踪变更",
             (Self::StashApplyCommand, Language::English) => "Restore a stash and retain its entry",
             (Self::StashApplyCommand, Language::Chinese) => "恢复 stash 并保留记录",
             (Self::StashPopCommand, Language::English) => {
                 "Restore a stash and remove it only after success"
             }
             (Self::StashPopCommand, Language::Chinese) => "恢复 stash，仅成功后删除记录",
-            (Self::StashDropCommand, Language::English) => "Delete a stash without restoring it",
-            (Self::StashDropCommand, Language::Chinese) => "删除 stash，不恢复内容",
+            (Self::StashDropCommand, Language::English) => "Delete a stash",
+            (Self::StashDropCommand, Language::Chinese) => "删除 stash",
             (Self::StashPosition, Language::English) => "Position",
             (Self::StashPosition, Language::Chinese) => "位置",
             (Self::StashEmpty, Language::English) => "No matching stashes",
@@ -1601,15 +1587,11 @@ impl Message {
             }
             (Self::PullCurrent, Language::Chinese) => "本地分支已包含上游提交",
             (Self::PullReview, Language::English) => {
-                "Fast-forward {0} commits to {1}\nUpstream: {2}\nNo merge or rebase will be performed."
+                "Fast-forward {0} commits to {1}\nUpstream: {2}"
             }
-            (Self::PullReview, Language::Chinese) => {
-                "快进 {0} 个提交至 {1}\n上游：{2}\n不会创建合并提交或执行 rebase。"
-            }
-            (Self::StashDropWarning, Language::English) => {
-                "This permanently removes this stash entry without restoring its contents."
-            }
-            (Self::StashDropWarning, Language::Chinese) => "将删除此 stash 记录，不恢复其内容。",
+            (Self::PullReview, Language::Chinese) => "快进 {0} 个提交至 {1}\n上游：{2}",
+            (Self::StashDropWarning, Language::English) => "Permanently delete this stash entry.",
+            (Self::StashDropWarning, Language::Chinese) => "将永久删除此 stash 记录。",
             (Self::MutationTarget, Language::English) => "Target",
             (Self::MutationTarget, Language::Chinese) => "目标",
             (Self::MutationRequiresCommit, Language::English) => {
@@ -2514,7 +2496,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration without overwriting existing data\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion without importing\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository; never push\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Manage task without checking\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule without checking\n  uninstall                        Remove schedule; keep data and command\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -2524,7 +2506,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置，不覆盖已有数据\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除，不自动添加仓库\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库，不推送\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启用、停用或应用配置，不立即检查\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度，不立即检查\n  uninstall                         卸载定时任务，保留数据与命令\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -2577,14 +2559,14 @@ impl Message {
                 concat!(
                     "Configuration saved; run ",
                     identity::command!(),
-                    " install to apply interval changes without starting a check"
+                    " install to apply schedule changes"
                 )
             }
             (Self::ConfigurationSavedApplySchedule, Language::Chinese) => {
                 concat!(
                     "配置已保存；间隔修改需运行 ",
                     identity::command!(),
-                    " install 应用调度，不立即检查"
+                    " install 应用调度"
                 )
             }
             (Self::FoundRepositoriesFailedCouldNotBeRead, Language::English) => {
@@ -2620,10 +2602,10 @@ impl Message {
                 )
             }
             (Self::ScheduleRemovedConfigurationReportsAndCommandRetained, Language::English) => {
-                "Schedule removed; configuration, reports and command retained"
+                "Scheduled task removed"
             }
             (Self::ScheduleRemovedConfigurationReportsAndCommandRetained, Language::Chinese) => {
-                "已卸载定时任务，保留配置、报告和管理命令"
+                "定时任务已卸载"
             }
             (Self::UnknownCommandShowHelp, Language::English) => {
                 concat!(
@@ -3360,11 +3342,9 @@ impl Message {
                 "核对当前分支和远程上游后确认推送"
             }
             (Self::CheckAllRepositoriesInBackground, Language::English) => {
-                "Check all repositories in the background without pushing"
+                "Check all repositories in the background"
             }
-            (Self::CheckAllRepositoriesInBackground, Language::Chinese) => {
-                "后台检查全部仓库，不推送"
-            }
+            (Self::CheckAllRepositoriesInBackground, Language::Chinese) => "后台检查全部仓库",
             (Self::ReloadReportOrFileList, Language::English) => "Reload report or file list",
             (Self::ReloadReportOrFileList, Language::Chinese) => "重新读取报告或文件列表",
             (Self::OpenSettings, Language::English) => {
@@ -3374,11 +3354,9 @@ impl Message {
             (Self::AddARepositoryRoot, Language::English) => "Add a repository root",
             (Self::AddARepositoryRoot, Language::Chinese) => "添加仓库根目录",
             (Self::UnregisterRepositoryKeepFilesOnDisk, Language::English) => {
-                "Unregister repository; keep files on disk"
+                "Unregister repository"
             }
-            (Self::UnregisterRepositoryKeepFilesOnDisk, Language::Chinese) => {
-                "移除注册项，保留磁盘文件"
-            }
+            (Self::UnregisterRepositoryKeepFilesOnDisk, Language::Chinese) => "移除仓库注册项",
             (Self::ExcludeDirectoryAndUnregisterRepositoriesWithinIt, Language::English) => {
                 "Exclude directory and unregister repositories within it"
             }
@@ -3386,11 +3364,9 @@ impl Message {
                 "排除目录并移除其下注册项"
             }
             (Self::RemoveDirectoryExclusionWithoutImporting, Language::English) => {
-                "Remove directory exclusion without importing"
+                "Remove directory exclusion"
             }
-            (Self::RemoveDirectoryExclusionWithoutImporting, Language::Chinese) => {
-                "取消目录排除，不自动导入"
-            }
+            (Self::RemoveDirectoryExclusionWithoutImporting, Language::Chinese) => "取消目录排除",
             (Self::PreviewScanUsingGitIgnoreRules, Language::English) => {
                 "Preview scan using Git ignore rules"
             }
@@ -3408,11 +3384,9 @@ impl Message {
             }
             (Self::SetCheckConcurrencyLimit132, Language::Chinese) => "设置并发检查上限（1 至 32）",
             (Self::ApplySystemScheduleWithoutStartingACheck, Language::English) => {
-                "Apply system schedule without starting a check"
+                "Apply system schedule"
             }
-            (Self::ApplySystemScheduleWithoutStartingACheck, Language::Chinese) => {
-                "应用系统调度，不立即检查"
-            }
+            (Self::ApplySystemScheduleWithoutStartingACheck, Language::Chinese) => "应用系统调度",
             (Self::ShowHelp, Language::English) => "Show help",
             (Self::ShowHelp, Language::Chinese) => "查看帮助",
             (Self::PressCtrlCAgainToQuit, Language::English) => {
@@ -3442,11 +3416,9 @@ impl Message {
             (Self::InteractionSetting, Language::English) => "Pointer mode",
             (Self::InteractionSetting, Language::Chinese) => "指针模式",
             (Self::InteractionHint, Language::English) => {
-                "Text selection releases pointer control to the terminal; keyboard stays active. Saved across restarts. Ctrl+G switches modes."
+                "Let the terminal handle text selection and context menus. Ctrl+G switches modes."
             }
-            (Self::InteractionHint, Language::Chinese) => {
-                "选字时由终端接管指针，键盘操作保留；重启沿用。Ctrl+G 切换。"
-            }
+            (Self::InteractionHint, Language::Chinese) => "由终端处理选字与右键菜单，Ctrl+G 切换。",
             (Self::InteractionSaveFailed, Language::English) => "Could not save interaction mode",
             (Self::InteractionSaveFailed, Language::Chinese) => "交互模式保存失败",
             (Self::InteractiveTerminalRequired, Language::English) => {
@@ -3566,19 +3538,15 @@ impl Message {
             (Self::ApplySystemSchedule, Language::English) => "Apply system schedule",
             (Self::ApplySystemSchedule, Language::Chinese) => "应用系统调度",
             (Self::SystemScheduleAppliedNoCheckStarted, Language::English) => {
-                "System schedule applied; no check started"
+                "System schedule applied"
             }
-            (Self::SystemScheduleAppliedNoCheckStarted, Language::Chinese) => {
-                "系统调度已应用；未触发检查"
-            }
+            (Self::SystemScheduleAppliedNoCheckStarted, Language::Chinese) => "系统调度已应用",
             (Self::UnregisterRepository, Language::English) => "Unregister repository",
             (Self::UnregisterRepository, Language::Chinese) => "移除注册项",
             (Self::RepositoryUnregisteredFilesRetained, Language::English) => {
-                "Repository unregistered; files retained"
+                "Repository unregistered"
             }
-            (Self::RepositoryUnregisteredFilesRetained, Language::Chinese) => {
-                "已移除注册项，保留磁盘文件"
-            }
+            (Self::RepositoryUnregisteredFilesRetained, Language::Chinese) => "已移除仓库注册项",
             (Self::AddedRepositories, Language::English) => "Added {} repositories",
             (Self::AddedRepositories, Language::Chinese) => "已添加 {} 个仓库",
             (Self::FoundRepositoriesScanSaved, Language::English) => {
@@ -3627,40 +3595,24 @@ impl Message {
             (Self::InvalidScheduleOperation, Language::Chinese) => {
                 "schedule 仅支持 enable、disable 或 apply"
             }
-            (Self::ScheduleEnabledNoCheck, Language::English) => {
-                "Scheduled task enabled; no check started"
-            }
-            (Self::ScheduleEnabledNoCheck, Language::Chinese) => "定时任务已启用，未立即检查",
-            (Self::ScheduleDisabledPreserved, Language::English) => {
-                "Scheduled task disabled; definition, configuration and reports retained"
-            }
-            (Self::ScheduleDisabledPreserved, Language::Chinese) => {
-                "定时任务已停用，任务定义、配置和报告已保留"
-            }
-            (Self::ScheduleAppliedPreserved, Language::English) => {
-                "Schedule configuration applied; enabled/disabled state retained; no check started"
-            }
-            (Self::ScheduleAppliedPreserved, Language::Chinese) => {
-                "调度配置已应用，启停状态保持不变，未立即检查"
-            }
+            (Self::ScheduleEnabledNoCheck, Language::English) => "Scheduled task enabled",
+            (Self::ScheduleEnabledNoCheck, Language::Chinese) => "定时任务已启用",
+            (Self::ScheduleDisabledPreserved, Language::English) => "Scheduled task disabled",
+            (Self::ScheduleDisabledPreserved, Language::Chinese) => "定时任务已停用",
+            (Self::ScheduleAppliedPreserved, Language::English) => "Schedule configuration applied",
+            (Self::ScheduleAppliedPreserved, Language::Chinese) => "调度配置已应用",
             (Self::ScheduleEnableConfirmation, Language::English) => {
-                "Enable the scheduled task using the saved interval. No check starts immediately."
+                "Enable the scheduled task using the saved interval."
             }
-            (Self::ScheduleEnableConfirmation, Language::Chinese) => {
-                "按已保存的间隔启用定时任务，不会立即执行检查。"
-            }
+            (Self::ScheduleEnableConfirmation, Language::Chinese) => "按已保存的间隔启用定时任务。",
             (Self::ScheduleDisableConfirmation, Language::English) => {
-                "Disable future scheduled runs. Keep the task definition, configuration, reports and command."
+                "Disable future scheduled runs."
             }
-            (Self::ScheduleDisableConfirmation, Language::Chinese) => {
-                "停用后不再定时执行，保留任务定义、配置、报告和命令。"
-            }
+            (Self::ScheduleDisableConfirmation, Language::Chinese) => "停用定时任务。",
             (Self::ScheduleApplyConfirmation, Language::English) => {
-                "Apply the saved interval and keep the task enabled or disabled as it is. No check starts immediately."
+                "Apply the saved check interval."
             }
-            (Self::ScheduleApplyConfirmation, Language::Chinese) => {
-                "应用已保存的执行间隔，保留当前启停状态，不会立即执行检查。"
-            }
+            (Self::ScheduleApplyConfirmation, Language::Chinese) => "应用已保存的检查间隔。",
             (Self::TaskStatusLabel, Language::English) => "Status",
             (Self::TaskStatusLabel, Language::Chinese) => "状态",
             (Self::CheckProcessLabel, Language::English) => "Checks",
@@ -3802,17 +3754,13 @@ impl Message {
             (Self::TextWrap, Language::English) => "Text wrapping",
             (Self::TextWrap, Language::Chinese) => "自动换行",
             (Self::TextWrapHint, Language::English) => {
-                "Wrap file text and diff lines to the panel width; keep line numbers fixed"
+                "Wrap file text and diff lines to the panel width"
             }
-            (Self::TextWrapHint, Language::Chinese) => {
-                "文件文本与 diff 随面板宽度换行，行号保持固定"
-            }
+            (Self::TextWrapHint, Language::Chinese) => "文件文本与 diff 随面板宽度换行",
             (Self::TextWrapEnabled, Language::English) => "Wrap long lines",
             (Self::TextWrapEnabled, Language::Chinese) => "长行自动换行",
-            (Self::TextWrapDisabled, Language::English) => {
-                "Keep long lines and scroll horizontally"
-            }
-            (Self::TextWrapDisabled, Language::Chinese) => "保留长行，使用横向滚动",
+            (Self::TextWrapDisabled, Language::English) => "Scroll horizontally",
+            (Self::TextWrapDisabled, Language::Chinese) => "使用横向滚动",
             (Self::SettingsDisplay, Language::English) => "Display",
             (Self::SettingsDisplay, Language::Chinese) => "显示",
             (Self::StartupCheckSavedNextLaunch, Language::English) => {
@@ -3888,26 +3836,26 @@ impl Message {
             (Self::ConfirmCommit, Language::English) => "Confirm commit",
             (Self::ConfirmCommit, Language::Chinese) => "确认提交",
             (Self::RepositoryBranchRemoteUpstreamUrlPendingCommits, Language::English) => {
-                "Repository: {}\nBranch: {}\nRemote: {}\nUpstream: {}\nURL: {}\nPending: {} commits\n\nOnly push the reviewed commit snapshot; normal push with pre-push hooks preserved."
+                "Repository: {}\nBranch: {}\nRemote: {}\nUpstream: {}\nURL: {}\nPending: {} commits"
             }
             (Self::RepositoryBranchRemoteUpstreamUrlPendingCommits, Language::Chinese) => {
-                "仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交\n\n仅发布预览时的提交快照；普通推送，保留 pre-push 钩子。"
+                "仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交"
             }
             (Self::ConfirmPush, Language::English) => "Confirm push",
             (Self::ConfirmPush, Language::Chinese) => "确认推送",
             (Self::OperationResult, Language::English) => "Operation result",
             (Self::OperationResult, Language::Chinese) => "操作结果",
             (Self::ApplySavedIntervalAndReloadTheSystem, Language::English) => {
-                "Apply saved interval and reload the system schedule. No check or push starts immediately."
+                "Apply the saved interval and reload the system schedule."
             }
             (Self::ApplySavedIntervalAndReloadTheSystem, Language::Chinese) => {
-                "应用已保存的检查间隔，重新加载系统任务。不会立即检查或推送。"
+                "应用已保存的检查间隔，重新加载系统任务。"
             }
             (Self::UnregisterRepositoryFilesOnDiskAreRetained, Language::English) => {
-                "Unregister repository: {}\n\nFiles on disk are retained."
+                "Unregister repository: {}"
             }
             (Self::UnregisterRepositoryFilesOnDiskAreRetained, Language::Chinese) => {
-                "移除仓库注册项：{}\n\n保留磁盘文件。"
+                "移除仓库注册项：{}"
             }
             (Self::ConfirmOperation, Language::English) => "Confirm operation",
             (Self::ConfirmOperation, Language::Chinese) => "确认操作",
@@ -4221,11 +4169,9 @@ impl Message {
             }
             (Self::RepositoryManagementSettings, Language::Chinese) => "查看仓库注册与排除配置",
             (Self::RefreshRepositoryReport, Language::English) => {
-                "Reload the saved repository report without checking Git"
+                "Reload the saved repository report"
             }
-            (Self::RefreshRepositoryReport, Language::Chinese) => {
-                "重新读取仓库报告，不执行 Git 检查"
-            }
+            (Self::RefreshRepositoryReport, Language::Chinese) => "重新读取仓库报告",
             (Self::ManageRepositories, Language::Chinese) => "仓库列表与管理",
             (Self::RepositoryManagement, Language::English) => "Repository management",
             (Self::RepositoryManagement, Language::Chinese) => "仓库管理",
@@ -4397,8 +4343,8 @@ macro_rules! tf {
     };
     (PullReview $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Fast-forward {0} commits to {1}\nUpstream: {2}\nNo merge or rebase will be performed." $(, $($args)*)?),
-            $crate::Language::Chinese => format!("快进 {0} 个提交至 {1}\n上游：{2}\n不会创建合并提交或执行 rebase。" $(, $($args)*)?),
+            $crate::Language::English => format!("Fast-forward {0} commits to {1}\nUpstream: {2}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("快进 {0} 个提交至 {1}\n上游：{2}" $(, $($args)*)?),
         }
     };
     (RepositoryTasksRunning $(, $($args:tt)*)?) => {
@@ -4870,14 +4816,14 @@ macro_rules! tf {
     };
     (RepositoryBranchRemoteUpstreamUrlPendingCommits $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Repository: {}\nBranch: {}\nRemote: {}\nUpstream: {}\nURL: {}\nPending: {} commits\n\nOnly push the reviewed commit snapshot; normal push with pre-push hooks preserved." $(, $($args)*)?),
-            $crate::Language::Chinese => format!("仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交\n\n仅发布预览时的提交快照；普通推送，保留 pre-push 钩子。" $(, $($args)*)?),
+            $crate::Language::English => format!("Repository: {}\nBranch: {}\nRemote: {}\nUpstream: {}\nURL: {}\nPending: {} commits" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("仓库：{}\n分支：{}\n远程：{}\n上游：{}\n地址：{}\n待推送：{} 个提交" $(, $($args)*)?),
         }
     };
     (UnregisterRepositoryFilesOnDiskAreRetained $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Unregister repository: {}\n\nFiles on disk are retained." $(, $($args)*)?),
-            $crate::Language::Chinese => format!("移除仓库注册项：{}\n\n保留磁盘文件。" $(, $($args)*)?),
+            $crate::Language::English => format!("Unregister repository: {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("移除仓库注册项：{}" $(, $($args)*)?),
         }
     };
     (Commands $(, $($args:tt)*)?) => {
