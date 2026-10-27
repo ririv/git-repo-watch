@@ -6,7 +6,7 @@ pub(crate) use prefix::Surface as PrefixSurface;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
-/// Retain the input presentation while a foreground operation is still fast enough to stay quiet.
+/// Retain the input presentation throughout a foreground operation.
 #[derive(Debug)]
 pub(crate) struct Snapshot {
     bar: crate::bar::InputBar,
@@ -25,15 +25,22 @@ impl Snapshot {
 
 fn retained(screen: &Screen) -> Option<(&Mode, &Snapshot)> {
     match &screen.mode {
-        Mode::Busy(pending) if pending.state == TaskState::Running => pending
-            .feedback
-            .previous()
-            .map(|input| (pending.origin.as_ref(), input)),
+        Mode::Busy(pending) => Some((pending.origin.as_ref(), &pending.input)),
         _ => None,
     }
 }
 fn input_mode(screen: &Screen) -> &Mode {
     retained(screen).map_or(&screen.mode, |(mode, _)| mode)
+}
+fn task_hint(screen: &Screen) -> Option<&'static str> {
+    match &screen.mode {
+        Mode::Busy(pending)
+            if pending.feedback.visible() || pending.state == TaskState::Cancelling =>
+        {
+            Some(i18n::tr!(EscCtrlCCancelAndWaitFor))
+        }
+        _ => None,
+    }
 }
 
 pub(super) fn active_accent(screen: &Screen) -> Color {
@@ -71,12 +78,7 @@ pub(super) enum Footer {
 }
 impl Footer {
     pub fn for_screen(screen: &Screen, area: Rect) -> Self {
-        let budget = if area.height >= 9 {
-            (area.height / 3).min(4)
-        } else {
-            0
-        };
-        let preview = Preview::fit(&status_text(screen, area), area.width, budget);
+        let preview = Preview::fit(area.width, u16::from(area.height >= 4));
         if matches!(preview, Preview::Hidden)
             && let Some(hint) = screen.exit_sequence.notice()
         {
@@ -88,20 +90,14 @@ impl Footer {
                 if matches!(session.state, crate::composition::State::Editing(_)) =>
             {
                 Self::Compact {
-                    hint: i18n::tr!(ComposeEditHint),
+                    hint: task_hint(screen).unwrap_or(i18n::tr!(ComposeEditHint)),
                     preview,
                 }
             }
             Mode::PromptEditor(_) => Self::Compact {
-                hint: i18n::tr!(AgentPromptEditorHint),
+                hint: task_hint(screen).unwrap_or(i18n::tr!(AgentPromptEditorHint)),
                 preview,
             },
-            Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::PromptEditor(_)) => {
-                Self::Compact {
-                    hint: i18n::tr!(EscCtrlCCancelAndWaitFor),
-                    preview,
-                }
-            }
             _ => {
                 let (editor, hint) = match area.height {
                     14.. => (3, 1),
@@ -160,27 +156,6 @@ impl Footer {
                 );
             }
         }
-    }
-}
-pub(crate) fn status_text(screen: &Screen, body: Rect) -> String {
-    if matches!(screen.bar, crate::bar::InputBar::Layout { .. }) {
-        return format!(
-            "{}: {}",
-            i18n::tr!(LayoutCurrent),
-            layout_picker::summary(screen, body)
-        );
-    }
-    match &screen.mode {
-        Mode::Busy(pending) if pending.state == TaskState::Cancelling => {
-            i18n::tr!(Cancelling).into()
-        }
-        Mode::Busy(pending) if pending.feedback.quiet() => String::new(),
-        Mode::Busy(pending) => format!("{} {}", pending.animation.symbol(), safe(&pending.title)),
-        _ => screen
-            .commit_generator
-            .label()
-            .filter(|_| matches!(screen.mode, Mode::CommitMessage { .. }))
-            .unwrap_or_else(|| screen.message.clone()),
     }
 }
 fn editor_block(area: Rect) -> Block<'static> {
@@ -481,22 +456,17 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     i18n::tr!(ContextCommandHint)
                 },
             ),
-            Mode::Error { .. } => (
-                i18n::tr!(OperationIncomplete),
-                Content::Locked(i18n::tr!(SeeErrorDetails).into()),
-                i18n::tr!(CopyErrorHint),
-            ),
-            Mode::Busy(p) => (
-                i18n::tr!(RunningAlt),
-                Content::Locked(if p.state == TaskState::Cancelling {
-                    i18n::tr!(Cancelling).into()
-                } else {
-                    format!("{} {}", p.animation.symbol(), safe(&p.title))
-                }),
+            Mode::Error { .. } => ("", Content::CommandEntry, i18n::tr!(CopyErrorHint)),
+            Mode::Busy(_) => (
+                "",
+                Content::CommandEntry,
                 i18n::tr!(EscCtrlCCancelAndWaitFor),
             ),
         }
     };
+    let task_hint = task_hint(screen);
+    let hint = task_hint.unwrap_or(hint);
+    let show_cursor = task_hint.is_none();
     let title = if matches!(bar, crate::bar::InputBar::Search(_))
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
@@ -547,7 +517,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 .style(input_style),
                 inner,
             );
-            if !inner.is_empty() {
+            if !inner.is_empty() && show_cursor {
                 frame.set_cursor_position(((inner.x + 2).min(inner.right() - 1), inner.y));
             }
         }
@@ -600,7 +570,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
             spans.push(value);
             frame.render_widget(Paragraph::new(Line::from(spans)).style(input_style), inner);
-            if !inner.is_empty() && !command.is_some_and(|input| input.prefix_selected()) {
+            if !inner.is_empty()
+                && show_cursor
+                && !command.is_some_and(|input| input.prefix_selected())
+            {
                 frame.set_cursor_position((
                     (inner.x + prefix_width + 2 + cursor).min(inner.right() - 1),
                     inner.y,

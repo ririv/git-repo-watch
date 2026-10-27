@@ -1,4 +1,5 @@
 //! A reserved single row links transient notices to persistent tasks.
+mod status;
 use super::*;
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Preview {
@@ -6,7 +7,7 @@ pub(super) enum Preview {
     Reserved,
 }
 impl Preview {
-    pub fn fit(_text: &str, width: u16, budget: u16) -> Self {
+    pub fn fit(width: u16, budget: u16) -> Self {
         if width > FOOTER_INSET * 2 && budget > 0 {
             Self::Reserved
         } else {
@@ -29,35 +30,7 @@ impl Preview {
         if exit_notice.is_none() {
             screen.tasks.footer = area;
         }
-        let text = if let Some(notice) = exit_notice {
-            notice.into()
-        } else if screen.tasks.error.is_none()
-            && !screen
-                .tasks
-                .records
-                .iter()
-                .any(|record| record.active() || record.pending())
-            && !screen.message.is_empty()
-        {
-            screen.message.lines().next().unwrap_or("").into()
-        } else {
-            screen.tasks.footer_text()
-        };
-        let color = if exit_notice.is_some()
-            || screen
-                .tasks
-                .records
-                .iter()
-                .any(engine::tasks::Record::pending)
-            || screen.tasks.error.is_some()
-        {
-            WARN
-        } else {
-            MUTED
-        };
-        frame.render_widget(
-            Paragraph::new(truncate(&text, area.width.into())).style(Style::default().fg(color)),
-            area,
-        );
+        let text = status::line(screen, area.width.into());
+        frame.render_widget(Paragraph::new(text), area);
     }
 }

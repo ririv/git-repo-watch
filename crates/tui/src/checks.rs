@@ -40,6 +40,9 @@ pub(crate) struct CheckTask {
     animation: Spinner,
 }
 impl CheckTask {
+    pub(crate) fn state(&self) -> TaskState {
+        self.state
+    }
     pub(crate) fn spinner(&self) -> &'static str {
         self.animation.symbol()
     }

@@ -23,7 +23,7 @@ impl Screen {
         let origin = Box::new(self.take_mode());
         let now = std::time::Instant::now();
         let mut feedback = loading::Feedback::default();
-        feedback.begin(Some(input), now);
+        feedback.begin(None, now);
         let cancel = Cancel::default();
         let task_cancel = cancel.clone();
         let service = self.service.clone();
@@ -55,6 +55,7 @@ impl Screen {
             handle,
             origin,
             animation: spinner::Spinner::new(now),
+            input,
             feedback,
         });
         self.message.clear();

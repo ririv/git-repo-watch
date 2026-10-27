@@ -65,7 +65,7 @@ fn fast_ai_toggle_retains_input_presentation_and_applies_without_waiting_for_fee
 }
 
 #[test]
-fn long_task_reveals_running_input_at_the_deadline_and_still_blocks_editing() {
+fn long_task_reveals_status_only_on_the_last_line_and_keeps_input_stable() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
@@ -78,9 +78,18 @@ fn long_task_reveals_running_input_at_the_deadline_and_still_blocks_editing() {
         assert_eq!(footer(&mut s, 100, 32), before);
         assert!(!pending(&mut s).tick(now + FEEDBACK_DELAY - Duration::from_millis(1)));
         assert!(pending(&mut s).tick(now + FEEDBACK_DELAY));
-        let visible = footer(&mut s, 100, 32).join("\n");
-        assert!(visible.contains(i18n::tr!(RunningAlt)), "{visible}");
-        assert!(visible.contains("controlled task"), "{visible}");
+        let visible = render(&mut s, 100, 32);
+        let last = visible.lines().last().unwrap();
+        assert!(last.contains(i18n::tr!(RunningAlt)), "{visible}");
+        assert!(last.contains("controlled task"), "{visible}");
+        assert!(
+            !visible
+                .lines()
+                .take(31)
+                .any(|line| line.contains("controlled task"))
+        );
+        let after = footer(&mut s, 100, 32);
+        assert_eq!(&after[..after.len() - 1], &before[..before.len() - 1]);
         release.send(()).unwrap();
         wait(&mut s);
         assert!(!matches!(s.mode, Mode::Busy(_)));
@@ -96,8 +105,10 @@ fn cancellation_and_failure_are_visible_without_waiting_for_running_feedback() {
     key(&mut s, KeyCode::Esc);
     assert_eq!(pending(&mut s).state, TaskState::Cancelling);
     assert!(
-        footer(&mut s, 100, 32)
-            .join("\n")
+        render(&mut s, 100, 32)
+            .lines()
+            .last()
+            .unwrap()
             .contains(i18n::tr!(Cancelling))
     );
     release.send(()).unwrap();
@@ -110,5 +121,137 @@ fn cancellation_and_failure_are_visible_without_waiting_for_running_feedback() {
     wait(&mut s);
     let text = render(&mut s, 100, 32);
     assert!(text.contains("failure remains visible"), "{text}");
+    assert!(text.lines().last().unwrap().contains("fast failure"));
     s.shutdown();
+}
+
+#[test]
+fn check_progress_and_cancellation_share_the_last_row_without_moving_input() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        render(&mut s, 100, 32);
+        let input = s.input_area;
+        let gate = FetchGate::install(&f);
+        s.config.check_on_startup = true;
+        s.check_on_startup();
+        poll_background_until(&mut s, |_| gate.started.exists());
+        let task = s.check_task.as_ref().unwrap();
+        assert!(task.checking(&f.repo));
+        let summary = task.summary().trim().to_owned();
+        let spinner = task.spinner();
+        let text = render(&mut s, 100, 32);
+        assert!(text.lines().last().unwrap().contains(&summary), "{text}");
+        assert!(!text.lines().take(31).any(|line| line.contains(&summary)));
+        assert!(text.lines().take(31).any(|line| line.contains(spinner)));
+        assert_eq!(s.input_area, input);
+        command(&mut s, "help");
+        s.paste("/");
+        let text = render(&mut s, 100, 32);
+        assert!(text.lines().last().unwrap().contains(&summary), "{text}");
+        s.cancel_check();
+        let summary = s.check_task.as_ref().unwrap().summary().trim().to_owned();
+        let text = render(&mut s, 100, 32);
+        assert!(text.lines().last().unwrap().contains(&summary), "{text}");
+        assert!(!text.lines().next().unwrap().contains(&summary));
+        gate.release();
+        poll_background_until(&mut s, |s| s.check_task.is_none());
+        s.shutdown();
+    }
+}
+
+#[test]
+fn repository_progress_stays_in_the_footer_across_navigation_and_cancellation() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let (release, gate) = mpsc::channel();
+    s.start_repository(
+        f.repo.clone(),
+        "isolated repository operation",
+        Effect::ReadOnly,
+        move |_, cancel, _| {
+            gate.recv()?;
+            cancel.check()?;
+            Ok(Outcome::Text("finished".into()))
+        },
+    );
+    assert!(matches!(s.mode, Mode::Browsing));
+    for destination in ["help", "settings", "repos"] {
+        command(&mut s, destination);
+        let text = render(&mut s, 100, 32);
+        assert!(
+            text.lines()
+                .last()
+                .unwrap()
+                .contains("isolated repository operation"),
+            "{text}"
+        );
+        assert!(
+            !text
+                .lines()
+                .next()
+                .unwrap()
+                .contains("isolated repository operation")
+        );
+    }
+    assert!(s.cancel_repository_task());
+    let text = render(&mut s, 100, 32);
+    assert!(
+        text.lines().last().unwrap().contains(i18n::tr!(Cancelling)),
+        "{text}"
+    );
+    release.send(()).unwrap();
+    wait(&mut s);
+    s.shutdown();
+}
+
+#[test]
+fn external_progress_and_pending_failures_remain_visible_in_small_windows() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        s.snapshot.activity = Activity::Running;
+        for (width, height) in [(100, 32), (60, 18), (24, 8)] {
+            let text = render(&mut s, width, height);
+            assert!(
+                text.lines()
+                    .last()
+                    .unwrap()
+                    .contains(i18n::tr!(CheckingAltAlt)),
+                "{text}"
+            );
+            assert!(
+                !text
+                    .lines()
+                    .next()
+                    .unwrap()
+                    .contains(i18n::tr!(CheckingAltAlt))
+            );
+        }
+        let run = engine::tasks::Run::begin(
+            &s.service.store,
+            crate::task_center::spec("failed check", None, engine::tasks::Retry::Unavailable),
+            &Cancel::default(),
+        )
+        .unwrap();
+        run.finish(engine::tasks::Outcome::Failed {
+            detail: "failure details remain in the task view".into(),
+            resolution: engine::tasks::Resolution::Pending,
+        })
+        .unwrap();
+        s.tasks.records = s.service.store.tasks(200).unwrap();
+        let text = render(&mut s, 100, 32);
+        let last = text.lines().last().unwrap();
+        assert!(last.contains(i18n::tr!(CheckingAltAlt)), "{text}");
+        assert!(
+            last.contains(&format!("1 {}", i18n::tr!(TasksPending))),
+            "{text}"
+        );
+        assert!(last.contains(i18n::tr!(TasksOpenShortcut)), "{text}");
+        assert!(!text.contains("failure details"));
+        let text = render(&mut s, 8, 4);
+        assert!(text.lines().last().unwrap().contains("! 1"), "{text}");
+        s.shutdown();
+    }
 }
