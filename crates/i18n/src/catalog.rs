@@ -242,6 +242,7 @@ pub enum Message {
     ContextCommands,
     ContextCommandPlaceholder,
     ContextCommandHint,
+    ContextGlobalCommandHint,
     ContextPrefixHint,
     RepositoryFilterCommand,
     RepositoryFilterLabel,
@@ -1762,10 +1763,16 @@ impl Message {
             (Self::ContextCommandPlaceholder, Language::English) => "Type a command for this view…",
             (Self::ContextCommandPlaceholder, Language::Chinese) => "输入当前视图的操作…",
             (Self::ContextCommandHint, Language::English) => {
-                "Tab complete · Enter run · // global · ⌫ select last part"
+                "Tab complete · ↑↓ candidates · Enter run · Esc close"
             }
             (Self::ContextCommandHint, Language::Chinese) => {
-                "Tab 补全 · Enter 执行 · // 全局 · ⌫ 选中末段"
+                "Tab 补全 · ↑↓候选 · Enter 执行 · Esc 关闭"
+            }
+            (Self::ContextGlobalCommandHint, Language::English) => {
+                "Press / again for global commands · Tab complete · Enter run · ⌫ edit prefix"
+            }
+            (Self::ContextGlobalCommandHint, Language::Chinese) => {
+                "再按 / 切换到全局命令 · Tab 补全 · Enter 执行 · ⌫ 编辑前缀"
             }
             (Self::ContextPrefixHint, Language::English) => {
                 "←→ select · Type replace · ⌫ delete · Enter/Esc keep"

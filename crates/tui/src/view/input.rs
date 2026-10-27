@@ -32,6 +32,16 @@ fn retained(screen: &Screen) -> Option<(&Mode, &Snapshot)> {
 fn input_mode(screen: &Screen) -> &Mode {
     retained(screen).map_or(&screen.mode, |(mode, _)| mode)
 }
+fn command_hint(input: &command::Input) -> &'static str {
+    match input {
+        command::Input::Prefix(_) => i18n::tr!(ContextPrefixHint),
+        command::Input::Scoped { editor, .. } if editor.text.is_empty() => {
+            i18n::tr!(ContextGlobalCommandHint)
+        }
+        command::Input::Scoped { .. } => i18n::tr!(ContextCommandHint),
+        command::Input::Global(_) => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+    }
+}
 fn task_hint(screen: &Screen) -> Option<&'static str> {
     match &screen.mode {
         Mode::Busy(pending)
@@ -355,13 +365,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         {
                             argument.hint()
                         }
-                        _ => match bar.command_input() {
-                            Some(input) if input.prefix_selected() => i18n::tr!(ContextPrefixHint),
-                            Some(input) if input.context().is_some() => {
-                                i18n::tr!(ContextCommandHint)
-                            }
-                            _ => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
-                        },
+                        _ => command_hint(bar.command_input().expect("command input")),
                     }
                 } else if !bar.editor().text.is_empty()
                     && support.mode() == Some(crate::search::Mode::Locate)
@@ -451,14 +455,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     editor: bar.editor(),
                     placeholder: i18n::tr!(ContextCommandPlaceholder),
                 },
-                if bar
-                    .command_input()
-                    .is_some_and(|input| input.prefix_selected())
-                {
-                    i18n::tr!(ContextPrefixHint)
-                } else {
-                    i18n::tr!(ContextCommandHint)
-                },
+                command_hint(bar.command_input().expect("error command input")),
             ),
             Mode::Error { .. } => ("", Content::CommandEntry, i18n::tr!(CopyErrorHint)),
             Mode::Busy(_) => (

@@ -81,6 +81,57 @@ fn menu_viewport_keeps_selection_visible_on_resize_and_resets_for_new_candidates
 }
 
 #[test]
+fn context_global_hint_only_appears_when_another_slash_switches_scope() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        let global_hint = i18n::tr!(ContextGlobalCommandHint)
+            .split(" · ")
+            .next()
+            .unwrap();
+        s.paste("/");
+        assert!(!render(&mut s, 100, 28).contains(global_hint));
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "settings");
+        s.paste("/");
+        for width in [60, 100, 180] {
+            let text = render(&mut s, width, 28);
+            let input = s.input_area.unwrap();
+            let hint = text.lines().nth(input.bottom().into()).unwrap();
+            assert!(hint.contains(global_hint), "{text}");
+            assert!(
+                text.contains(i18n::tr!(ContextCommandPlaceholder)),
+                "{text}"
+            );
+        }
+        key(&mut s, KeyCode::Char('/'));
+        assert!(matches!(
+            s.bar.command_input(),
+            Some(command::Input::Global(_))
+        ));
+        assert_eq!(s.bar.text(), "/");
+        assert!(!render(&mut s, 100, 28).contains(global_hint));
+        key(&mut s, KeyCode::Esc);
+        s.paste("/");
+        s.paste("concurrency");
+        assert!(!render(&mut s, 100, 28).contains(global_hint));
+        key(&mut s, KeyCode::Char('/'));
+        assert!(matches!(
+            s.bar.command_input(),
+            Some(command::Input::Scoped { .. })
+        ));
+        assert!(s.bar.text().ends_with("concurrency/"));
+        key(&mut s, KeyCode::Esc);
+        s.paste("/");
+        key(&mut s, KeyCode::Backspace);
+        let text = render(&mut s, 100, 28);
+        assert!(text.contains(i18n::tr!(ContextPrefixHint)), "{text}");
+        assert!(!text.contains(global_hint));
+        s.shutdown();
+    }
+}
+
+#[test]
 fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close() {
     use ratatui::style::Color;
     for language in [i18n::Language::English, i18n::Language::Chinese] {
