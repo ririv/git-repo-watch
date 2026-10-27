@@ -24,6 +24,8 @@ pub(crate) enum ScrollTarget {
     Overview,
     Diff,
     HistoryMessage,
+    HistoryReview,
+    HistoryReviewHorizontal,
     HistoryHorizontal,
     DiffHorizontal,
 }

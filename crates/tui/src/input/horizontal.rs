@@ -33,6 +33,10 @@ impl Screen {
                     return true;
                 }
                 history::View::Diff { content, .. } => content,
+                history::View::Commit(commit) if commit.focus == history::Focus::Preview => {
+                    commit.review.horizontal.advance(delta);
+                    return true;
+                }
                 history::View::Commit(_) => return false,
             },
             _ => return false,

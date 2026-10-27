@@ -17,6 +17,7 @@ mod file_tree;
 mod focus;
 mod help;
 mod history;
+mod history_review;
 mod horizontal;
 mod images;
 mod input_surface;

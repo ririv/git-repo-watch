@@ -241,22 +241,65 @@ impl Screen {
                         _ => {}
                     },
                     history::View::Commit(commit) => match key.code {
+                        KeyCode::Esc
+                            if commit.arrangement == crate::workspace::Arrangement::Maximized =>
+                        {
+                            commit.arrangement = crate::workspace::Arrangement::Tiled;
+                        }
                         KeyCode::Esc | KeyCode::Left => {
                             self.mode =
                                 Mode::History(Box::new(history::View::Graph(commit.graph.clone())));
                             self.sync_bar();
                             return Ok(false);
                         }
-                        KeyCode::Up => commit.advance(-1),
-                        KeyCode::Down => commit.advance(1),
-                        KeyCode::PageUp => commit.scroll = commit.scroll.saturating_sub(10),
-                        KeyCode::PageDown => commit.scroll = commit.scroll.saturating_add(10),
+                        KeyCode::Up | KeyCode::Down | KeyCode::PageUp | KeyCode::PageDown => {
+                            let delta = match key.code {
+                                KeyCode::Up => -1,
+                                KeyCode::Down => 1,
+                                KeyCode::PageUp => -10,
+                                KeyCode::PageDown => 10,
+                                _ => unreachable!(),
+                            };
+                            match commit.focus {
+                                history::Focus::Files => commit.advance(delta),
+                                history::Focus::Message => {
+                                    commit.scroll = commit.scroll.saturating_add_signed(delta)
+                                }
+                                history::Focus::Preview => commit.review.advance(delta),
+                            }
+                        }
+                        KeyCode::Home | KeyCode::End => match commit.focus {
+                            history::Focus::Files => {
+                                commit.files.select(if key.code == KeyCode::Home {
+                                    (!commit.rows().is_empty()).then_some(0)
+                                } else {
+                                    commit.rows().len().checked_sub(1)
+                                })
+                            }
+                            history::Focus::Message => {
+                                commit.scroll = if key.code == KeyCode::Home {
+                                    0
+                                } else {
+                                    usize::MAX
+                                }
+                            }
+                            history::Focus::Preview => {
+                                commit.review.seek(if key.code == KeyCode::Home {
+                                    0
+                                } else {
+                                    usize::MAX
+                                })
+                            }
+                        },
                         KeyCode::Tab => {
                             self.mode = Mode::History(view);
                             self.cycle_history_parent();
                             return Ok(false);
                         }
-                        KeyCode::Enter | KeyCode::Right => {
+                        KeyCode::Enter | KeyCode::Right
+                            if commit.focus != history::Focus::Message =>
+                        {
+                            commit.open_preview_file();
                             self.mode = Mode::History(view);
                             self.show_history_diff();
                             return Ok(false);

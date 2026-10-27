@@ -7,6 +7,23 @@ use crate::{
 impl Screen {
     pub(crate) fn cycle_pane(&mut self, backwards: bool) {
         match &mut self.mode {
+            Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)) => {
+                use crate::history::Focus::{Files, Message, Preview};
+                let crate::history::View::Commit(commit) = view.as_mut() else {
+                    unreachable!()
+                };
+                let wide = self
+                    .body_area
+                    .is_some_and(|area| area.width >= 100 && area.height >= 10);
+                commit.focus = match (commit.focus, backwards) {
+                    (Message, false) | (Preview, true) => Files,
+                    (Files, false) if wide => Preview,
+                    (Message, true) if wide => Preview,
+                    (Message, true) => Files,
+                    (Files, false) | (Files, true) => Message,
+                    _ => Message,
+                };
+            }
             Mode::Composition(session) => {
                 session.focus = match session.focus {
                     crate::composition::Focus::Commits => crate::composition::Focus::Units,
@@ -36,6 +53,12 @@ impl Screen {
     }
     pub(super) fn zoom_pane(&mut self) {
         let arrangement = match &mut self.mode {
+            Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)) => {
+                let crate::history::View::Commit(commit) = view.as_mut() else {
+                    unreachable!()
+                };
+                Some(&mut commit.arrangement)
+            }
             Mode::Changes(session) => Some(&mut session.arrangement),
             Mode::Browser(session) => Some(&mut session.arrangement),
             mode if self.page == Page::Detail

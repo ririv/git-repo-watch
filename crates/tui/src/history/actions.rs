@@ -5,6 +5,25 @@ use engine::local::history::{Parent, Request};
 use std::path::PathBuf;
 
 impl Screen {
+    pub(crate) fn poll_history_review(&mut self) -> bool {
+        let Mode::History(view) = &mut self.mode else {
+            return false;
+        };
+        let View::Commit(commit) = view.as_mut() else {
+            return false;
+        };
+        let Some(area) = self.body_area else {
+            return false;
+        };
+        if crate::view::history::detail::areas(area, commit)
+            .iter()
+            .any(|(_, focus)| *focus == Focus::Preview)
+        {
+            commit.review.poll(&self.service)
+        } else {
+            false
+        }
+    }
     pub(crate) fn open_history(&mut self, path: PathBuf) {
         self.start_repository(
             path.clone(),

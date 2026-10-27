@@ -151,6 +151,22 @@ pub(crate) enum Export {
     Truncated,
 }
 impl View {
+    pub fn layout(
+        &self,
+        width: u16,
+        preference: Preference,
+        wrap: bool,
+        paths: &[std::path::PathBuf],
+    ) -> Cache {
+        layout::arrange(
+            &self.rows,
+            self.digits,
+            width,
+            preference.resolve(width, self.digits),
+            wrap,
+            paths,
+        )
+    }
     pub fn selected_layout(&self, width: u16, preference: Preference) -> Layout {
         preference.resolve(width, self.digits)
     }
@@ -230,8 +246,31 @@ pub(super) fn prepare_history(
     )
 }
 
+pub(crate) fn prepare_inline_history(
+    document: Document,
+    before: engine::local::history::Base,
+    after: engine::local::history::Oid,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_rows(
+        build::Heading::Inline,
+        document,
+        Comparison::History { before, after },
+        cancel,
+    )
+}
+
 fn prepare_comparison(
     title: &str,
+    document: Document,
+    comparison: Comparison,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_rows(build::Heading::Full(title), document, comparison, cancel)
+}
+
+fn prepare_rows(
+    heading: build::Heading<'_>,
     document: Document,
     comparison: Comparison,
     cancel: &Cancel,
@@ -244,7 +283,7 @@ fn prepare_comparison(
         } => Export::Truncated,
         Document::Patch { .. } => Export::Complete(document.text().into()),
     };
-    let rows = build::rows(title, document, cancel)?;
+    let rows = build::rows(heading, document, cancel)?;
     let digits = rows
         .iter()
         .map(Row::max_number)

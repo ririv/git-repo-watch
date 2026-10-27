@@ -1,11 +1,19 @@
 //! Commit-graph sessions and read-only workflows, separate from terminal drawing.
 mod actions;
+pub(crate) mod review;
 mod session;
 use crate::document;
 use engine::local::history::Detail;
 use ratatui::widgets::ListState;
 pub(super) use session::Session;
 use std::sync::Arc;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Focus {
+    Message,
+    Files,
+    Preview,
+}
 
 #[derive(Debug, Clone)]
 pub(super) struct Commit {
@@ -15,17 +23,25 @@ pub(super) struct Commit {
     pub scroll: usize,
     pub query: String,
     pub search_mode: crate::search::Mode,
+    pub focus: Focus,
+    pub arrangement: crate::workspace::Arrangement,
+    pub review: review::Review,
 }
 impl Commit {
     fn new(graph: Session, detail: Detail) -> Self {
         let selected = (!detail.changes.is_empty()).then_some(0);
+        let detail = Arc::new(detail);
+        let review = review::Review::new(detail.clone());
         Self {
             graph,
-            detail: Arc::new(detail),
+            detail,
             files: ListState::default().with_selected(selected),
             scroll: 0,
             query: String::new(),
             search_mode: Default::default(),
+            focus: Focus::Files,
+            arrangement: crate::workspace::Arrangement::Tiled,
+            review,
         }
     }
     fn with_detail(&self, detail: Detail) -> Self {
@@ -35,6 +51,8 @@ impl Commit {
             .and_then(|i| self.rows().get(i).map(|change| change.location.clone()));
         let mut next = Self::new(self.graph.clone(), detail);
         next.search_mode = self.search_mode;
+        next.focus = self.focus;
+        next.arrangement = self.arrangement;
         next.search(self.query.clone());
         if let Some(index) = selected.and_then(|location| {
             next.rows()
@@ -54,11 +72,31 @@ impl Commit {
         }
     }
     pub fn rows(&self) -> Vec<&engine::local::history::Change> {
+        self.indices()
+            .into_iter()
+            .map(|index| &self.detail.changes[index])
+            .collect()
+    }
+    pub fn selected_index(&self) -> Option<usize> {
+        self.files
+            .selected()
+            .and_then(|index| self.indices().get(index).copied())
+    }
+    pub fn open_preview_file(&mut self) {
+        if self.focus == Focus::Preview
+            && let Some(file) = self.review.visible_file(self.selected_index())
+            && let Some(index) = self.indices().iter().position(|index| *index == file)
+        {
+            self.files.select(Some(index));
+        }
+    }
+    pub fn indices(&self) -> Vec<usize> {
         let query = self.query.to_lowercase();
         self.detail
             .changes
             .iter()
-            .filter(|change| {
+            .enumerate()
+            .filter(|(_, change)| {
                 self.search_mode.includes(
                     change
                         .location
@@ -68,6 +106,7 @@ impl Commit {
                         .contains(&query),
                 )
             })
+            .map(|(index, _)| index)
             .collect()
     }
     pub fn matches(&self) -> crate::search::Matches {

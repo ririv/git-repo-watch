@@ -27,8 +27,10 @@ impl Screen {
             },
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(_) => Support::Locate,
-                history::View::Commit(commit) => Support::Both(commit.search_mode),
-                history::View::Diff { .. } => Support::Unavailable,
+                history::View::Commit(commit) if commit.focus == history::Focus::Files => {
+                    Support::Both(commit.search_mode)
+                }
+                history::View::Commit(_) | history::View::Diff { .. } => Support::Unavailable,
             },
             _ => Support::Unavailable,
         }

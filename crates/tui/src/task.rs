@@ -131,6 +131,7 @@ impl Screen {
             | self.poll_repository_tasks(root)
             | self.poll_browser()
             | self.poll_commit_message()
+            | self.poll_history_review()
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();

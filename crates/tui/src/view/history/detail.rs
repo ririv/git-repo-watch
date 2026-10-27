@@ -1,182 +1,56 @@
-//! Commit metadata and changed files are separate panes; merge parents switch explicitly.
+//! A commit message sits above file navigation and one continuous diff viewport.
+mod files;
+mod message;
+mod preview;
 use super::*;
-use crate::history::Commit;
-use engine::local::{
-    files::Location,
-    history::{Base, Kind, Message},
-};
+use crate::history::{Commit, Focus};
+use crate::workspace::Arrangement;
 
+pub(crate) fn areas(area: Rect, commit: &Commit) -> Vec<(Rect, Focus)> {
+    if commit.arrangement == Arrangement::Maximized {
+        return vec![(area, commit.focus)];
+    }
+    let wide = area.width >= 100 && area.height >= 10;
+    let header = (area.height / 3)
+        .clamp(if wide { 6 } else { 4 }, 9)
+        .min(message::desired_height(commit, area.width))
+        .min(area.height.saturating_sub(3));
+    let rows = Layout::vertical([Constraint::Length(header), Constraint::Min(0)]).split(area);
+    let mut result = vec![(rows[0], Focus::Message)];
+    if wide {
+        let columns = Layout::horizontal([
+            Constraint::Length((area.width / 3).clamp(24, 42)),
+            Constraint::Min(0),
+        ])
+        .split(rows[1]);
+        result.extend([(columns[0], Focus::Files), (columns[1], Focus::Preview)]);
+    } else {
+        result.push((rows[1], Focus::Files));
+    }
+    result
+        .into_iter()
+        .filter(|(area, _)| !area.is_empty())
+        .collect()
+}
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     commit: &mut Commit,
+    wrap: bool,
     hits: &mut crate::pointer::Map,
 ) {
-    let parts = if area.width >= 110 {
-        Layout::horizontal([Constraint::Percentage(55), Constraint::Percentage(45)]).split(area)
-    } else {
-        Layout::vertical([Constraint::Percentage(55), Constraint::Percentage(45)]).split(area)
-    };
-    let detail = &commit.detail;
-    let comparison = match detail.base {
-        Base::Empty => format!(
-            "{} → {}",
-            i18n::tr!(HistoryRoot),
-            &detail.oid.to_string()[..12]
-        ),
-        Base::Commit(oid) => {
-            let index = detail
-                .parents
-                .iter()
-                .position(|parent| *parent == oid)
-                .expect("comparison uses actual parent");
-            format!(
-                "{} ({}/{}) → {}",
-                &oid.to_string()[..12],
-                index + 1,
-                detail.parents.len(),
-                &detail.oid.to_string()[..12]
-            )
+    let parts = areas(area, commit);
+    if !parts.iter().any(|(_, focus)| *focus == commit.focus) {
+        commit.focus = Focus::Files;
+    }
+    for (panel, focus) in parts {
+        match focus {
+            Focus::Message => message::render(frame, panel, commit, hits),
+            Focus::Files => files::render(frame, panel, commit, hits),
+            Focus::Preview => preview::render(frame, panel, commit, wrap, hits),
         }
-    };
-    let different_times = detail.author.seconds != detail.committer.seconds;
-    let mut lines = vec![
-        field(i18n::tr!(HistoryHash), detail.oid.to_string()),
-        field(
-            i18n::tr!(HistoryAuthor),
-            format!("{} <{}>", detail.author.name, detail.author.email),
-        ),
-        field(
-            if different_times {
-                i18n::tr!(HistoryAuthorTime)
-            } else {
-                i18n::tr!(HistoryTime)
-            },
-            time(detail.author.seconds),
-        ),
-    ];
-    if detail.author.name != detail.committer.name || detail.author.email != detail.committer.email
-    {
-        lines.push(field(
-            i18n::tr!(HistoryCommitter),
-            format!("{} <{}>", detail.committer.name, detail.committer.email),
-        ));
-    }
-    if different_times {
-        lines.push(field(
-            i18n::tr!(HistoryCommitterTime),
-            time(detail.committer.seconds),
-        ));
-    }
-    lines.extend([
-        field(i18n::tr!(HistoryCompare), comparison),
-        Line::default(),
-        Line::styled(
-            i18n::tr!(HistoryMessage),
-            Style::default().fg(ACCENT).bold(),
-        ),
-    ]);
-    lines.extend(
-        multiline(detail.message.text())
-            .lines()
-            .map(|line| Line::raw(line.to_owned())),
-    );
-    if matches!(detail.message, Message::Truncated(_)) {
-        lines.push(Line::styled(
-            i18n::tr!(HistoryTruncated),
-            Style::default().fg(WARN),
-        ));
-    }
-    let border = block(format!(
-        "{} · {}",
-        name(&detail.path),
-        &detail.oid.to_string()[..12]
-    ));
-    let inner = border.inner(parts[0]);
-    let text = hits.links.text(Text::from(lines));
-    let paragraph = Paragraph::new(text.plain()).wrap(Wrap { trim: false });
-    let lines = paragraph.line_count(inner.width);
-    commit.scroll = commit
-        .scroll
-        .min(lines.saturating_sub(inner.height as usize));
-    frame.render_widget(border, parts[0]);
-    hits.links.paragraph(frame, inner, &text, commit.scroll);
-    crate::scrollbar::vertical(frame, parts[0], inner, lines, commit.scroll);
-    hits.vertical(
-        parts[0],
-        inner,
-        lines.saturating_sub(inner.height as usize),
-        commit.scroll,
-        crate::pointer::ScrollTarget::HistoryMessage,
-    );
-    let rows = commit.rows();
-    let count = rows.len();
-    let title = format!("{} · {}", i18n::tr!(HistoryChanges), rows.len());
-    let border = block(title);
-    let inner = border.inner(parts[1]);
-    frame.render_widget(border, parts[1]);
-    if rows.is_empty() {
-        frame.render_widget(
-            Paragraph::new(if commit.query.is_empty() {
-                i18n::tr!(HistoryNoChanges)
-            } else {
-                i18n::tr!(HistoryNoFilesMatch)
-            })
-            .wrap(Wrap { trim: false })
-            .style(Style::default().fg(MUTED)),
-            inner,
-        );
-    } else {
-        let items: Vec<_> = rows
-            .iter()
-            .map(|change| {
-                let path = match &change.location {
-                    Location::Path(path) => path.display().to_string(),
-                    Location::Rename { before, after } | Location::Copy { before, after } => {
-                        format!("{} → {}", before.display(), after.display())
-                    }
-                };
-                let color = match change.kind {
-                    Kind::Added => GOOD,
-                    Kind::Deleted => BAD,
-                    Kind::Modified | Kind::Typechange => WARN,
-                    Kind::Renamed | Kind::Copied => ACCENT,
-                };
-                ListItem::new(crate::view::files::marked_line(
-                    &Line::raw(safe(&path)),
-                    change.kind.symbol(),
-                    color,
-                    inner.width as usize,
-                ))
-                .style(
-                    if commit.search_mode == crate::search::Mode::Locate
-                        && !commit.query.is_empty()
-                        && change
-                            .location
-                            .name()
-                            .to_string_lossy()
-                            .to_lowercase()
-                            .contains(&commit.query.to_lowercase())
-                    {
-                        Style::default().bold()
-                    } else {
-                        Style::default()
-                    },
-                )
-            })
-            .collect();
-        frame.render_stateful_widget(
-            List::new(items).highlight_style(selected_style()),
-            inner,
-            &mut commit.files,
-        );
-        crate::scrollbar::vertical(frame, parts[1], inner, count, commit.files.offset());
-        hits.list(
-            parts[1],
-            inner,
-            &(0..count).collect::<Vec<_>>(),
-            commit.files.offset(),
-            crate::pointer::Target::HistoryFiles,
-        );
+        if focus == commit.focus {
+            highlight_border(frame, panel);
+        }
     }
 }

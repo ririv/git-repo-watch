@@ -37,11 +37,22 @@ impl Screen {
                 crate::changes::Focus::Files => i18n::tr!(Worktree),
                 crate::changes::Focus::Preview => i18n::tr!(FileDiff),
             },
+            Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)) => {
+                let crate::history::View::Commit(commit) = view.as_ref() else {
+                    unreachable!()
+                };
+                match commit.focus {
+                    crate::history::Focus::Message => i18n::tr!(HistoryMessage),
+                    crate::history::Focus::Files => i18n::tr!(HistoryChanges),
+                    crate::history::Focus::Preview => i18n::tr!(FileDiff),
+                }
+            }
             _ => Section::of(&self.mode).title(),
         }
     }
     pub(crate) fn pane_navigation_available(&self) -> bool {
         matches!(self.mode, Mode::Browser(_) | Mode::Changes(_))
+            || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)))
             || matches!(&self.mode, Mode::Composition(session) if matches!(session.state, crate::composition::State::Browsing))
             || (self.page == Page::Detail
                 && self.workspace.session().is_some()
@@ -89,6 +100,21 @@ impl Screen {
     fn move_pane(&mut self, direction: Direction) {
         use Direction::*;
         match &mut self.mode {
+            Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)) => {
+                use crate::history::Focus::{Files, Message, Preview};
+                let crate::history::View::Commit(commit) = view.as_mut() else {
+                    unreachable!()
+                };
+                let wide = self
+                    .body_area
+                    .is_some_and(|area| area.width >= 100 && area.height >= 10);
+                commit.focus = match (commit.focus, direction) {
+                    (Message, Down) | (Preview, Left) => Files,
+                    (Files | Preview, Up) => Message,
+                    (Files, Right) if wide => Preview,
+                    (focus, _) => focus,
+                };
+            }
             Mode::Composition(session) => {
                 use crate::composition::Focus::{Commits, Units};
                 session.focus = match (session.focus, direction) {

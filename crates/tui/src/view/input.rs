@@ -218,7 +218,11 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         },
         Mode::History(view) => match view.as_ref() {
             crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
-            crate::history::View::Commit(_) => i18n::tr!(HistoryCommitInputHint),
+            crate::history::View::Commit(commit) => match commit.focus {
+                crate::history::Focus::Files => i18n::tr!(HistoryCommitInputHint),
+                crate::history::Focus::Message => i18n::tr!(PgdnScrollEscBackCommands),
+                crate::history::Focus::Preview => i18n::tr!(HistoryReviewInputHint),
+            },
             crate::history::View::Diff { content, .. }
                 if matches!(content.as_ref(), crate::document::View::Images(_)) =>
             {

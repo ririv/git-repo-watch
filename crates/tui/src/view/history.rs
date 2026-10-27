@@ -1,5 +1,5 @@
 //! Responsive commit graph, metadata preview and per-parent historical file views.
-mod detail;
+pub(crate) mod detail;
 mod pixels;
 use super::*;
 use crate::history::{Session, View};
@@ -22,7 +22,7 @@ pub(super) fn render(
             hits,
             name(&session.references.path),
         ),
-        View::Commit(commit) => detail::render(frame, area, commit, hits),
+        View::Commit(commit) => detail::render(frame, area, commit, preference.wrap, hits),
         View::Diff {
             content, scroll, ..
         } => super::document::render(frame, area, content, scroll, preference, graphics, hits),

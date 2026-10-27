@@ -1,15 +1,23 @@
 //! Prepare both source sides once, retaining code spans without layout-specific gutters.
 use super::*;
 
-pub(super) fn rows(title: &str, document: Document, cancel: &Cancel) -> Result<Vec<Row>> {
+pub(super) enum Heading<'a> {
+    Full(&'a str),
+    Inline,
+}
+
+pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Vec<Row>> {
     cancel.check()?;
-    let mut rows = vec![
-        Row::Metadata(Line::styled(
-            safe(title),
-            Style::default().fg(Color::LightBlue).bold(),
-        )),
-        Row::Metadata(Line::default()),
-    ];
+    let mut rows = match heading {
+        Heading::Full(title) => vec![
+            Row::Metadata(Line::styled(
+                safe(title),
+                Style::default().fg(Color::LightBlue).bold(),
+            )),
+            Row::Metadata(Line::default()),
+        ],
+        Heading::Inline => Vec::new(),
+    };
     match document {
         Document::Notice(text) => metadata(&mut rows, &text, Style::default()),
         Document::Patch { files, extent } => {
@@ -80,6 +88,21 @@ pub(super) fn rows(title: &str, document: Document, cancel: &Cancel) -> Result<V
                             rows.push(Row::Removed(code(number, &text, &old)))
                         }
                         PatchLine::Metadata { kind, text } => {
+                            if matches!(heading, Heading::Inline) && kind == Metadata::File {
+                                // 连续视图已绘制路径标题；权限、重命名与二进制等元数据仍需显示。
+                                for line in text.lines().filter(|line| {
+                                    !["diff --git ", "index ", "--- ", "+++ "]
+                                        .iter()
+                                        .any(|prefix| line.starts_with(prefix))
+                                }) {
+                                    metadata(
+                                        &mut rows,
+                                        line,
+                                        Style::default().fg(Color::LightBlue).bold(),
+                                    );
+                                }
+                                continue;
+                            }
                             let style = match kind {
                                 Metadata::File => Style::default().fg(Color::LightBlue).bold(),
                                 Metadata::Hunk => Style::default().fg(Color::Rgb(180, 142, 220)),
@@ -89,7 +112,9 @@ pub(super) fn rows(title: &str, document: Document, cancel: &Cancel) -> Result<V
                         }
                     }
                 }
-                rows.push(Row::Metadata(Line::default()));
+                if matches!(heading, Heading::Full(_)) {
+                    rows.push(Row::Metadata(Line::default()));
+                }
             }
             if extent == Extent::Truncated {
                 metadata(

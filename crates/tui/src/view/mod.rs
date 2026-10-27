@@ -15,7 +15,7 @@ mod document;
 mod feedback;
 mod files;
 mod help;
-mod history;
+pub(crate) mod history;
 pub(super) mod input;
 pub(super) mod layout_picker;
 mod overview;

@@ -396,6 +396,7 @@ pub enum Message {
     HistorySearchHint,
     HistoryInputHint,
     HistoryCommitInputHint,
+    HistoryReviewInputHint,
     HistoryDiffHint,
     HistoryNoMatch,
     HistoryHash,
@@ -2236,10 +2237,16 @@ impl Message {
                 "↑↓选择 · ←→文字 · Enter详情 · /pan left/right · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
-                "↑↓ files · Enter diff · Tab parent · PgUp/PgDn message · ← back"
+                "↑↓ files · Enter diff · Tab parent · /focus panes · Esc back"
             }
             (Self::HistoryCommitInputHint, Language::Chinese) => {
-                "↑↓文件 · Enter 差异 · Tab 父提交 · PgUp/PgDn说明 · ←返回"
+                "↑↓文件 · Enter 差异 · Tab 父提交 · /focus 面板 · Esc 返回"
+            }
+            (Self::HistoryReviewInputHint, Language::English) => {
+                "↑↓ scroll · ←→ pan · Enter file diff · /focus panes · Esc back"
+            }
+            (Self::HistoryReviewInputHint, Language::Chinese) => {
+                "↑↓滚动 · ←→平移 · Enter 文件差异 · /focus 面板 · Esc 返回"
             }
             (Self::HistoryDiffHint, Language::English) => {
                 "↑↓ scroll · ←→ pan · Esc commit · /repo diff layout"

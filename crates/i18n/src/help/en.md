@@ -134,7 +134,8 @@
 - Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
 - Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `↑` / `↓` wraps through previous / next matches (`Tab` / `Shift+Tab` also remains available).
 - `/repo log pan left` / `right` pans a wide graph. Wide terminals show a metadata preview.
-- In commit details, type to filter files, `Tab` switches merge parents and `PgUp` / `PgDn` scrolls metadata and message.
+- Commit details show the message and metadata above the file list. Wide screens add one continuous unified diff on the right. Selecting a file locates its diff; Enter opens the full file diff, and Back preserves selection and position. Narrow screens hide the continuous preview.
+- Type to filter or locate in the file pane; Tab switches merge parents. The wheel scrolls each pane independently. Use /focus to switch panes and /zoom to maximize or restore. In the message or preview pane, arrows and PgUp/PgDn scroll content.
 - Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.
 > Graph and historical diff reads do not stage, commit, fetch, push or change reports.
 

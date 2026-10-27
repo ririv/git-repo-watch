@@ -198,6 +198,21 @@ impl Screen {
                     },
                     _ => return false,
                 },
+                ScrollTarget::HistoryReview | ScrollTarget::HistoryReviewHorizontal => {
+                    match &mut self.mode {
+                        Mode::History(view) => match view.as_mut() {
+                            history::View::Commit(commit) => match target {
+                                ScrollTarget::HistoryReview => commit.review.seek(offset),
+                                ScrollTarget::HistoryReviewHorizontal => {
+                                    commit.review.horizontal.seek(offset)
+                                }
+                                _ => unreachable!(),
+                            },
+                            _ => return false,
+                        },
+                        _ => return false,
+                    }
+                }
                 ScrollTarget::HistoryHorizontal => match &mut self.mode {
                     Mode::History(view) => match view.as_mut() {
                         history::View::Graph(session) => session.horizontal.seek(offset),
