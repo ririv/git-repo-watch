@@ -100,6 +100,7 @@ fn screen(service: Service) -> Screen {
         clicks: Default::default(),
         drag: None,
         command_items: Vec::new(),
+        command_viewport: Default::default(),
         breadcrumb_items: Vec::new(),
         filter: Filter::All,
         query: String::new(),

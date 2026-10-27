@@ -1,6 +1,86 @@
 use super::*;
 
 #[test]
+fn command_and_option_menus_keep_the_viewport_until_selection_crosses_its_edge() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        for (entry, height) in [("repo", 18), ("repos filter", 12)] {
+            let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+            if entry == "repo" {
+                s.paste("/repo");
+            } else {
+                command(&mut s, entry);
+            }
+            render(&mut s, 100, height);
+            let count = s.command_items.len();
+            assert!(count > 1);
+            for _ in 0..count {
+                key(&mut s, KeyCode::Down);
+                render(&mut s, 100, height);
+            }
+            let window = s.command_items.clone();
+            assert_eq!(window.first().unwrap().1, 1);
+            assert_eq!(window.last().unwrap().1, count);
+            key(&mut s, KeyCode::Up);
+            render(&mut s, 100, height);
+            assert_eq!(
+                s.command_items, window,
+                "{entry}: moving within the window must not scroll"
+            );
+            for _ in 0..count - 2 {
+                key(&mut s, KeyCode::Up);
+                render(&mut s, 100, height);
+                assert_eq!(s.command_items, window);
+            }
+            key(&mut s, KeyCode::Up);
+            render(&mut s, 100, height);
+            assert_eq!(s.command_items.first().unwrap().1, 0);
+            assert_eq!(s.command_items.last().unwrap().1, count - 1);
+            key(&mut s, KeyCode::Esc);
+            if entry == "repos filter" {
+                key(&mut s, KeyCode::Esc);
+            }
+            render(&mut s, 100, height);
+            assert!(s.command_items.is_empty());
+            s.shutdown();
+        }
+    }
+}
+
+#[test]
+fn menu_viewport_keeps_selection_visible_on_resize_and_resets_for_new_candidates() {
+    let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+    s.paste("/repo");
+    for _ in 0..command::COMMANDS.len() {
+        key(&mut s, KeyCode::Down);
+    }
+    for (width, height) in [(100, 28), (60, 12), (150, 32)] {
+        render(&mut s, width, height);
+        let bar::InputBar::Command { selected, .. } = &s.bar else {
+            panic!()
+        };
+        assert!(s.command_items.iter().any(|(_, index)| index == selected));
+        let window = s.command_items.clone();
+        key(&mut s, KeyCode::Up);
+        render(&mut s, width, height);
+        assert_eq!(s.command_items, window);
+    }
+    s.paste(" copy");
+    render(&mut s, 100, 28);
+    assert_eq!(s.command_items.len(), 1);
+    assert_eq!(s.command_items[0].1, 0);
+    s.paste("-no-matching-command");
+    render(&mut s, 100, 28);
+    assert!(s.command_items.is_empty());
+    key(&mut s, KeyCode::Esc);
+    render(&mut s, 100, 28);
+    s.paste("/repo");
+    render(&mut s, 100, 28);
+    assert_eq!(s.command_items.first().unwrap().1, 0);
+    s.shutdown();
+}
+
+#[test]
 fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close() {
     use ratatui::style::Color;
     for language in [i18n::Language::English, i18n::Language::Chinese] {

@@ -125,6 +125,11 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
         assert!(rendered.contains("目录 11/"));
         assert!(rendered.contains(i18n::tr!(DirectoryCompletionHint)));
         assert!(!rendered.contains("目录 00/"));
+        key(&mut s, KeyCode::Up);
+        let previous = render(&mut s, 100, 28);
+        assert!(previous.contains("目录 11/"), "{previous}");
+        assert!(!previous.contains("目录 03/"), "{previous}");
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         assert!(s.bar.text().ends_with("/目录 11/"));
     }

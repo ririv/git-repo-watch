@@ -126,6 +126,17 @@ fn field(
 }
 
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
+    let mut viewport = std::mem::take(&mut screen.command_viewport);
+    render_menu(frame, screen, body, &mut viewport);
+    screen.command_viewport = viewport;
+}
+
+fn render_menu(
+    frame: &mut Frame,
+    screen: &mut Screen,
+    body: Rect,
+    viewport: &mut candidates::Viewport,
+) {
     let crate::bar::InputBar::Command {
         input,
         selected,
@@ -153,18 +164,20 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
     }
     match menu {
         command::completion::Menu::Directories(values) => {
-            completion::render(frame, screen, values, body);
+            completion::render(frame, screen, values, body, viewport);
             return;
         }
         command::completion::Menu::Options(values) => {
-            screen.command_items = completion::render_options(frame, screen, values, body);
+            screen.command_items =
+                completion::render_options(frame, screen, values, body, viewport);
             return;
         }
         command::completion::Menu::Commands => {}
     }
-    let entries = screen
-        .search_commands()
-        .expect("command candidates")
+    let commands = screen.search_commands().expect("command candidates");
+    let source =
+        candidates::Source::Commands(commands.iter().map(|command| command.name).collect());
+    let entries = commands
         .into_iter()
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
@@ -206,25 +219,21 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect) {
         .iter()
         .map(|entry| entry.item(&columns))
         .collect::<Vec<_>>();
-    let mut state = ListState::default().with_selected(if items.is_empty() {
+    let selected = if items.is_empty() {
         None
     } else {
         Some((*selected).min(items.len() - 1))
-    });
-    frame.render_stateful_widget(
-        List::new(if items.is_empty() {
+    };
+    screen.command_items = candidates::render_list(
+        frame,
+        (area, list),
+        if items.is_empty() {
             vec![ListItem::new(i18n::tr!(NoMatchingCommands))]
         } else {
             items
-        })
-        .highlight_style(selected_style()),
-        list,
-        &mut state,
+        },
+        selected,
+        source,
+        viewport,
     );
-    crate::scrollbar::vertical(frame, area, list, entries.len(), state.offset());
-    screen.command_items = (state.offset()..entries.len())
-        .take(list.height.into())
-        .enumerate()
-        .map(|(row, index)| (Rect::new(list.x, list.y + row as u16, list.width, 1), index))
-        .collect();
 }

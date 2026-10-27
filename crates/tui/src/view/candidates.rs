@@ -1,6 +1,79 @@
 //! Titleless candidates share a border with the command input when space permits.
 use super::*;
 
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum Source {
+    Commands(Vec<&'static str>),
+    Options(Vec<command::options::Value>),
+    Directories(Vec<String>),
+}
+impl Source {
+    fn len(&self) -> usize {
+        match self {
+            Self::Commands(items) => items.len(),
+            Self::Options(items) => items.len(),
+            Self::Directories(items) => items.len(),
+        }
+    }
+}
+
+#[derive(Debug, Default)]
+pub(crate) struct Viewport(State);
+#[derive(Debug, Default)]
+enum State {
+    #[default]
+    Closed,
+    Open {
+        source: Source,
+        list: ListState,
+    },
+}
+impl Viewport {
+    fn select(&mut self, source: Source, selected: Option<usize>) -> &mut ListState {
+        // 只有候选内容或菜单类型变化时重置视口；方向键移动保留已有偏移。
+        if !matches!(&self.0, State::Open { source: current, .. } if *current == source) {
+            self.0 = State::Open {
+                source,
+                list: ListState::default(),
+            };
+        }
+        let State::Open { list, .. } = &mut self.0 else {
+            unreachable!("menu is open")
+        };
+        list.select(selected);
+        list
+    }
+}
+
+pub(super) fn render_list(
+    frame: &mut Frame,
+    areas: (Rect, Rect),
+    items: Vec<ListItem<'static>>,
+    selected: Option<usize>,
+    source: Source,
+    viewport: &mut Viewport,
+) -> Vec<(Rect, usize)> {
+    let (area, inner) = areas;
+    let count = source.len();
+    let state = viewport.select(source, selected.filter(|index| *index < count));
+    frame.render_stateful_widget(
+        List::new(items).highlight_style(selected_style()),
+        inner,
+        state,
+    );
+    crate::scrollbar::vertical(frame, area, inner, count, state.offset());
+    (state.offset()..count)
+        .take(inner.height.into())
+        .enumerate()
+        .map(|(row, index)| {
+            (
+                Rect::new(inner.x, inner.y + row as u16, inner.width, 1),
+                index,
+            )
+        })
+        .collect()
+}
+
 pub(super) fn panel(frame: &mut Frame, screen: &Screen, body: Rect, count: usize) -> (Rect, Rect) {
     let input = screen.input_area.filter(|input| {
         input.height >= 3

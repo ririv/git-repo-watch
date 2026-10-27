@@ -4,6 +4,7 @@ mod branches;
 mod breadcrumbs;
 pub(super) mod browser;
 mod candidates;
+pub(crate) use candidates::Viewport as CandidateViewport;
 pub(super) mod changes;
 mod commands;
 pub(crate) mod commit;
@@ -127,6 +128,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.repository_area = None;
     screen.workspace_areas.clear();
     screen.command_items.clear();
+    if !matches!(screen.bar, crate::bar::InputBar::Command { .. }) {
+        screen.command_viewport = Default::default();
+    }
     screen.pointer.clear();
     screen.pointer.links.reset(
         screen.bar.is_plain()
