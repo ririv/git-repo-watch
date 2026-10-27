@@ -1,5 +1,15 @@
 //! Background execution, progress, cancellation, and result transitions.
 use super::*;
+impl Pending {
+    pub(super) fn tick(&mut self, now: std::time::Instant) -> bool {
+        let changed = self.feedback.tick(now);
+        if self.feedback.visible() || self.state == TaskState::Cancelling {
+            changed | self.animation.tick(now)
+        } else {
+            changed
+        }
+    }
+}
 impl Screen {
     pub(super) fn start(
         &mut self,
@@ -9,7 +19,11 @@ impl Screen {
         + Send
         + 'static,
     ) {
+        let input = view::input::Snapshot::capture(self);
         let origin = Box::new(self.take_mode());
+        let now = std::time::Instant::now();
+        let mut feedback = loading::Feedback::default();
+        feedback.begin(Some(input), now);
         let cancel = Cancel::default();
         let task_cancel = cancel.clone();
         let service = self.service.clone();
@@ -40,7 +54,8 @@ impl Screen {
             rx,
             handle,
             origin,
-            animation: spinner::Spinner::new(std::time::Instant::now()),
+            animation: spinner::Spinner::new(now),
+            feedback,
         });
         self.message.clear();
     }
@@ -57,7 +72,7 @@ impl Screen {
         self.commit_generator.tick()
             | waiting
             | match &mut self.mode {
-                Mode::Busy(pending) => pending.animation.tick(std::time::Instant::now()),
+                Mode::Busy(pending) => pending.tick(std::time::Instant::now()),
                 _ => self
                     .repository_tasks
                     .values_mut()

@@ -170,6 +170,7 @@ struct Pending {
     handle: thread::JoinHandle<()>,
     origin: Box<Mode>,
     animation: spinner::Spinner,
+    feedback: loading::Feedback<view::input::Snapshot>,
 }
 #[derive(Debug)]
 enum WorkerEvent {

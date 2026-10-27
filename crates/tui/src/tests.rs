@@ -39,6 +39,7 @@ mod search;
 mod settings_design;
 mod startup;
 mod task_center;
+mod task_feedback;
 mod text_selection;
 mod workspace;
 mod wrapping;

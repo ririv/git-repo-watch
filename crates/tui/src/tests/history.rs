@@ -340,8 +340,13 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     });
     let text = render(&mut s, 100, 28);
     assert!(text.contains(&oid.to_string()[..8]));
-    thread::sleep(Duration::from_millis(110));
-    assert!(s.animate_task());
+    let Mode::Busy(pending) = &mut s.mode else {
+        panic!()
+    };
+    let crate::loading::Feedback::Quiet { since, .. } = &pending.feedback else {
+        panic!()
+    };
+    assert!(pending.tick(*since + crate::loading::FEEDBACK_DELAY));
     key(&mut s, KeyCode::Esc);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Error { .. }));

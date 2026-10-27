@@ -6,6 +6,36 @@ pub(crate) use prefix::Surface as PrefixSurface;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
+/// Retain the input presentation while a foreground operation is still fast enough to stay quiet.
+#[derive(Debug)]
+pub(crate) struct Snapshot {
+    bar: crate::bar::InputBar,
+    search_title: String,
+    support: crate::search::Support,
+}
+impl Snapshot {
+    pub fn capture(screen: &mut Screen) -> Self {
+        Self {
+            search_title: screen.search_title(),
+            support: screen.search_support(),
+            bar: std::mem::replace(&mut screen.bar, crate::bar::InputBar::CommandsOnly),
+        }
+    }
+}
+
+fn retained(screen: &Screen) -> Option<(&Mode, &Snapshot)> {
+    match &screen.mode {
+        Mode::Busy(pending) if pending.state == TaskState::Running => pending
+            .feedback
+            .previous()
+            .map(|input| (pending.origin.as_ref(), input)),
+        _ => None,
+    }
+}
+fn input_mode(screen: &Screen) -> &Mode {
+    retained(screen).map_or(&screen.mode, |(mode, _)| mode)
+}
+
 pub(super) fn active_accent(screen: &Screen) -> Color {
     if screen.focus_mode == crate::focus::State::Selecting {
         return ACCENT;
@@ -53,7 +83,7 @@ impl Footer {
             // 极矮窗口没有结果栏时，复用现有输入行，保证退出前能看到提示。
             return Self::Compact { hint, preview };
         }
-        match &screen.mode {
+        match input_mode(screen) {
             Mode::Composition(session)
                 if matches!(session.state, crate::composition::State::Editing(_)) =>
             {
@@ -144,6 +174,7 @@ pub(crate) fn status_text(screen: &Screen, body: Rect) -> String {
         Mode::Busy(pending) if pending.state == TaskState::Cancelling => {
             i18n::tr!(Cancelling).into()
         }
+        Mode::Busy(pending) if pending.feedback.quiet() => String::new(),
         Mode::Busy(pending) => format!("{} {}", pending.animation.symbol(), safe(&pending.title)),
         _ => screen
             .commit_generator
@@ -184,7 +215,7 @@ enum Content<'a> {
 }
 
 fn browsing_hint(screen: &Screen) -> &'static str {
-    match &screen.mode {
+    match input_mode(screen) {
         Mode::Browsing => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),
             Page::Detail => i18n::tr!(OverviewInputHint),
@@ -252,13 +283,22 @@ fn browsing_hint(screen: &Screen) -> &'static str {
 }
 
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_area: Rect) {
+    let (mode, bar, support, search_title) = match retained(screen) {
+        Some((mode, input)) => (mode, &input.bar, input.support, input.search_title.clone()),
+        None => (
+            &screen.mode,
+            &screen.bar,
+            screen.search_support(),
+            screen.search_title(),
+        ),
+    };
     let (title, content, hint) = if screen.focus_mode == crate::focus::State::Selecting {
         (
             i18n::tr!(PaneFocusTitle),
             Content::Locked(screen.focused_pane_name().into()),
             i18n::tr!(PaneFocusHint),
         )
-    } else if let crate::bar::InputBar::Layout { selected, .. } = &screen.bar {
+    } else if let crate::bar::InputBar::Layout { selected, .. } = bar {
         (
             i18n::tr!(LayoutPickerTitle),
             Content::Layout {
@@ -266,7 +306,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             },
             i18n::tr!(LayoutPickerHint),
         )
-    } else if let Mode::Composition(session) = &screen.mode
+    } else if let Mode::Composition(session) = mode
         && !matches!(session.state, crate::composition::State::Browsing)
     {
         match &session.state {
@@ -299,7 +339,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             _ => unreachable!("composition text editing has a compact footer"),
         }
     } else {
-        match &screen.mode {
+        match mode {
             Mode::Browsing
             | Mode::Composition(_)
             | Mode::CompositionWaiting(_)
@@ -310,9 +350,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_) => {
-                let command = matches!(screen.bar, crate::bar::InputBar::Command { .. });
+                let command = matches!(bar, crate::bar::InputBar::Command { .. });
                 let hint = if matches!(
-                    screen.bar,
+                    bar,
                     crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Options(_),
                         ..
@@ -320,7 +360,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 ) {
                     i18n::tr!(OptionCompletionHint)
                 } else if matches!(
-                    &screen.bar,
+                    bar,
                     crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Directories(_),
                         ..
@@ -329,14 +369,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     i18n::tr!(DirectoryCompletionHint)
                 } else if command {
                     match command::argument_input(
-                        screen.bar.text().strip_prefix('/').expect("command prefix"),
+                        bar.text().strip_prefix('/').expect("command prefix"),
                     ) {
                         Some((argument, _))
                             if argument.action().available(screen.config.ai.enabled) =>
                         {
                             argument.hint()
                         }
-                        _ => match screen.bar.command_input() {
+                        _ => match bar.command_input() {
                             Some(input) if input.prefix_selected() => i18n::tr!(ContextPrefixHint),
                             Some(input) if input.context().is_some() => {
                                 i18n::tr!(ContextCommandHint)
@@ -344,31 +384,31 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             _ => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
                         },
                     }
-                } else if !screen.bar.editor().text.is_empty()
-                    && screen.search_support().mode() == Some(crate::search::Mode::Locate)
+                } else if !bar.editor().text.is_empty()
+                    && support.mode() == Some(crate::search::Mode::Locate)
                 {
                     i18n::tr!(SearchLocateHint)
-                } else if !screen.bar.editor().text.is_empty() {
+                } else if !bar.editor().text.is_empty() {
                     i18n::tr!(SearchEditingHint)
                 } else {
                     browsing_hint(screen)
                 };
                 (
-                    if matches!(screen.bar, crate::bar::InputBar::CommandsOnly) {
+                    if matches!(bar, crate::bar::InputBar::CommandsOnly) {
                         ""
                     } else {
                         i18n::tr!(CommandsAlt)
                     },
-                    if matches!(screen.bar, crate::bar::InputBar::CommandsOnly) {
+                    if matches!(bar, crate::bar::InputBar::CommandsOnly) {
                         Content::CommandEntry
                     } else {
                         Content::Editable {
-                            editor: screen.bar.editor(),
+                            editor: bar.editor(),
                             placeholder: if command {
                                 i18n::tr!(ContextCommandPlaceholder)
-                            } else if matches!(screen.mode, Mode::Browser(_)) {
+                            } else if matches!(mode, Mode::Browser(_)) {
                                 i18n::tr!(BrowserPlaceholder)
-                            } else if matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+                            } else if matches!(mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
                             {
                                 i18n::tr!(HistorySearchHint)
                             } else {
@@ -426,14 +466,13 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 },
                 i18n::tr!(ConfirmReviewHint),
             ),
-            Mode::Error { .. } if screen.bar.command_input().is_some() => (
+            Mode::Error { .. } if bar.command_input().is_some() => (
                 i18n::tr!(CommandsAlt),
                 Content::Editable {
-                    editor: screen.bar.editor(),
+                    editor: bar.editor(),
                     placeholder: i18n::tr!(ContextCommandPlaceholder),
                 },
-                if screen
-                    .bar
+                if bar
                     .command_input()
                     .is_some_and(|input| input.prefix_selected())
                 {
@@ -458,16 +497,16 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             ),
         }
     };
-    let title = if matches!(screen.bar, crate::bar::InputBar::Search(_))
+    let title = if matches!(bar, crate::bar::InputBar::Search(_))
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
-        && !matches!(screen.mode, Mode::CommitMessage { .. })
+        && !matches!(mode, Mode::CommitMessage { .. })
     {
-        screen.search_title()
+        search_title
     } else {
         title.to_owned()
     };
-    let active = !matches!(&screen.mode, Mode::CommitMessage { editor, .. } if editor.focused())
+    let active = !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
         && matches!(
             content,
             Content::CommandEntry
@@ -516,7 +555,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             editor,
             placeholder,
         } => {
-            let command = screen.bar.command_input();
+            let command = bar.command_input();
             let prefix = command
                 .and_then(|input| input.context())
                 .map(|context| {
