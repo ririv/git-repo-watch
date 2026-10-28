@@ -52,6 +52,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         screen.filter,
         screen.order,
         area,
+        &mut screen.pointer,
     );
     let columns = match content.width {
         41.. => vec![

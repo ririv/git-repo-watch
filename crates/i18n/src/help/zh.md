@@ -34,7 +34,7 @@
 - `[tree|flat]` 表示可选的固定选项，`<path>`、`<name>` 表示自行输入。选项按可用宽度完整显示，放不下时按完整选项以 `…` 简写，补全菜单始终展示完整范围；`[<model>|default]` 表示模型名或特殊值 `default`。
 - `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。单一子目录链合并显示（如 `output/imagegen/`）；文件夹也能定位和勾选，文件可预览差异。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
-- 仓库首页用 `/repos filter [all|problems|…]` 筛选、`/repos sort [priority|name|…]` 排序；各只有一个命令入口，空格后自动展开参数选项。按参数名或中英文说明筛选，`↑↓` 选择、Tab 补全、Enter 应用、Esc 收起；✓ 标记当前值。
+- 仓库首页可点击顶部“筛选”和“排序”的文字或当前值，展开对应选项；也可用 `/repos filter [all|problems|…]` 筛选、`/repos sort [priority|name|…]` 排序。菜单定位当前值，选择后才应用；按参数名或中英文说明筛选，`↑↓` 选择、Tab 补全、Enter 应用、Esc 收起，✓ 标记当前值。关闭精确点击或启用选字模式时使用命令操作。
 - 启动检查、自动推送策略和 AI 工具也使用同一参数菜单：空格或 Enter 展开，↑↓ 选择、Tab 只补全、Enter 提交所选值。配置确认沿用原有规则，取消不写入。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
 - 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`。

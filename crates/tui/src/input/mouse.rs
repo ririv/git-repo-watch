@@ -264,6 +264,10 @@ impl Screen {
                 return Ok(false);
             }
             if let Some(hit) = hit {
+                if matches!(hit, crate::pointer::Hit::Button(_)) {
+                    self.clicks.reset();
+                    self.drag = None;
+                }
                 if let crate::pointer::Hit::Item(crate::pointer::Target::ScheduleButton, index) =
                     hit
                 {

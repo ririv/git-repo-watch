@@ -35,6 +35,7 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    RepositoryMenu(crate::repository_list::Menu),
     DragRows {
         target: Target,
         index: usize,
@@ -46,6 +47,7 @@ pub(crate) enum Action {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Hit {
+    Button(Action),
     FileCheckbox(usize),
     Item(Target, usize),
     Scrollbar(Action),
@@ -53,6 +55,7 @@ pub(crate) enum Hit {
 impl Hit {
     pub fn action(self) -> Action {
         match self {
+            Self::Button(action) => action,
             Self::FileCheckbox(index) => Action::ToggleFile(index),
             Self::Item(target, index) => Action::Select(target, index),
             Self::Scrollbar(action) => action,
@@ -61,6 +64,7 @@ impl Hit {
 }
 #[derive(Debug, Clone)]
 enum Region {
+    Button(Rect, Action),
     FileCheckbox(Rect, usize),
     Item(Rect, Target, usize),
     Track {
@@ -81,6 +85,11 @@ pub(crate) struct Map {
     pub links: crate::links::Map,
 }
 impl Map {
+    pub fn button(&mut self, area: Rect, action: Action) {
+        if !area.is_empty() {
+            self.regions.push(Region::Button(area, action));
+        }
+    }
     pub fn file_checkbox(&mut self, area: Rect, index: usize) {
         if !area.is_empty() {
             self.regions.push(Region::FileCheckbox(area, index));
@@ -158,6 +167,7 @@ impl Map {
     }
     pub fn hit(&self, point: Position) -> Option<Hit> {
         self.regions.iter().rev().find_map(|region| match region {
+            Region::Button(area, action) => area.contains(point).then_some(Hit::Button(*action)),
             Region::FileCheckbox(area, index) if area.contains(point) => {
                 Some(Hit::FileCheckbox(*index))
             }

@@ -8,6 +8,12 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::RepositoryMenu(menu) => {
+                if !self.repository_list_active() {
+                    return false;
+                }
+                self.list_menu(menu);
+            }
             Action::DragRows {
                 target,
                 index,

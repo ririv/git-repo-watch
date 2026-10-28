@@ -90,7 +90,25 @@ fn repository_options_resize_without_covering_headers_clicks_or_scroll_tracks() 
         click(&mut s, area.x + 3, first + 1);
         assert_eq!(s.selected(), offset + 1);
         for y in [area.y, options, header] {
-            assert!(!click(&mut s, area.x + 3, y));
+            let opened = click(&mut s, area.x + 3, y);
+            if y == options && options != area.y {
+                assert!(opened);
+                assert!(matches!(
+                    s.bar,
+                    bar::InputBar::Command {
+                        menu: command::completion::Menu::Options(_),
+                        ..
+                    }
+                ));
+                for _ in 0..3 {
+                    if !s.bar.is_plain() {
+                        key(&mut s, KeyCode::Esc);
+                    }
+                }
+                render(&mut s, width, height);
+            } else {
+                assert!(!opened);
+            }
             assert_eq!(s.selected(), offset + 1);
         }
         assert!(!click(&mut s, area.x + 1, first));
@@ -103,6 +121,156 @@ fn repository_options_resize_without_covering_headers_clicks_or_scroll_tracks() 
         event(&mut s, MouseEventKind::ScrollDown, area.x + 3, first);
         assert_eq!(s.selected(), 3);
     }
+}
+
+#[test]
+fn repository_filter_and_sort_labels_open_current_options_and_clicks_apply_only_the_chosen_value() {
+    use crate::{
+        command::options::Value,
+        pointer::{Action, Hit},
+        repository_list::Menu,
+    };
+    use unicode_width::UnicodeWidthStr;
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec!["/z/repo".into(), "/a/repo".into()]);
+        let original = std::fs::read(s.service.store.config_path()).unwrap();
+        s.paste("repo");
+        for width in if language == i18n::Language::Chinese {
+            [32, 60, 160]
+        } else {
+            [60, 80, 160]
+        } {
+            for (menu, label, current, chosen) in [
+                (
+                    Menu::Filter,
+                    i18n::tr!(RepositoryFilterLabel),
+                    Value::Filter(Filter::Unchecked),
+                    Value::Filter(Filter::All),
+                ),
+                (
+                    Menu::Sort,
+                    i18n::tr!(RepositorySortLabel),
+                    Value::Sort(Order::Updated),
+                    Value::Sort(Order::Name),
+                ),
+            ] {
+                s.filter = Filter::Unchecked;
+                s.order = Order::Updated;
+                s.focus(Some("/z/repo".into()));
+                let selected = s.selected_path();
+                let text = render(&mut s, width, 26);
+                let (x, y) = text
+                    .lines()
+                    .enumerate()
+                    .find_map(|(y, line)| {
+                        line.find(label)
+                            .map(|byte| (line[..byte].width() as u16, y as u16))
+                    })
+                    .unwrap();
+                let value = if menu == Menu::Filter {
+                    s.filter.label()
+                } else {
+                    s.order.label()
+                };
+                let value_end =
+                    x + i18n::tf!(FieldLabel, label = label).width() as u16 + value.width() as u16
+                        - 1;
+                assert_eq!(
+                    s.pointer.hit(Position::new(x, y)),
+                    Some(Hit::Button(Action::RepositoryMenu(menu)))
+                );
+                assert_eq!(
+                    s.pointer.hit(Position::new(value_end, y)),
+                    Some(Hit::Button(Action::RepositoryMenu(menu)))
+                );
+                s.config.mouse.precise_click = false;
+                assert!(!click(&mut s, x, y));
+                assert!(s.bar.is_plain());
+                s.config.mouse.precise_click = true;
+                s.config.interaction_mode = engine::state::InteractionMode::TextSelection;
+                assert!(!click(&mut s, x, y));
+                s.config.interaction_mode = engine::state::InteractionMode::Application;
+                assert!(click(&mut s, value_end, y));
+                assert!(
+                    matches!(&s.bar,bar::InputBar::Command {menu:command::completion::Menu::Options(values), ..} if values.current == Some(current) && values.options[values.selected].value == current)
+                );
+                assert_eq!(s.selected_path(), selected);
+                assert_eq!(s.filter, Filter::Unchecked);
+                assert_eq!(s.order, Order::Updated);
+                for _ in 0..3 {
+                    if !s.bar.is_plain() {
+                        key(&mut s, KeyCode::Esc);
+                    }
+                }
+                assert!(s.bar.is_plain());
+                assert_eq!(s.query, "repo");
+                assert_eq!(s.selected_path(), selected);
+                render(&mut s, width, 26);
+                assert!(click(&mut s, x, y));
+                render(&mut s, width, 26);
+                let bar::InputBar::Command {
+                    menu: command::completion::Menu::Options(values),
+                    ..
+                } = &s.bar
+                else {
+                    panic!("options")
+                };
+                let index = values
+                    .options
+                    .iter()
+                    .position(|option| option.value == chosen)
+                    .unwrap();
+                let target = s
+                    .command_items
+                    .iter()
+                    .find(|(_, value)| *value == index)
+                    .unwrap()
+                    .0;
+                assert!(click(&mut s, target.x + 1, target.y));
+                assert!(s.bar.is_plain());
+                assert_eq!(s.query, "repo");
+                assert_eq!(s.selected_path(), selected);
+                match chosen {
+                    Value::Filter(value) => assert_eq!(s.filter, value),
+                    Value::Sort(value) => assert_eq!(s.order, value),
+                    _ => unreachable!(),
+                }
+                assert!(s.check_task.is_none() && s.repository_tasks.is_empty());
+                assert_eq!(
+                    std::fs::read(s.service.store.config_path()).unwrap(),
+                    original
+                );
+            }
+        }
+        s.shutdown();
+    }
+}
+
+#[test]
+fn hidden_repository_controls_leave_no_click_regions_after_resize_or_navigation() {
+    use crate::{
+        pointer::{Action, Hit},
+        repository_list::Menu,
+    };
+    let (_home, mut s) = fixture(vec!["/example/repo".into()]);
+    for (width, height, visible) in [(160, 30, true), (12, 8, false), (80, 24, true)] {
+        render(&mut s, width, height);
+        for menu in [Menu::Filter, Menu::Sort] {
+            assert_eq!(
+                (0..height).any(|y| (0..width).any(|x| s.pointer.hit(Position::new(x, y))
+                    == Some(Hit::Button(Action::RepositoryMenu(menu))))),
+                visible
+            );
+        }
+    }
+    command(&mut s, "settings");
+    render(&mut s, 80, 24);
+    assert!(!(0..24).any(|y| (0..80).any(|x| matches!(
+        s.pointer.hit(Position::new(x, y)),
+        Some(Hit::Button(Action::RepositoryMenu(_)))
+    ))));
+    s.shutdown();
 }
 
 #[test]

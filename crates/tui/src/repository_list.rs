@@ -61,7 +61,7 @@ impl Order {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Menu {
     Filter,
     Sort,
