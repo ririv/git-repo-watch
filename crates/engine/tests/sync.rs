@@ -303,3 +303,97 @@ fn sync_honors_custom_refspecs_and_deleted_or_excluded_upstreams() {
             .is_err()
     );
 }
+
+#[test]
+fn sync_progress_distinguishes_pull_push_and_failure_stages() {
+    use engine::tasks::progress::Stage;
+    let f = Fixture::create();
+    f.advance();
+    let (_home, s) = service(vec![f.repo.clone()]);
+    let mut stages = Vec::new();
+    let plan = s
+        .prepare_mutation_observed(&f.repo, Request::Sync, &Cancel::default(), &mut |stage| {
+            stages.push(stage);
+            Ok(())
+        })
+        .unwrap();
+    assert_eq!(
+        stages,
+        vec![
+            Stage::WaitingRepository,
+            Stage::WaitingCapacity,
+            Stage::InspectingRepository,
+            Stage::FetchingRemote,
+            Stage::ComparingBranches,
+            Stage::CheckingWorktree,
+            Stage::PreparingPreview,
+            Stage::RefreshingState
+        ]
+    );
+    s.mutate(&plan, &Cancel::default()).unwrap();
+    f.commit("outgoing", "committed\n");
+    stages.clear();
+    s.prepare_mutation_observed(&f.repo, Request::Sync, &Cancel::default(), &mut |stage| {
+        stages.push(stage);
+        Ok(())
+    })
+    .unwrap();
+    assert!(stages.contains(&Stage::VerifyingRemote));
+    assert!(!stages.contains(&Stage::CheckingWorktree));
+
+    let dirty = Fixture::create();
+    dirty.commit("tracked", "base\n");
+    git(&dirty.repo, &["push"]);
+    dirty.advance();
+    write(dirty.repo.join("tracked"), "unfinished\n");
+    let (_home, s) = service(vec![dirty.repo.clone()]);
+    stages.clear();
+    assert!(
+        s.prepare_mutation_observed(
+            &dirty.repo,
+            Request::Sync,
+            &Cancel::default(),
+            &mut |stage| {
+                stages.push(stage);
+                Ok(())
+            }
+        )
+        .is_err()
+    );
+    assert!(stages.contains(&Stage::CheckingWorktree));
+    assert!(!stages.contains(&Stage::PreparingPreview));
+    assert_eq!(stages.last(), Some(&Stage::RefreshingState));
+    assert_eq!(
+        fs::read_to_string(dirty.repo.join("tracked")).unwrap(),
+        "unfinished\n"
+    );
+}
+
+#[test]
+fn failed_progress_reporting_does_not_skip_refreshing_fetched_references() {
+    use engine::tasks::progress::Stage;
+    let f = Fixture::create();
+    f.advance();
+    let (_home, s) = service(vec![f.repo.clone()]);
+    let before = git(&f.repo, &["rev-parse", "HEAD"]);
+    let error = s
+        .prepare_mutation_observed(&f.repo, Request::Sync, &Cancel::default(), &mut |stage| {
+            if stage == Stage::RefreshingState {
+                anyhow::bail!("progress write failed")
+            }
+            Ok(())
+        })
+        .unwrap_err();
+    assert!(error.to_string().contains("progress write failed"));
+    assert_eq!(git(&f.repo, &["rev-parse", "HEAD"]), before);
+    assert_eq!(
+        s.store
+            .repository_report(&f.repo)
+            .unwrap()
+            .unwrap()
+            .repositories[0]
+            .synchronization()
+            .current_commits(),
+        Some((0, 1))
+    );
+}

@@ -102,6 +102,15 @@ pub(crate) fn published_result(publication: &Publication) -> Result<Change> {
 }
 
 pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<Plan> {
+    prepare_observed(git, path, cancel, &mut |_| Ok(()))
+}
+pub fn prepare_observed(
+    git: &Git,
+    path: &Path,
+    cancel: &Cancel,
+    progress: &mut impl FnMut(crate::tasks::progress::Stage) -> Result<()>,
+) -> Result<Plan> {
+    use crate::tasks::progress::Stage;
     cancel.check()?;
     let repo = local::open(path)?;
     local::idle(&repo)?;
@@ -131,11 +140,13 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<Plan> {
     let pull::Source::Remote { remote, .. } = &source else {
         anyhow::bail!(i18n::tr!(MutationChanged))
     };
+    progress(Stage::FetchingRemote)?;
     git.fetch_tracking(
         path,
         &local::branches::fetch::Remote::read(&repo, remote)?,
         cancel,
     )?;
+    progress(Stage::ComparingBranches)?;
     ensure!(Position::read(&repo)? == before, i18n::tr!(MutationChanged));
     ensure!(
         pull::Source::read(&repo, branch)? == source,
@@ -150,10 +161,17 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<Plan> {
     let fetched = [remote.clone()];
     let plan = match (ahead, behind) {
         (0, 0) => Plan::Current { path: path.into() },
-        (0, _) => Plan::Pull(pull::prepare_fetched(git, path, &fetched, cancel)?),
-        (_, 0) => Plan::Push(push::prepare_fetched(git, path, &fetched, cancel)?),
+        (0, _) => {
+            progress(Stage::CheckingWorktree)?;
+            Plan::Pull(pull::prepare_fetched(git, path, &fetched, cancel)?)
+        }
+        (_, 0) => {
+            progress(Stage::VerifyingRemote)?;
+            Plan::Push(push::prepare_fetched(git, path, &fetched, cancel)?)
+        }
         _ => anyhow::bail!(i18n::tr!(SyncDiverged)),
     };
+    progress(Stage::PreparingPreview)?;
     ensure!(Position::read(&repo)? == before, i18n::tr!(MutationChanged));
     ensure!(
         pull::Source::read(&repo, branch)? == source,

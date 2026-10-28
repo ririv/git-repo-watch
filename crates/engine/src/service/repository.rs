@@ -95,14 +95,26 @@ impl Service {
         Ok(())
     }
     pub(super) fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<RepositoryLock> {
+        self.repository_lock_observed(path, cancel, &mut |_| Ok(()))
+    }
+    pub(super) fn repository_lock_observed(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+        progress: &mut impl FnMut(crate::tasks::progress::Stage) -> Result<()>,
+    ) -> Result<RepositoryLock> {
+        use crate::tasks::progress::Stage;
+        progress(Stage::WaitingRepository)?;
         cancel.check()?;
         self.validate_repository(path, cancel)?;
         let common = local::common_dir(&local::open(path)?)?;
         let lock = self.store.repository_lock(&common, cancel)?;
+        progress(Stage::WaitingCapacity)?;
         self.validate_repository(path, cancel)?;
         let slot = self
             .store
             .operation_slot(self.store.config()?.max_concurrency, cancel)?;
+        progress(Stage::InspectingRepository)?;
         Ok(RepositoryLock {
             _repository: lock,
             _slot: slot,

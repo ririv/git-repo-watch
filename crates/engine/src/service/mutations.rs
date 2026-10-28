@@ -7,7 +7,16 @@ impl Service {
         local::stash::read(path, cancel)
     }
     pub fn prepare_mutation(&self, path: &Path, request: Request, cancel: &Cancel) -> Result<Plan> {
-        let _lock = self.repository_lock(path, cancel)?;
+        self.prepare_mutation_observed(path, request, cancel, &mut |_| Ok(()))
+    }
+    pub fn prepare_mutation_observed(
+        &self,
+        path: &Path,
+        request: Request,
+        cancel: &Cancel,
+        progress: &mut impl FnMut(crate::tasks::progress::Stage) -> Result<()>,
+    ) -> Result<Plan> {
+        let _lock = self.repository_lock_observed(path, cancel, progress)?;
         match request {
             Request::Branch { action, name } => Ok(Plan::Branch(local::branches::edit::prepare(
                 path, &name, action, cancel,
@@ -26,11 +35,13 @@ impl Service {
                 )
             }
             Request::Sync => {
-                let result = operations::sync::prepare(&self.git, path, cancel).map(Plan::Sync);
+                let result = operations::sync::prepare_observed(&self.git, path, cancel, progress)
+                    .map(Plan::Sync);
                 let completion = state::Completion::capture(&result, cancel, |_| {
                     Change::SynchronizationPrepared
                 });
-                self.refresh_after_write(
+                let observed = progress(crate::tasks::progress::Stage::RefreshingState);
+                let refreshed = self.refresh_after_write(
                     path,
                     result,
                     vec![],
@@ -38,7 +49,12 @@ impl Service {
                         action: Action::PrepareSync,
                         completion,
                     },
-                )
+                );
+                match (refreshed, observed) {
+                    (result, Ok(())) => result,
+                    (Ok(_), Err(error)) => Err(error),
+                    (Err(operation), Err(progress)) => Err(operation.context(progress)),
+                }
             }
         }
     }

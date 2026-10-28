@@ -208,6 +208,7 @@ fn task_mouse_selection_double_click_and_preferences_match_other_lists() {
 fn presentation_record(id: usize, pending: bool) -> engine::tasks::Record {
     use engine::tasks::{Record, Resolution, Scope, Source, Spec};
     Record {
+        stage_timings: vec![],
         id: format!("presentation-{id}"),
         spec: Spec {
             title: "Fetch remote".into(),
@@ -299,6 +300,35 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
         for (width, height) in [(40, 20), (24, 8), (8, 4), (1, 1), (0, 0)] {
             render(&mut s, width, height);
         }
+        s.shutdown();
+    }
+}
+
+#[test]
+fn stage_timings_have_a_separate_detail_section_and_never_replace_failure_previews() {
+    use engine::tasks::progress::{Measurement, Stage};
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![]);
+        let mut record = presentation_record(0, true);
+        record.stage_timings = vec![Measurement {
+            stage: Stage::FetchingRemote,
+            elapsed_ms: 1234,
+        }];
+        let id = record.id.clone();
+        s.tasks.records = vec![record];
+        s.tasks.selection = Some(id.clone());
+        s.tasks.session = crate::task_center::Session::List;
+        let list = render(&mut s, 60, 28);
+        assert!(list.contains("Authentication failed"), "{list}");
+        assert!(list.contains("请重新登录后重试"), "{list}");
+        assert!(!list.contains(i18n::tr!(ProgressTimings)), "{list}");
+        s.tasks.session = crate::task_center::Session::Detail { id, scroll: 0 };
+        let detail = render(&mut s, 110, 34);
+        assert!(detail.contains("Authentication failed"), "{detail}");
+        assert!(detail.contains(i18n::tr!(ProgressTimings)), "{detail}");
+        assert!(detail.contains(Stage::FetchingRemote.label()), "{detail}");
+        assert!(detail.contains("1.234 s"), "{detail}");
         s.shutdown();
     }
 }

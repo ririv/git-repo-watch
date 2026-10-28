@@ -30,7 +30,7 @@ fn repository_activity(screen: &Screen) -> Option<Notice> {
             "{} {} · {}",
             task.animation.symbol(),
             name(path),
-            task.title
+            task.label()
         );
         return Some(if task.cancel.is_cancelled() {
             Notice::Cancelling(format!("{} · {}", text, i18n::tr!(Cancelling)))

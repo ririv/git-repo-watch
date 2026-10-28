@@ -1,4 +1,5 @@
 //! Persistent task lifecycles shared by interactive and scheduled execution.
+pub mod progress;
 use crate::{
     cancel::Cancel,
     state::{self, Lock, Store},
@@ -80,6 +81,8 @@ pub struct Record {
     pub spec: Spec,
     pub started_at: String,
     pub state: State,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub stage_timings: Vec<progress::Measurement>,
 }
 impl Record {
     pub fn priority(&self) -> u8 {
@@ -176,6 +179,7 @@ impl Run {
         store.prepare_state()?;
         let owner = Lock::acquire(&store.task_lock_path(&id))?;
         let record = Record {
+            stage_timings: vec![],
             id: id.clone(),
             spec,
             started_at: state::now(),
@@ -212,7 +216,14 @@ impl Run {
     pub fn progress(&mut self, progress: String) -> Result<()> {
         self.store.task_progress(&self.record.id, &progress)
     }
-    pub fn finish(mut self, outcome: Outcome) -> Result<()> {
+    pub fn finish(self, outcome: Outcome) -> Result<()> {
+        self.finish_with_timings(outcome, vec![])
+    }
+    pub fn finish_with_timings(
+        mut self,
+        outcome: Outcome,
+        timings: Vec<progress::Measurement>,
+    ) -> Result<()> {
         let stopped = self.monitor.stop().context("task cancellation monitor");
         let outcome = match &stopped {
             Ok(()) => outcome,
@@ -221,7 +232,7 @@ impl Run {
                 resolution: Resolution::Pending,
             },
         };
-        self.store.finish_task(&self.record.id, outcome)?;
+        self.store.finish_task(&self.record.id, outcome, timings)?;
         std::fs::remove_file(self.store.task_lock_path(&self.record.id))?;
         stopped
     }

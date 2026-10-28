@@ -1,7 +1,24 @@
 //! Repository-scoped background work; completion never takes over a different view.
 use super::*;
 use chrono::DateTime;
+use engine::tasks::progress::{Recorder, Stage};
 use std::path::Path;
+
+pub(crate) struct Progress {
+    reporter: Option<engine::tasks::Reporter>,
+    updates: mpsc::Sender<Stage>,
+    measurements: Recorder,
+}
+impl Progress {
+    pub fn enter(&mut self, stage: Stage) -> Result<()> {
+        self.measurements.enter(stage);
+        let _ = self.updates.send(stage);
+        if let Some(reporter) = &self.reporter {
+            reporter.progress(stage.label().into())?;
+        }
+        Ok(())
+    }
+}
 
 #[derive(Debug)]
 pub(super) struct Task {
@@ -13,8 +30,18 @@ pub(super) struct Task {
     page: Page,
     scope: Option<PathBuf>,
     input: String,
+    progress: Option<Stage>,
+    progress_updates: mpsc::Receiver<Stage>,
     rx: mpsc::Receiver<Completion>,
     pub(super) handle: thread::JoinHandle<()>,
+}
+impl Task {
+    pub(crate) fn label(&self) -> &str {
+        match self.progress {
+            Some(stage) => stage.label(),
+            None => &self.title,
+        }
+    }
 }
 #[derive(Debug)]
 struct Completion {
@@ -34,9 +61,7 @@ impl Screen {
         path: PathBuf,
         title: &str,
         effect: Effect,
-        task: impl FnOnce(Arc<Service>, Cancel, mpsc::Sender<WorkerEvent>) -> Result<Outcome>
-        + Send
-        + 'static,
+        task: impl FnOnce(Arc<Service>, Cancel, &mut Progress) -> Result<Outcome> + Send + 'static,
     ) {
         let spec =
             crate::task_center::spec(title, Some(path.clone()), engine::tasks::Retry::Unavailable);
@@ -48,9 +73,7 @@ impl Screen {
         title: &str,
         effect: Effect,
         spec: engine::tasks::Spec,
-        task: impl FnOnce(Arc<Service>, Cancel, mpsc::Sender<WorkerEvent>) -> Result<Outcome>
-        + Send
-        + 'static,
+        task: impl FnOnce(Arc<Service>, Cancel, &mut Progress) -> Result<Outcome> + Send + 'static,
     ) {
         if self.repository_tasks.contains_key(&path) {
             self.message = i18n::tr!(RepositoryTaskBusy).into();
@@ -71,6 +94,7 @@ impl Screen {
         let task_cancel = cancel.clone();
         let language = i18n::language();
         let (tx, rx) = mpsc::channel();
+        let (progress_updates, progress_rx) = mpsc::channel();
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
             let run = if effect == Effect::Check {
@@ -89,9 +113,13 @@ impl Screen {
                     return;
                 }
             };
-            let (progress, _) = mpsc::channel();
+            let mut progress = Progress {
+                reporter: run.as_ref().map(engine::tasks::Run::reporter),
+                updates: progress_updates,
+                measurements: Recorder::default(),
+            };
             let mut outcome =
-                task(service.clone(), task_cancel.clone(), progress).and_then(|outcome| {
+                task(service.clone(), task_cancel.clone(), &mut progress).and_then(|outcome| {
                     match outcome {
                         Outcome::Published(Publication::Failed { phase, error, .. }) => {
                             Err(anyhow::anyhow!(i18n::tf!(
@@ -119,7 +147,20 @@ impl Screen {
                     Effect::ReadOnly | Effect::Check | Effect::Configuration => Refresh::Unchanged,
                 },
             };
-            let view = requested.read(&service, &task_path);
+            let view = if progress.measurements.is_empty()
+                || matches!(requested, crate::mutations::readback::Requested::None)
+            {
+                requested.read(&service, &task_path)
+            } else {
+                let notified = progress.enter(Stage::ReadingView);
+                let read = requested.read(&service, &task_path);
+                match (read, notified) {
+                    (result, Ok(())) => result,
+                    (Ok(_), Err(error)) => Err(error),
+                    (Err(read), Err(progress)) => Err(read.context(progress)),
+                }
+            };
+            let timings = progress.measurements.finish();
             if let Some(run) = run {
                 let completion = match (&outcome, &refresh, &view) {
                     (_, Refresh::Failed(error), _) | (_, _, Err(error)) => {
@@ -130,7 +171,7 @@ impl Screen {
                     }
                     _ => crate::task_center::outcome(&outcome, &task_cancel, &spec.title, effect),
                 };
-                if let Err(error) = run.finish(completion) {
+                if let Err(error) = run.finish_with_timings(completion, timings) {
                     outcome = Err(error);
                 }
             }
@@ -151,6 +192,8 @@ impl Screen {
                 page: self.page,
                 scope: self.scope_path(),
                 input: self.bar.text(),
+                progress: None,
+                progress_updates: progress_rx,
                 rx,
                 handle,
             },
@@ -158,6 +201,13 @@ impl Screen {
         self.message.clear();
     }
     pub(super) fn poll_repository_tasks(&mut self, root: &Cancel) -> bool {
+        let mut changed = false;
+        for task in self.repository_tasks.values_mut() {
+            for stage in task.progress_updates.try_iter() {
+                task.progress = Some(stage);
+                changed = true;
+            }
+        }
         let ready = self
             .repository_tasks
             .iter()
@@ -176,7 +226,7 @@ impl Screen {
                 )),
             })
             .collect::<Vec<_>>();
-        let changed = !ready.is_empty();
+        changed |= !ready.is_empty();
         for (path, mut completion) in ready {
             let task = self
                 .repository_tasks

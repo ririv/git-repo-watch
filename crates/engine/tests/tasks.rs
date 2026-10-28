@@ -45,6 +45,40 @@ fn history_survives_reopening_and_reading_does_not_acknowledge_failure() {
     reopened.resolve_task(&id).unwrap();
     assert!(!store.task(&id).unwrap().unwrap().pending());
 }
+
+#[test]
+fn stage_timings_survive_all_completion_kinds_without_changing_the_original_detail() {
+    use engine::tasks::progress::{Measurement, Stage};
+    let (_home, store) = fixture();
+    let timings = vec![Measurement {
+        stage: Stage::FetchingRemote,
+        elapsed_ms: 1234,
+    }];
+    for outcome in [
+        Outcome::Succeeded {
+            detail: "original".into(),
+        },
+        failed("original"),
+        Outcome::Cancelled {
+            detail: "original".into(),
+        },
+    ] {
+        let run = Run::begin(&store, spec(), &Cancel::default()).unwrap();
+        let id = run.record.id.clone();
+        run.finish_with_timings(outcome.clone(), timings.clone())
+            .unwrap();
+        let reopened = Store::custom(store.config_dir());
+        let record = reopened.task(&id).unwrap().unwrap();
+        assert_eq!(record.stage_timings, timings);
+        assert!(
+            matches!(&record.state, State::Finished { outcome: actual, .. } if actual == &outcome)
+        );
+        let mut legacy = serde_json::to_value(&record).unwrap();
+        legacy.as_object_mut().unwrap().remove("stage_timings");
+        let legacy: engine::tasks::Record = serde_json::from_value(legacy).unwrap();
+        assert!(legacy.stage_timings.is_empty());
+    }
+}
 #[test]
 fn active_and_pending_tasks_are_not_hidden_by_the_history_limit() {
     let (_home, store) = fixture();

@@ -130,7 +130,12 @@ impl Store {
             Ok(())
         })
     }
-    pub(crate) fn finish_task(&self, id: &str, outcome: Outcome) -> Result<()> {
+    pub(crate) fn finish_task(
+        &self,
+        id: &str,
+        outcome: Outcome,
+        timings: Vec<crate::tasks::progress::Measurement>,
+    ) -> Result<()> {
         self.update_task(id, |record, tx| {
             ensure!(record.active(), "task has already finished");
             if matches!(outcome, Outcome::Succeeded { .. })
@@ -163,6 +168,7 @@ impl Store {
                 at: crate::state::now(),
                 outcome,
             };
+            record.stage_timings = timings;
             Ok(())
         })
     }
@@ -227,6 +233,7 @@ pub(super) fn import_operations(tx: &Transaction<'_>) -> Result<()> {
         };
         let record = Record {
             id: format!("operation-{id}"),
+            stage_timings: vec![],
             spec: Spec {
                 title: operation.operation.kind().into(),
                 scope: Scope::Repository {

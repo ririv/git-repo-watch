@@ -92,6 +92,23 @@ pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
             )
         }));
     }
+    if !record.stage_timings.is_empty() {
+        lines.push(Line::default());
+        lines.push(section(i18n::tr!(ProgressTimings), ACCENT, width));
+        let label_width = record
+            .stage_timings
+            .iter()
+            .map(|timing| timing.stage.label().width())
+            .max()
+            .unwrap_or(0);
+        lines.extend(record.stage_timings.iter().map(|timing| {
+            field(
+                timing.stage.label(),
+                format!("{:.3} s", timing.elapsed_ms as f64 / 1000.0),
+                label_width,
+            )
+        }));
+    }
     Text::from(lines)
 }
 pub(super) fn panel(area: Rect) -> Block<'static> {

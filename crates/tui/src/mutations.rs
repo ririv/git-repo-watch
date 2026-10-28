@@ -139,10 +139,21 @@ impl Screen {
         } else {
             i18n::tr!(ConfirmOperation)
         };
-        self.start_repository(path.clone(), title, effect, move |service, cancel, _| {
-            let plan = service.prepare_mutation(&path, request, &cancel)?;
-            Ok(Outcome::MutationPrepared { plan, draft })
-        });
+        self.start_repository(
+            path.clone(),
+            title,
+            effect,
+            move |service, cancel, progress| {
+                let plan = if matches!(request, Request::Sync) {
+                    service.prepare_mutation_observed(&path, request, &cancel, &mut |stage| {
+                        progress.enter(stage)
+                    })?
+                } else {
+                    service.prepare_mutation(&path, request, &cancel)?
+                };
+                Ok(Outcome::MutationPrepared { plan, draft })
+            },
+        );
     }
     pub(crate) fn execute_mutation(&mut self, plan: Plan, origin: Mode) {
         self.mode = origin;

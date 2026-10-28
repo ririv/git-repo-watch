@@ -39,6 +39,7 @@ mod scrollbars;
 mod search;
 mod settings_design;
 mod startup;
+mod sync_progress;
 mod task_center;
 mod task_feedback;
 mod text_selection;
