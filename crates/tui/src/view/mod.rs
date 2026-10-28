@@ -29,6 +29,7 @@ mod shell;
 mod stashes;
 mod tasks;
 mod text_editor;
+mod workflow;
 mod workspace;
 use super::*;
 use body::render_body;

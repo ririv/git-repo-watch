@@ -73,6 +73,12 @@ impl Screen {
                         }
                     }
                     Target::Settings => self.scroll = offset,
+                    Target::ScheduleButton
+                    | Target::WorkflowSteps
+                    | Target::WorkflowToggle
+                    | Target::WorkflowActions => {
+                        return false;
+                    }
                 }
             }
 
@@ -92,6 +98,31 @@ impl Screen {
             }
 
             Action::Select(target, index) => match target {
+                Target::ScheduleButton => return false,
+                Target::WorkflowSteps | Target::WorkflowToggle | Target::WorkflowActions => {
+                    if !matches!(self.mode, Mode::Workflow(_)) {
+                        return false;
+                    }
+                    let Mode::Workflow(mut session) = self.take_mode() else {
+                        return false;
+                    };
+                    let result = match target {
+                        Target::WorkflowSteps if session.select(index) => {
+                            Ok(crate::workflow::Input::Pending)
+                        }
+                        Target::WorkflowToggle if index < 3 && session.select(index) => {
+                            session.apply(crate::workflow::Action::Toggle)
+                        }
+                        Target::WorkflowActions if index < crate::workflow::Action::ALL.len() => {
+                            session.apply(crate::workflow::Action::ALL[index])
+                        }
+                        _ => {
+                            self.mode = Mode::Workflow(session);
+                            return false;
+                        }
+                    };
+                    self.workflow_input(session, result);
+                }
                 Target::CompositionCommits | Target::CompositionUnits => {
                     let Mode::Composition(session) = &mut self.mode else {
                         return false;
@@ -254,6 +285,7 @@ impl Screen {
                     _ => return false,
                 },
                 ScrollTarget::Text => match &mut self.mode {
+                    Mode::Workflow(session) => session.scroll = offset,
                     Mode::CompositionWaiting(waiting) => match &mut waiting.state {
                         crate::composition::waiting::State::Failed { scroll, .. } => {
                             *scroll = offset

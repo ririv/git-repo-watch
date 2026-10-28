@@ -1,6 +1,6 @@
 //! Typed TOML configuration and explicit legacy JSON conversion.
 use super::{Store, atomic};
-use crate::{cancel::Cancel, domain::PushPolicy};
+use crate::cancel::Cancel;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
 use std::{
@@ -11,6 +11,7 @@ use std::{
 };
 use toml_edit::{Array, DocumentMut, Item, Value};
 mod ai;
+mod workflows;
 
 impl Default for Config {
     fn default() -> Self {
@@ -19,7 +20,8 @@ impl Default for Config {
             schedule_anchor: Default::default(),
             repositories: vec![],
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: crate::workflow::Plan::fetch(),
+            scheduled_actions: crate::workflow::Plan::fetch(),
             max_concurrency: 4,
             check_on_startup: true,
             text_wrap: false,
@@ -41,7 +43,10 @@ pub struct Config {
     pub schedule_anchor: crate::scheduler::timing::Anchor,
     pub repositories: Vec<PathBuf>,
     pub excluded_roots: Vec<PathBuf>,
-    pub push_policy: PushPolicy,
+    #[serde(default)]
+    pub startup_actions: crate::workflow::Plan,
+    #[serde(default)]
+    pub scheduled_actions: crate::workflow::Plan,
     #[serde(
         default = "default_concurrency",
         skip_serializing_if = "is_default_concurrency"
@@ -147,11 +152,12 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 10] = [
+const FIELDS: [&str; 11] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
-    "push_policy",
+    "startup_actions",
+    "scheduled_actions",
     "max_concurrency",
     "check_on_startup",
     "text_wrap",
@@ -169,6 +175,7 @@ pub enum ConfigurationMigration {
 pub(super) fn parse(text: &str) -> Result<Config> {
     let mut document: DocumentMut = text.parse().context(i18n::tr!(InvalidToml))?;
     ai::migrate(&mut document)?;
+    workflows::migrate(&mut document)?;
     let config: Config =
         toml_edit::de::from_str(&document.to_string()).context(i18n::tr!(InvalidToml))?;
     config.validate()?;
@@ -182,6 +189,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         .parse()
         .context(i18n::tr!(InvalidToml))?;
     ai::migrate(&mut document)?;
+    workflows::migrate(&mut document)?;
     // 旧版将 AI 选项保存在提交专用表；下次显式保存配置时整体更名，保留表内注释。
     if let Some(legacy) = document.remove("commit_message") {
         document.insert("ai", legacy);
@@ -192,10 +200,12 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
     for key in FIELDS {
         // 旧配置缺少显示或交互偏好时沿用默认值，不因无关配置更新而补写字段。
-        if matches!(key, "interaction_mode" | "text_wrap")
-            && before
-                .as_ref()
-                .is_some_and(|before| before.get(key) == after.get(key))
+        if matches!(
+            key,
+            "interaction_mode" | "text_wrap" | "startup_actions" | "scheduled_actions"
+        ) && before
+            .as_ref()
+            .is_some_and(|before| before.get(key) == after.get(key))
         {
             continue;
         }
@@ -228,11 +238,16 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             .context(i18n::tr!(InvalidToml))?
             .clone();
         if let Some(current) = document.get(key).and_then(Item::as_value) {
-            if let (Some(old), Some(new)) = (current.as_array(), replacement.as_array()) {
+            if let (Some(old), Some(new)) = (current.as_array(), replacement.as_array())
+                && (matches!(key, "repositories" | "excluded_roots")
+                    || old.to_string().contains(['\n', '#']))
+            {
                 replacement = Value::Array(paths_array(old, new));
             }
             *replacement.decor_mut() = current.decor().clone();
-        } else if let Some(array) = replacement.as_array() {
+        } else if let Some(array) = replacement.as_array()
+            && matches!(key, "repositories" | "excluded_roots")
+        {
             replacement = Value::Array(paths_array(&Array::new(), array));
         }
         document[key] = Item::Value(replacement);
@@ -375,18 +390,40 @@ impl Store {
         let legacy = self.legacy_config_path();
         if !legacy.try_exists()? {
             if self.config_path().try_exists()? {
-                parse(&fs::read_to_string(self.config_path())?)?;
+                let text = fs::read_to_string(self.config_path())?;
+                let config = parse(&text)?;
+                let document: DocumentMut = text.parse()?;
+                if document.contains_key("push_policy") {
+                    atomic(
+                        &self.config_path(),
+                        encode(&config, Some(&text))?.as_bytes(),
+                        0o600,
+                    )?;
+                    return Ok(ConfigurationMigration::Converted);
+                }
             }
             return Ok(ConfigurationMigration::Ready);
         }
         let bytes = fs::read(&legacy)?;
-        let config: Config = serde_json::from_slice(&bytes).context(i18n::tr!(InvalidJson))?;
+        let mut value: serde_json::Value =
+            serde_json::from_slice(&bytes).context(i18n::tr!(InvalidJson))?;
+        workflows::migrate_json(&mut value)?;
+        let config: Config = serde_json::from_value(value).context(i18n::tr!(InvalidJson))?;
         config.validate()?;
         if self.config_path().try_exists()? {
             ensure!(
                 parse(&fs::read_to_string(self.config_path())?)? == config,
                 i18n::tr!(ConfigurationMigrationConflict)
             );
+            let text = fs::read_to_string(self.config_path())?;
+            let document: DocumentMut = text.parse()?;
+            if document.contains_key("push_policy") {
+                atomic(
+                    &self.config_path(),
+                    encode(&config, Some(&text))?.as_bytes(),
+                    0o600,
+                )?;
+            }
         } else {
             let mut staged = tempfile::NamedTempFile::new_in(self.config_dir())?;
             staged

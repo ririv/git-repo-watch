@@ -18,7 +18,8 @@ fn fixture() -> (tempfile::TempDir, Store) {
             schedule_anchor: Default::default(),
             repositories: vec![PathBuf::from("/path/to/unavailable/repository")],
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,
@@ -80,7 +81,10 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
     let config = store.config().unwrap();
     assert_eq!(config.interval_seconds, 43200);
     assert_eq!(config.max_concurrency, 2);
-    assert_eq!(config.push_policy, PushPolicy::FastForward);
+    assert_eq!(
+        config.scheduled_actions.push_policy(),
+        PushPolicy::FastForward
+    );
     assert!(store.report().unwrap().is_none());
     assert_eq!(
         cli(&store, &["report", "--problems", "--pushes"])
@@ -92,6 +96,43 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
         cli(&store, &["status", "unexpected"]).status.code(),
         Some(2)
     );
+}
+
+#[test]
+fn workflow_cli_saves_independent_ordered_plans_and_reports_mutation_scopes_without_running_them() {
+    let (_temp, store) = fixture();
+    for args in [
+        &["startup-actions", "inspect"][..],
+        &["scheduled-actions", "fetch", "pull", "push", "inspect"][..],
+    ] {
+        let out = cli(&store, args);
+        assert!(
+            out.status.success(),
+            "{}",
+            String::from_utf8_lossy(&out.stderr)
+        );
+    }
+    assert_eq!(
+        store.config().unwrap().startup_actions,
+        engine::workflow::Plan::local()
+    );
+    assert_eq!(
+        store.config().unwrap().scheduled_actions.tokens(),
+        "fetch pull push inspect"
+    );
+    assert!(store.report().unwrap().is_none());
+    let out = cli(&store, &["status", "--json"]);
+    assert!(out.status.success());
+    let status: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
+    assert_eq!(status["startup_actions"], serde_json::json!(["inspect"]));
+    assert_eq!(
+        status["scheduled_actions"],
+        serde_json::json!(["fetch", "pull", "push", "inspect"])
+    );
+    let original = fs::read(store.config_path()).unwrap();
+    let invalid = cli(&store, &["scheduled-actions", "push", "inspect"]);
+    assert!(!invalid.status.success());
+    assert_eq!(fs::read(store.config_path()).unwrap(), original);
 }
 #[test]
 fn malformed_and_missing_reports_are_distinct() {
@@ -299,7 +340,7 @@ fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_argument
     let (_temp, store) = fixture();
     let mut config = store.config().unwrap();
     config.repositories.clear();
-    config.push_policy = PushPolicy::FastForward;
+    config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     store.save_config(&config).unwrap();
     assert_eq!(cli(&store, &["check"]).status.code(), Some(1));
     assert_eq!(

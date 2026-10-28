@@ -43,6 +43,7 @@ mod stashes;
 mod task;
 mod task_center;
 mod view;
+mod workflow;
 mod workspace;
 use anyhow::{Context, Result};
 use command::{Action, Configuration};
@@ -85,6 +86,7 @@ enum Page {
 }
 #[derive(Debug)]
 enum Mode {
+    Workflow(Box<workflow::Session>),
     PromptEditor(Box<prompt_editor::Session>),
     Composition(Box<composition::Session>),
     CompositionWaiting(Box<composition::waiting::Session>),

@@ -232,6 +232,8 @@ pub struct Report {
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Execution {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow: Option<crate::workflow::Plan>,
     pub max_concurrency: usize,
     pub repositories: Vec<Timing>,
 }
@@ -243,6 +245,8 @@ pub struct Timing {
     pub local_ms: u128,
     pub verify_ms: u128,
     pub push_ms: u128,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<crate::workflow::StepRecord>,
 }
 impl Report {
     pub fn validate(&self) -> anyhow::Result<()> {

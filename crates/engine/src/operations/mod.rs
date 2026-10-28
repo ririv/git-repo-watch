@@ -3,3 +3,5 @@ pub mod commit;
 pub mod mutation;
 pub mod pull;
 pub mod push;
+
+pub mod fetch;

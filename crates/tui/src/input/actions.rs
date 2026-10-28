@@ -304,6 +304,7 @@ impl Screen {
                     self.cancel_check();
                 }
             }
+            Action::Workflow(trigger) => self.open_workflow(trigger),
             Action::Apply | Action::EnableSchedule | Action::DisableSchedule => {
                 self.mode = Mode::Confirm {
                     operation: Confirmation::Schedule(match action {

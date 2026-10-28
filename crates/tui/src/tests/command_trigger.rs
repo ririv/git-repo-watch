@@ -62,8 +62,8 @@ fn alias_retains_scope_supports_global_escape_and_replaces_selected_prefix() {
         assert_eq!(s.bar.text(), "/help");
         key(&mut s, KeyCode::Esc);
     }
-    s.paste("、startup-check false");
-    assert_eq!(s.bar.text(), "/settings startup-check false");
+    s.paste("、startup enabled false");
+    assert_eq!(s.bar.text(), "/settings startup enabled false");
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('、'));
@@ -135,7 +135,8 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             names,
             [
                 "settings concurrency",
-                "settings startup-check",
+                "settings startup",
+                "settings startup enabled",
                 "settings wrap",
                 "settings interaction",
                 "settings ai",

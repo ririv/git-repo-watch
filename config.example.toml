@@ -9,13 +9,17 @@ repositories = []
 # 扫描时排除的目录绝对路径。
 excluded_roots = []
 
-# 定时任务的自动推送策略：disabled 或 fast_forward。
-push_policy = "disabled"
+# 启动与定时分别编排。按数组顺序执行，步骤失败后停止该仓库的后续步骤。
+# fetch：更新 Git 对象及远程跟踪引用；pull：获取上游并快进当前分支，修改工作区。
+# push：推送仅领先上游的本地分支，更新对应的远程分支；之前必须有 fetch 或 pull。
+# inspect：读取并保存本地状态，固定为最后一步。
+startup_actions = ["fetch", "inspect"]
+scheduled_actions = ["fetch", "inspect"]
 
 # 多仓库检查与写操作共用的并发上限，范围为 1 至 32。
 max_concurrency = 4
 
-# 启动 TUI 时是否在后台检查全部仓库。
+# 启动 TUI 时是否对全部仓库执行 startup_actions。
 check_on_startup = true
 
 # 文件文本预览和 diff 自动换行；关闭时使用横向滚动。

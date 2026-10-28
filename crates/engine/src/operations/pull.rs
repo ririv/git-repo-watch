@@ -85,6 +85,22 @@ impl Plan {
     }
 }
 pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<Plan> {
+    prepare_with_refresh(git, path, Refresh::Fetch, cancel)
+}
+/// Prepare against remote-tracking references refreshed earlier in the same repository lock.
+pub(crate) fn prepare_fetched(
+    git: &Git,
+    path: &Path,
+    remotes: &[String],
+    cancel: &Cancel,
+) -> Result<Plan> {
+    prepare_with_refresh(git, path, Refresh::Fetched(remotes), cancel)
+}
+enum Refresh<'a> {
+    Fetch,
+    Fetched(&'a [String]),
+}
+fn prepare_with_refresh(git: &Git, path: &Path, refresh: Refresh, cancel: &Cancel) -> Result<Plan> {
     let repo = local::open(path)?;
     local::guard::clean_tracked(&repo)?;
     let guard = Guard::capture(path, cancel)?;
@@ -96,7 +112,12 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<Plan> {
         .expect("attached branch")
         .to_owned();
     let source = Source::read(&repo, &branch)?;
-    if let Source::Remote { remote, .. } = &source {
+    if let Source::Remote { remote, .. } = &source
+        && match refresh {
+            Refresh::Fetch => true,
+            Refresh::Fetched(remotes) => !remotes.contains(remote),
+        }
+    {
         git.fetch_tracking(
             path,
             &local::branches::fetch::Remote::read(&repo, remote)?,

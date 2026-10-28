@@ -8,6 +8,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::Workflow(session) => workflow::render(frame, area, session, &mut screen.pointer),
         Mode::CompositionWaiting(waiting) => {
             composition::waiting(frame, area, waiting, &mut screen.pointer)
         }

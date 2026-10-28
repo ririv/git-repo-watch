@@ -84,6 +84,7 @@ pub enum Action {
     Autopush,
     Concurrency,
     StartupCheck,
+    Workflow(engine::workflow::Trigger),
     WrapMenu,
     Wrap(bool),
     Apply,
@@ -474,9 +475,19 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::SetCheckConcurrencyLimit132,
     },
     Command {
-        name: "settings startup-check",
+        name: "settings startup",
+        action: Workflow(engine::workflow::Trigger::Startup),
+        description: i18n::Message::WorkflowStartupActions,
+    },
+    Command {
+        name: "settings startup enabled",
         action: StartupCheck,
         description: i18n::Message::CheckAllOnStartup,
+    },
+    Command {
+        name: "schedule actions",
+        action: Workflow(engine::workflow::Trigger::Scheduled),
+        description: i18n::Message::WorkflowScheduledActions,
     },
     Command {
         name: "settings wrap",
@@ -651,15 +662,28 @@ pub enum Configuration {
 impl Configuration {
     pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
         match self {
-            Self::General => &[Concurrency, StartupCheck, WrapMenu],
+            Self::General => &[
+                Concurrency,
+                StartupCheck,
+                Workflow(engine::workflow::Trigger::Startup),
+                WrapMenu,
+            ],
             Self::Repositories => &[Add, Remove, Exclude, Unexclude, Scan, Import],
             Self::Schedule => match registration {
-                engine::scheduler::Registration::Loaded => {
-                    &[Interval, Anchor, Autopush, Apply, DisableSchedule]
-                }
-                engine::scheduler::Registration::NotLoaded => {
-                    &[Interval, Anchor, Autopush, Apply, EnableSchedule]
-                }
+                engine::scheduler::Registration::Loaded => &[
+                    DisableSchedule,
+                    Interval,
+                    Anchor,
+                    Workflow(engine::workflow::Trigger::Scheduled),
+                    Apply,
+                ],
+                engine::scheduler::Registration::NotLoaded => &[
+                    EnableSchedule,
+                    Interval,
+                    Anchor,
+                    Workflow(engine::workflow::Trigger::Scheduled),
+                    Apply,
+                ],
             },
         }
     }

@@ -42,6 +42,7 @@ mod startup;
 mod task_center;
 mod task_feedback;
 mod text_selection;
+mod workflows;
 mod workspace;
 mod wrapping;
 use super::*;
@@ -67,7 +68,9 @@ fn screen(service: Service) -> Screen {
             configured_interval_seconds: config.interval_seconds,
             configured_anchor: config.schedule_anchor.clone(),
             next_trigger: engine::scheduler::NextTrigger::Unanchored,
-            push_policy: config.push_policy,
+            push_policy: config.scheduled_actions.push_policy(),
+            startup_actions: config.startup_actions.clone(),
+            scheduled_actions: config.scheduled_actions.clone(),
             repository_count: config.repositories.len(),
             excluded_roots: config.excluded_roots.clone(),
             schedule: Schedule::Saved {
@@ -133,7 +136,8 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             schedule_anchor: Default::default(),
             repositories: paths,
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             check_on_startup: false,
             chinese_command_trigger: true,
@@ -1287,7 +1291,7 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     let _language = i18n::using(i18n::Language::English);
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    s.config.push_policy = PushPolicy::FastForward;
+    s.config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     s.service.store.save_config(&s.config).unwrap();
     let gate = FetchGate::install(&f);
     command(&mut s, "repo check");
@@ -1399,6 +1403,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             "schedule interval",
             "schedule anchor",
             "schedule autopush",
+            "schedule actions",
             "schedule apply",
             "schedule enable",
             "schedule disable"
@@ -1411,7 +1416,8 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         [
             "settings concurrency",
-            "settings startup-check",
+            "settings startup",
+            "settings startup enabled",
             "settings wrap",
             "settings interaction",
             "settings ai",
@@ -1454,15 +1460,15 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let text = render(&mut s, width, height);
             assert!(text.contains(i18n::tr!(ScheduleSettings)));
-            assert!(text.contains("fast_forward") || text.contains("disabled"));
+            assert!(text.contains(i18n::tr!(WorkflowScheduledActions)));
             assert!(!text.contains("/example/excluded"));
             assert!(!text.contains(command::description(Action::Concurrency)));
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.mode, Mode::Browsing));
-        assert!(s.bar.text().starts_with("/schedule autopush "));
+        assert!(matches!(s.mode, Mode::Workflow(_)));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings");
         assert_eq!(s.page, Page::Configuration(Configuration::General));
@@ -1515,10 +1521,11 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("//sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/schedule");
-    assert_eq!(s.search_commands().unwrap().len(), 7);
+    assert_eq!(s.search_commands().unwrap().len(), 8);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);
+    key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.bar.text().starts_with("/schedule interval "));
@@ -1548,8 +1555,13 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
         before.interval_seconds
     );
     assert_eq!(
-        s.service.store.config().unwrap().push_policy,
-        before.push_policy
+        s.service
+            .store
+            .config()
+            .unwrap()
+            .scheduled_actions
+            .push_policy(),
+        before.scheduled_actions.push_policy()
     );
     assert!(s.service.store.report().unwrap().is_none());
 }
@@ -1624,13 +1636,10 @@ fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action
                 };
                 assert!(text.contains(&application));
             }
-            for _ in 0..4 {
-                key(&mut s, KeyCode::Down);
-            }
             let text = render(&mut s, 60, 18);
             assert!(text.contains(match expected_control {
-                Control::Enable => i18n::tr!(EnableScheduledTask),
-                Control::Disable => i18n::tr!(DisableScheduledTask),
+                Control::Enable => i18n::tr!(ScheduleEnableButton),
+                Control::Disable => i18n::tr!(ScheduleDisableButton),
                 _ => unreachable!(),
             }));
             key(&mut s, KeyCode::Enter);
@@ -1714,7 +1723,7 @@ fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchan
     let config = s.service.store.config().unwrap();
     assert_eq!(config.interval_seconds, 21600);
     assert_eq!(config.max_concurrency, 4);
-    assert_eq!(config.push_policy, PushPolicy::Disabled);
+    assert_eq!(config.scheduled_actions.push_policy(), PushPolicy::Disabled);
     assert!(config.repositories.is_empty());
 }
 
@@ -1722,6 +1731,7 @@ fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchan
 fn dashboard_editing_and_confirmation_share_the_inline_command_draft() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "schedule");
+    key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.bar.text(), "/schedule interval 6h");
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));

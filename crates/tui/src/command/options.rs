@@ -244,7 +244,7 @@ impl Kind {
             Self::Interaction => Value::Interaction(screen.config.interaction_mode),
             Self::StartupCheck => Value::StartupCheck(screen.config.check_on_startup),
             Self::TextWrap => Value::TextWrap(screen.config.text_wrap),
-            Self::Autopush => Value::Autopush(screen.config.push_policy),
+            Self::Autopush => Value::Autopush(screen.config.scheduled_actions.push_policy()),
             Self::AiAgent => Value::AiAgent(screen.config.ai.agent),
         })
     }

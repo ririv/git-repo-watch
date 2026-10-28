@@ -146,15 +146,16 @@
 - `/repo` 打开选中仓库的概览，所有仓库视图和操作归入其下；`/repos` 返回仓库列表，`/repos manage` 查看注册和排除配置；也可直接使用：`/repos add <path>`、`/repos remove`、`/repos exclude <path>`、`/repos unexclude <path>`。
 - `/repos scan <path>` 预览发现结果，`/repos import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
-- `/settings startup-check [true|false]` 控制启动时检查全部仓库，默认 true；修改在下次启动生效。
+- 流程编辑页勾选步骤即可加入，取消勾选即可移除；`↑↓` 选择步骤与底部保存、取消，`Enter`／空格操作当前项，`←→` 选择独立“操作”面板中的上移、下移。点击步骤也可直接勾选，保存后生效。
+- `/settings startup` 编辑启动任务的执行流程；`/settings startup enabled [true|false]` 控制是否启动时执行，默认 true。
 - `/settings wrap [true|false]` 设置文件文本与 diff 的自动换行，默认关闭并保存到配置。开启后行号固定，双栏 diff 保持前后版本对齐，链接仍可点击；关闭时使用横向滚动。也可在设置页的“显示”组修改。
-- `/schedule` 打开任务管理页，查看状态和待应用间隔、修改配置并启停任务。
-- `/schedule interval <duration>` 设置间隔，如 6h；`/schedule autopush [disabled|fast_forward]` 接受 disabled 或 fast_forward。
+- `/schedule` 打开定时任务页。状态、间隔、时间基准和执行流程各自显示当前值与对应按钮，单击按钮即可修改或进入启停确认；↑↓ 选择，Enter 操作。
+- `/schedule actions` 编辑执行流程；`/schedule interval <duration>` 设置间隔，如 6h。
 - `/schedule anchor <datetime|auto>` 设置本地时间基准，可填 HH:MM[:SS] 或 YYYY-MM-DD HH:MM[:SS]；auto 在启用时重新生成。
 - 基准缺省时，首次启用会自动生成并保存，后续启停和重启沿用；定时任务页显示基准与当前已应用任务的下次触发。
 - 间隔支持 s / m / h / d / w（秒、分、小时、天、周，至少 60 秒），保存后用 `/schedule apply` 应用。
 - `/schedule apply` 应用配置，`/schedule enable` 启用任务，`/schedule disable` 停止后续调度。
-> 自动推送只用于定时检查。启动 TUI 默认后台检查全部仓库，可在通用设置中关闭；不会扫描或推送。启动检查完成后更新整轮报告；暂存、提交和推送只根据本地 Git 状态刷新对应仓库，不额外 fetch。
+> 启动与定时分别执行自己的流程。默认 fetch → inspect；可添加 pull、push 并调整顺序。inspect 固定最后，push 前先 fetch 或 pull。某步失败即停止此仓库的后续步骤，详情保存在后台任务中。手动检查仍只执行 fetch 和本地读取。
 
 ## 操作确认
 - `←→` / `Tab` 切换操作，`Enter` 确认，`Esc` 返回；提交和配置返回编辑时保留草稿。

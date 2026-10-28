@@ -155,6 +155,20 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
+        "startup-actions" | "scheduled-actions" => {
+            let plan: engine::workflow::Plan = args.join(" ").parse()?;
+            let details = plan.details();
+            service.configure(ConfigEdit::Workflow {
+                trigger: if command == "startup-actions" {
+                    engine::workflow::Trigger::Startup
+                } else {
+                    engine::workflow::Trigger::Scheduled
+                },
+                plan,
+            })?;
+            println!("{}\n{details}", i18n::tr!(WorkflowSaved));
+            Ok(0)
+        }
         "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency"
         | "startup-check" | "anchor" => {
             let value = one(&args)?;
@@ -400,6 +414,13 @@ pub fn render_status(s: &Snapshot) -> String {
         } else {
             i18n::tr!(TaskDisabled)
         }
+    ));
+    text.push_str(&format!(
+        "{}: {}\n{}: {}\n",
+        i18n::tr!(WorkflowStartupActions),
+        s.startup_actions.summary(),
+        i18n::tr!(WorkflowScheduledActions),
+        s.scheduled_actions.summary(),
     ));
     text.push_str(&format!(
         "{}: {}\n{}: {}\n",

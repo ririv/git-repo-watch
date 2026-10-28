@@ -55,9 +55,21 @@ impl Service {
             }
             ConfigEdit::Interval(value) => config.interval_seconds = value,
             ConfigEdit::Anchor(value) => config.schedule_anchor = value,
-            ConfigEdit::Policy(value) => config.push_policy = value,
+            ConfigEdit::Policy(value) => {
+                use crate::workflow::Step;
+                let mut steps = config.scheduled_actions.steps().to_vec();
+                steps.retain(|step| *step != Step::Push);
+                if value == PushPolicy::FastForward {
+                    steps.insert(steps.len() - 1, Step::Push);
+                }
+                config.scheduled_actions = steps.try_into()?;
+            }
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
             ConfigEdit::StartupCheck(value) => config.check_on_startup = value,
+            ConfigEdit::Workflow { trigger, plan } => match trigger {
+                crate::workflow::Trigger::Startup => config.startup_actions = plan,
+                crate::workflow::Trigger::Scheduled => config.scheduled_actions = plan,
+            },
             ConfigEdit::TextWrap(value) => config.text_wrap = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),

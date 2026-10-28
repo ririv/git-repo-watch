@@ -107,7 +107,7 @@ gw install
 
 中文界面默认支持输入 `、` 打开命令菜单，与 `/` 使用相同上下文，菜单内统一显示 `/`。在 `/settings` 选中“输入 、 打开命令菜单”，按 Enter 直接切换并保存，立即生效，不需要确认；该偏好不占用命令菜单。配置键为 `chinese_command_trigger`，缺省值 `true`；英文界面隐藏该选项且不启用这个输入别名。路径、提交信息等正文中的 `、` 保持原样。
 
-`check_on_startup` 控制每次启动 TUI 后是否后台检查全部注册仓库，默认 `true`，旧配置缺少该字段时也默认开启。通用设置中可编辑，或运行 `gw startup-check false` 关闭；修改只对下次进入 TUI 生效，不要求重新应用系统调度，也不立即检查。没有注册仓库或已有检查正在运行时不会重复发起。启动检查只执行 fetch 和状态比较，不应用定时任务的自动推送策略；`status`、`report` 和配置命令仍只读取或修改配置，不触发启动检查。
+`check_on_startup` 控制每次启动 TUI 后是否后台检查全部注册仓库，默认 `true`，旧配置缺少该字段时也默认开启。通用设置中可编辑，或运行 `gw startup-check false` 关闭；修改只对下次进入 TUI 生效，不要求重新应用系统调度，也不立即检查。没有注册仓库或已有检查正在运行时不会重复发起。启动时执行 `startup_actions` 中的步骤，默认 fetch → inspect，与定时流程独立；`status`、`report` 和配置命令仍只读取或修改配置，不触发启动检查。
 
 ## 终端界面
 
@@ -218,7 +218,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 | `/repo` | 打开选中仓库的概览；子命令包含该仓库的视图和操作 |
 | `/repos` | 返回仓库列表；子命令包含筛选、排序与仓库管理 |
 | `/repos manage` | 查看注册和排除配置 |
-| `/settings` | 通用设置页；子命令 `concurrency` 配置检查并发数、`startup-check` 配置启动检查 |
+| `/settings` | 通用设置页；子命令 `concurrency` 配置检查并发数、`startup` 编排启动流程、`startup enabled` 启停启动任务 |
 | `/schedule` | 独立管理页，查看状态和配置、启停任务；保留 `interval`、`autopush`、`apply`、`enable`、`disable` 子命令 |
 | `/help`、`/quit` | 帮助、退出 |
 
@@ -241,7 +241,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 - `/schedule anchor [<datetime>|auto]`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
 - `/schedule autopush [disabled|fast_forward]`，取值 `disabled` 或 `fast_forward`。
 - `/settings concurrency <count>`，范围 1 至 32。
-- `/settings startup-check [true|false]`，控制启动时检查全部仓库，默认 `true`。
+- `/settings startup enabled [true|false]`，控制启动时检查全部仓库，默认 `true`。
 
 通用设置包含独立的“鼠标与触控板”分组，精确点击、滚轮滚动、选择子视图默认均开启，可分别关闭，保存后立即生效。精确点击按实际显示的行选择仓库、文件、分支、stash 和提交，点击横纵滚动条可定位。同一条目双击等同于选中后按 Enter，沿用现有导航和确认流程；标题、空白与滚动条不触发 Enter。关闭精确点击也会关闭双击。关闭“选择子视图”后，指针只操作已聚焦面板，不会因点击或滚动切换面板；键盘操作始终保留。配置保存在 TOML 的 `[mouse]` 表中，对应 `precise_click`、`scroll`、`select_pane`。
 
@@ -350,7 +350,7 @@ model = ""
 - 按远程执行一次系统 Git：`fetch --prune --no-prune-tags --no-tags --no-recurse-submodules --refmap= -- <remote> <远程跟踪 refspec...> <负向 refspec...>`。仅传入目标位于 `refs/remotes/` 的配置映射，不抓取或清理标签、本地分支等其他目标。清理范围重叠时在 fetch 前拒绝执行。
 - libgit2 读取工作区、子模块、HEAD、本地分支和上游，并比较提交图。
 - 固定 fetch 后的本地跟踪引用快照进行比较，普通检查不执行 `ls-remote`。通配规则下已删除的上游在 prune 后报告为上游不存在，仍属于已配置上游；精确 refspec 指向已删除分支时，Git 会拒绝 fetch，程序保留其失败原因，不使用旧引用判定同步。
-- 仅定时任务按推送策略处理领先且不落后的已提交内容。
+- 启动与定时任务只在各自流程显式包含 push 时，推送领先且不落后的已提交内容。
 - 汇总结果，按配置列表顺序原子保存完整报告。
 
 进度按实际完成顺序返回，报告顺序稳定。单个仓库失败不会中止其他仓库。取消会停止领取新任务、取消 Git/SSH/钩子进程组并等待工作线程退出，保留此前的完整报告；已经完成的远程写入不能撤销，需要核对实际远程状态。
@@ -361,7 +361,7 @@ Git 命令默认超时 120 秒，SSH 禁止交互提示并限制连接等待。l
 
 ## 自动推送保证
 
-自动推送配置仅用于定时任务入口 `gw scheduled-check`；手动 `gw check [路径]`、`/repo check` 和 `/repos check` 均不推送，也无需确认。
+启动与定时流程分别由 `startup_actions` 和 `scheduled_actions` 决定；手动 `gw check [路径]`、`/repo check` 和 `/repos check` 始终只执行 fetch 与本地检查。
 
 `fast_forward` 只处理已配置远程上游、领先且不落后的本地分支。自动推送不会创建提交，也不会添加文件或发布无上游的实验分支。
 
@@ -573,11 +573,36 @@ GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格�
 
 项目采用 MIT，见 `LICENSE`。依赖遵守各自许可证；libgit2 的链接例外允许应用采用独立许可证。公开源码与示例配置不得包含真实仓库列表、挂载目录、机器用户名或凭据。
 
+## 启动与定时执行流程
+
+`/settings startup` 编排启动流程，`/settings startup enabled [true|false]` 控制是否启动时执行；`/schedule actions` 编排定时流程。两个流程独立保存，对全部已登记仓库执行。编辑页直接列出 fetch、pull、push 三个勾选项：Enter／空格或点击即可加入、移出流程，下方独立“操作”面板中的上移／下移调整当前步骤的顺序。↑↓ 同时可选到保存、取消，无须先切换焦点；底部按钮保存后才修改配置，下次触发时生效。每个仓库遇到失败后停止后续步骤，其它仓库继续执行。
+
+| 步骤 | 执行内容 | 修改范围 |
+| --- | --- | --- |
+| `fetch` | 下载对象，更新和清理配置映射中的远程跟踪引用 | 本地的远程跟踪分支 |
+| `pull` | 获取当前上游并快进当前分支；已跟踪文件有改动、分叉或冲突时停止 | 本地分支和工作区 |
+| `push` | 推送所有仅领先远程上游的本地分支，并核验推送前后的远程提交 | 对应的远程分支 |
+| `inspect` | 读取工作区、暂存区、分支与上游状态，保存结果 | 本地读取 |
+
+`inspect` 固定在最后，同一步骤只出现一次；`push` 之前必须有 `fetch` 或 `pull`。同一流程先 fetch 再 pull 时复用已获取的上游引用；被 fetch 跳过的远程仍由 pull 显式获取。pull 沿用快进策略和工作区保护，不自动 stash、合并分叉或强制覆盖文件。每一步均可查看执行说明；任务详情记录执行流程、步骤结果及时间，失败后的步骤标为未执行。
+
+```toml
+# 默认保持原行为；启用开关与流程内容独立。
+check_on_startup = true
+startup_actions = ["fetch", "inspect"]
+scheduled_actions = ["fetch", "inspect"]
+
+# 例如：定时获取、快进当前分支、推送领先分支、最后读取状态。
+# scheduled_actions = ["fetch", "pull", "push", "inspect"]
+```
+
+CLI 可执行 `gw startup-actions inspect` 或 `gw scheduled-actions fetch pull push inspect` 保存流程。`gw status` 与 `gw status --json` 显示两套实际配置。旧 `push_policy` 明确转换为定时流程：disabled 对应 fetch → inspect，fast_forward 对应 fetch → push → inspect；读取不改文件，下次保存时转写新字段并保留注释。旧字段与 `scheduled_actions` 同时存在时报错。原 `/schedule autopush` 与 CLI `autopush` 保留为定时流程中 push 步骤的快捷设置。
+
 ## 定时触发时间
 
 定时任务页显示时间基准和下次触发时间，均按系统本地时区展示，不显示时区后缀。基准可在过去；例如零点为基准、间隔 `6h`，检查刻度为 00、06、12、18 点。首次启用自动生成的基准从一个完整间隔后开始检查。时间单位按本地时间序列累计，`1d` 和 `1w` 在夏令时切换后保持本地钟面时刻；缺失时刻跳过，重复时刻只执行第一次。
 
-修改配置后先显示“待应用”；下次触发仍来自当前已应用的任务，应用后更新。停用时显示“已停用”。重新启用会沿用原基准，直接等待后续刻度，不补跑停用期间的检查；安装、重新应用和启动 TUI 不会重置基准。启动 TUI 的检查开关是独立功能，手动检查也不改变定时节奏。
+修改配置后先显示“待应用”；下次触发仍来自当前已应用的任务，应用后更新。停用时显示“已停用”。重新启用会沿用原基准，直接等待后续刻度，不补跑停用期间的检查；安装、重新应用和启动 TUI 不会重置基准。启动 TUI 的执行开关与启动流程是独立配置，手动检查也不改变定时节奏。
 
 系统任务使用 macOS 的 `StartCalendarInterval` 或 Linux 的 `OnCalendar`，唤起短时运行的 `scheduled-tick`。候选分钟由间隔与基准编译：`6h` 只在四个对应的分钟唤起，周间隔在对应星期唤起；不能直接用日历表达的间隔采用必要的候选分钟，由同一时间模型判断是否到期，不访问 Git。秒级偏移在到期前的最后一分钟内短暂等待，不需要常驻服务。设置时已经过去的刻度不补跑；休眠或调度延迟超过当前触发分钟时，等待后续刻度。
 
@@ -625,6 +650,6 @@ AI 只返回已有改动块的分组、顺序和各条提交说明，不生成�
 
 ### 固定选项参数
 
-`/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]`、`/settings startup-check [true|false]`、`/schedule autopush [disabled|fast_forward]` 和 `/settings ai agent [codex|claude]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；选项根据菜单的实际可用宽度显示，放得下时完整列出，放不下时在完整选项后以 `|…]` 省略，缩放终端会重新计算；说明和当前值仍保留空间，完整范围始终可在参数菜单中查看。像 `[<model>|default]` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
+`/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]`、`/settings startup enabled [true|false]`、`/schedule autopush [disabled|fast_forward]` 和 `/settings ai agent [codex|claude]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；选项根据菜单的实际可用宽度显示，放得下时完整列出，放不下时在完整选项后以 `|…]` 省略，缩放终端会重新计算；说明和当前值仍保留空间，完整范围始终可在参数菜单中查看。像 `[<model>|default]` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
 
 完整输入如 `/repos filter failed` 仍然直接生效，非法值明确报错，不改变设置。`/repo diff layout` 不带参数时保留横向选择器；所有固定选项共用参数菜单；目录继续使用目录补全。启动检查和自动推送策略选中后先进入配置确认框，取消不写入；AI 工具选中后沿用原有直接保存方式，AI 关闭时不显示工具候选。

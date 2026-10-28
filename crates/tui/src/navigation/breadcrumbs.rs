@@ -65,6 +65,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
                 View::Diff | View::Files => Level::Page,
             },
         ),
+        Page::Configuration(_) if matches!(mode, Mode::Workflow(_)) => {}
         Page::Configuration(section) => push(section.title().into(), Level::Page),
         Page::Help => push(i18n::tr!(Help).into(), Level::Page),
     }
@@ -113,6 +114,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         }
         Mode::CommitMessage { .. } => push(i18n::tr!(CommitStagedContents).into(), Level::Page),
         Mode::PromptEditor(_) => push(i18n::tr!(AgentPrompt).into(), Level::Page),
+        Mode::Workflow(session) => push(session.title().into(), Level::Page),
         Mode::PushConfirm { .. } => push(i18n::tr!(PushCurrentBranch).into(), Level::Page),
         _ => {}
     }

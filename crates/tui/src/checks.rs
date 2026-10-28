@@ -6,6 +6,7 @@ use std::{collections::BTreeMap, time::Instant};
 #[derive(Debug, Clone)]
 pub(crate) enum CheckTarget {
     All,
+    Startup,
     Repository(PathBuf),
 }
 #[derive(Debug, Clone)]
@@ -32,12 +33,18 @@ enum Event {
 }
 #[derive(Debug)]
 pub(crate) struct CheckTask {
+    kind: Kind,
     progress: BTreeMap<PathBuf, Progress>,
     cancel: Cancel,
     state: TaskState,
     rx: mpsc::Receiver<Event>,
     handle: thread::JoinHandle<()>,
     animation: Spinner,
+}
+#[derive(Debug)]
+enum Kind {
+    Manual,
+    Startup,
 }
 impl CheckTask {
     pub(crate) fn state(&self) -> TaskState {
@@ -61,6 +68,17 @@ impl CheckTask {
             .values()
             .filter(|p| matches!(p, Progress::Finished(_)))
             .count();
+        if let Kind::Startup = &self.kind {
+            let title = match self.state {
+                TaskState::Running => i18n::tr!(WorkflowStartup),
+                TaskState::Cancelling => i18n::tr!(TasksCancelling),
+            };
+            return format!(
+                "{} {title} {done}/{} · /cancel",
+                self.spinner(),
+                self.progress.len()
+            );
+        }
         match self.state {
             TaskState::Running => i18n::tf!(
                 BackgroundCheckProgress,
@@ -168,7 +186,7 @@ impl Screen {
             self.message = i18n::tr!(StartupCheckAlreadyRunning).into();
             return;
         }
-        self.start_check(CheckTarget::All);
+        self.start_check(CheckTarget::Startup);
     }
     pub(crate) fn start_check(&mut self, target: CheckTarget) {
         self.start_check_retry(target, None);
@@ -195,7 +213,7 @@ impl Screen {
             return;
         }
         let paths = match &target {
-            CheckTarget::All => self.config.repositories.clone(),
+            CheckTarget::All | CheckTarget::Startup => self.config.repositories.clone(),
             CheckTarget::Repository(path) => vec![path.clone()],
         };
         let progress = paths
@@ -207,6 +225,10 @@ impl Screen {
         let service = self.service.clone();
         let (tx, rx) = mpsc::channel();
         let language = i18n::language();
+        let kind = match target {
+            CheckTarget::Startup => Kind::Startup,
+            _ => Kind::Manual,
+        };
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
             let emit = |event| {
@@ -214,11 +236,15 @@ impl Screen {
             };
             let result = match parent {
                 Some(parent) => service.retry_check_all(&worker_cancel, emit, parent),
+                None if matches!(target, CheckTarget::Startup) => {
+                    service.run_startup(&worker_cancel, emit)
+                }
                 None => service.run(&worker_cancel, emit),
             };
             let _ = tx.send(Event::Done(result));
         });
         self.check_task = Some(CheckTask {
+            kind,
             progress,
             cancel,
             state: TaskState::Running,

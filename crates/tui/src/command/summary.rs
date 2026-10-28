@@ -78,6 +78,8 @@ impl Command {
             Action::Autopush => Summary::Autopush,
             Action::Concurrency => Summary::Concurrency,
             Action::StartupCheck => Summary::StartupCheck,
+            Action::Workflow(engine::workflow::Trigger::Startup) => Summary::StartupActions,
+            Action::Workflow(engine::workflow::Trigger::Scheduled) => Summary::ScheduledActions,
             Action::WrapMenu | Action::Wrap(_) => Summary::TextWrap,
             Action::Apply => Summary::Apply,
             Action::EnableSchedule => Summary::EnableSchedule,

@@ -27,6 +27,7 @@ pub enum Scope {
 #[serde(rename_all = "snake_case")]
 pub enum Source {
     Interactive,
+    Startup,
     Scheduled,
     Imported,
 }
@@ -155,6 +156,12 @@ impl Drop for Monitor {
     }
 }
 impl Run {
+    pub fn reporter(&self) -> Reporter {
+        Reporter {
+            store: self.store.clone(),
+            id: self.record.id.clone(),
+        }
+    }
     pub fn begin(store: &Store, spec: Spec, cancel: &Cancel) -> Result<Self> {
         static SERIAL: AtomicU64 = AtomicU64::new(0);
         let seed = format!(
@@ -217,5 +224,16 @@ impl Run {
         self.store.finish_task(&self.record.id, outcome)?;
         std::fs::remove_file(self.store.task_lock_path(&self.record.id))?;
         stopped
+    }
+}
+/// Repository workers publish progress without owning the task lifecycle.
+#[derive(Debug, Clone)]
+pub struct Reporter {
+    store: Store,
+    id: String,
+}
+impl Reporter {
+    pub fn progress(&self, message: String) -> Result<()> {
+        self.store.task_progress(&self.id, &message)
     }
 }

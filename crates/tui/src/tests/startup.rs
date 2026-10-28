@@ -7,7 +7,7 @@ fn startup_checks_all_repositories_in_background_keeps_old_results_and_never_pus
     support::write(first.repo.join("untracked"), "old result");
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.config.check_on_startup = true;
-    s.config.push_policy = PushPolicy::FastForward;
+    s.config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     s.service.store.save_config(&s.config).unwrap();
     s.service.run(&Cancel::default(), |_| {}).unwrap();
     std::fs::remove_file(first.repo.join("untracked")).unwrap();
@@ -112,12 +112,12 @@ fn startup_setting_is_localized_editable_persistent_and_effective_only_next_laun
         }
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Right);
-        assert_eq!(s.bar.text(), "/settings startup-check ");
-        command(&mut s, "settings startup-check false");
+        assert_eq!(s.bar.text(), "/settings startup enabled ");
+        command(&mut s, "settings startup enabled false");
         assert!(matches!(s.mode, Mode::Confirm { .. }));
         key(&mut s, KeyCode::Esc);
         assert!(s.service.store.config().unwrap().check_on_startup);
-        assert_eq!(s.bar.text(), "/settings startup-check false");
+        assert_eq!(s.bar.text(), "/settings startup enabled false");
         key(&mut s, KeyCode::Enter);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
@@ -125,7 +125,7 @@ fn startup_setting_is_localized_editable_persistent_and_effective_only_next_laun
         assert!(!s.config.check_on_startup);
         assert!(s.check_task.is_none());
         assert!(s.service.store.report().unwrap().is_none());
-        command(&mut s, "settings startup-check invalid");
+        command(&mut s, "settings startup enabled invalid");
         assert!(matches!(s.mode, Mode::Browsing));
         assert!(!s.message.is_empty());
         assert!(!s.service.store.config().unwrap().check_on_startup);

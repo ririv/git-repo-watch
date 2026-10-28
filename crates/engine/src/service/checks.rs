@@ -2,16 +2,34 @@
 use super::*;
 enum CheckInvocation {
     Manual,
+    Startup,
     Scheduled,
+}
+#[derive(Clone, Copy)]
+enum RunPlan<'a> {
+    Manual,
+    Workflow(&'a crate::workflow::Plan),
+}
+impl RunPlan<'_> {
+    fn policy(self) -> PushPolicy {
+        match self {
+            Self::Manual => PushPolicy::Disabled,
+            Self::Workflow(plan) => plan.push_policy(),
+        }
+    }
 }
 impl Service {
     /// Check all registered repositories without publishing commits.
     pub fn run(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::Manual, cancel, emit, None)
     }
-    /// Apply the saved automatic push policy for a scheduled check.
+    /// Execute the configured scheduled workflow.
     pub fn run_scheduled(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::Scheduled, cancel, emit, None)
+    }
+    /// Execute the explicitly configured startup workflow.
+    pub fn run_startup(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
+        self.run_batch(CheckInvocation::Startup, cancel, emit, None)
     }
     pub fn retry_check_all(
         &self,
@@ -66,39 +84,54 @@ impl Service {
         mut emit: impl FnMut(Event),
         retry_of: Option<String>,
     ) -> Result<Report> {
+        let config = self.store.config()?;
+        let plan = match invocation {
+            CheckInvocation::Manual => RunPlan::Manual,
+            CheckInvocation::Startup => RunPlan::Workflow(&config.startup_actions),
+            CheckInvocation::Scheduled => RunPlan::Workflow(&config.scheduled_actions),
+        };
         let source = match invocation {
             CheckInvocation::Manual => crate::tasks::Source::Interactive,
+            CheckInvocation::Startup => crate::tasks::Source::Startup,
             CheckInvocation::Scheduled => crate::tasks::Source::Scheduled,
         };
         let title = match invocation {
-            CheckInvocation::Manual => i18n::tr!(TasksCheck),
-            CheckInvocation::Scheduled => i18n::tr!(TasksScheduledCheck),
+            CheckInvocation::Manual => i18n::tr!(TasksCheck).to_owned(),
+            CheckInvocation::Startup => format!(
+                "{} · {}",
+                i18n::tr!(WorkflowStartup),
+                config.startup_actions.summary()
+            ),
+            CheckInvocation::Scheduled => format!(
+                "{} · {}",
+                i18n::tr!(WorkflowScheduled),
+                config.scheduled_actions.summary()
+            ),
         };
         let mut run = crate::tasks::Run::begin(
             &self.store,
             crate::tasks::Spec {
-                title: title.into(),
+                title,
                 scope: crate::tasks::Scope::All,
                 source,
                 retry: match invocation {
                     CheckInvocation::Manual => crate::tasks::Retry::CheckAll,
-                    CheckInvocation::Scheduled => crate::tasks::Retry::Unavailable,
+                    CheckInvocation::Startup | CheckInvocation::Scheduled => {
+                        crate::tasks::Retry::Unavailable
+                    }
                 },
                 retry_of,
             },
             cancel,
         )?;
         let mut done = 0;
+        let reporter = run.reporter();
         let mut progress_error = None;
         let result = (|| {
-            let mut config = self.store.config()?;
-            if matches!(invocation, CheckInvocation::Manual) {
-                config.push_policy = PushPolicy::Disabled;
-            }
             // 提前校验旧数据；执行期间只在写入单个结果时持有短事务锁。
             self.store.repository_reports()?;
             let total = config.repositories.len();
-            let report = self.execute_checks(&config, cancel, &mut |event| {
+            let report = self.execute_checks(&config, plan, &reporter, cancel, &mut |event| {
                 if let Event::Checked { .. } = &event {
                     done += 1;
                     if let Err(error) = run.progress(format!("{done}/{total}")) {
@@ -114,7 +147,32 @@ impl Service {
             self.store.save_report(&report)?;
             Ok(report)
         })();
-        let outcome = check_outcome(&result, cancel);
+        let mut outcome = check_outcome(&result, cancel);
+        if result.is_err() && matches!(plan, RunPlan::Workflow(_)) {
+            // 执行器取消或批次保存失败时，单仓库步骤已独立落盘，仍写入任务结果供追溯。
+            let records = self.store.repository_reports()?;
+            let details = records
+                .values()
+                .filter(|report| report.started_at >= run.record.started_at)
+                .filter(|report| {
+                    report
+                        .execution
+                        .as_ref()
+                        .and_then(|execution| execution.workflow.as_ref())
+                        == match plan {
+                            RunPlan::Workflow(plan) => Some(plan),
+                            RunPlan::Manual => None,
+                        }
+                })
+                .map(workflow_detail)
+                .collect::<Vec<_>>()
+                .join("\n");
+            match &mut outcome {
+                crate::tasks::Outcome::Cancelled { detail }
+                | crate::tasks::Outcome::Failed { detail, .. } => detail.push_str(&details),
+                crate::tasks::Outcome::Succeeded { .. } => unreachable!("failed batch"),
+            }
+        }
         run.finish(outcome)?;
         result
     }
@@ -160,7 +218,7 @@ impl Service {
         let result = (|| {
             self.store.repository_reports()?;
             emit(Event::Checking(path.to_owned()));
-            let report = self.check_one(path, PushPolicy::Disabled, cancel)?;
+            let report = self.check_one(path, RunPlan::Manual, &run.reporter(), cancel)?;
             emit(Event::Checked {
                 result: report.repositories[0].clone(),
                 finished_at: report.finished_at.clone(),
@@ -172,18 +230,48 @@ impl Service {
         result
     }
 
-    fn check_one(&self, path: &Path, policy: PushPolicy, cancel: &Cancel) -> Result<Report> {
+    fn check_one(
+        &self,
+        path: &Path,
+        plan: RunPlan<'_>,
+        reporter: &crate::tasks::Reporter,
+        cancel: &Cancel,
+    ) -> Result<Report> {
         let _repository = self.repository_lock(path, cancel)?;
         let started_at = state::now();
-        let (result, timing) = check::repository(&self.git, path, policy, cancel);
-        cancel.check()?;
-        let mut report = single_report(result, timing, started_at, policy);
-        self.store.save_repository_report(&mut report, cancel)?;
+        let (result, timing) = match plan {
+            RunPlan::Manual => check::repository(&self.git, path, PushPolicy::Disabled, cancel),
+            RunPlan::Workflow(plan) => {
+                crate::workflow::execute(&self.git, path, plan, cancel, |step| {
+                    reporter.progress(format!("{}\n{}", path.display(), step.label()))
+                })
+            }
+        };
+        let refresh_cancel = Cancel::default();
+        let save_cancel = match plan {
+            RunPlan::Manual => {
+                cancel.check()?;
+                cancel
+            }
+            RunPlan::Workflow(_) => &refresh_cancel,
+        };
+        let mut report = single_report(result, timing, started_at, plan.policy());
+        if let RunPlan::Workflow(plan) = plan {
+            report
+                .execution
+                .as_mut()
+                .expect("execution timing")
+                .workflow = Some(plan.clone());
+        }
+        self.store
+            .save_repository_report(&mut report, save_cancel)?;
         Ok(report)
     }
     fn execute_checks(
         &self,
         config: &state::Config,
+        plan: RunPlan<'_>,
+        reporter: &crate::tasks::Reporter,
         cancel: &Cancel,
         emit: &mut impl FnMut(Event),
     ) -> Result<Report> {
@@ -248,7 +336,7 @@ impl Service {
             }
         };
         for (index, result, timing) in groups.failures {
-            let mut report = single_report(result, timing, state::now(), config.push_policy);
+            let mut report = single_report(result, timing, state::now(), plan.policy());
             let saved = self
                 .store
                 .save_repository_report(&mut report, cancel)
@@ -263,7 +351,7 @@ impl Service {
             groups.jobs,
             config.max_concurrency,
             cancel,
-            |path| self.check_one(path, config.push_policy, cancel),
+            |path| self.check_one(path, plan, reporter, cancel),
             &mut receive,
         )?;
         if let Some(error) = error {
@@ -278,7 +366,7 @@ impl Service {
             schema_version: 3,
             repository_finished_at: finished,
             repository_revisions: revisions,
-            push_policy: config.push_policy,
+            push_policy: plan.policy(),
             notifications: notices,
             started_at,
             finished_at: state::now(),
@@ -286,6 +374,10 @@ impl Service {
             repositories,
             classification_updated_at: None,
             execution: Some(Execution {
+                workflow: match plan {
+                    RunPlan::Manual => None,
+                    RunPlan::Workflow(plan) => Some(plan.clone()),
+                },
                 max_concurrency: config.max_concurrency,
                 repositories: timings.into_values().collect(),
             }),
@@ -312,6 +404,7 @@ pub(super) fn single_report(
         repositories,
         classification_updated_at: None,
         execution: Some(Execution {
+            workflow: None,
             max_concurrency: 1,
             repositories: vec![timing],
         }),
@@ -356,6 +449,7 @@ pub fn group(paths: &[PathBuf]) -> Groups {
                         fetch_ms: 0,
                         verify_ms: 0,
                         push_ms: 0,
+                        steps: vec![],
                     },
                 ));
             }
@@ -399,12 +493,45 @@ fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outc
                     }))
                     .collect::<Vec<_>>()
                     .join("\n")
+                    + &workflow_detail(report)
             },
         }
     } else {
         Outcome::Failed {
-            detail: failures.join("\n\n"),
+            detail: failures.join("\n\n") + &workflow_detail(report),
             resolution: Resolution::Pending,
         }
     }
+}
+
+fn workflow_detail(report: &Report) -> String {
+    use crate::workflow::StepOutcome;
+    let Some(execution) = &report.execution else {
+        return String::new();
+    };
+    let Some(plan) = &execution.workflow else {
+        return String::new();
+    };
+    let mut lines = vec![String::new(), plan.summary()];
+    for repository in &execution.repositories {
+        lines.push(repository.path.display().to_string());
+        for step in plan.steps() {
+            let label = step.label();
+            match repository.steps.iter().find(|record| record.step == *step) {
+                Some(record) => {
+                    let at = chrono::DateTime::parse_from_rfc3339(&record.finished_at)
+                        .expect("recorded timestamp")
+                        .with_timezone(&chrono::Local)
+                        .format("%H:%M:%S")
+                        .to_string();
+                    lines.push(match &record.outcome {
+                        StepOutcome::Succeeded { detail } => format!("✓ {at} {label} · {detail}"),
+                        StepOutcome::Failed { error } => format!("✗ {at} {label}\n  {error}"),
+                    });
+                }
+                None => lines.push(format!("– {label} · {}", i18n::tr!(WorkflowStopped))),
+            }
+        }
+    }
+    format!("\n{}", lines.join("\n"))
 }

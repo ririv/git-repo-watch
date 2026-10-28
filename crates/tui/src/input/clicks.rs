@@ -80,6 +80,10 @@ impl Clicks {
 impl Screen {
     pub(super) fn clicked_identity(&self, target: Target) -> Option<Identity> {
         match target {
+            Target::ScheduleButton
+            | Target::WorkflowSteps
+            | Target::WorkflowToggle
+            | Target::WorkflowActions => None,
             Target::CompositionCommits | Target::CompositionUnits => {
                 let Mode::Composition(session) = &self.mode else {
                     return None;

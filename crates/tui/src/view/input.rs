@@ -96,6 +96,10 @@ impl Footer {
             return Self::Compact { hint, preview };
         }
         match input_mode(screen) {
+            Mode::Workflow(_) => Self::Compact {
+                hint: task_hint(screen).unwrap_or(i18n::tr!(WorkflowEditorHint)),
+                preview,
+            },
             Mode::Composition(session)
                 if matches!(session.state, crate::composition::State::Editing(_)) =>
             {
@@ -402,7 +406,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     hint,
                 )
             }
-            Mode::PromptEditor(_) => unreachable!("the document editor has a compact footer"),
+            Mode::PromptEditor(_) | Mode::Workflow(_) => {
+                unreachable!("the editor has a compact footer")
+            }
             Mode::CommitMessage { editor, .. } => (
                 i18n::tr!(ConfirmOperationAlt),
                 Content::CommitActions { draft: editor },

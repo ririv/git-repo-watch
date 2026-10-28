@@ -146,15 +146,16 @@
 - `/repo` opens the selected repository overview. All repository views and operations live under it. `/repos` returns to the repository list; `/repos manage` opens registration and exclusion settings. Direct commands: `/repos add <path>`, `/repos remove`, `/repos exclude <path>`, `/repos unexclude <path>`.
 - `/repos scan <path>` previews discovery; `/repos import <path>` registers discovered repositories. Scanning follows Git ignore rules.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
-- `/settings startup-check [true|false]` controls startup checks of all repositories; default true, effective next launch.
+- In a workflow editor, check a step to include it or uncheck it to remove it. `↑↓` selects steps and the Save/Cancel buttons; `Enter`/Space activates the selection. `←→` selects reordering controls in the separate Actions panel. Clicking a step also toggles it. Save applies the draft.
+- `/settings startup` edits startup actions; `/settings startup enabled [true|false]` controls whether they run at startup (default true).
 - `/settings wrap [true|false]` saves text wrapping for file previews and diffs (off by default). Gutters stay fixed, split diffs remain aligned, and links keep their complete targets. When off, use horizontal scrolling. The same option is in Settings → Display.
-- `/schedule` opens task management: status, pending interval, configuration and enable / disable controls.
-- `/schedule interval <duration>` accepts values such as 6h; `/schedule autopush [disabled|fast_forward]` accepts disabled or fast_forward.
+- `/schedule` shows status, interval, time basis, and workflow together with their associated buttons. Click a button to edit or enter enable/disable confirmation; use ↑↓ and Enter with the keyboard.
+- `/schedule actions` edits scheduled actions; `/schedule interval <duration>` accepts values such as 6h.
 - `/schedule anchor <datetime|auto>` sets a local time basis (HH:MM[:SS] or YYYY-MM-DD HH:MM[:SS]); auto regenerates it on enable.
 - The first enable persists an automatic basis when omitted. Restarts and re-enabling preserve it; the schedule page shows the basis and applied next trigger.
 - Durations support s / m / h / d / w (at least 60 seconds). Apply saved changes with `/schedule apply`.
 - `/schedule apply` applies configuration; `/schedule enable` enables scheduling; `/schedule disable` stops future runs.
-> Automatic pushing applies only to scheduled checks. The TUI checks all repositories in the background on startup by default; disable this in general settings. It does not scan or push. Completed startup checks update the batch report. Stage, commit and push refresh only that repository from local Git state, without another fetch.
+> Startup and scheduled triggers use independent workflows. The default is fetch → inspect. Add and reorder pull or push explicitly. Inspect is last; push requires an earlier fetch or pull. Failure stops later steps for that repository; task details retain step outcomes and times. Manual checks still fetch and read local status only.
 
 ## Confirmation
 - `←→` / `Tab` selects an action; `Enter` confirms; `Esc` returns. Returning from commit or configuration confirmation retains the draft.

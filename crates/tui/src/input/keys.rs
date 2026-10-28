@@ -72,6 +72,14 @@ impl Screen {
         if self.tasks_key(key) {
             return Ok(false);
         }
+        if matches!(self.mode, Mode::Workflow(_)) {
+            let Mode::Workflow(mut session) = self.take_mode() else {
+                unreachable!()
+            };
+            let result = session.key(key.code);
+            self.workflow_input(session, result);
+            return Ok(false);
+        }
         if matches!(
             key.code,
             KeyCode::Esc
@@ -497,7 +505,7 @@ impl Screen {
                     scroll,
                 };
             }
-            Mode::Busy(_) => unreachable!(),
+            Mode::Busy(_) | Mode::Workflow(_) => unreachable!(),
         }
         Ok(false)
     }

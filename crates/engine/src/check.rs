@@ -29,6 +29,13 @@ pub fn local_repository(path: &Path, cancel: &Cancel) -> (RepositoryResult, Timi
         cancel,
     )
 }
+pub(crate) fn publish_fetched(
+    git: &Git,
+    path: &Path,
+    cancel: &Cancel,
+) -> (RepositoryResult, Timing) {
+    inspect(git, path, PushPolicy::FastForward, Refresh::Local, cancel)
+}
 #[derive(Clone, Copy)]
 enum Refresh {
     Fetch,
@@ -49,6 +56,7 @@ fn inspect(
         local_ms: 0,
         verify_ms: 0,
         push_ms: 0,
+        steps: vec![],
     };
     let mut pushes = Vec::new();
     let attempt = (|| -> Result<RepositoryResult> {

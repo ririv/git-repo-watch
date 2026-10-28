@@ -133,7 +133,8 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             schedule_anchor: Default::default(),
             repositories: paths.clone(),
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 2,
             check_on_startup: true,
             chinese_command_trigger: true,
@@ -236,7 +237,8 @@ fn independent_repositories_overlap_real_fetches() {
             schedule_anchor: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 2,
             check_on_startup: true,
             chinese_command_trigger: true,
@@ -270,7 +272,8 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             schedule_anchor: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             excluded_roots: vec![],
-            push_policy: PushPolicy::FastForward,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::FastForward),
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,
@@ -335,7 +338,10 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     assert!(manual.repositories.iter().all(|r| r.pushes().is_empty()));
     assert_eq!(git(&first.remote, &["rev-parse", "main"]), first_before);
     assert_eq!(git(&second.remote, &["rev-parse", "main"]), untouched);
-    assert_eq!(store.config().unwrap().push_policy, PushPolicy::FastForward);
+    assert_eq!(
+        store.config().unwrap().scheduled_actions.push_policy(),
+        PushPolicy::FastForward
+    );
     let scheduled = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
     assert_eq!(scheduled.push_policy, PushPolicy::FastForward);
     assert!(
@@ -364,7 +370,8 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
             schedule_anchor: Default::default(),
             repositories: vec![f.repo.clone()],
             excluded_roots: vec![],
-            push_policy: PushPolicy::Disabled,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,
@@ -415,7 +422,8 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
             schedule_anchor: Default::default(),
             repositories: vec![f.repo.clone()],
             excluded_roots: vec![],
-            push_policy: PushPolicy::FastForward,
+            startup_actions: Default::default(),
+            scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::FastForward),
             max_concurrency: 4,
             check_on_startup: true,
             chinese_command_trigger: true,

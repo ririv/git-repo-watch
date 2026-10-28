@@ -14,6 +14,10 @@ pub(crate) enum Target {
     History,
     HistoryFiles,
     Settings,
+    ScheduleButton,
+    WorkflowSteps,
+    WorkflowToggle,
+    WorkflowActions,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScrollTarget {

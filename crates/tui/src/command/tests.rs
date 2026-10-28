@@ -52,9 +52,17 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
     assert_eq!(names("repos r"), ["repos refresh", "repos remove"]);
     assert_eq!(
         names("schedule a"),
-        ["schedule anchor", "schedule autopush", "schedule apply"]
+        [
+            "schedule anchor",
+            "schedule autopush",
+            "schedule actions",
+            "schedule apply"
+        ]
     );
-    assert_eq!(names("settings st"), ["settings startup-check"]);
+    assert_eq!(
+        names("settings st"),
+        ["settings startup", "settings startup enabled"]
+    );
 }
 
 #[test]

@@ -239,6 +239,46 @@ pub enum Message {
     ClipboardWorkerStopped,
     ClipboardBusy,
     RefreshContextView,
+    WorkflowLegacyConflict,
+    WorkflowPolicyString,
+    WorkflowObjectExpected,
+    WorkflowNoPush,
+    WorkflowFetch,
+    WorkflowPull,
+    WorkflowPush,
+    WorkflowInspect,
+    WorkflowFetchDescription,
+    WorkflowPullDescription,
+    WorkflowPushDescription,
+    WorkflowInspectDescription,
+    WorkflowStartup,
+    WorkflowScheduled,
+    WorkflowInspectLast,
+    WorkflowDuplicateStep,
+    WorkflowPushNeedsRefresh,
+    WorkflowUnknownStep,
+    WorkflowStartupActions,
+    WorkflowScheduledActions,
+    WorkflowToggle,
+    WorkflowEnableStep,
+    WorkflowDisableStep,
+    WorkflowRequired,
+    WorkflowSequence,
+    WorkflowControls,
+    WorkflowSelectedStep,
+    WorkflowEditorHint,
+    WorkflowMoveUp,
+    WorkflowMoveDown,
+    WorkflowSave,
+    WorkflowCancel,
+    WorkflowSaved,
+    WorkflowEditing,
+    WorkflowScope,
+    WorkflowFixedInspect,
+    WorkflowActionsArgument,
+    WorkflowStartupHint,
+    WorkflowScheduleHint,
+    WorkflowStopped,
     ContextCommands,
     ContextCommandPlaceholder,
     ContextCommandHint,
@@ -277,6 +317,11 @@ pub enum Message {
     ScheduleNextUnanchored,
     ScheduleNextMissing,
     EditScheduleAnchor,
+    ScheduleEditButton,
+    ScheduleWorkflowButton,
+    ScheduleEnableButton,
+    ScheduleDisableButton,
+    ScheduleApplyButton,
     ScheduleAnchorHint,
     SaveScheduleAnchor,
 
@@ -1475,12 +1520,12 @@ impl Message {
                 "Maximum repositories checked at once · 1–32"
             }
             (Self::SettingsConcurrencyHint, Language::Chinese) => "同时检查的仓库数量，上限 32",
-            (Self::SettingsStartup, Language::English) => "Check on startup",
-            (Self::SettingsStartup, Language::Chinese) => "启动时检查",
+            (Self::SettingsStartup, Language::English) => "Run on startup",
+            (Self::SettingsStartup, Language::Chinese) => "启动时执行",
             (Self::SettingsStartupHint, Language::English) => {
-                "Check all repositories on next launch"
+                "Run the configured workflow for all repositories on next launch"
             }
-            (Self::SettingsStartupHint, Language::Chinese) => "下次启动时检查全部仓库",
+            (Self::SettingsStartupHint, Language::Chinese) => "下次启动时对全部仓库执行已配置流程",
             (Self::SettingsChineseTrigger, Language::English) => "Chinese command trigger",
             (Self::SettingsChineseTrigger, Language::Chinese) => "中文命令触发",
             (Self::SettingsChineseTriggerHint, Language::English) => {
@@ -1758,6 +1803,138 @@ impl Message {
             (Self::ClipboardBusy, Language::Chinese) => "已有复制任务正在进行",
             (Self::RefreshContextView, Language::English) => "Refresh this view",
             (Self::RefreshContextView, Language::Chinese) => "刷新当前视图",
+            (Self::WorkflowLegacyConflict, Language::English) => {
+                "Configure scheduled_actions without the former push_policy field."
+            }
+            (Self::WorkflowLegacyConflict, Language::Chinese) => {
+                "push_policy 与 scheduled_actions 不能同时配置。"
+            }
+            (Self::WorkflowPolicyString, Language::English) => "push_policy must be a string.",
+            (Self::WorkflowPolicyString, Language::Chinese) => "push_policy 必须是字符串。",
+            (Self::WorkflowObjectExpected, Language::English) => "Configuration must be an object.",
+            (Self::WorkflowObjectExpected, Language::Chinese) => "配置必须是对象。",
+            (Self::WorkflowNoPush, Language::English) => "No strictly-ahead branches to push",
+            (Self::WorkflowNoPush, Language::Chinese) => "没有可推送的领先分支",
+            (Self::WorkflowFetch, Language::English) => "Fetch remotes",
+            (Self::WorkflowFetch, Language::Chinese) => "获取远程",
+            (Self::WorkflowPull, Language::English) => "Fast-forward pull",
+            (Self::WorkflowPull, Language::Chinese) => "快进拉取",
+            (Self::WorkflowPush, Language::English) => "Push commits",
+            (Self::WorkflowPush, Language::Chinese) => "推送提交",
+            (Self::WorkflowInspect, Language::English) => "Read local status",
+            (Self::WorkflowInspect, Language::Chinese) => "读取本地状态",
+            (Self::WorkflowFetchDescription, Language::English) => {
+                "Download remote commits, refresh local remote-tracking branches, and remove records of deleted remote branches."
+            }
+            (Self::WorkflowFetchDescription, Language::Chinese) => {
+                "获取远程提交，更新本地保存的远程跟踪分支，并清理远程已删除的分支记录。"
+            }
+            (Self::WorkflowPullDescription, Language::English) => {
+                "Fetch the current upstream and fast-forward the checked-out branch and files. Stop for tracked changes, divergence, or conflicts."
+            }
+            (Self::WorkflowPullDescription, Language::Chinese) => {
+                "获取当前分支的上游提交，以快进方式更新本地分支和文件。已跟踪文件有改动、分叉或冲突时停止。"
+            }
+            (Self::WorkflowPushDescription, Language::English) => {
+                "Publish local branches that are strictly ahead of their remote upstreams; verify remote commits before and after pushing."
+            }
+            (Self::WorkflowPushDescription, Language::Chinese) => {
+                "将仅领先上游的本地分支推送到对应远程分支，推送前后核验远程提交。"
+            }
+            (Self::WorkflowInspectDescription, Language::English) => {
+                "Read worktree, index, branch and upstream status, then save the result."
+            }
+            (Self::WorkflowInspectDescription, Language::Chinese) => {
+                "读取工作区、暂存区、分支和上游状态，保存本次结果。"
+            }
+            (Self::WorkflowStartup, Language::English) => "Startup workflow",
+            (Self::WorkflowStartup, Language::Chinese) => "启动任务",
+            (Self::WorkflowScheduled, Language::English) => "Scheduled workflow",
+            (Self::WorkflowScheduled, Language::Chinese) => "定时任务",
+            (Self::WorkflowInspectLast, Language::English) => {
+                "End the workflow with inspect (read local status)."
+            }
+            (Self::WorkflowInspectLast, Language::Chinese) => {
+                "流程必须以 inspect（读取本地状态）结束。"
+            }
+            (Self::WorkflowDuplicateStep, Language::English) => {
+                "A workflow cannot contain duplicate steps."
+            }
+            (Self::WorkflowDuplicateStep, Language::Chinese) => "同一流程中不能重复添加步骤。",
+            (Self::WorkflowPushNeedsRefresh, Language::English) => "Add fetch or pull before push.",
+            (Self::WorkflowPushNeedsRefresh, Language::Chinese) => {
+                "push 前需要先执行 fetch 或 pull。"
+            }
+            (Self::WorkflowUnknownStep, Language::English) => {
+                "Unknown step: {}; use fetch, pull, push, inspect."
+            }
+            (Self::WorkflowUnknownStep, Language::Chinese) => {
+                "未知步骤：{}；可用 fetch、pull、push、inspect。"
+            }
+            (Self::WorkflowStartupActions, Language::English) => "Workflow",
+            (Self::WorkflowStartupActions, Language::Chinese) => "执行流程",
+            (Self::WorkflowScheduledActions, Language::English) => "Workflow",
+            (Self::WorkflowScheduledActions, Language::Chinese) => "执行流程",
+            (Self::WorkflowToggle, Language::English) => "Toggle step",
+            (Self::WorkflowToggle, Language::Chinese) => "勾选／取消",
+            (Self::WorkflowEnableStep, Language::English) => "Include step",
+            (Self::WorkflowEnableStep, Language::Chinese) => "加入流程",
+            (Self::WorkflowDisableStep, Language::English) => "Exclude step",
+            (Self::WorkflowDisableStep, Language::Chinese) => "移出流程",
+            (Self::WorkflowRequired, Language::English) => "Fixed",
+            (Self::WorkflowRequired, Language::Chinese) => "固定",
+            (Self::WorkflowSequence, Language::English) => "Order",
+            (Self::WorkflowSequence, Language::Chinese) => "执行顺序",
+            (Self::WorkflowControls, Language::English) => "Actions",
+            (Self::WorkflowControls, Language::Chinese) => "操作",
+            (Self::WorkflowSelectedStep, Language::English) => "Selected step",
+            (Self::WorkflowSelectedStep, Language::Chinese) => "当前步骤",
+            (Self::WorkflowEditorHint, Language::English) => {
+                "↑↓ select · Enter/Space toggle · ←→ actions · Esc cancel"
+            }
+            (Self::WorkflowEditorHint, Language::Chinese) => {
+                "↑↓选择 · Enter/Space 勾选 · ←→操作 · Esc 取消"
+            }
+            (Self::WorkflowMoveUp, Language::English) => "Move up",
+            (Self::WorkflowMoveUp, Language::Chinese) => "上移",
+            (Self::WorkflowMoveDown, Language::English) => "Move down",
+            (Self::WorkflowMoveDown, Language::Chinese) => "下移",
+            (Self::WorkflowSave, Language::English) => "Save workflow",
+            (Self::WorkflowSave, Language::Chinese) => "保存流程",
+            (Self::WorkflowCancel, Language::English) => "Cancel",
+            (Self::WorkflowCancel, Language::Chinese) => "取消",
+            (Self::WorkflowSaved, Language::English) => {
+                "Workflow saved; applies at the next trigger."
+            }
+            (Self::WorkflowSaved, Language::Chinese) => "执行流程已保存，下次触发时生效。",
+            (Self::WorkflowEditing, Language::English) => {
+                "Check to include; uncheck to remove. Save to apply."
+            }
+            (Self::WorkflowEditing, Language::Chinese) => {
+                "勾选加入流程，取消勾选移除。保存后生效。"
+            }
+            (Self::WorkflowScope, Language::English) => "Scope: all registered repositories",
+            (Self::WorkflowScope, Language::Chinese) => "执行范围：全部已登记仓库",
+            (Self::WorkflowFixedInspect, Language::English) => {
+                "The final step reads and saves actual status."
+            }
+            (Self::WorkflowFixedInspect, Language::Chinese) => "最后一步固定读取并保存实际状态。",
+            (Self::WorkflowActionsArgument, Language::English) => {
+                "Enter steps in order, ending with inspect"
+            }
+            (Self::WorkflowActionsArgument, Language::Chinese) => {
+                "按执行顺序填写步骤，以 inspect 结尾"
+            }
+            (Self::WorkflowStartupHint, Language::English) => {
+                "Choose startup actions and their order."
+            }
+            (Self::WorkflowStartupHint, Language::Chinese) => "选择启动时执行的步骤和顺序。",
+            (Self::WorkflowScheduleHint, Language::English) => {
+                "Choose scheduled actions and their order."
+            }
+            (Self::WorkflowScheduleHint, Language::Chinese) => "选择定时触发时执行的步骤和顺序。",
+            (Self::WorkflowStopped, Language::English) => "Not run: an earlier step failed",
+            (Self::WorkflowStopped, Language::Chinese) => "未执行：前序步骤失败",
             (Self::ContextCommands, Language::English) => "View commands",
             (Self::ContextCommands, Language::Chinese) => "当前视图命令",
             (Self::ContextCommandPlaceholder, Language::English) => "Type a command for this view…",
@@ -1878,6 +2055,16 @@ impl Message {
             (Self::ScheduleNextMissing, Language::Chinese) => "未安装",
             (Self::EditScheduleAnchor, Language::English) => "Edit time basis",
             (Self::EditScheduleAnchor, Language::Chinese) => "修改时间基准",
+            (Self::ScheduleEditButton, Language::English) => "Edit",
+            (Self::ScheduleEditButton, Language::Chinese) => "修改",
+            (Self::ScheduleWorkflowButton, Language::English) => "Edit",
+            (Self::ScheduleWorkflowButton, Language::Chinese) => "编辑",
+            (Self::ScheduleEnableButton, Language::English) => "Enable",
+            (Self::ScheduleEnableButton, Language::Chinese) => "启用",
+            (Self::ScheduleDisableButton, Language::English) => "Disable",
+            (Self::ScheduleDisableButton, Language::Chinese) => "停用",
+            (Self::ScheduleApplyButton, Language::English) => "Apply",
+            (Self::ScheduleApplyButton, Language::Chinese) => "应用",
             (Self::ScheduleAnchorHint, Language::English) => {
                 "HH:MM[:SS] · YYYY-MM-DD HH:MM[:SS] · auto resets on next enable"
             }
@@ -2510,7 +2697,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the TUI. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Check all on TUI startup (default true)\n  check [PATH]                     Check all, or one registered repository\n  scheduled-check                  Run scheduled check with saved automatic push policy\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the TUI; startup check follows saved preference\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Enable startup workflow (default true)\n  startup-actions STEPS...          Save startup action order\n  scheduled-actions STEPS...        Save scheduled action order\n  check [PATH]                     Check all, or one registered repository\n  scheduled-check                  Run the saved scheduled workflow\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -2520,7 +2707,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时进入 TUI；状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           TUI 启动时检查全部（默认 true）\n  check [路径]                      检查全部或单个注册仓库\n  scheduled-check                   定时任务入口，按配置自动推送\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
+                    " status。\n\n  tui                              打开交互界面，按配置启动后台检查\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           启用启动流程（默认 true）\n  startup-actions STEPS...           保存启动步骤顺序\n  scheduled-actions STEPS...         保存定时步骤顺序\n  check [路径]                      检查全部或单个注册仓库\n  scheduled-check                   执行已保存的定时流程\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -3718,9 +3905,11 @@ impl Message {
             (Self::StartupCheckEnabledOption, Language::English) => {
                 "Check all repositories on next startup"
             }
-            (Self::StartupCheckEnabledOption, Language::Chinese) => "下次启动时检查全部仓库",
-            (Self::StartupCheckDisabledOption, Language::English) => "Skip checks on startup",
-            (Self::StartupCheckDisabledOption, Language::Chinese) => "启动时不检查仓库",
+            (Self::StartupCheckEnabledOption, Language::Chinese) => {
+                "下次启动时对全部仓库执行已配置流程"
+            }
+            (Self::StartupCheckDisabledOption, Language::English) => "Skip the startup workflow",
+            (Self::StartupCheckDisabledOption, Language::Chinese) => "启动时不执行任务",
             (Self::AutoPushDisabledOption, Language::English) => {
                 "Do not push during scheduled checks"
             }
@@ -3789,7 +3978,7 @@ impl Message {
             (Self::StartupCheckAlreadyRunning, Language::Chinese) => {
                 "已有检查正在运行，未重复启动检查"
             }
-            (Self::StartupCheckStatus, Language::English) => "Check all on TUI startup: {}\n",
+            (Self::StartupCheckStatus, Language::English) => "Run startup workflow: {}\n",
             (Self::StartupCheckStatus, Language::Chinese) => "TUI 启动时检查全部：{}\n",
             (Self::PathArgumentHint, Language::English) => {
                 "Tab directories · Enter review · Esc clear"
@@ -4325,6 +4514,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (WorkflowUnknownStep, $token:expr) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Unknown step: {}; use fetch, pull, push, inspect.", $token),
+            $crate::Language::Chinese => format!("未知步骤：{}；可用 fetch、pull、push、inspect。", $token),
+        }
+    };
     (UnknownOptionValue $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Unknown value: {value}. Allowed values: {choices}" $(, $($args)*)?),
@@ -4391,7 +4586,7 @@ macro_rules! tf {
         $crate::Language::Chinese => format!("此差异布局至少需要 {} 列。请扩大窗口或使用 /repo diff layout auto。" $(, $($args)*)?),
     } };
     (StartupCheckStatus $(, $($args:tt)*)?) => { match $crate::language() {
-        $crate::Language::English => format!("Check all on TUI startup: {}\n" $(, $($args)*)?),
+        $crate::Language::English => format!("Run startup workflow: {}\n" $(, $($args)*)?),
         $crate::Language::Chinese => format!("TUI 启动时检查全部：{}\n" $(, $($args)*)?),
     } };
     (ReadCompletionDirectory $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Cannot read directory: {}" $(, $($args)*)?), $crate::Language::Chinese => format!("无法读取目录：{}" $(, $($args)*)?), } };

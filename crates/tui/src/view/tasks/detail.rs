@@ -26,6 +26,7 @@ pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
     let (status, color) = label(record);
     let source = match record.spec.source {
         Source::Interactive => i18n::tr!(TasksInteractive),
+        Source::Startup => i18n::tr!(WorkflowStartup),
         Source::Scheduled => i18n::tr!(TasksScheduled),
         Source::Imported => i18n::tr!(TasksImported),
     };

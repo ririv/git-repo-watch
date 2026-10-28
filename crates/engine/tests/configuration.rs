@@ -140,7 +140,7 @@ repositories = [
     '/example/a \\ path',
 ]
 excluded_roots = []
-push_policy = 'disabled'
+scheduled_actions = ['fetch', 'inspect']
 max_concurrency = 4
 check_on_startup = true # 启动检查
 chinese_command_trigger = true # 中文输入

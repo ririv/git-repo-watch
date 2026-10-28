@@ -264,6 +264,26 @@ impl Screen {
                 return Ok(false);
             }
             if let Some(hit) = hit {
+                if let crate::pointer::Hit::Item(crate::pointer::Target::ScheduleButton, index) =
+                    hit
+                {
+                    self.clicks.reset();
+                    if self.page != Page::Configuration(Configuration::Schedule)
+                        || !matches!(self.mode, Mode::Browsing)
+                    {
+                        return Ok(false);
+                    }
+                    let Some(item) = Configuration::Schedule
+                        .items(self.snapshot.registration, &self.config.ai)
+                        .get(index)
+                        .copied()
+                    else {
+                        return Ok(false);
+                    };
+                    self.setting_selected = index;
+                    self.activate_setting(item, root)?;
+                    return Ok(true);
+                }
                 self.scroll_input.keyboard(std::time::Instant::now());
                 if matches!(hit, crate::pointer::Hit::Scrollbar(_)) {
                     self.drag = self.pointer.grab(Position::new(event.column, event.row));
@@ -377,6 +397,24 @@ impl Screen {
                     }
                     _ => {}
                 }
+            }
+        }
+        if self.bar.is_plain()
+            && let Mode::Workflow(session) = &mut self.mode
+            && session
+                .revealed
+                .is_some_and(|(_, area)| area.contains(Position::new(event.column, event.row)))
+        {
+            match event.kind {
+                MouseEventKind::ScrollUp => {
+                    session.scroll = session.scroll.saturating_sub(3);
+                    return Ok(true);
+                }
+                MouseEventKind::ScrollDown => {
+                    session.scroll = session.scroll.saturating_add(3);
+                    return Ok(true);
+                }
+                _ => {}
             }
         }
         let horizontal = match event.kind {

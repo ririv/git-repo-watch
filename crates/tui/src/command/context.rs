@@ -16,6 +16,7 @@ pub(crate) enum Context {
     Repository,
     Repositories,
     Settings,
+    Startup,
     Ai,
     Schedule,
     Error,
@@ -31,7 +32,7 @@ impl Context {
             | Self::Stash
             | Self::Files
             | Self::Composition => Some(Self::Repository),
-            Self::Ai => Some(Self::Settings),
+            Self::Ai | Self::Startup => Some(Self::Settings),
             Self::Repository
             | Self::Repositories
             | Self::Settings
@@ -48,6 +49,7 @@ impl Context {
             Self::Repository => "repo",
             Self::Repositories => "repos",
             Self::Settings => "settings",
+            Self::Startup => "settings startup",
             Self::Ai => "settings ai",
             Self::Schedule => "schedule",
             Self::Error => "error",
@@ -123,6 +125,10 @@ impl Context {
 impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
         match &self.mode {
+            Mode::Workflow(session) => Some(match session.trigger {
+                engine::workflow::Trigger::Startup => Context::Startup,
+                engine::workflow::Trigger::Scheduled => Context::Schedule,
+            }),
             Mode::Composition(_) | Mode::CompositionWaiting(_) => Some(Context::Composition),
             Mode::Browser(_) => Some(Context::Files),
             Mode::Changes(_) | Mode::Files(_) => Some(Context::Diff(DiffContext::Worktree)),
@@ -144,8 +150,14 @@ impl Screen {
                     Configuration::General
                         .items(self.snapshot.registration, &self.config.ai)
                         .get(self.setting_selected)
-                        .filter(|_| self.config.ai.enabled)
-                        .map_or(Context::Settings, |item| item.context()),
+                        .map_or(Context::Settings, |item| {
+                            let context = item.context();
+                            if context == Context::Ai && !self.config.ai.enabled {
+                                Context::Settings
+                            } else {
+                                context
+                            }
+                        }),
                 ),
                 Page::Repositories => None,
                 Page::Detail => Some(Context::Repository),
