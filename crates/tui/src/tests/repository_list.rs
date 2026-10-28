@@ -83,8 +83,8 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
     ];
     for (filter, expected) in [
         (Filter::All, vec![0, 1, 2, 3, 4]),
-        (Filter::Problems, vec![3]),
-        (Filter::Clean, vec![1, 2, 4]),
+        (Filter::Problems, vec![2, 3]),
+        (Filter::Clean, vec![1, 4]),
         (Filter::Failed, vec![3]),
         (Filter::Unchecked, vec![0]),
         (Filter::WithoutUpstream, vec![4]),
@@ -95,7 +95,7 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
                 .iter()
                 .enumerate()
                 .filter_map(|(index, result)| filter
-                    .matches(*result, crate::repository_list::Execution::of(*result))
+                    .matches(*result, crate::repository_list::Status::of(*result))
                     .then_some(index))
                 .collect::<Vec<_>>(),
             expected
@@ -114,7 +114,7 @@ fn sorting_uses_status_name_full_path_or_per_repository_time_with_stable_ties() 
     update(&mut s, failed(b), "2026-10-23T01:00:00Z", 2);
     update(&mut s, attention(c), "2026-10-23T02:00:00Z", 3);
     for (order, expected) in [
-        (Order::Priority, [b, d, c, a]),
+        (Order::Priority, [b, c, d, a]),
         (Order::Name, [c, a, b, d]),
         (Order::Path, [b, d, c, a]),
         (Order::Updated, [c, a, b, d]),
@@ -297,7 +297,7 @@ fn repositories_without_remotes_remain_normal_after_startup_and_manual_fetch() {
     s.service.run_startup(&Cancel::default(), |_| {}).unwrap();
     s.reload(&Cancel::default()).unwrap();
     let text = render(&mut s, 100, 28);
-    assert!(text.contains("正常 1 · 部分失败 0 · 失败 0"), "{text}");
+    assert!(text.contains("正常 1 · 需关注 0 · 失败 0"), "{text}");
     assert!(
         text.lines()
             .any(|line| line.contains("✓ repo") && line.contains("—")),
@@ -380,14 +380,14 @@ fn home_uses_the_checked_out_branch_and_the_branch_view_keeps_other_branch_diffe
     assert!(
         switched
             .lines()
-            .any(|line| line.contains("✓ repo") && line.contains("↑3 ↓0")),
+            .any(|line| line.contains("! repo") && line.contains("↑3 ↓0")),
         "{switched}"
     );
     s.shutdown();
 }
 
 #[test]
-fn home_sync_uses_current_branch_commit_counts_and_neutral_conditions_remain_successful() {
+fn home_attention_uses_current_branch_commits_and_actual_failures_take_priority() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = support::Fixture::create();
     support::git(&f.repo, &["branch", "experiment"]);
@@ -405,10 +405,10 @@ fn home_sync_uses_current_branch_commit_counts_and_neutral_conditions_remain_suc
     s.reload(&Cancel::default()).unwrap();
     for (width, height) in [(60, 18), (100, 28), (180, 36)] {
         let text = render(&mut s, width, height);
-        assert!(text.contains("正常 1 · 部分失败 0 · 失败 0"), "{text}");
+        assert!(text.contains("正常 0 · 需关注 1 · 失败 0"), "{text}");
         assert!(
             text.lines()
-                .any(|line| line.contains("✓ repo") && line.contains("↑3 ↓0")),
+                .any(|line| line.contains("! repo") && line.contains("↑3 ↓0")),
             "{text}"
         );
         assert!(
@@ -417,9 +417,9 @@ fn home_sync_uses_current_branch_commit_counts_and_neutral_conditions_remain_suc
         );
     }
     s.filter_repositories(Filter::Problems);
-    assert!(s.rows().is_empty());
-    s.filter_repositories(Filter::Clean);
     assert_eq!(s.rows().len(), 1);
+    s.filter_repositories(Filter::Clean);
+    assert!(s.rows().is_empty());
     s.repository_errors
         .insert(f.repo.clone(), "actual operation failure".into());
     s.filter_repositories(Filter::Problems);
@@ -427,6 +427,8 @@ fn home_sync_uses_current_branch_commit_counts_and_neutral_conditions_remain_suc
     assert!(render(&mut s, 100, 28).contains("× repo"));
     s.service.run(&Cancel::default(), |_| {}).unwrap();
     s.reload(&Cancel::default()).unwrap();
+    assert!(render(&mut s, 100, 28).contains("! repo"));
+    s.filter_repositories(Filter::Failed);
     assert!(s.rows().is_empty());
 }
 
@@ -490,4 +492,64 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
         "×",
         (Color::LightRed, Color::DarkGray, Color::LightGreen),
     );
+    s.repository_errors.clear();
+    let mut modified = attention(path);
+    let RepositoryResult::Attention {
+        synchronization, ..
+    } = &mut modified
+    else {
+        unreachable!()
+    };
+    *synchronization = Synchronization::Current {
+        checkout: Checkout::Compared {
+            branch: "main".into(),
+            ahead: 3,
+            behind: 1,
+        },
+    };
+    update(&mut s, modified.clone(), "2026-10-28T04:03:00Z", 4);
+    colors(&mut s, "!", (Color::Yellow, Color::Yellow, Color::Yellow));
+    let RepositoryResult::Attention { issues, pushes, .. } = &mut modified else {
+        unreachable!()
+    };
+    *issues = Issues::new(
+        Issue {
+            kind: IssueKind::Dirty,
+            detail: "modified".into(),
+        },
+        vec![Issue {
+            kind: IssueKind::PushFailed,
+            detail: "rejected".into(),
+        }],
+    );
+    let target = |branch: &str| PushTarget {
+        branch: branch.into(),
+        local_ref: format!("refs/heads/{branch}"),
+        local_oid: "a".repeat(40),
+        remote: "origin".into(),
+        remote_ref: format!("refs/heads/{branch}"),
+        remote_oid: "b".repeat(40),
+        ahead_commits: 1,
+    };
+    pushes.extend([
+        Publication::Pushed {
+            target: target("main"),
+        },
+        Publication::Failed {
+            target: target("feature"),
+            phase: engine::domain::Phase::Transfer,
+            error: "rejected".into(),
+        },
+    ]);
+    update(&mut s, modified, "2026-10-28T04:04:00Z", 5);
+    colors(&mut s, "×", (Color::LightRed, Color::Yellow, Color::Yellow));
+    let text = render(&mut s, 100, 28);
+    assert!(
+        text.contains("正常 0 · 需关注 0 · 失败 1") && !text.contains("部分失败"),
+        "{text}"
+    );
+    for filter in [Filter::Failed, Filter::Problems] {
+        s.filter_repositories(filter);
+        assert_eq!(s.rows().len(), 1);
+    }
 }

@@ -1,9 +1,9 @@
 //! Session-local repository filters, ordering, and command menu transitions.
-mod execution;
+mod status;
 use crate::{Mode, Page, Row, Screen};
 use chrono::{DateTime, FixedOffset};
 use engine::{domain::RepositoryResult, service::CachedReport};
-pub(crate) use execution::Execution;
+pub(crate) use status::{Counts, Status};
 use std::{cmp::Reverse, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -17,13 +17,13 @@ pub(crate) enum Filter {
     Pushes,
 }
 impl Filter {
-    pub(crate) fn matches(self, result: Option<&RepositoryResult>, execution: Execution) -> bool {
+    pub(crate) fn matches(self, result: Option<&RepositoryResult>, execution: Status) -> bool {
         match self {
             Self::All => true,
-            Self::Unchecked => execution == Execution::Unchecked,
-            Self::Clean => execution == Execution::Succeeded,
-            Self::Failed => execution == Execution::Failed,
-            Self::Problems => matches!(execution, Execution::Failed | Execution::PartialFailure),
+            Self::Unchecked => execution == Status::Unchecked,
+            Self::Clean => execution == Status::Normal,
+            Self::Failed => execution == Status::Failed,
+            Self::Problems => matches!(execution, Status::NeedsAttention | Status::Failed),
             Self::WithoutUpstream => {
                 result.is_some_and(|r| engine::domain::Filter::WithoutUpstream.matches(r))
             }
@@ -68,11 +68,11 @@ pub(crate) enum Menu {
 }
 
 impl Screen {
-    pub(crate) fn repository_execution(&self, path: &Path) -> Execution {
+    pub(crate) fn repository_status(&self, path: &Path) -> Status {
         if self.repository_errors.contains_key(path) {
-            Execution::Failed
+            Status::Failed
         } else {
-            Execution::of(self.result_for(path))
+            Status::of(self.result_for(path))
         }
     }
     pub(crate) fn open_repository_list(&mut self, path: Option<std::path::PathBuf>) {
@@ -122,7 +122,7 @@ impl Screen {
     pub(crate) fn sort_rows(&self, rows: &mut [Row]) {
         match self.order {
             Order::Priority => rows.sort_by(|a, b| {
-                let priority = |row: &Row| self.repository_execution(&row.path).priority();
+                let priority = |row: &Row| self.repository_status(&row.path).priority();
                 priority(a)
                     .cmp(&priority(b))
                     .then_with(|| a.path.cmp(&b.path))

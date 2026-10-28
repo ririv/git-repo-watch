@@ -1,11 +1,11 @@
 //! Colored repository counts with width-aware report metadata placement.
 use super::*;
 
-fn counts(stats: Stats) -> Line<'static> {
+fn counts(stats: crate::repository_list::Counts) -> Line<'static> {
     let mut spans = vec![Span::raw(" ")];
     for (index, (label, count, color)) in [
-        (i18n::tr!(Clean), stats.clean, GOOD),
-        (i18n::tr!(RepositoryPartialFailure), stats.attention, WARN),
+        (i18n::tr!(Clean), stats.normal, GOOD),
+        (i18n::tr!(NeedsAttention), stats.needs_attention, WARN),
         (i18n::tr!(Failed), stats.failed, BAD),
     ]
     .into_iter()
@@ -39,14 +39,14 @@ fn arrange(summary: Option<Line<'static>>, checked: String, width: u16) -> Vec<L
 }
 
 pub(super) fn lines(screen: &Screen, width: u16) -> Vec<Line<'static>> {
-    let stats = crate::repository_list::Execution::counts(
+    let stats = crate::repository_list::Status::counts(
         screen
             .config
             .repositories
             .iter()
-            .map(|path| screen.repository_execution(path)),
+            .map(|path| screen.repository_status(path)),
     );
-    let summary = (stats.clean + stats.attention + stats.failed > 0).then(|| counts(stats));
+    let summary = (stats.normal + stats.needs_attention + stats.failed > 0).then(|| counts(stats));
     let checked = match &screen.snapshot.report {
         CachedReport::Missing => i18n::tr!(NoCompleteReportYet).to_owned(),
         CachedReport::Available { report, scope } => i18n::tf!(
@@ -71,16 +71,16 @@ mod tests {
         for language in [i18n::Language::English, i18n::Language::Chinese] {
             let _language = i18n::using(language);
             for changed in ["", i18n::tr!(ReportScopeChanged)] {
-                let summary = counts(Stats {
-                    clean: 9,
-                    attention: 17,
-                    ..Default::default()
+                let summary = counts(crate::repository_list::Counts {
+                    normal: 9,
+                    needs_attention: 17,
+                    failed: 2,
                 });
                 assert_eq!(
                     summary.to_string(),
                     match language {
-                        i18n::Language::English => " Clean 9 · Partial failure 17 · Failed 0",
-                        i18n::Language::Chinese => " 正常 9 · 部分失败 17 · 失败 0",
+                        i18n::Language::English => " Clean 9 · Needs attention 17 · Failed 2",
+                        i18n::Language::Chinese => " 正常 9 · 需关注 17 · 失败 2",
                     }
                 );
                 let checked = i18n::tf!(LastCheck, "2026-10-24 04:00:00", changed);

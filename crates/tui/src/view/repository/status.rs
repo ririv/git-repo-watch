@@ -1,31 +1,31 @@
 //! Repository execution, workspace changes and branch comparisons render independently.
 use super::*;
-use crate::repository_list::Execution;
+use crate::repository_list::Status;
 use engine::domain::synchronization::Synchronization;
 
-pub(super) fn color(execution: Execution) -> Color {
+pub(super) fn color(execution: Status) -> Color {
     match execution {
-        Execution::Unchecked => MUTED,
-        Execution::Succeeded => GOOD,
-        Execution::PartialFailure => WARN,
-        Execution::Failed => BAD,
+        Status::Unchecked => MUTED,
+        Status::Normal => GOOD,
+        Status::NeedsAttention => WARN,
+        Status::Failed => BAD,
     }
 }
 pub(super) fn workspace(result: Option<&RepositoryResult>) -> (&'static str, Color) {
     match result {
         None => ("?", MUTED),
-        Some(RepositoryResult::Failed { .. }) => ("?", color(Execution::of(result))),
+        Some(RepositoryResult::Failed { .. }) => ("?", color(Status::of(result))),
         Some(RepositoryResult::Attention { issues, .. })
             if issues.iter().any(|issue| issue.kind == IssueKind::Dirty) =>
         {
-            (i18n::tr!(Changes), ACCENT)
+            (i18n::tr!(Changes), WARN)
         }
         Some(_) => (i18n::tr!(CleanAlt), MUTED),
     }
 }
 pub(super) fn synchronization(result: Option<&RepositoryResult>) -> (String, Color) {
     if matches!(result, Some(RepositoryResult::Failed { .. })) {
-        return ("?".into(), color(Execution::of(result)));
+        return ("?".into(), color(Status::of(result)));
     }
     match result.map(RepositoryResult::synchronization) {
         None | Some(Synchronization::Unknown | Synchronization::LegacyBranches { .. }) => {
@@ -33,7 +33,7 @@ pub(super) fn synchronization(result: Option<&RepositoryResult>) -> (String, Col
         }
         Some(sync @ Synchronization::Current { .. }) => match sync.current_commits() {
             Some((0, 0)) => ("↑0 ↓0".into(), GOOD),
-            Some((ahead, behind)) => (format!("↑{ahead} ↓{behind}"), ACCENT),
+            Some((ahead, behind)) => (format!("↑{ahead} ↓{behind}"), WARN),
             None => ("—".into(), MUTED),
         },
     }

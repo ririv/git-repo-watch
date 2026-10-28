@@ -34,7 +34,7 @@ mod workspace;
 use super::*;
 use body::render_body;
 use engine::{
-    domain::{IssueKind, Stats},
+    domain::IssueKind,
     scheduler::{Registration, Schedule},
     service::{Activity, CachedReport, Scope},
 };

@@ -1,7 +1,7 @@
 mod heading;
 mod status;
 use super::*;
-use crate::repository_list::Execution;
+use crate::repository_list::Status;
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Scope {
     CurrentBranch,
@@ -66,7 +66,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let data = rows
         .iter()
         .map(|row| {
-            let execution = screen.repository_execution(&row.path);
+            let execution = screen.repository_status(&row.path);
             let running = screen
                 .check_task
                 .as_ref()
@@ -174,7 +174,7 @@ pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope) -> Tex
     let mut text = detail_text(row, scope);
     if let Some(error) = screen.repository_errors.get(&row.path) {
         if text.lines.len() > 1 {
-            text.lines[1] = field(i18n::tr!(Status), Execution::Failed.label(), BAD);
+            text.lines[1] = field(i18n::tr!(Status), Status::Failed.label(), BAD);
         }
         text.lines
             .push(field(i18n::tr!(OperationResult), safe(error), BAD));
@@ -202,7 +202,7 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
         lines.push(Line::from(i18n::tr!(NotIncludedInTheLastReportWait)));
         return Text::from(lines);
     };
-    let execution = Execution::of(Some(result));
+    let execution = Status::of(Some(result));
     lines.push(field(
         i18n::tr!(Status),
         execution.label(),
@@ -251,11 +251,11 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
                     continue;
                 }
                 let (label, color) = match issue.kind {
-                    IssueKind::Dirty => (i18n::tr!(Worktree), ACCENT),
+                    IssueKind::Dirty => (i18n::tr!(Worktree), WARN),
                     IssueKind::DetachedHead => (i18n::tr!(HeadState), MUTED),
                     IssueKind::NoCommits => (i18n::tr!(CommitState), MUTED),
                     IssueKind::MissingUpstream => (i18n::tr!(RemoteUpstream), MUTED),
-                    IssueKind::OutOfSync => (i18n::tr!(BranchSync), ACCENT),
+                    IssueKind::OutOfSync => (i18n::tr!(BranchSync), WARN),
                     IssueKind::PushFailed => (i18n::tr!(PushFailed), BAD),
                     IssueKind::OperationFailed => (i18n::tr!(OperationResult), BAD),
                 };
@@ -364,44 +364,84 @@ mod tests {
         }
     }
     #[test]
-    fn ordinary_repository_conditions_do_not_warn_and_actual_failures_do() {
+    fn neutral_repository_states_are_normal_and_actionable_differences_need_attention() {
         for kind in [
-            IssueKind::Dirty,
             IssueKind::DetachedHead,
             IssueKind::NoCommits,
             IssueKind::MissingUpstream,
             IssueKind::OutOfSync,
         ] {
             assert_eq!(
-                Execution::of(Some(&attention(vec![kind], vec![]))),
-                Execution::Succeeded
+                Status::of(Some(&attention(vec![kind], vec![]))),
+                Status::Normal
             );
         }
         assert_eq!(
-            Execution::of(Some(&attention(
+            Status::of(Some(&attention(vec![IssueKind::Dirty], vec![]))),
+            Status::NeedsAttention
+        );
+        assert_eq!(
+            Status::of(Some(&attention(
                 vec![IssueKind::PushFailed],
                 vec![publication(false), publication(true)]
             ))),
-            Execution::PartialFailure
+            Status::Failed
         );
         assert_eq!(
-            Execution::of(Some(&attention(
+            Status::of(Some(&attention(
                 vec![IssueKind::PushFailed],
                 vec![publication(true)]
             ))),
-            Execution::Failed
+            Status::Failed
         );
         assert_eq!(
-            Execution::of(Some(&attention(vec![IssueKind::OperationFailed], vec![]))),
-            Execution::Failed
+            Status::of(Some(&attention(vec![IssueKind::OperationFailed], vec![]))),
+            Status::Failed
         );
         let partial = RepositoryResult::Failed {
             path: "/example/repo".into(),
             error: "partially failed".into(),
             pushes: vec![publication(false), publication(true)],
         };
-        assert_eq!(status::workspace(Some(&partial)).1, WARN);
-        assert_eq!(status::synchronization(Some(&partial)).1, WARN);
+        assert_eq!(Status::of(Some(&partial)), Status::Failed);
+        assert_eq!(status::workspace(Some(&partial)).1, BAD);
+        assert_eq!(status::synchronization(Some(&partial)).1, BAD);
+    }
+    #[test]
+    fn mixed_push_results_remain_visible_when_the_repository_is_failed() {
+        let _language = i18n::using(i18n::Language::Chinese);
+        let succeeded = publication(false);
+        let mut failed = publication(true);
+        let Publication::Failed { target, .. } = &mut failed else {
+            unreachable!()
+        };
+        target.branch = "feature".into();
+        let result = attention(vec![IssueKind::PushFailed], vec![succeeded, failed]);
+        let row = Row {
+            path: result.path().to_owned(),
+            result: Some(result),
+        };
+        let text = detail_text(&row, Scope::AllBranches);
+        let content = text.to_string();
+        assert!(
+            content.contains("状态：失败") && !content.contains("部分失败"),
+            "{content}"
+        );
+        assert!(
+            content.contains("分支：main") && content.contains("分支：feature"),
+            "{content}"
+        );
+        assert!(content.contains("rejected"), "{content}");
+        assert!(
+            text.lines
+                .iter()
+                .any(|line| line.spans.iter().any(|span| span.style.fg == Some(GOOD)))
+        );
+        assert!(
+            text.lines
+                .iter()
+                .any(|line| line.spans.iter().any(|span| span.style.fg == Some(BAD)))
+        );
     }
     #[test]
     fn synchronization_shows_current_commit_counts_and_keeps_legacy_aggregates_unknown() {
@@ -423,7 +463,7 @@ mod tests {
         };
         assert_eq!(
             status::synchronization(Some(&result)),
-            ("↑5 ↓7".into(), ACCENT)
+            ("↑5 ↓7".into(), WARN)
         );
         for checkout in [
             Checkout::NoUpstream {
@@ -541,7 +581,7 @@ mod tests {
                     branches_without_upstream: vec![],
                     pushes: vec![],
                 }),
-                GOOD,
+                WARN,
             ),
             (
                 Some(RepositoryResult::Failed {

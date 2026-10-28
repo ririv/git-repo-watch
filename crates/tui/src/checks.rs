@@ -358,11 +358,11 @@ impl Screen {
             };
             match result {
                 Ok(report) => {
-                    let stats = crate::repository_list::Execution::counts(
+                    let stats = crate::repository_list::Status::counts(
                         report
                             .repositories
                             .iter()
-                            .map(|result| crate::repository_list::Execution::of(Some(result))),
+                            .map(|result| crate::repository_list::Status::of(Some(result))),
                     );
                     let scope = if report.repositories.len() == self.config.repositories.len()
                         && report.repositories.iter().all(|result| {
@@ -380,9 +380,9 @@ impl Screen {
                         "{} · {} {} · {} {} · {} {}",
                         i18n::tr!(HomeCheckComplete),
                         i18n::tr!(Clean),
-                        stats.clean,
-                        i18n::tr!(RepositoryPartialFailure),
-                        stats.attention,
+                        stats.normal,
+                        i18n::tr!(NeedsAttention),
+                        stats.needs_attention,
                         i18n::tr!(Failed),
                         stats.failed
                     );

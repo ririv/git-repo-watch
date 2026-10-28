@@ -322,7 +322,7 @@ impl Screen {
         let mut rows = Vec::new();
         for path in &self.config.repositories {
             let result = self.result_for(path);
-            if !self.filter.matches(result, self.repository_execution(path)) {
+            if !self.filter.matches(result, self.repository_status(path)) {
                 continue;
             }
             if self.search_mode == search::Mode::Filter

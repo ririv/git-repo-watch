@@ -163,11 +163,11 @@
 - `/cancel` cancels repository work; `Esc` returns through views. Confirming `Ctrl+C` exit or executing `/quit` exits, cancelling and collecting owned tasks and Git processes. During blocking operations such as configuration writes, `Esc` / `Ctrl+C` only requests cancellation and waits for child processes; it does not arm exit confirmation.
 
 ## Status legend
-- `✓` Succeeded     `!` Partially failed     `×` Failed     `·` Unchecked; a spinner means running
-- `*` Worktree changes: uncommitted, untracked or submodule changes. `?` means unknown.
+- Green `✓` Normal     Yellow `!` Needs attention     Red `×` Failed     Gray `·` Unchecked; a spinner means running. Header counts match row markers. Failures take priority and each repository belongs to one category; details preserve successful and failed branch results.
+- `*` Worktree changes: uncommitted, untracked or submodule changes. Worktree changes or nonzero sync counts on the checked-out branch need attention and appear in yellow. Other branches do not affect the home category; repository names keep their normal color. `?` means unknown.
 - The list merges per-repository versions from checks and local operations. Newer repository results win over late batch results. The file panel reads current local state.
 - No-upstream branches are counted separately. They are not problems and are never published automatically.
-- Home sync shows ↑ahead and ↓behind commit counts for the checked-out branch against its upstream. Other branches remain in repository details and the branch panel. — means no upstream, a missing upstream ref, detached HEAD, or no commits yet. ? means the saved record lacks current-branch data; run another check to refresh it. Workspace changes, divergence, absent upstreams, and empty repositories are neutral. The error filter includes execution failures; push outcomes remain in task history and details.
+- Home sync shows ↑ahead and ↓behind commit counts for the checked-out branch against its upstream. Other branches remain in repository details and the branch panel. — means no upstream, a missing upstream ref, detached HEAD, or no commits yet; these states alone do not need attention. ? means the saved record lacks current-branch data; run another check to refresh it. The problems filter includes attention and failures; failed includes failures only. Push outcomes remain in task history and details.
 - Full errors appear in preview and repository details.
 
 ## Scrolling indicators
