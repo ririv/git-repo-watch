@@ -200,6 +200,9 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
     )];
     let Some(result) = &row.result else {
         lines.push(field(i18n::tr!(Status), i18n::tr!(Unchecked), MUTED));
+        if scope == Scope::CurrentBranch {
+            lines.push(field(i18n::tr!(Branch), "?", MUTED));
+        }
         lines.push(Line::from(i18n::tr!(NotIncludedInTheLastReportWait)));
         return Text::from(lines);
     };
@@ -209,9 +212,13 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
         execution.label(),
         status::color(execution),
     ));
+    if scope == Scope::CurrentBranch {
+        let (branch, color) = status::branch(Some(result));
+        lines.push(field(i18n::tr!(Branch), safe(branch), color));
+    }
     if !matches!(result, RepositoryResult::Failed { .. }) {
         let (sync, color) = status::synchronization(Some(result));
-        lines.push(field(i18n::tr!(CurrentBranchSync), sync, color));
+        lines.push(field(i18n::tr!(SyncColumn), sync, color));
     }
     match result {
         RepositoryResult::Failed { error, .. } => {
@@ -330,6 +337,77 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
 mod tests {
     use super::*;
     use engine::domain::{Issue, Issues};
+
+    #[test]
+    fn branch_labels_use_the_recorded_checkout_for_all_supported_states() {
+        use engine::domain::synchronization::{Checkout, Comparison, Synchronization};
+        for checkout in [
+            Checkout::Compared {
+                branch: "功能/中文-branch".into(),
+                ahead: 3,
+                behind: 1,
+            },
+            Checkout::NoUpstream {
+                branch: "功能/中文-branch".into(),
+            },
+            Checkout::MissingUpstream {
+                branch: "功能/中文-branch".into(),
+            },
+            Checkout::Unborn {
+                branch: "功能/中文-branch".into(),
+            },
+        ] {
+            let result = RepositoryResult::Clean {
+                path: "/example/repo".into(),
+                synchronization: Synchronization::Current { checkout },
+                branches_without_upstream: vec![],
+                pushes: vec![],
+            };
+            assert_eq!(
+                status::branch(Some(&result)),
+                ("功能/中文-branch", Color::Reset)
+            );
+            let row = Row {
+                path: result.path().to_owned(),
+                result: Some(result),
+            };
+            let branch = format!(
+                "{}功能/中文-branch",
+                i18n::tf!(FieldLabel, label = i18n::tr!(Branch))
+            );
+            assert!(
+                detail_text(&row, Scope::CurrentBranch)
+                    .to_string()
+                    .contains(&branch)
+            );
+            assert!(
+                !detail_text(&row, Scope::AllBranches)
+                    .to_string()
+                    .contains(&branch)
+            );
+        }
+        for synchronization in [
+            Synchronization::Unknown,
+            Synchronization::LegacyBranches {
+                branches: vec![Comparison::Ahead],
+            },
+        ] {
+            let result = RepositoryResult::Clean {
+                path: "/example/repo".into(),
+                synchronization,
+                branches_without_upstream: vec![],
+                pushes: vec![],
+            };
+            assert_eq!(status::branch(Some(&result)), ("?", MUTED));
+        }
+        assert_eq!(status::branch(None), ("?", MUTED));
+        let failed = RepositoryResult::Failed {
+            path: "/example/repo".into(),
+            error: "unavailable".into(),
+            pushes: vec![],
+        };
+        assert_eq!(status::branch(Some(&failed)), ("?", BAD));
+    }
 
     fn publication(failed: bool) -> Publication {
         let target = engine::domain::PushTarget {
@@ -516,7 +594,7 @@ mod tests {
             Scope::AllBranches,
         )
         .to_string();
-        assert!(clean.contains("状态：正常\n当前分支同步：?\n工作区：干净"));
+        assert!(clean.contains("状态：正常\n同步：?\n工作区：干净"));
         assert!(clean.contains("未配置远程上游：0 个分支"));
         let attention = detail_text(
             &row(Some(RepositoryResult::Attention {

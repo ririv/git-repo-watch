@@ -1,7 +1,24 @@
 //! Repository execution, workspace changes and branch comparisons render independently.
 use super::*;
 use crate::repository_list::Status;
-use engine::domain::synchronization::Synchronization;
+use engine::domain::synchronization::{Checkout, Synchronization};
+
+pub(super) fn branch(result: Option<&RepositoryResult>) -> (&str, Color) {
+    match result {
+        None => ("?", MUTED),
+        Some(RepositoryResult::Failed { .. }) => ("?", BAD),
+        Some(result) => match result.synchronization() {
+            Synchronization::Current { checkout } => match checkout {
+                Checkout::Compared { branch, .. }
+                | Checkout::NoUpstream { branch }
+                | Checkout::MissingUpstream { branch }
+                | Checkout::Unborn { branch } => (branch, Color::Reset),
+                Checkout::Detached => (i18n::tr!(OverviewDetached), MUTED),
+            },
+            Synchronization::Unknown | Synchronization::LegacyBranches { .. } => ("?", MUTED),
+        },
+    }
+}
 
 pub(super) fn color(execution: Status) -> Color {
     match execution {

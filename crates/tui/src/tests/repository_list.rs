@@ -343,7 +343,8 @@ fn home_uses_the_checked_out_branch_and_the_branch_view_keeps_other_branch_diffe
         "{home}"
     );
     let wide_home = render(&mut s, 180, 32);
-    assert!(wide_home.contains("当前分支同步：↑0 ↓0"), "{wide_home}");
+    assert!(wide_home.contains("同步：↑0 ↓0"), "{wide_home}");
+    assert!(wide_home.contains("分支：main"), "{wide_home}");
     assert!(
         !wide_home.contains("feature") && !wide_home.contains("分支同步：feature"),
         "{wide_home}"
@@ -383,6 +384,55 @@ fn home_uses_the_checked_out_branch_and_the_branch_view_keeps_other_branch_diffe
             .any(|line| line.contains("! repo") && line.contains("↑3 ↓0")),
         "{switched}"
     );
+    assert!(render(&mut s, 180, 32).contains("分支：feature"));
+    s.shutdown();
+}
+
+#[test]
+fn home_branch_is_in_selected_details_and_the_list_keeps_its_existing_columns() {
+    let f = support::Fixture::create();
+    support::git(&f.repo, &["remote", "remove", "origin"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let branch = i18n::tf!(FieldLabel, label = i18n::tr!(Branch));
+        for width in [120, 160, 200] {
+            let text = render(&mut s, width, 30);
+            assert!(text.contains(&format!("{branch}main")), "{width}\n{text}");
+            let header = text
+                .lines()
+                .find(|line| {
+                    line.contains(i18n::tr!(Worktree)) && line.contains(i18n::tr!(SyncColumn))
+                })
+                .unwrap();
+            assert!(!header.contains(i18n::tr!(Branch)), "{header}");
+        }
+        for width in [60, 90, 100] {
+            let text = render(&mut s, width, 30);
+            assert!(!text.contains(&format!("{branch}main")), "{width}\n{text}");
+            assert!(
+                text.lines()
+                    .any(|line| line.contains("✓ repo") && !line.contains("main")),
+                "{width}\n{text}"
+            );
+        }
+    }
+    support::git(&f.repo, &["checkout", "--detach"]);
+    s.service
+        .check_repository(&f.repo, &Cancel::default(), |_| {})
+        .unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let expected = format!(
+            "{}{}",
+            i18n::tf!(FieldLabel, label = i18n::tr!(Branch)),
+            i18n::tr!(OverviewDetached)
+        );
+        assert!(render(&mut s, 160, 30).contains(&expected));
+    }
     s.shutdown();
 }
 
