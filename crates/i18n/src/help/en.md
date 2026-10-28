@@ -14,6 +14,7 @@
 ## Repository panes
 - Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
 - Focusing a pane adds one level; switching panes replaces it. Maximizing adds no level. Back at a pane root returns to the repository root, then to the home page.
+- At the repository root, arrows select panes by layout; Tab/Shift+Tab cycle. Enter focuses the selected pane before operating its content. A border marks the selection; focusing adds the pane name to breadcrumbs. Esc returns to pane selection and keeps its position; another Esc returns home. Narrow windows show the selected pane.
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
 - `/repo branch` always opens the full branch view. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
@@ -176,7 +177,7 @@
 ## Scrolling indicators
 - Scrollbars support clicking the track and dragging the thumb on both axes. Dragging stays with the original pane until release, including outside the track; the precise-click preference applies.
 - Vertical scrollbars sit in the right border over content rows only, excluding fixed headers. Unstaged and staged groups have separate tracks; content that fits has no scrollbar.
-- Use global `/focus` mode to switch panes; arrow keys do not switch panes.
+- At the repository root, arrows select panes. Inside focused content, use global `/focus` to switch panes; arrows retain their content actions.
 - In a diff preview with empty input, ←→ scrolls long lines. Line numbers and change markers stay fixed; split columns pan together. Esc goes back. Overflowing content has a scrollbar embedded in the bottom border without taking a content row.
 - In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. /repo log pan left / right pans the graph, Enter opens details, and Esc goes back.
 - Horizontal wheel and Shift + vertical wheel also work when forwarded by the terminal. With text in the input, arrow keys edit the input; command and confirmation selectors keep their own keys.

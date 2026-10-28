@@ -121,7 +121,7 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
     );
     render(&mut s, 100, 28);
     assert_eq!(s.workspace_areas.len(), 4);
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Repositories);
     key(&mut s, KeyCode::Enter);
     // 根层没有面板焦点，放大键不会隐式进入概览。
@@ -131,7 +131,7 @@ fn maximized_files_keep_diff_back_navigation_and_escape_clears_input_before_rest
         s.workspace.session().unwrap().arrangement,
         Arrangement::Tiled
     );
-    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Enter);
     assert!(matches!(
         s.mode,
         Mode::Panel(crate::workspace::Section::Overview)
@@ -307,7 +307,7 @@ fn section_clicks_preserve_command_drafts_and_another_repository_gets_its_own_se
     assert_eq!(s.bar.editor().text, draft);
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Left);
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
     focus(&mut s, crate::workspace::Section::Worktree);

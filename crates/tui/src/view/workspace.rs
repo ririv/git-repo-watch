@@ -3,16 +3,26 @@ use super::*;
 use crate::workspace::{Arrangement, Panel, Section};
 
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let focused = Section::of(&screen.mode);
+    let focused = Section::focused(&screen.mode);
+    let selected = match focused {
+        Some(section) => section,
+        None => {
+            screen
+                .workspace
+                .session()
+                .expect("open repository")
+                .selection
+        }
+    };
     screen.workspace_areas = match screen
         .workspace
         .session()
         .expect("open repository")
         .arrangement
     {
-        Arrangement::Tiled if area.width < 60 || area.height < 10 => vec![(area, focused)],
+        Arrangement::Tiled if area.width < 60 || area.height < 10 => vec![(area, selected)],
         Arrangement::Tiled => tiled_areas(area),
-        Arrangement::Maximized => vec![(area, focused)],
+        Arrangement::Maximized => vec![(area, selected)],
     };
     for (pane_area, section) in screen.workspace_areas.clone() {
         match section {
@@ -21,8 +31,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
-        if Some(section) == Section::focused(&screen.mode) {
+        if Some(section) == focused {
             highlight_border(frame, pane_area);
+        } else if focused.is_none() && section == selected {
+            highlight_border_with(frame, pane_area, input::active_accent(screen));
         }
     }
 }

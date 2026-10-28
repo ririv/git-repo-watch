@@ -208,7 +208,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
     match input_mode(screen) {
         Mode::Browsing => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),
-            Page::Detail => i18n::tr!(OverviewInputHint),
+            Page::Detail => i18n::tr!(RepositoryPanesHint),
             Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
             Page::Configuration(_) => i18n::tr!(SelectEnterEditBackCommands),
             Page::Help => i18n::tr!(PgdnScrollEscBackCommands),

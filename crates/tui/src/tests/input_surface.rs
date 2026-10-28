@@ -83,8 +83,13 @@ fn commands_only(s: &mut Screen) {
         if matches!(s.mode, Mode::Panel(Section::Overview))
             || (matches!(s.mode, Mode::Browsing) && s.page == Page::Detail)
         {
+            let hint = if matches!(s.mode, Mode::Browsing) {
+                i18n::tr!(RepositoryPanesHint)
+            } else {
+                i18n::tr!(OverviewInputHint)
+            };
             assert!(
-                lines[input.bottom() as usize].contains(i18n::tr!(OverviewInputHint)),
+                lines[input.bottom() as usize].contains(hint.split('·').next().unwrap().trim()),
                 "{text}"
             );
         }

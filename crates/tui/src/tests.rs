@@ -45,6 +45,7 @@ mod task_feedback;
 mod text_selection;
 mod workflows;
 mod workspace;
+mod workspace_navigation;
 mod wrapping;
 use super::*;
 use crate::repository_list::{Filter, Order};

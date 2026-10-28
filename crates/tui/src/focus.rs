@@ -47,6 +47,12 @@ impl Screen {
                     crate::history::Focus::Preview => i18n::tr!(FileDiff),
                 }
             }
+            Mode::Browsing if self.page == Page::Detail => self
+                .workspace
+                .session()
+                .expect("repository pane selection")
+                .selection
+                .title(),
             _ => Section::of(&self.mode).title(),
         }
     }
@@ -175,14 +181,16 @@ impl Screen {
                 self.poll_browser();
             }
             _ => {
-                let section = Section::of(&self.mode);
-                let target = match (section, direction) {
-                    (Section::Overview, Right) | (Section::History, Up) => Section::Branches,
-                    (Section::Overview, Down) | (Section::History, Left) => Section::Worktree,
-                    (Section::Branches, Left) | (Section::Worktree, Up) => Section::Overview,
-                    (Section::Branches, Down) | (Section::Worktree, Right) => Section::History,
-                    _ => section,
+                let section = match Section::focused(&self.mode) {
+                    Some(section) => section,
+                    None => {
+                        self.workspace
+                            .session()
+                            .expect("repository panes")
+                            .selection
+                    }
                 };
+                let target = section.towards(direction);
                 if Section::focused(&self.mode) != Some(target) {
                     self.switch_repository_section(target);
                 }

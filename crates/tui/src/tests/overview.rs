@@ -86,6 +86,7 @@ fn compact_overview_keeps_navigation_visible_while_scrolling_and_resizing() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     key(&mut s, KeyCode::Right);
     wait_overview(&mut s);
+    key(&mut s, KeyCode::Enter);
     let text = render(&mut s, 60, 18);
     assert!(text.contains("repos"));
     assert!(text.contains(i18n::tr!(Branch)));
@@ -145,7 +146,7 @@ fn refreshing_keeps_old_content_and_commands_return_to_updated_overview() {
     wait_overview(&mut s);
     assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(s.page, Page::Detail);
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Repositories);
     assert_eq!(s.selected_path(), Some(f.repo));
 }
@@ -186,6 +187,7 @@ fn full_check_errors_are_reachable_after_scrolling_and_resizing() {
     );
     key(&mut s, KeyCode::Enter);
     wait_overview(&mut s);
+    key(&mut s, KeyCode::Enter);
     for (width, height) in [(60, 18), (160, 32), (110, 18)] {
         key(&mut s, KeyCode::End);
         let text = render(&mut s, width, height);

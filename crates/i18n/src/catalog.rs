@@ -431,6 +431,7 @@ pub enum Message {
     OverviewGone,
     OverviewCheck,
     OverviewInputHint,
+    RepositoryPanesHint,
     OverviewMerging,
     OverviewRebasing,
     OverviewReverting,
@@ -2412,6 +2413,12 @@ impl Message {
             (Self::OverviewGone, Language::Chinese) => "本地缺少上游引用",
             (Self::OverviewCheck, Language::English) => "Last remote check",
             (Self::OverviewCheck, Language::Chinese) => "上轮远程检查",
+            (Self::RepositoryPanesHint, Language::English) => {
+                "Arrows/Tab select pane · Enter focus · Esc back · / commands"
+            }
+            (Self::RepositoryPanesHint, Language::Chinese) => {
+                "方向键/Tab 选择面板 · Enter 聚焦 · Esc 返回 · / 命令"
+            }
             (Self::OverviewInputHint, Language::English) => {
                 "↑↓ Scroll · ←/Esc Back · Ctrl+R Refresh · / Commands"
             }

@@ -42,6 +42,16 @@ impl Section {
             _ => None,
         }
     }
+    pub fn towards(self, direction: crate::focus::Direction) -> Self {
+        use crate::focus::Direction::*;
+        match (self, direction) {
+            (Self::Overview, Right) | (Self::History, Up) => Self::Branches,
+            (Self::Overview, Down) | (Self::History, Left) => Self::Worktree,
+            (Self::Branches, Left) | (Self::Worktree, Up) => Self::Overview,
+            (Self::Branches, Down) | (Self::Worktree, Right) => Self::History,
+            _ => self,
+        }
+    }
     pub fn advance(self, backwards: bool) -> Self {
         let index = Self::ALL
             .iter()
@@ -72,6 +82,7 @@ enum State {
 pub(super) struct Session {
     path: PathBuf,
     pub arrangement: Arrangement,
+    pub selection: Section,
     pub files: Panel<FileSession>,
     pub branches: Panel<branches::Session>,
     pub history: Panel<history::Session>,
@@ -105,6 +116,7 @@ impl Workspace {
         self.state = State::Open(Box::new(Session {
             path: path.clone(),
             arrangement: Arrangement::Tiled,
+            selection: Section::Overview,
             files: Panel::Loading,
             branches: Panel::Loading,
             history: Panel::Loading,
@@ -202,6 +214,7 @@ impl Screen {
         let Some(session) = self.workspace.session_mut() else {
             return;
         };
+        session.selection = section;
         self.mode = match section {
             Section::Overview => Mode::Panel(Section::Overview),
             Section::Branches => match &session.branches {
@@ -239,7 +252,7 @@ impl Screen {
             if self.workspace.path() != Some(&path) {
                 continue;
             }
-            let focus = Section::of(&self.mode);
+            let focus = Section::focused(&self.mode);
             let session = self
                 .workspace
                 .session_mut()
@@ -248,7 +261,7 @@ impl Screen {
                 load::Event::Branches(result) => match result {
                     Ok(mut branches)
                         if self.page == Page::Detail
-                            && focus == Section::Branches
+                            && focus == Some(Section::Branches)
                             && (matches!(self.mode, Mode::Panel(_))
                                 || matches!(&self.mode, Mode::Branches(view) if matches!(view.as_ref(), branches::View::List(_)))) =>
                     {
@@ -278,7 +291,7 @@ impl Screen {
                     }
                     Ok(mut files)
                         if self.page == Page::Detail
-                            && focus == Section::Worktree
+                            && focus == Some(Section::Worktree)
                             && matches!(self.mode, Mode::Panel(_) | Mode::Files(_)) =>
                     {
                         if let Mode::Files(current) = &self.mode {
@@ -292,7 +305,7 @@ impl Screen {
                     }
                     Ok(files) => session.files = Panel::Ready(files),
                     Err(error) => {
-                        if self.page == Page::Detail && focus == Section::Worktree {
+                        if self.page == Page::Detail && focus == Some(Section::Worktree) {
                             self.message = error.clone();
                         }
                         session.files = Panel::Failed(error);
@@ -301,7 +314,7 @@ impl Screen {
                 load::Event::History(result) => match result {
                     Ok(mut view)
                         if self.page == Page::Detail
-                            && focus == Section::History
+                            && focus == Some(Section::History)
                             && (matches!(self.mode, Mode::Panel(_))
                                 || matches!(&self.mode, Mode::History(current) if matches!(current.as_ref(), history::View::Graph(_)))) =>
                     {
@@ -330,7 +343,7 @@ impl Screen {
                     }
                     Ok(view) => session.history = Panel::Ready(view.session().clone()),
                     Err(error) => {
-                        if self.page == Page::Detail && focus == Section::History {
+                        if self.page == Page::Detail && focus == Some(Section::History) {
                             self.message = error.clone();
                         }
                         session.history = Panel::Failed(error);

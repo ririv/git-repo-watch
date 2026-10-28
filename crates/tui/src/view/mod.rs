@@ -105,13 +105,16 @@ fn block(title: impl Into<String>) -> Block<'static> {
 }
 /// Highlight the base border while retaining embedded indicators' own styles.
 fn highlight_border(frame: &mut Frame, area: Rect) {
+    highlight_border_with(frame, area, ACCENT);
+}
+fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             if x == area.x || x + 1 == area.right() || y == area.y || y + 1 == area.bottom() {
                 let cell = &mut frame.buffer_mut()[(x, y)];
                 // 滚动条已覆盖边框并使用独立配色；焦点只改变原始边框色。
                 if cell.fg == BORDER {
-                    cell.set_fg(ACCENT);
+                    cell.set_fg(accent);
                 }
             }
         }

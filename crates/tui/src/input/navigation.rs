@@ -1,7 +1,7 @@
 //! Repository and settings navigation.
 use super::super::*;
 use super::scroll_key;
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 impl Screen {
     pub(crate) fn navigate(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         match key.code {
@@ -9,7 +9,11 @@ impl Screen {
                 self.open_page(Page::Help);
                 return Ok(false);
             }
-            KeyCode::Esc | KeyCode::Left => {
+            KeyCode::Esc => {
+                self.return_to_view();
+                return Ok(false);
+            }
+            KeyCode::Left if self.page != Page::Detail => {
                 self.return_to_view();
                 return Ok(false);
             }
@@ -53,12 +57,33 @@ impl Screen {
                 }
                 _ => scroll_key(&mut self.scroll, key),
             },
-            Page::Detail => match key.code {
-                KeyCode::Enter | KeyCode::Right => {
-                    self.switch_repository_section(crate::workspace::Section::Overview);
+            Page::Detail => {
+                use crate::focus::Direction;
+                let session = self.workspace.session_mut().expect("repository panes");
+                match (key.code, key.modifiers) {
+                    (KeyCode::Up, KeyModifiers::NONE) => {
+                        session.selection = session.selection.towards(Direction::Up)
+                    }
+                    (KeyCode::Down, KeyModifiers::NONE) => {
+                        session.selection = session.selection.towards(Direction::Down)
+                    }
+                    (KeyCode::Left, KeyModifiers::NONE) => {
+                        session.selection = session.selection.towards(Direction::Left)
+                    }
+                    (KeyCode::Right, KeyModifiers::NONE) => {
+                        session.selection = session.selection.towards(Direction::Right)
+                    }
+                    (KeyCode::Tab, KeyModifiers::NONE) => {
+                        session.selection = session.selection.advance(false)
+                    }
+                    (KeyCode::BackTab, _) => session.selection = session.selection.advance(true),
+                    (KeyCode::Enter, KeyModifiers::NONE) => {
+                        let section = session.selection;
+                        self.switch_repository_section(section);
+                    }
+                    _ => {}
                 }
-                _ => self.scroll_overview(key),
-            },
+            }
             Page::View(_) => {}
             Page::Help => scroll_key(&mut self.scroll, key),
         }

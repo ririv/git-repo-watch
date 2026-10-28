@@ -245,7 +245,7 @@ fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_r
         wait_workspace(&mut s);
         let root = labels(&s);
         let visits = s.history.len();
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Enter);
         for section in Section::ALL {
             assert_eq!(Section::focused(&s.mode), Some(section));
             let focused = labels(&s);
@@ -281,7 +281,7 @@ fn maximized_siblings_keep_one_level_and_keyboard_and_mouse_return_to_the_same_r
             s.switch_repository_section(section.advance(false));
         }
         key(&mut s, back);
-        key(&mut s, back);
+        key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Repositories);
         s.shutdown();
     }
