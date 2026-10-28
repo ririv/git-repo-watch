@@ -1247,6 +1247,7 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
         Some(RepositoryResult::Attention { .. })
     ));
     assert!(reopened.result_for(&second.repo).is_none());
+    reopened.focus(Some(first.repo.clone()));
     assert!(render(&mut reopened, 140, 30).contains(i18n::tr!(CheckUpdatedAt)));
     // 新一轮完整检查应覆盖更早的单仓库缓存，而不是让旧改动一直留在列表中。
     std::fs::remove_file(first.repo.join("untracked")).unwrap();

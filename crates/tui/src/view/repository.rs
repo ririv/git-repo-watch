@@ -1,5 +1,7 @@
 mod heading;
+mod status;
 use super::*;
+use crate::repository_list::Execution;
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if area.width >= 120 && area.height >= 19 {
         let columns = Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)])
@@ -22,97 +24,6 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         repository_table(frame, screen, area)
     }
 }
-struct Badges {
-    overall: &'static str,
-    workspace: &'static str,
-    sync: SyncStatus,
-    color: Color,
-}
-#[derive(Debug, PartialEq, Eq)]
-enum SyncStatus {
-    Unknown,
-    CheckFailed(&'static str),
-    PushFailed(usize),
-    Pending,
-    Unavailable(&'static str),
-    Synced { pushed: usize },
-}
-impl SyncStatus {
-    fn from_result(result: &RepositoryResult) -> Self {
-        if let RepositoryResult::Failed { error, .. } = result {
-            return Self::CheckFailed(failure_label(error));
-        }
-        let failed = result
-            .pushes()
-            .iter()
-            .filter(|p| matches!(p, Publication::Failed { .. }))
-            .count();
-        if failed > 0 {
-            return Self::PushFailed(failed);
-        }
-        if let RepositoryResult::Attention { issues, .. } = result {
-            // 按明确优先级选取状态，避免成功记录或问题顺序掩盖尚未解决的同步问题。
-            for (kind, label) in [
-                (IssueKind::PushFailed, i18n::tr!(PushFailed)),
-                (IssueKind::MissingUpstream, i18n::tr!(MissingUpstream)),
-                (IssueKind::NoCommits, i18n::tr!(NoCommits)),
-            ] {
-                if issues.iter().any(|issue| issue.kind == kind) {
-                    return Self::Unavailable(label);
-                }
-            }
-            if issues
-                .iter()
-                .any(|issue| issue.kind == IssueKind::OutOfSync)
-            {
-                return Self::Pending;
-            }
-        }
-        Self::Synced {
-            pushed: result.pushes().len(),
-        }
-    }
-    fn label(&self) -> String {
-        match self {
-            Self::Unknown => "?".into(),
-            Self::CheckFailed(label) | Self::Unavailable(label) => (*label).into(),
-            Self::PushFailed(count) => i18n::tf!(SyncPushFailedCount, count),
-            Self::Pending => i18n::tr!(OutOfSync).into(),
-            Self::Synced { pushed: 0 } => i18n::tr!(Synced).into(),
-            Self::Synced { pushed } => i18n::tf!(SyncPushedCount, pushed),
-        }
-    }
-}
-fn badges(result: Option<&RepositoryResult>) -> Badges {
-    let mut b = Badges {
-        overall: "·",
-        workspace: "?",
-        sync: SyncStatus::Unknown,
-        color: MUTED,
-    };
-    let Some(result) = result else { return b };
-    b.sync = SyncStatus::from_result(result);
-    match result {
-        RepositoryResult::Clean { .. } => {
-            b.overall = "✓";
-            b.workspace = i18n::tr!(CleanAlt);
-            b.color = GOOD;
-        }
-        RepositoryResult::Attention { issues, .. } => {
-            b.overall = "!";
-            b.workspace = i18n::tr!(CleanAlt);
-            b.color = WARN;
-            if issues.iter().any(|issue| issue.kind == IssueKind::Dirty) {
-                b.workspace = i18n::tr!(Changes);
-            }
-        }
-        RepositoryResult::Failed { .. } => {
-            b.overall = "×";
-            b.color = BAD;
-        }
-    }
-    b
-}
 #[derive(Clone, Copy)]
 enum FailureKind {
     Tls,
@@ -126,13 +37,6 @@ fn failure_kind(error: &str) -> FailureKind {
         FailureKind::Reference
     } else {
         FailureKind::Other
-    }
-}
-fn failure_label(error: &str) -> &'static str {
-    match failure_kind(error) {
-        FailureKind::Tls => i18n::tr!(TlsFailed),
-        FailureKind::Reference => i18n::tr!(RefMismatch),
-        FailureKind::Other => i18n::tr!(CheckFailed),
     }
 }
 fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
@@ -157,43 +61,50 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let data = rows
         .iter()
         .map(|row| {
-            let b = badges(row.result.as_ref());
-            TableRow::new(
+            let execution = screen.repository_execution(&row.path);
+            let running = screen
+                .check_task
+                .as_ref()
+                .filter(|task| task.checking(&row.path))
+                .map(|task| task.spinner())
+                .or_else(|| {
+                    screen
+                        .repository_tasks
+                        .get(&row.path)
+                        .map(|task| task.animation.symbol())
+                });
+            let (workspace, workspace_color) = status::workspace(row.result.as_ref());
+            let (sync, sync_color) = status::synchronization(row.result.as_ref());
+            let mut data = TableRow::new(
                 [
-                    Cell::from(format!(
-                        "{} {}",
-                        screen
-                            .check_task
-                            .as_ref()
-                            .filter(|task| task.checking(&row.path))
-                            .map(|task| task.spinner())
-                            .or_else(|| screen
-                                .repository_tasks
-                                .get(&row.path)
-                                .map(|task| task.animation.symbol()))
-                            .unwrap_or(b.overall),
-                        name(&row.path)
-                    )),
-                    Cell::from(b.workspace),
-                    Cell::from(b.sync.label()),
+                    Cell::from(Line::from(vec![
+                        Span::styled(
+                            format!("{} ", running.unwrap_or(execution.symbol())),
+                            Style::default().fg(if running.is_some() {
+                                ACCENT
+                            } else {
+                                status::color(execution)
+                            }),
+                        ),
+                        Span::raw(name(&row.path)),
+                    ])),
+                    Cell::from(workspace).style(Style::default().fg(workspace_color)),
+                    Cell::from(sync).style(Style::default().fg(sync_color)),
                 ]
                 .into_iter()
                 .take(column_count),
-            )
-            .style(
-                if screen.search_mode == crate::search::Mode::Locate
-                    && !screen.query.is_empty()
-                    && row
-                        .path
-                        .to_string_lossy()
-                        .to_lowercase()
-                        .contains(&screen.query.to_lowercase())
-                {
-                    Style::default().fg(b.color).bold()
-                } else {
-                    Style::default().fg(b.color)
-                },
-            )
+            );
+            if screen.search_mode == crate::search::Mode::Locate
+                && !screen.query.is_empty()
+                && row
+                    .path
+                    .to_string_lossy()
+                    .to_lowercase()
+                    .contains(&screen.query.to_lowercase())
+            {
+                data = data.style(Style::default().bold());
+            }
+            data
         })
         .collect::<Vec<_>>();
     let headings = [
@@ -257,6 +168,9 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
 pub(super) fn repository_detail(screen: &Screen, row: &Row) -> Text<'static> {
     let mut text = detail_text(row);
     if let Some(error) = screen.repository_errors.get(&row.path) {
+        if text.lines.len() > 1 {
+            text.lines[1] = field(i18n::tr!(Status), Execution::Failed.label(), BAD);
+        }
         text.lines
             .push(field(i18n::tr!(OperationResult), safe(error), BAD));
     }
@@ -283,12 +197,16 @@ pub(super) fn detail_text(row: &Row) -> Text<'static> {
         lines.push(Line::from(i18n::tr!(NotIncludedInTheLastReportWait)));
         return Text::from(lines);
     };
-    let color = match result {
-        RepositoryResult::Clean { .. } => GOOD,
-        RepositoryResult::Attention { .. } => WARN,
-        RepositoryResult::Failed { .. } => BAD,
-    };
-    lines.push(field(i18n::tr!(Status), result.label(), color));
+    let execution = Execution::of(Some(result));
+    lines.push(field(
+        i18n::tr!(Status),
+        execution.label(),
+        status::color(execution),
+    ));
+    if !matches!(result, RepositoryResult::Failed { .. }) {
+        let (sync, color) = status::synchronization(Some(result));
+        lines.push(field(i18n::tr!(SyncColumn), sync, color));
+    }
     match result {
         RepositoryResult::Failed { error, .. } => {
             let summary = match failure_kind(error) {
@@ -316,17 +234,17 @@ pub(super) fn detail_text(row: &Row) -> Text<'static> {
         }
         RepositoryResult::Clean { .. } => {
             lines.push(field(i18n::tr!(Worktree), i18n::tr!(CleanAlt), GOOD));
-            lines.push(field(i18n::tr!(RemoteCheck), i18n::tr!(Passed), GOOD));
         }
         RepositoryResult::Attention { issues, .. } => {
             for issue in issues {
                 let (label, color) = match issue.kind {
-                    IssueKind::Dirty => (i18n::tr!(Worktree), WARN),
-                    IssueKind::DetachedHead => (i18n::tr!(HeadState), WARN),
-                    IssueKind::NoCommits => (i18n::tr!(CommitState), WARN),
-                    IssueKind::MissingUpstream => (i18n::tr!(RemoteUpstream), WARN),
-                    IssueKind::OutOfSync => (i18n::tr!(RemoteSync), WARN),
+                    IssueKind::Dirty => (i18n::tr!(Worktree), ACCENT),
+                    IssueKind::DetachedHead => (i18n::tr!(HeadState), MUTED),
+                    IssueKind::NoCommits => (i18n::tr!(CommitState), MUTED),
+                    IssueKind::MissingUpstream => (i18n::tr!(RemoteUpstream), MUTED),
+                    IssueKind::OutOfSync => (i18n::tr!(RemoteSync), ACCENT),
                     IssueKind::PushFailed => (i18n::tr!(PushFailed), BAD),
+                    IssueKind::OperationFailed => (i18n::tr!(OperationResult), BAD),
                 };
                 lines.push(field(label, safe(&issue.detail), color));
             }
@@ -423,6 +341,7 @@ mod tests {
             detail: "test".into(),
         });
         RepositoryResult::Attention {
+            synchronization: Default::default(),
             path: "/example/repo".into(),
             issues: Issues::new(issues.next().unwrap(), issues.collect()),
             branches_without_upstream: vec![],
@@ -430,77 +349,76 @@ mod tests {
         }
     }
     #[test]
-    fn sync_state_prioritizes_failures_and_pending_branches_over_successful_pushes() {
-        assert_eq!(
-            SyncStatus::from_result(&RepositoryResult::Clean {
-                path: "/example/repo".into(),
-                branches_without_upstream: vec![],
-                pushes: vec![]
-            }),
-            SyncStatus::Synced { pushed: 0 }
-        );
-        assert_eq!(
-            SyncStatus::from_result(&attention(vec![IssueKind::Dirty], vec![publication(false)])),
-            SyncStatus::Synced { pushed: 1 }
-        );
-        assert_eq!(
-            SyncStatus::from_result(&attention(
-                vec![IssueKind::OutOfSync],
-                vec![publication(false)]
-            )),
-            SyncStatus::Pending
-        );
-        assert_eq!(
-            SyncStatus::from_result(&attention(
-                vec![IssueKind::OutOfSync, IssueKind::PushFailed],
-                vec![publication(false), publication(true)]
-            )),
-            SyncStatus::PushFailed(1)
-        );
-        let failed = RepositoryResult::Failed {
-            path: "/example/repo".into(),
-            error: "SSL_ERROR_SYSCALL".into(),
-            pushes: vec![publication(false), publication(true)],
-        };
-        assert_eq!(
-            SyncStatus::from_result(&failed),
-            SyncStatus::CheckFailed(i18n::tr!(TlsFailed))
-        );
-        for kinds in [
-            vec![IssueKind::OutOfSync, IssueKind::MissingUpstream],
-            vec![IssueKind::MissingUpstream, IssueKind::OutOfSync],
+    fn ordinary_repository_conditions_do_not_warn_and_actual_failures_do() {
+        for kind in [
+            IssueKind::Dirty,
+            IssueKind::DetachedHead,
+            IssueKind::NoCommits,
+            IssueKind::MissingUpstream,
+            IssueKind::OutOfSync,
         ] {
             assert_eq!(
-                SyncStatus::from_result(&attention(kinds, vec![])),
-                SyncStatus::Unavailable(i18n::tr!(MissingUpstream))
+                Execution::of(Some(&attention(vec![kind], vec![]))),
+                Execution::Succeeded
             );
         }
+        assert_eq!(
+            Execution::of(Some(&attention(
+                vec![IssueKind::PushFailed],
+                vec![publication(false), publication(true)]
+            ))),
+            Execution::PartialFailure
+        );
+        assert_eq!(
+            Execution::of(Some(&attention(
+                vec![IssueKind::PushFailed],
+                vec![publication(true)]
+            ))),
+            Execution::Failed
+        );
+        assert_eq!(
+            Execution::of(Some(&attention(vec![IssueKind::OperationFailed], vec![]))),
+            Execution::Failed
+        );
+        let partial = RepositoryResult::Failed {
+            path: "/example/repo".into(),
+            error: "partially failed".into(),
+            pushes: vec![publication(false), publication(true)],
+        };
+        assert_eq!(status::workspace(Some(&partial)).1, WARN);
+        assert_eq!(status::synchronization(Some(&partial)).1, WARN);
     }
     #[test]
-    fn sync_labels_are_localized_without_losing_push_counts() {
-        for (language, synced, pushed, failed, pending) in [
-            (
-                i18n::Language::English,
-                "Synced",
-                "Pushed 2",
-                "Push failed · 1",
-                "Out of sync",
-            ),
-            (
-                i18n::Language::Chinese,
-                "已同步",
-                "已推送 2",
-                "推送失败 · 1",
-                "待同步",
-            ),
-        ] {
-            let _language = i18n::using(language);
-            assert_eq!(SyncStatus::Unknown.label(), "?");
-            assert_eq!(SyncStatus::Synced { pushed: 0 }.label(), synced);
-            assert_eq!(SyncStatus::Synced { pushed: 2 }.label(), pushed);
-            assert_eq!(SyncStatus::PushFailed(1).label(), failed);
-            assert_eq!(SyncStatus::Pending.label(), pending);
-        }
+    fn synchronization_counts_branches_in_both_directions_and_never_shows_push_outcomes() {
+        use engine::domain::synchronization::{Comparison, Synchronization};
+        let mut result = attention(vec![IssueKind::OutOfSync], vec![publication(false)]);
+        assert_eq!(status::synchronization(Some(&result)), ("?".into(), MUTED));
+        let RepositoryResult::Attention {
+            synchronization, ..
+        } = &mut result
+        else {
+            unreachable!()
+        };
+        *synchronization = Synchronization::Known {
+            branches: vec![
+                Comparison::Ahead,
+                Comparison::Behind,
+                Comparison::Diverged,
+                Comparison::Equal,
+            ],
+        };
+        assert_eq!(
+            status::synchronization(Some(&result)),
+            ("↑2 ↓2".into(), ACCENT)
+        );
+        let RepositoryResult::Attention {
+            synchronization, ..
+        } = &mut result
+        else {
+            unreachable!()
+        };
+        *synchronization = Synchronization::Known { branches: vec![] };
+        assert_eq!(status::synchronization(Some(&result)), ("—".into(), MUTED));
     }
     #[test]
     fn detail_values_have_labels_for_each_report_state() {
@@ -513,14 +431,16 @@ mod tests {
         let missing = detail_text(&row(None)).to_string();
         assert!(missing.starts_with("路径：/example/alpha\n状态：未检查\n"));
         let clean = detail_text(&row(Some(RepositoryResult::Clean {
+            synchronization: Default::default(),
             path: path.clone(),
             branches_without_upstream: vec![],
             pushes: vec![],
         })))
         .to_string();
-        assert!(clean.contains("状态：正常\n工作区：干净\n远程检查：通过"));
+        assert!(clean.contains("状态：正常\n同步：?\n工作区：干净"));
         assert!(clean.contains("未配置远程上游：0 个分支"));
         let attention = detail_text(&row(Some(RepositoryResult::Attention {
+            synchronization: Default::default(),
             path: path.clone(),
             issues: Issues::new(
                 Issue {
@@ -544,7 +464,7 @@ mod tests {
             pushes: vec![],
         })))
         .to_string();
-        assert!(failed.contains("状态：检查失败"));
+        assert!(failed.contains("状态：失败"));
         assert!(failed.contains("工作区：未知\n远程检查：未完成\n分支统计：未知"));
         assert!(failed.contains("原始错误：\nSSL_ERROR_SYSCALL"));
     }
@@ -556,6 +476,7 @@ mod tests {
             (None, MUTED),
             (
                 Some(RepositoryResult::Clean {
+                    synchronization: Default::default(),
                     path: path.clone(),
                     branches_without_upstream: vec![],
                     pushes: vec![],
@@ -564,6 +485,7 @@ mod tests {
             ),
             (
                 Some(RepositoryResult::Attention {
+                    synchronization: Default::default(),
                     path: path.clone(),
                     issues: Issues::new(
                         Issue {
@@ -575,7 +497,7 @@ mod tests {
                     branches_without_upstream: vec![],
                     pushes: vec![],
                 }),
-                WARN,
+                GOOD,
             ),
             (
                 Some(RepositoryResult::Failed {

@@ -163,11 +163,11 @@
 - `/cancel` cancels repository work; `Esc` returns through views. Confirming `Ctrl+C` exit or executing `/quit` exits, cancelling and collecting owned tasks and Git processes. During blocking operations such as configuration writes, `Esc` / `Ctrl+C` only requests cancellation and waits for child processes; it does not arm exit confirmation.
 
 ## Status legend
-- `✓` Clean     `!` Needs attention     `×` Check failed     `·` Unchecked
+- `✓` Succeeded     `!` Partially failed     `×` Failed     `·` Unchecked; a spinner means running
 - `*` Worktree changes: uncommitted, untracked or submodule changes. `?` means unknown.
 - The list merges per-repository versions from checks and local operations. Newer repository results win over late batch results. The file panel reads current local state.
 - No-upstream branches are counted separately. They are not problems and are never published automatically.
-- Sync combines remote checks and push results. Failures and pending changes take priority; push counts refer to branches.
+- Home sync shows ↑ahead and ↓behind branch counts against comparable remote upstreams. Diverged branches count in both directions. — means no comparable branches; ? means comparison data is unavailable in the saved record. Workspace changes, divergence, absent upstreams, and empty repositories are neutral. The error filter includes execution failures; push outcomes remain in task history and details.
 - Full errors appear in preview and repository details.
 
 ## Scrolling indicators

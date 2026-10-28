@@ -322,7 +322,7 @@ impl Screen {
         let mut rows = Vec::new();
         for path in &self.config.repositories {
             let result = self.result_for(path);
-            if !self.filter.matches(result) {
+            if !self.filter.matches(result, self.repository_execution(path)) {
                 continue;
             }
             if self.search_mode == search::Mode::Filter
@@ -395,6 +395,11 @@ impl Screen {
     }
     fn reload(&mut self, cancel: &Cancel) -> Result<()> {
         let path = self.selected_path();
+        let errors = self
+            .repository_errors
+            .keys()
+            .map(|path| (path.clone(), self.observation_order(path)))
+            .collect::<Vec<_>>();
         self.snapshot = self.service.snapshot(cancel)?;
         let ai_enabled = self.config.ai.enabled;
         self.config = self.service.store.config()?;
@@ -403,6 +408,14 @@ impl Screen {
         }
         self.hide_disabled_ai_settings();
         self.load_updates()?;
+        for (path, previous) in errors {
+            if self
+                .observation_order(&path)
+                .is_some_and(|next| previous.is_none_or(|old| next > old))
+            {
+                self.repository_errors.remove(&path);
+            }
+        }
         self.focus(path);
         Ok(())
     }

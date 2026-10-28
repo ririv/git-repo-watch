@@ -5,7 +5,7 @@ fn counts(stats: Stats) -> Line<'static> {
     let mut spans = vec![Span::raw(" ")];
     for (index, (label, count, color)) in [
         (i18n::tr!(Clean), stats.clean, GOOD),
-        (i18n::tr!(NeedsAttention), stats.attention, WARN),
+        (i18n::tr!(RepositoryPartialFailure), stats.attention, WARN),
         (i18n::tr!(Failed), stats.failed, BAD),
     ]
     .into_iter()
@@ -39,13 +39,14 @@ fn arrange(summary: Option<Line<'static>>, checked: String, width: u16) -> Vec<L
 }
 
 pub(super) fn lines(screen: &Screen, width: u16) -> Vec<Line<'static>> {
-    let known = screen
-        .config
-        .repositories
-        .iter()
-        .filter_map(|path| screen.result_for(path))
-        .collect::<Vec<_>>();
-    let summary = (!known.is_empty()).then(|| counts(Stats::repositories(known)));
+    let stats = crate::repository_list::Execution::counts(
+        screen
+            .config
+            .repositories
+            .iter()
+            .map(|path| screen.repository_execution(path)),
+    );
+    let summary = (stats.clean + stats.attention + stats.failed > 0).then(|| counts(stats));
     let checked = match &screen.snapshot.report {
         CachedReport::Missing => i18n::tr!(NoCompleteReportYet).to_owned(),
         CachedReport::Available { report, scope } => i18n::tf!(
@@ -78,8 +79,8 @@ mod tests {
                 assert_eq!(
                     summary.to_string(),
                     match language {
-                        i18n::Language::English => " Clean 9 · Needs attention 17 · Failed 0",
-                        i18n::Language::Chinese => " 正常 9 · 需关注 17 · 失败 0",
+                        i18n::Language::English => " Clean 9 · Partial failure 17 · Failed 0",
+                        i18n::Language::Chinese => " 正常 9 · 部分失败 17 · 失败 0",
                     }
                 );
                 let checked = i18n::tf!(LastCheck, "2026-10-24 04:00:00", changed);

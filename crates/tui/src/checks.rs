@@ -102,6 +102,7 @@ impl Screen {
             .get(&path)
             .is_none_or(|old| update.order() > old.order())
         {
+            self.repository_errors.remove(&path);
             self.updates.insert(path, update);
         }
     }
@@ -113,6 +114,29 @@ impl Screen {
         .into_iter()
         .flatten()
         .max_by_key(|update| update.order())
+    }
+    pub(crate) fn observation_order(
+        &self,
+        path: &std::path::Path,
+    ) -> Option<(u64, DateTime<FixedOffset>)> {
+        if let Some(update) = self.latest_update(path) {
+            return Some(update.order());
+        }
+        let service::CachedReport::Available { report, .. } = &self.snapshot.report else {
+            return None;
+        };
+        report
+            .repositories
+            .iter()
+            .find(|result| result.path() == path)?;
+        let at = report
+            .repository_finished_at
+            .get(path)
+            .unwrap_or(&report.finished_at);
+        Some((
+            report.repository_revisions.get(path).copied().unwrap_or(0),
+            DateTime::parse_from_rfc3339(at).expect("validated report timestamp"),
+        ))
     }
     pub(crate) fn result_for(&self, path: &std::path::Path) -> Option<&RepositoryResult> {
         if let Some(update) = self.latest_update(path) {
@@ -334,7 +358,12 @@ impl Screen {
             };
             match result {
                 Ok(report) => {
-                    let stats = domain::Stats::of(&report);
+                    let stats = crate::repository_list::Execution::counts(
+                        report
+                            .repositories
+                            .iter()
+                            .map(|result| crate::repository_list::Execution::of(Some(result))),
+                    );
                     let scope = if report.repositories.len() == self.config.repositories.len()
                         && report.repositories.iter().all(|result| {
                             self.config.repositories.contains(&result.path().to_owned())
@@ -347,10 +376,14 @@ impl Screen {
                         report: Box::new(report),
                         scope,
                     };
-                    self.message = i18n::tf!(
-                        CheckCompleteCleanAttentionFailed,
+                    self.message = format!(
+                        "{} · {} {} · {} {} · {} {}",
+                        i18n::tr!(HomeCheckComplete),
+                        i18n::tr!(Clean),
                         stats.clean,
+                        i18n::tr!(RepositoryPartialFailure),
                         stats.attention,
+                        i18n::tr!(Failed),
                         stats.failed
                     );
                 }

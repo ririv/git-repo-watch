@@ -1,6 +1,8 @@
 //! Domain outcomes and backward-compatible JSON records.
+pub mod synchronization;
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use synchronization::Synchronization;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -35,6 +37,7 @@ pub enum IssueKind {
     MissingUpstream,
     OutOfSync,
     PushFailed,
+    OperationFailed,
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Issue {
@@ -134,11 +137,15 @@ impl Publication {
 pub enum RepositoryResult {
     Clean {
         path: PathBuf,
+        #[serde(default)]
+        synchronization: Synchronization,
         branches_without_upstream: Vec<BranchWithoutUpstream>,
         pushes: Vec<Publication>,
     },
     Attention {
         path: PathBuf,
+        #[serde(default)]
+        synchronization: Synchronization,
         issues: Issues,
         branches_without_upstream: Vec<BranchWithoutUpstream>,
         pushes: Vec<Publication>,
@@ -155,6 +162,17 @@ impl RepositoryResult {
             Self::Clean { path, .. } | Self::Attention { path, .. } | Self::Failed { path, .. } => {
                 path
             }
+        }
+    }
+    pub fn synchronization(&self) -> &Synchronization {
+        match self {
+            Self::Clean {
+                synchronization, ..
+            }
+            | Self::Attention {
+                synchronization, ..
+            } => synchronization,
+            Self::Failed { .. } => &Synchronization::Unknown,
         }
     }
     pub fn pushes(&self) -> &[Publication] {

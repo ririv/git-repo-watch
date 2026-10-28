@@ -1,7 +1,9 @@
 //! Session-local repository filters, ordering, and command menu transitions.
+mod execution;
 use crate::{Mode, Page, Row, Screen};
 use chrono::{DateTime, FixedOffset};
 use engine::{domain::RepositoryResult, service::CachedReport};
+pub(crate) use execution::Execution;
 use std::{cmp::Reverse, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -15,13 +17,13 @@ pub(crate) enum Filter {
     Pushes,
 }
 impl Filter {
-    pub(crate) fn matches(self, result: Option<&RepositoryResult>) -> bool {
+    pub(crate) fn matches(self, result: Option<&RepositoryResult>, execution: Execution) -> bool {
         match self {
             Self::All => true,
-            Self::Unchecked => result.is_none(),
-            Self::Clean => matches!(result, Some(RepositoryResult::Clean { .. })),
-            Self::Failed => matches!(result, Some(RepositoryResult::Failed { .. })),
-            Self::Problems => result.is_some_and(|r| engine::domain::Filter::Problems.matches(r)),
+            Self::Unchecked => execution == Execution::Unchecked,
+            Self::Clean => execution == Execution::Succeeded,
+            Self::Failed => execution == Execution::Failed,
+            Self::Problems => matches!(execution, Execution::Failed | Execution::PartialFailure),
             Self::WithoutUpstream => {
                 result.is_some_and(|r| engine::domain::Filter::WithoutUpstream.matches(r))
             }
@@ -31,9 +33,9 @@ impl Filter {
     pub(crate) fn label(self) -> &'static str {
         match self {
             Self::All => i18n::tr!(All),
-            Self::Problems => i18n::tr!(Problems),
+            Self::Problems => i18n::tr!(RepositoryErrorsFilter),
             Self::Clean => i18n::tr!(Clean),
-            Self::Failed => i18n::tr!(CheckFailed),
+            Self::Failed => i18n::tr!(Failed),
             Self::Unchecked => i18n::tr!(Unchecked),
             Self::WithoutUpstream => i18n::tr!(NoUpstream),
             Self::Pushes => i18n::tr!(Pushes),
@@ -66,6 +68,13 @@ pub(crate) enum Menu {
 }
 
 impl Screen {
+    pub(crate) fn repository_execution(&self, path: &Path) -> Execution {
+        if self.repository_errors.contains_key(path) {
+            Execution::Failed
+        } else {
+            Execution::of(self.result_for(path))
+        }
+    }
     pub(crate) fn open_repository_list(&mut self, path: Option<std::path::PathBuf>) {
         if self.page == Page::Detail {
             self.park_workspace();
@@ -113,8 +122,7 @@ impl Screen {
     pub(crate) fn sort_rows(&self, rows: &mut [Row]) {
         match self.order {
             Order::Priority => rows.sort_by(|a, b| {
-                let priority =
-                    |row: &Row| row.result.as_ref().map_or(2, RepositoryResult::priority);
+                let priority = |row: &Row| self.repository_execution(&row.path).priority();
                 priority(a)
                     .cmp(&priority(b))
                     .then_with(|| a.path.cmp(&b.path))

@@ -611,6 +611,9 @@ pub enum Message {
     SyncPushedCount,
     Synced,
     SyncColumn,
+    RepositoryPartialFailure,
+    RepositoryErrorsFilter,
+    HomeCheckComplete,
     SystemdPathControlUnsupported,
     UnexpectedSystemdTimerState,
     XdgDirectoryMustBeAbsolute,
@@ -1964,13 +1967,13 @@ impl Message {
             (Self::RepositoryFilterAll, Language::English) => "All registered repositories",
             (Self::RepositoryFilterAll, Language::Chinese) => "全部已注册仓库",
             (Self::RepositoryFilterProblems, Language::English) => {
-                "Needs attention or check failed"
+                "Repositories with execution failures"
             }
-            (Self::RepositoryFilterProblems, Language::Chinese) => "需关注或检查失败的仓库",
-            (Self::RepositoryFilterClean, Language::English) => "Passed the last check",
-            (Self::RepositoryFilterClean, Language::Chinese) => "上次检查正常的仓库",
-            (Self::RepositoryFilterFailed, Language::English) => "Failed the last check",
-            (Self::RepositoryFilterFailed, Language::Chinese) => "上次检查失败的仓库",
+            (Self::RepositoryFilterProblems, Language::Chinese) => "实际执行失败的仓库",
+            (Self::RepositoryFilterClean, Language::English) => "Last execution succeeded",
+            (Self::RepositoryFilterClean, Language::Chinese) => "上次执行成功的仓库",
+            (Self::RepositoryFilterFailed, Language::English) => "Last execution failed",
+            (Self::RepositoryFilterFailed, Language::Chinese) => "上次执行失败的仓库",
             (Self::RepositoryFilterUnchecked, Language::English) => "No recorded repository status",
             (Self::RepositoryFilterUnchecked, Language::Chinese) => "尚无状态记录的仓库",
             (Self::RepositoryFilterNoUpstream, Language::English) => {
@@ -1986,9 +1989,9 @@ impl Message {
             (Self::RepositorySortLabel, Language::English) => "Sort",
             (Self::RepositorySortLabel, Language::Chinese) => "排序",
             (Self::RepositorySortPriority, Language::English) => {
-                "Failed, attention, unchecked, clean"
+                "Failed, partly failed, unchecked, succeeded"
             }
-            (Self::RepositorySortPriority, Language::Chinese) => "检查失败、需关注、未检查、正常",
+            (Self::RepositorySortPriority, Language::Chinese) => "执行失败、部分失败、未检查、成功",
             (Self::RepositorySortName, Language::English) => "Repository name, A to Z",
             (Self::RepositorySortName, Language::Chinese) => "按仓库名称升序，忽略英文大小写",
             (Self::RepositorySortPath, Language::English) => "Full repository path, ascending",
@@ -2600,6 +2603,12 @@ impl Message {
             (Self::XdgDirectoryMustBeAbsolute, Language::Chinese) => "XDG 目录必须是绝对路径",
             (Self::SyncColumn, Language::English) => "Sync",
             (Self::SyncColumn, Language::Chinese) => "同步",
+            (Self::RepositoryPartialFailure, Language::Chinese) => "部分失败",
+            (Self::RepositoryPartialFailure, Language::English) => "Partial failure",
+            (Self::RepositoryErrorsFilter, Language::Chinese) => "异常",
+            (Self::RepositoryErrorsFilter, Language::English) => "Errors",
+            (Self::HomeCheckComplete, Language::English) => "Check complete",
+            (Self::HomeCheckComplete, Language::Chinese) => "检查完成",
             (Self::Synced, Language::English) => "Synced",
             (Self::Synced, Language::Chinese) => "已同步",
             (Self::SyncPushedCount, Language::English) => "Pushed {}",

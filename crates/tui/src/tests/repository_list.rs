@@ -3,6 +3,7 @@ use std::path::Path;
 
 fn clean(path: &str) -> RepositoryResult {
     RepositoryResult::Clean {
+        synchronization: Default::default(),
         path: path.into(),
         branches_without_upstream: vec![],
         pushes: vec![],
@@ -10,6 +11,7 @@ fn clean(path: &str) -> RepositoryResult {
 }
 fn attention(path: &str) -> RepositoryResult {
     RepositoryResult::Attention {
+        synchronization: Default::default(),
         path: path.into(),
         issues: Issues::new(
             Issue {
@@ -81,8 +83,8 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
     ];
     for (filter, expected) in [
         (Filter::All, vec![0, 1, 2, 3, 4]),
-        (Filter::Problems, vec![2, 3]),
-        (Filter::Clean, vec![1, 4]),
+        (Filter::Problems, vec![3]),
+        (Filter::Clean, vec![1, 2, 4]),
         (Filter::Failed, vec![3]),
         (Filter::Unchecked, vec![0]),
         (Filter::WithoutUpstream, vec![4]),
@@ -92,7 +94,9 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
             results
                 .iter()
                 .enumerate()
-                .filter_map(|(index, result)| filter.matches(*result).then_some(index))
+                .filter_map(|(index, result)| filter
+                    .matches(*result, crate::repository_list::Execution::of(*result))
+                    .then_some(index))
                 .collect::<Vec<_>>(),
             expected
         );
@@ -110,7 +114,7 @@ fn sorting_uses_status_name_full_path_or_per_repository_time_with_stable_ties() 
     update(&mut s, failed(b), "2026-10-23T01:00:00Z", 2);
     update(&mut s, attention(c), "2026-10-23T02:00:00Z", 3);
     for (order, expected) in [
-        (Order::Priority, [b, c, d, a]),
+        (Order::Priority, [b, d, c, a]),
         (Order::Name, [c, a, b, d]),
         (Order::Path, [b, d, c, a]),
         (Order::Updated, [c, a, b, d]),
@@ -282,4 +286,104 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
     assert_eq!(s.page, Page::Help);
     assert_eq!(s.order, Order::Priority);
     assert_eq!(s.message, i18n::tr!(RepositoryListOnly));
+}
+
+#[test]
+fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    support::git(&f.repo, &["branch", "experiment"]);
+    support::git(
+        &f.repo,
+        &["branch", "--set-upstream-to=origin/main", "experiment"],
+    );
+    support::git(&f.repo, &["commit", "--allow-empty", "-m", "ahead"]);
+    support::git(&f.repo, &["branch", "--force", "experiment", "main"]);
+    support::write(f.repo.join("untracked"), "keep\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.service.run(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    for (width, height) in [(60, 18), (100, 28), (180, 36)] {
+        let text = render(&mut s, width, height);
+        assert!(text.contains("正常 1 · 部分失败 0 · 失败 0"), "{text}");
+        assert!(
+            text.lines()
+                .any(|line| line.contains("✓ repo") && line.contains("↑2 ↓0")),
+            "{text}"
+        );
+        assert!(
+            !text.contains("已同步") && !text.contains("待同步"),
+            "{text}"
+        );
+    }
+    s.filter_repositories(Filter::Problems);
+    assert!(s.rows().is_empty());
+    s.filter_repositories(Filter::Clean);
+    assert_eq!(s.rows().len(), 1);
+    s.repository_errors
+        .insert(f.repo.clone(), "actual operation failure".into());
+    s.filter_repositories(Filter::Problems);
+    assert_eq!(s.rows().len(), 1);
+    assert!(render(&mut s, 100, 28).contains("× repo"));
+    s.service.run(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    assert!(s.rows().is_empty());
+}
+
+#[test]
+fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_operation_errors() {
+    use engine::domain::synchronization::{Comparison, Synchronization};
+    use ratatui::style::Color;
+    fn colors(screen: &mut Screen, symbol: &str, expected: (Color, Color, Color)) {
+        let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
+        terminal.draw(|frame| view::render(frame, screen)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let point = (0..28)
+            .flat_map(|y| (0..100).map(move |x| (x, y)))
+            .find(|point| buffer[*point].symbol() == symbol)
+            .unwrap();
+        let workspace = (0..100)
+            .find(|x| buffer[(*x, point.1 - 1)].symbol() == "工")
+            .unwrap();
+        let sync = (0..100)
+            .find(|x| buffer[(*x, point.1 - 1)].symbol() == "同")
+            .unwrap();
+        assert_eq!(buffer[point].fg, expected.0);
+        assert_eq!(buffer[(workspace, point.1)].fg, expected.1);
+        assert_eq!(buffer[(sync, point.1)].fg, expected.2);
+        assert_eq!(buffer[(point.0 + 2, point.1)].fg, Color::Reset);
+    }
+    let _language = i18n::using(i18n::Language::Chinese);
+    let path = "/example/repo";
+    let (_home, mut s) = fixture(vec![path.into()]);
+    update(&mut s, clean(path), "2026-10-28T04:00:00Z", 1);
+    colors(
+        &mut s,
+        "✓",
+        (Color::LightGreen, Color::DarkGray, Color::DarkGray),
+    );
+    update(&mut s, failed(path), "2026-10-28T04:01:00Z", 2);
+    colors(
+        &mut s,
+        "×",
+        (Color::LightRed, Color::LightRed, Color::LightRed),
+    );
+    let mut known = clean(path);
+    let RepositoryResult::Clean {
+        synchronization, ..
+    } = &mut known
+    else {
+        unreachable!()
+    };
+    *synchronization = Synchronization::Known {
+        branches: vec![Comparison::Equal],
+    };
+    update(&mut s, known, "2026-10-28T04:02:00Z", 3);
+    s.repository_errors
+        .insert(path.into(), "a separate write failed".into());
+    colors(
+        &mut s,
+        "×",
+        (Color::LightRed, Color::DarkGray, Color::LightGreen),
+    );
 }

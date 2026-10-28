@@ -178,7 +178,7 @@ impl Service {
         let refresh_cancel = Cancel::default();
         let started_at = state::now();
         let (result, timing) = check::local_repository(path, &refresh_cancel);
-        let result = with_publications(result, publications);
+        let result = with_publications(result, publications, operation_error(&operation_record));
         let mut report =
             super::checks::single_report(result, timing, started_at, PushPolicy::Disabled);
         let record = state::OperationRecord {
@@ -204,7 +204,27 @@ impl Service {
     }
 }
 
-fn with_publications(result: RepositoryResult, publications: Vec<Publication>) -> RepositoryResult {
+fn operation_error(operation: &state::Operation) -> Option<&str> {
+    fn failed<T>(completion: &state::Completion<T>) -> Option<&str> {
+        match completion {
+            state::Completion::Failed { error } => Some(error),
+            _ => None,
+        }
+    }
+    match operation {
+        state::Operation::Stage { completion }
+        | state::Operation::Unstage { completion }
+        | state::Operation::PullFetch { completion } => failed(completion),
+        state::Operation::Commit { completion, .. } => failed(completion),
+        state::Operation::Workspace { completion, .. } => failed(completion),
+        state::Operation::Push { .. } => None,
+    }
+}
+fn with_publications(
+    result: RepositoryResult,
+    publications: Vec<Publication>,
+    operation_error: Option<&str>,
+) -> RepositoryResult {
     let failures = publications
         .iter()
         .filter_map(|publication| match publication {
@@ -214,16 +234,22 @@ fn with_publications(result: RepositoryResult, publications: Vec<Publication>) -
             }),
             Publication::Pushed { .. } => None,
         })
+        .chain(operation_error.map(|error| Issue {
+            kind: IssueKind::OperationFailed,
+            detail: error.to_owned(),
+        }))
         .collect::<Vec<_>>();
     match result {
         RepositoryResult::Clean {
             path,
+            synchronization,
             branches_without_upstream,
             ..
         } if !failures.is_empty() => {
             let mut issues = failures.into_iter();
             RepositoryResult::Attention {
                 path,
+                synchronization,
                 branches_without_upstream,
                 pushes: publications,
                 issues: Issues::new(issues.next().expect("push failure"), issues.collect()),
@@ -231,22 +257,26 @@ fn with_publications(result: RepositoryResult, publications: Vec<Publication>) -
         }
         RepositoryResult::Clean {
             path,
+            synchronization,
             branches_without_upstream,
             ..
         } => RepositoryResult::Clean {
             path,
+            synchronization,
             branches_without_upstream,
             pushes: publications,
         },
         RepositoryResult::Attention {
             path,
             issues,
+            synchronization,
             branches_without_upstream,
             ..
         } => {
             let mut all = issues.iter().cloned().chain(failures);
             RepositoryResult::Attention {
                 path,
+                synchronization,
                 branches_without_upstream,
                 pushes: publications,
                 issues: Issues::new(

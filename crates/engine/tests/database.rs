@@ -85,6 +85,7 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
 fn report(path: &Path, revision: u64, dirty: bool) -> Report {
     let result = if dirty {
         RepositoryResult::Attention {
+            synchronization: Default::default(),
             path: path.to_owned(),
             issues: Issues::new(
                 Issue {
@@ -98,6 +99,7 @@ fn report(path: &Path, revision: u64, dirty: bool) -> Report {
         }
     } else {
         RepositoryResult::Clean {
+            synchronization: Default::default(),
             path: path.to_owned(),
             branches_without_upstream: vec![],
             pushes: vec![],
