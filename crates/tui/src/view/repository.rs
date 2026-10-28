@@ -2,6 +2,11 @@ mod heading;
 mod status;
 use super::*;
 use crate::repository_list::Execution;
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum Scope {
+    CurrentBranch,
+    AllBranches,
+}
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if area.width >= 120 && area.height >= 19 {
         let columns = Layout::horizontal([Constraint::Percentage(58), Constraint::Percentage(42)])
@@ -13,7 +18,7 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .map(|row| name(&row.path))
             .unwrap_or_else(|| i18n::tr!(NoRepositorySelectedAlt).into());
         let text = selected
-            .map(|row| repository_detail(screen, row))
+            .map(|row| repository_detail(screen, row, Scope::CurrentBranch))
             .unwrap_or_else(|| i18n::tr!(NoRepositories).into());
         let panel = block(title);
         let inner = panel.inner(columns[1]);
@@ -165,8 +170,8 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
     ])
 }
 
-pub(super) fn repository_detail(screen: &Screen, row: &Row) -> Text<'static> {
-    let mut text = detail_text(row);
+pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope) -> Text<'static> {
+    let mut text = detail_text(row, scope);
     if let Some(error) = screen.repository_errors.get(&row.path) {
         if text.lines.len() > 1 {
             text.lines[1] = field(i18n::tr!(Status), Execution::Failed.label(), BAD);
@@ -186,7 +191,7 @@ pub(super) fn repository_detail(screen: &Screen, row: &Row) -> Text<'static> {
     }
     text
 }
-pub(super) fn detail_text(row: &Row) -> Text<'static> {
+fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
     let mut lines = vec![field(
         i18n::tr!(Path),
         safe(&row.path.to_string_lossy()),
@@ -205,7 +210,7 @@ pub(super) fn detail_text(row: &Row) -> Text<'static> {
     ));
     if !matches!(result, RepositoryResult::Failed { .. }) {
         let (sync, color) = status::synchronization(Some(result));
-        lines.push(field(i18n::tr!(SyncColumn), sync, color));
+        lines.push(field(i18n::tr!(CurrentBranchSync), sync, color));
     }
     match result {
         RepositoryResult::Failed { error, .. } => {
@@ -237,12 +242,20 @@ pub(super) fn detail_text(row: &Row) -> Text<'static> {
         }
         RepositoryResult::Attention { issues, .. } => {
             for issue in issues {
+                if scope == Scope::CurrentBranch
+                    && matches!(
+                        issue.kind,
+                        IssueKind::OutOfSync | IssueKind::MissingUpstream
+                    )
+                {
+                    continue;
+                }
                 let (label, color) = match issue.kind {
                     IssueKind::Dirty => (i18n::tr!(Worktree), ACCENT),
                     IssueKind::DetachedHead => (i18n::tr!(HeadState), MUTED),
                     IssueKind::NoCommits => (i18n::tr!(CommitState), MUTED),
                     IssueKind::MissingUpstream => (i18n::tr!(RemoteUpstream), MUTED),
-                    IssueKind::OutOfSync => (i18n::tr!(RemoteSync), ACCENT),
+                    IssueKind::OutOfSync => (i18n::tr!(BranchSync), ACCENT),
                     IssueKind::PushFailed => (i18n::tr!(PushFailed), BAD),
                     IssueKind::OperationFailed => (i18n::tr!(OperationResult), BAD),
                 };
@@ -250,7 +263,9 @@ pub(super) fn detail_text(row: &Row) -> Text<'static> {
             }
         }
     }
-    if let Some(branches) = result.branches() {
+    if scope == Scope::AllBranches
+        && let Some(branches) = result.branches()
+    {
         lines.push(Line::default());
         lines.push(field(
             i18n::tr!(NoRemoteUpstream),
@@ -389,8 +404,8 @@ mod tests {
         assert_eq!(status::synchronization(Some(&partial)).1, WARN);
     }
     #[test]
-    fn synchronization_counts_branches_in_both_directions_and_never_shows_push_outcomes() {
-        use engine::domain::synchronization::{Comparison, Synchronization};
+    fn synchronization_shows_current_commit_counts_and_keeps_legacy_aggregates_unknown() {
+        use engine::domain::synchronization::{Checkout, Comparison, Synchronization};
         let mut result = attention(vec![IssueKind::OutOfSync], vec![publication(false)]);
         assert_eq!(status::synchronization(Some(&result)), ("?".into(), MUTED));
         let RepositoryResult::Attention {
@@ -399,26 +414,46 @@ mod tests {
         else {
             unreachable!()
         };
-        *synchronization = Synchronization::Known {
-            branches: vec![
-                Comparison::Ahead,
-                Comparison::Behind,
-                Comparison::Diverged,
-                Comparison::Equal,
-            ],
+        *synchronization = Synchronization::Current {
+            checkout: Checkout::Compared {
+                branch: "main".into(),
+                ahead: 5,
+                behind: 7,
+            },
         };
         assert_eq!(
             status::synchronization(Some(&result)),
-            ("↑2 ↓2".into(), ACCENT)
+            ("↑5 ↓7".into(), ACCENT)
         );
-        let RepositoryResult::Attention {
+        for checkout in [
+            Checkout::NoUpstream {
+                branch: "main".into(),
+            },
+            Checkout::MissingUpstream {
+                branch: "main".into(),
+            },
+            Checkout::Detached,
+            Checkout::Unborn {
+                branch: "main".into(),
+            },
+        ] {
+            if let RepositoryResult::Attention {
+                synchronization, ..
+            } = &mut result
+            {
+                *synchronization = Synchronization::Current { checkout };
+            }
+            assert_eq!(status::synchronization(Some(&result)), ("—".into(), MUTED));
+        }
+        if let RepositoryResult::Attention {
             synchronization, ..
         } = &mut result
-        else {
-            unreachable!()
-        };
-        *synchronization = Synchronization::Known { branches: vec![] };
-        assert_eq!(status::synchronization(Some(&result)), ("—".into(), MUTED));
+        {
+            *synchronization = Synchronization::LegacyBranches {
+                branches: vec![Comparison::Ahead],
+            };
+        }
+        assert_eq!(status::synchronization(Some(&result)), ("?".into(), MUTED));
     }
     #[test]
     fn detail_values_have_labels_for_each_report_state() {
@@ -428,41 +463,50 @@ mod tests {
             path: path.clone(),
             result,
         };
-        let missing = detail_text(&row(None)).to_string();
+        let missing = detail_text(&row(None), Scope::AllBranches).to_string();
         assert!(missing.starts_with("路径：/example/alpha\n状态：未检查\n"));
-        let clean = detail_text(&row(Some(RepositoryResult::Clean {
-            synchronization: Default::default(),
-            path: path.clone(),
-            branches_without_upstream: vec![],
-            pushes: vec![],
-        })))
+        let clean = detail_text(
+            &row(Some(RepositoryResult::Clean {
+                synchronization: Default::default(),
+                path: path.clone(),
+                branches_without_upstream: vec![],
+                pushes: vec![],
+            })),
+            Scope::AllBranches,
+        )
         .to_string();
-        assert!(clean.contains("状态：正常\n同步：?\n工作区：干净"));
+        assert!(clean.contains("状态：正常\n当前分支同步：?\n工作区：干净"));
         assert!(clean.contains("未配置远程上游：0 个分支"));
-        let attention = detail_text(&row(Some(RepositoryResult::Attention {
-            synchronization: Default::default(),
-            path: path.clone(),
-            issues: Issues::new(
-                Issue {
-                    kind: IssueKind::Dirty,
-                    detail: "有未提交文件".into(),
-                },
-                vec![Issue {
-                    kind: IssueKind::OutOfSync,
-                    detail: "main 落后 2 个提交".into(),
-                }],
-            ),
-            branches_without_upstream: vec![],
-            pushes: vec![],
-        })))
+        let attention = detail_text(
+            &row(Some(RepositoryResult::Attention {
+                synchronization: Default::default(),
+                path: path.clone(),
+                issues: Issues::new(
+                    Issue {
+                        kind: IssueKind::Dirty,
+                        detail: "有未提交文件".into(),
+                    },
+                    vec![Issue {
+                        kind: IssueKind::OutOfSync,
+                        detail: "main 落后 2 个提交".into(),
+                    }],
+                ),
+                branches_without_upstream: vec![],
+                pushes: vec![],
+            })),
+            Scope::AllBranches,
+        )
         .to_string();
         assert!(attention.contains("工作区：有未提交文件"));
-        assert!(attention.contains("远程同步：main 落后 2 个提交"));
-        let failed = detail_text(&row(Some(RepositoryResult::Failed {
-            path: path.clone(),
-            error: "SSL_ERROR_SYSCALL".into(),
-            pushes: vec![],
-        })))
+        assert!(attention.contains("分支同步：main 落后 2 个提交"));
+        let failed = detail_text(
+            &row(Some(RepositoryResult::Failed {
+                path: path.clone(),
+                error: "SSL_ERROR_SYSCALL".into(),
+                pushes: vec![],
+            })),
+            Scope::AllBranches,
+        )
         .to_string();
         assert!(failed.contains("状态：失败"));
         assert!(failed.contains("工作区：未知\n远程检查：未完成\n分支统计：未知"));
@@ -509,10 +553,13 @@ mod tests {
             ),
         ];
         for (result, expected) in results {
-            let text = detail_text(&Row {
-                path: path.clone(),
-                result,
-            });
+            let text = detail_text(
+                &Row {
+                    path: path.clone(),
+                    result,
+                },
+                Scope::AllBranches,
+            );
             assert_eq!(text.lines[0].spans[0].style.fg, Some(MUTED));
             assert_eq!(text.lines[0].spans[1].style.fg, Some(Color::Reset));
             assert_eq!(text.lines[1].spans[0].style.fg, Some(MUTED));

@@ -322,7 +322,72 @@ fn repositories_without_remotes_remain_normal_after_startup_and_manual_fetch() {
 }
 
 #[test]
-fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
+fn home_uses_the_checked_out_branch_and_the_branch_view_keeps_other_branch_differences() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    support::git(
+        &f.repo,
+        &["checkout", "-b", "feature", "--track", "origin/main"],
+    );
+    for message in ["one", "two", "three"] {
+        support::git(&f.repo, &["commit", "--allow-empty", "-m", message]);
+    }
+    support::git(&f.repo, &["checkout", "main"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.service.run(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    let home = render(&mut s, 100, 28);
+    assert!(
+        home.lines()
+            .any(|line| line.contains("✓ repo") && line.contains("↑0 ↓0")),
+        "{home}"
+    );
+    let wide_home = render(&mut s, 180, 32);
+    assert!(wide_home.contains("当前分支同步：↑0 ↓0"), "{wide_home}");
+    assert!(
+        !wide_home.contains("feature") && !wide_home.contains("分支同步：feature"),
+        "{wide_home}"
+    );
+    command(&mut s, "repo branch");
+    wait(&mut s);
+    let branches = render(&mut s, 100, 28);
+    assert!(
+        branches
+            .lines()
+            .any(|line| line.contains("feature") && line.contains("↑3 ↓0")),
+        "{branches}"
+    );
+    assert!(
+        branches
+            .lines()
+            .any(|line| line.contains("* main") && line.contains("↑0 ↓0")),
+        "{branches}"
+    );
+    command(&mut s, "repos");
+    command(&mut s, "repo branch switch feature");
+    wait(&mut s);
+    assert!(matches!(
+        s.mode,
+        Mode::Confirm {
+            operation: Confirmation::Mutation { .. },
+            ..
+        }
+    ));
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    command(&mut s, "repos");
+    let switched = render(&mut s, 100, 28);
+    assert!(
+        switched
+            .lines()
+            .any(|line| line.contains("✓ repo") && line.contains("↑3 ↓0")),
+        "{switched}"
+    );
+    s.shutdown();
+}
+
+#[test]
+fn home_sync_uses_current_branch_commit_counts_and_neutral_conditions_remain_successful() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = support::Fixture::create();
     support::git(&f.repo, &["branch", "experiment"]);
@@ -331,6 +396,8 @@ fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
         &["branch", "--set-upstream-to=origin/main", "experiment"],
     );
     support::git(&f.repo, &["commit", "--allow-empty", "-m", "ahead"]);
+    support::git(&f.repo, &["commit", "--allow-empty", "-m", "ahead two"]);
+    support::git(&f.repo, &["commit", "--allow-empty", "-m", "ahead three"]);
     support::git(&f.repo, &["branch", "--force", "experiment", "main"]);
     support::write(f.repo.join("untracked"), "keep\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
@@ -341,7 +408,7 @@ fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
         assert!(text.contains("正常 1 · 部分失败 0 · 失败 0"), "{text}");
         assert!(
             text.lines()
-                .any(|line| line.contains("✓ repo") && line.contains("↑2 ↓0")),
+                .any(|line| line.contains("✓ repo") && line.contains("↑3 ↓0")),
             "{text}"
         );
         assert!(
@@ -365,7 +432,7 @@ fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
 
 #[test]
 fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_operation_errors() {
-    use engine::domain::synchronization::{Comparison, Synchronization};
+    use engine::domain::synchronization::{Checkout, Synchronization};
     use ratatui::style::Color;
     fn colors(screen: &mut Screen, symbol: &str, expected: (Color, Color, Color)) {
         let mut terminal = Terminal::new(TestBackend::new(100, 28)).unwrap();
@@ -408,8 +475,12 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
     else {
         unreachable!()
     };
-    *synchronization = Synchronization::Known {
-        branches: vec![Comparison::Equal],
+    *synchronization = Synchronization::Current {
+        checkout: Checkout::Compared {
+            branch: "main".into(),
+            ahead: 0,
+            behind: 0,
+        },
     };
     update(&mut s, known, "2026-10-28T04:02:00Z", 3);
     s.repository_errors

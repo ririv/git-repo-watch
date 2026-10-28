@@ -1,7 +1,7 @@
 //! Single-repository inspection; scheduling remains outside this module.
+mod synchronization;
 use crate::{
     cancel::Cancel,
-    domain::synchronization::{Comparison, Synchronization},
     domain::*,
     local::{
         self,
@@ -100,7 +100,6 @@ fn inspect(
         let t = Instant::now();
         let repo = local::open(path)?;
         let mut issues = Vec::new();
-        let mut comparisons = Vec::new();
         let mut without = Vec::new();
         if local::files::dirty(&repo)? {
             issues.push(Issue {
@@ -200,10 +199,6 @@ fn inspect(
                         if succeeded {
                             heads.insert(upstream, Some(branch.oid));
                             let current = branches::resolve(&repo, &branch.reference)?;
-                            let (current_ahead, current_behind) =
-                                repo.graph_ahead_behind(current, branch.oid)?;
-                            comparisons
-                                .push(Comparison::from_counts(current_ahead, current_behind));
                             if current != branch.oid {
                                 issues.push(Issue {
                                     kind: IssueKind::OutOfSync,
@@ -224,7 +219,6 @@ fn inspect(
                             ),
                         });
                     }
-                    comparisons.push(Comparison::from_counts(ahead, behind));
                     if ahead > 0 || behind > 0 {
                         issues.push(Issue {
                             kind: IssueKind::OutOfSync,
@@ -239,21 +233,20 @@ fn inspect(
                 }
             }
         }
+        let t = Instant::now();
+        let synchronization = synchronization::read(&repo)?;
+        timing.local_ms += t.elapsed().as_millis();
         let mut issues = issues.into_iter();
         Ok(match issues.next() {
             None => RepositoryResult::Clean {
                 path: path.to_owned(),
-                synchronization: Synchronization::Known {
-                    branches: comparisons,
-                },
+                synchronization,
                 branches_without_upstream: without,
                 pushes: pushes.clone(),
             },
             Some(first) => RepositoryResult::Attention {
                 path: path.to_owned(),
-                synchronization: Synchronization::Known {
-                    branches: comparisons,
-                },
+                synchronization,
                 issues: Issues::new(first, issues.collect()),
                 branches_without_upstream: without,
                 pushes: pushes.clone(),

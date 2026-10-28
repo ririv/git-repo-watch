@@ -179,7 +179,7 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
             path: path.to_owned(),
             result: screen.result_for(path).cloned(),
         };
-        let mut check = repository::repository_detail(screen, &row);
+        let mut check = repository::repository_detail(screen, &row, repository::Scope::AllBranches);
         // 路径由概览统一显示一次；检查详情沿用列表预览的同一实现。
         check.lines.remove(0);
         if presentation == Presentation::Embedded {

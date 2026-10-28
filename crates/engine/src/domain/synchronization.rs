@@ -1,4 +1,4 @@
-//! Structured comparisons count branches rather than summing overlapping commits.
+//! Checked-out branch commit differences and explicitly retained legacy aggregates.
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -9,42 +9,46 @@ pub enum Comparison {
     Behind,
     Diverged,
 }
-impl Comparison {
-    pub fn from_counts(ahead: usize, behind: usize) -> Self {
-        match (ahead > 0, behind > 0) {
-            (false, false) => Self::Equal,
-            (true, false) => Self::Ahead,
-            (false, true) => Self::Behind,
-            (true, true) => Self::Diverged,
-        }
-    }
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "state", rename_all = "snake_case")]
+pub enum Checkout {
+    Compared {
+        branch: String,
+        ahead: usize,
+        behind: usize,
+    },
+    NoUpstream {
+        branch: String,
+    },
+    MissingUpstream {
+        branch: String,
+    },
+    Detached,
+    Unborn {
+        branch: String,
+    },
 }
 #[derive(Debug, Default, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum Synchronization {
     #[default]
     Unknown,
-    Known {
+    /// Legacy branch aggregates do not describe the checked-out branch.
+    #[serde(rename = "known")]
+    LegacyBranches {
         branches: Vec<Comparison>,
+    },
+    Current {
+        checkout: Checkout,
     },
 }
 impl Synchronization {
-    pub fn counts(&self) -> Option<(usize, usize)> {
-        let Self::Known { branches } = self else {
-            return None;
-        };
-        if branches.is_empty() {
-            return None;
+    pub fn current_commits(&self) -> Option<(usize, usize)> {
+        match self {
+            Self::Current {
+                checkout: Checkout::Compared { ahead, behind, .. },
+            } => Some((*ahead, *behind)),
+            Self::Unknown | Self::LegacyBranches { .. } | Self::Current { .. } => None,
         }
-        Some((
-            branches
-                .iter()
-                .filter(|state| matches!(state, Comparison::Ahead | Comparison::Diverged))
-                .count(),
-            branches
-                .iter()
-                .filter(|state| matches!(state, Comparison::Behind | Comparison::Diverged))
-                .count(),
-        ))
     }
 }

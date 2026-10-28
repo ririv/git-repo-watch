@@ -71,9 +71,13 @@ fn repositories_without_remotes_skip_remote_steps_and_finish_local_inspection() 
                     !matches!(result, RepositoryResult::Failed { .. }),
                     "{result:?}"
                 );
-                assert!(
-                    matches!(result.synchronization(), engine::domain::synchronization::Synchronization::Known { branches } if branches.is_empty())
-                );
+                assert!(matches!(
+                    result.synchronization(),
+                    engine::domain::synchronization::Synchronization::Current {
+                        checkout: engine::domain::synchronization::Checkout::NoUpstream { .. }
+                            | engine::domain::synchronization::Checkout::Unborn { .. }
+                    }
+                ));
                 let records = &report.execution.as_ref().unwrap().repositories[0].steps;
                 assert_eq!(records.len(), plan(workflow).steps().len());
                 for record in records {

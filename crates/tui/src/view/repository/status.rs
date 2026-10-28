@@ -28,8 +28,10 @@ pub(super) fn synchronization(result: Option<&RepositoryResult>) -> (String, Col
         return ("?".into(), color(Execution::of(result)));
     }
     match result.map(RepositoryResult::synchronization) {
-        None | Some(Synchronization::Unknown) => ("?".into(), MUTED),
-        Some(sync @ Synchronization::Known { .. }) => match sync.counts() {
+        None | Some(Synchronization::Unknown | Synchronization::LegacyBranches { .. }) => {
+            ("?".into(), MUTED)
+        }
+        Some(sync @ Synchronization::Current { .. }) => match sync.current_commits() {
             Some((0, 0)) => ("↑0 ↓0".into(), GOOD),
             Some((ahead, behind)) => (format!("↑{ahead} ↓{behind}"), ACCENT),
             None => ("—".into(), MUTED),

@@ -167,7 +167,7 @@
 - `*` Worktree changes: uncommitted, untracked or submodule changes. `?` means unknown.
 - The list merges per-repository versions from checks and local operations. Newer repository results win over late batch results. The file panel reads current local state.
 - No-upstream branches are counted separately. They are not problems and are never published automatically.
-- Home sync shows ↑ahead and ↓behind branch counts against comparable remote upstreams. Diverged branches count in both directions. — means no comparable branches; ? means comparison data is unavailable in the saved record. Workspace changes, divergence, absent upstreams, and empty repositories are neutral. The error filter includes execution failures; push outcomes remain in task history and details.
+- Home sync shows ↑ahead and ↓behind commit counts for the checked-out branch against its upstream. Other branches remain in repository details and the branch panel. — means no upstream, a missing upstream ref, detached HEAD, or no commits yet. ? means the saved record lacks current-branch data; run another check to refresh it. Workspace changes, divergence, absent upstreams, and empty repositories are neutral. The error filter includes execution failures; push outcomes remain in task history and details.
 - Full errors appear in preview and repository details.
 
 ## Scrolling indicators
