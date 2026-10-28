@@ -43,8 +43,10 @@ impl Service {
     }
     pub fn fetch(&self, path: &Path, cancel: &Cancel) -> Result<Change> {
         let _lock = self.repository_lock(path, cancel)?;
-        let result = operations::fetch::all(&self.git, path, cancel)
-            .map(|remotes| Change::Fetched { remotes });
+        let result = operations::fetch::all(&self.git, path, cancel).map(|outcome| match outcome {
+            operations::fetch::Outcome::Fetched { remotes } => Change::Fetched { remotes },
+            operations::fetch::Outcome::Skipped { reason } => Change::FetchSkipped { reason },
+        });
         let completion = state::Completion::capture(&result, cancel, Clone::clone);
         self.refresh_after_write(
             path,

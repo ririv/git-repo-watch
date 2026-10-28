@@ -212,6 +212,7 @@ pub enum Message {
     MutationRemoteNotUtf8,
     MutationFetchMappingRequired,
     MutationNoRemote,
+    NoRemoteConfiguredSkipped,
     CopyRepositoryCommand,
     CopyDiffCommand,
     CopyLogCommand,
@@ -1728,6 +1729,8 @@ impl Message {
             }
             (Self::MutationNoRemote, Language::English) => "No eligible remote is configured",
             (Self::MutationNoRemote, Language::Chinese) => "没有配置可用的远程",
+            (Self::NoRemoteConfiguredSkipped, Language::English) => "No remote configured; skipped",
+            (Self::NoRemoteConfiguredSkipped, Language::Chinese) => "未配置远程，已跳过",
             (Self::CopyRepositoryCommand, Language::English) => "Copy the selected repository path",
             (Self::CopyRepositoryCommand, Language::Chinese) => "复制当前仓库的完整路径",
             (Self::CopyDiffCommand, Language::English) => {

@@ -171,6 +171,13 @@ pub struct StepRecord {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum StepOutcome {
-    Succeeded { detail: String },
-    Failed { error: String },
+    Succeeded {
+        detail: String,
+    },
+    Skipped {
+        reason: crate::operations::SkipReason,
+    },
+    Failed {
+        error: String,
+    },
 }

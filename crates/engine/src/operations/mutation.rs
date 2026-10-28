@@ -55,6 +55,7 @@ pub enum Change {
     CreatedBranch { name: String, oid: String },
     SwitchedBranch { name: String, oid: String },
     Fetched { remotes: Vec<String> },
+    FetchSkipped { reason: super::SkipReason },
     Pulled { branch: String, oid: String },
     SavedStash { oid: String },
     AppliedStash { oid: String },

@@ -405,6 +405,9 @@ pub(crate) fn outcome(
             }
         },
         Outcome::Published(value) => format!("{value:#?}"),
+        Outcome::MutationCompleted(engine::operations::mutation::Change::FetchSkipped {
+            reason,
+        }) => reason.label().into(),
         Outcome::MutationCompleted(value) => format!("{value:#?}"),
         _ => title.to_owned(),
     });

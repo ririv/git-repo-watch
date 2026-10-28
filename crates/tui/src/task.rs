@@ -169,9 +169,12 @@ impl Screen {
                     };
                 }
             }
-            Outcome::MutationCompleted(_change) => {
+            Outcome::MutationCompleted(change) => {
                 self.mode = origin;
                 self.refresh_mutated_view();
+                if let engine::operations::mutation::Change::FetchSkipped { reason } = change {
+                    self.message = reason.label().into();
+                }
             }
             Outcome::Checked(report) => {
                 self.mode = origin;

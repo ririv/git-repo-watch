@@ -2,6 +2,7 @@ use engine::{
     cancel::Cancel,
     domain::{Publication, PushPolicy, RepositoryResult},
     local::guard::Guard,
+    operations::{SkipReason, mutation::Change},
     scheduler::Manager,
     service::{ConfigEdit, Service},
     state::{Config, Store},
@@ -33,6 +34,170 @@ fn steps(report: &engine::domain::Report, index: usize) -> Vec<Step> {
         .iter()
         .map(|record| record.step)
         .collect()
+}
+
+#[test]
+fn repositories_without_remotes_skip_remote_steps_and_finish_local_inspection() {
+    for committed in [false, true] {
+        for workflow in [
+            "fetch inspect",
+            "fetch pull push inspect",
+            "pull push inspect",
+        ] {
+            let temp = tempfile::tempdir().unwrap();
+            let repo = fs::canonicalize(temp.path()).unwrap().join("本地仓库");
+            init(&repo);
+            if committed {
+                git(&repo, &["commit", "--allow-empty", "-m", "initial"]);
+            }
+            write(repo.join("文件 空格.txt"), "staged\n");
+            git(&repo, &["add", "."]);
+            write(repo.join("文件 空格.txt"), "unstaged\n");
+            let before = Guard::capture(&repo, &Cancel::default()).unwrap();
+            let index = fs::read(repo.join(".git/index")).unwrap();
+            let (_home, service) = service(vec![repo.clone()], plan(workflow));
+            service
+                .configure(ConfigEdit::Workflow {
+                    trigger: Trigger::Scheduled,
+                    plan: plan(workflow),
+                })
+                .unwrap();
+            for report in [
+                service.run_startup(&Cancel::default(), |_| {}).unwrap(),
+                service.run_scheduled(&Cancel::default(), |_| {}).unwrap(),
+            ] {
+                let result = &report.repositories[0];
+                assert!(
+                    !matches!(result, RepositoryResult::Failed { .. }),
+                    "{result:?}"
+                );
+                assert!(
+                    matches!(result.synchronization(), engine::domain::synchronization::Synchronization::Known { branches } if branches.is_empty())
+                );
+                let records = &report.execution.as_ref().unwrap().repositories[0].steps;
+                assert_eq!(records.len(), plan(workflow).steps().len());
+                for record in records {
+                    match record.step {
+                        Step::Inspect => {
+                            assert!(matches!(record.outcome, StepOutcome::Succeeded { .. }))
+                        }
+                        _ => assert!(matches!(
+                            record.outcome,
+                            StepOutcome::Skipped {
+                                reason: SkipReason::NoRemotes
+                            }
+                        )),
+                    }
+                }
+            }
+            let saved = service.store.repository_report(&repo).unwrap().unwrap();
+            assert!(matches!(
+                saved.execution.unwrap().repositories[0].steps[0].outcome,
+                StepOutcome::Skipped {
+                    reason: SkipReason::NoRemotes
+                }
+            ));
+            for task in service.store.tasks(10).unwrap() {
+                assert!(
+                    matches!(&task.state, State::Finished { outcome: Outcome::Succeeded { detail }, .. } if detail.contains(SkipReason::NoRemotes.label())),
+                    "{task:?}"
+                );
+            }
+            before.validate(&repo, &Cancel::default()).unwrap();
+            assert_eq!(fs::read(repo.join(".git/index")).unwrap(), index);
+            assert_eq!(
+                fs::read_to_string(repo.join("文件 空格.txt")).unwrap(),
+                "unstaged\n"
+            );
+        }
+    }
+}
+
+#[test]
+fn local_upstream_pull_still_runs_without_configured_remotes() {
+    let f = Fixture::create();
+    git(&f.repo, &["remote", "remove", "origin"]);
+    git(&f.repo, &["checkout", "-b", "local-source"]);
+    f.commit("source", "local upstream\n");
+    let target = git(&f.repo, &["rev-parse", "HEAD"]);
+    git(&f.repo, &["checkout", "main"]);
+    git(
+        &f.repo,
+        &["branch", "--set-upstream-to=local-source", "main"],
+    );
+    let (_home, service) = service(vec![f.repo.clone()], plan("fetch pull push inspect"));
+    let report = service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    assert!(
+        !matches!(report.repositories[0], RepositoryResult::Failed { .. }),
+        "{report:?}"
+    );
+    assert_eq!(git(&f.repo, &["rev-parse", "HEAD"]), target);
+    let records = &report.execution.unwrap().repositories[0].steps;
+    assert!(matches!(records[0].outcome, StepOutcome::Skipped { .. }));
+    assert!(matches!(records[1].outcome, StepOutcome::Succeeded { .. }));
+    assert!(matches!(records[2].outcome, StepOutcome::Skipped { .. }));
+}
+
+#[test]
+fn skipped_fetch_is_successful_and_adding_a_remote_restores_fetching() {
+    let f = Fixture::create();
+    git(&f.repo, &["remote", "remove", "origin"]);
+    let (_home, service) = service(vec![f.repo.clone()], Plan::fetch());
+    assert!(matches!(
+        service.fetch(&f.repo, &Cancel::default()).unwrap(),
+        Change::FetchSkipped {
+            reason: SkipReason::NoRemotes
+        }
+    ));
+    let saved = service.store.repository_report(&f.repo).unwrap().unwrap();
+    assert!(!matches!(
+        saved.repositories[0],
+        RepositoryResult::Failed { .. }
+    ));
+    git(
+        &f.repo,
+        &["remote", "add", "origin", f.remote.to_str().unwrap()],
+    );
+    f.advance();
+    assert!(
+        matches!(service.fetch(&f.repo, &Cancel::default()).unwrap(), Change::Fetched { remotes } if remotes == ["origin"])
+    );
+    assert_eq!(
+        git(&f.repo, &["rev-parse", "origin/main"]),
+        git(&f.remote, &["rev-parse", "main"])
+    );
+}
+
+#[test]
+fn configured_remote_failures_and_excluded_remotes_are_not_reported_as_absent() {
+    for excluded in [false, true] {
+        let f = Fixture::create();
+        if excluded {
+            git(&f.repo, &["config", "remote.origin.skipFetchAll", "true"]);
+        } else {
+            git(
+                &f.repo,
+                &[
+                    "remote",
+                    "set-url",
+                    "origin",
+                    f.temp.path().join("missing.git").to_str().unwrap(),
+                ],
+            );
+        }
+        let (_home, service) = service(vec![f.repo.clone()], Plan::fetch());
+        let report = service.run_startup(&Cancel::default(), |_| {}).unwrap();
+        assert!(matches!(
+            report.repositories[0],
+            RepositoryResult::Failed { .. }
+        ));
+        assert_eq!(steps(&report, 0), [Step::Fetch]);
+        assert!(matches!(
+            report.execution.unwrap().repositories[0].steps[0].outcome,
+            StepOutcome::Failed { .. }
+        ));
+        assert!(service.fetch(&f.repo, &Cancel::default()).is_err());
+    }
 }
 
 #[test]

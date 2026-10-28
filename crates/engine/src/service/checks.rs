@@ -526,6 +526,9 @@ fn workflow_detail(report: &Report) -> String {
                         .to_string();
                     lines.push(match &record.outcome {
                         StepOutcome::Succeeded { detail } => format!("✓ {at} {label} · {detail}"),
+                        StepOutcome::Skipped { reason } => {
+                            format!("– {at} {label} · {}", reason.label())
+                        }
                         StepOutcome::Failed { error } => format!("✗ {at} {label}\n  {error}"),
                     });
                 }

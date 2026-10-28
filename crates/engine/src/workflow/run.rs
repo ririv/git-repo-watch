@@ -4,6 +4,7 @@ use crate::{
     cancel::Cancel,
     check,
     domain::{Publication, RepositoryResult, Timing},
+    local::guard::Position,
     operations, state,
     transport::Git,
 };
@@ -42,15 +43,25 @@ pub(crate) fn execute(
     for &step in plan.steps() {
         let started_at = state::now();
         let at = Instant::now();
-        let result = (|| -> Result<String> {
+        let result = (|| -> Result<StepOutcome> {
             cancel.check()?;
             progress(step)?;
-            match step {
+            if skip_without_remotes(path, step)? {
+                return Ok(StepOutcome::Skipped {
+                    reason: operations::SkipReason::NoRemotes,
+                });
+            }
+            let detail = match step {
                 Step::Fetch => {
-                    let remotes = operations::fetch::all(git, path, cancel)?;
+                    let remotes = match operations::fetch::all(git, path, cancel)? {
+                        operations::fetch::Outcome::Fetched { remotes } => remotes,
+                        operations::fetch::Outcome::Skipped { reason } => {
+                            return Ok(StepOutcome::Skipped { reason });
+                        }
+                    };
                     let detail = remotes.join(", ");
                     refresh = Refresh::Fetched(remotes);
-                    Ok(detail)
+                    detail
                 }
                 Step::Pull => {
                     let plan = match &refresh {
@@ -61,7 +72,7 @@ pub(crate) fn execute(
                     };
                     let before = crate::local::open(path)?.head()?.peel_to_commit()?.id();
                     operations::pull::execute(git, &plan, cancel)?;
-                    Ok(format!("{}: {} → {}", plan.branch, before, plan.oid))
+                    format!("{}: {} → {}", plan.branch, before, plan.oid)
                 }
                 Step::Push | Step::Inspect => {
                     let (result, current) = match step {
@@ -88,9 +99,10 @@ pub(crate) fn execute(
                     if step == Step::Inspect {
                         state = State::Inspected(result);
                     }
-                    Ok(detail)
+                    detail
                 }
-            }
+            };
+            Ok(StepOutcome::Succeeded { detail })
         })();
         let elapsed = at.elapsed().as_millis();
         match step {
@@ -99,7 +111,7 @@ pub(crate) fn execute(
             Step::Pull | Step::Inspect => timing.local_ms += elapsed,
         }
         let outcome = match result {
-            Ok(detail) => StepOutcome::Succeeded { detail },
+            Ok(outcome) => outcome,
             Err(error) => {
                 let error = format!("{}: {error:#}", step.label());
                 state = State::Failed(error.clone());
@@ -132,6 +144,32 @@ pub(crate) fn execute(
         | RepositoryResult::Failed { pushes, .. } => *pushes = publications,
     }
     (result, timing)
+}
+fn skip_without_remotes(path: &Path, step: Step) -> Result<bool> {
+    if !matches!(step, Step::Pull | Step::Push) {
+        return Ok(false);
+    }
+    let repo = crate::local::open(path)?;
+    if !repo.remotes()?.is_empty() {
+        return Ok(false);
+    }
+    if step == Step::Pull
+        && let Position::Attached { name, .. } = Position::read(&repo)?
+    {
+        let branch = name
+            .strip_prefix("refs/heads/")
+            .expect("local branch reference");
+        match repo
+            .config()?
+            .get_string(&format!("branch.{branch}.remote"))
+        {
+            Ok(remote) if remote == "." => return Ok(false),
+            Ok(_) => {}
+            Err(error) if error.code() == git2::ErrorCode::NotFound => {}
+            Err(error) => return Err(error.into()),
+        }
+    }
+    Ok(true)
 }
 fn publication_detail(publications: &[Publication]) -> String {
     if publications.is_empty() {

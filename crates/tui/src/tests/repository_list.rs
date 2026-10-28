@@ -289,6 +289,39 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
 }
 
 #[test]
+fn repositories_without_remotes_remain_normal_after_startup_and_manual_fetch() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    support::git(&f.repo, &["remote", "remove", "origin"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    s.reload(&Cancel::default()).unwrap();
+    let text = render(&mut s, 100, 28);
+    assert!(text.contains("正常 1 · 部分失败 0 · 失败 0"), "{text}");
+    assert!(
+        text.lines()
+            .any(|line| line.contains("✓ repo") && line.contains("—")),
+        "{text}"
+    );
+    s.filter_repositories(Filter::Problems);
+    assert!(s.rows().is_empty());
+    s.filter_repositories(Filter::Clean);
+    assert_eq!(s.rows().len(), 1);
+    command(&mut s, "repo fetch");
+    wait(&mut s);
+    assert_eq!(s.message, i18n::tr!(NoRemoteConfiguredSkipped));
+    assert!(render(&mut s, 100, 28).contains("✓ repo"));
+    assert!(s.repository_errors.is_empty());
+    let records = s.service.store.tasks(10).unwrap();
+    assert!(records.iter().all(|record| !record.pending()));
+    assert!(records.iter().any(|record| matches!(&record.state,
+        engine::tasks::State::Finished { outcome: engine::tasks::Outcome::Succeeded { detail }, .. }
+        if detail == i18n::tr!(NoRemoteConfiguredSkipped)
+    )));
+    s.shutdown();
+}
+
+#[test]
 fn home_sync_uses_branch_counts_and_neutral_conditions_remain_successful() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = support::Fixture::create();
