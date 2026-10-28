@@ -27,7 +27,7 @@ fn repository_root_arrows_select_equal_panes_without_operating_their_content() {
                 (KeyCode::Left, Section::Overview),
                 (KeyCode::Up, Section::Overview),
                 (KeyCode::Down, Section::Worktree),
-                (KeyCode::Left, Section::Worktree),
+                (KeyCode::Down, Section::Worktree),
                 (KeyCode::Right, Section::History),
                 (KeyCode::Down, Section::History),
                 (KeyCode::Up, Section::Branches),
@@ -58,6 +58,45 @@ fn repository_root_arrows_select_equal_panes_without_operating_their_content() {
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Repositories);
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+        s.shutdown();
+    }
+}
+
+#[test]
+fn left_moves_between_columns_and_returns_home_only_at_the_repository_left_edge() {
+    for (right, left) in [
+        (Section::Branches, Section::Overview),
+        (Section::History, Section::Worktree),
+    ] {
+        let f = support::Fixture::create();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        s.paste("repo");
+        key(&mut s, KeyCode::Enter);
+        wait_workspace(&mut s);
+        s.workspace.session_mut().unwrap().selection = right;
+        key(&mut s, KeyCode::Left);
+        assert_eq!(s.page, Page::Detail);
+        assert_eq!(s.workspace.session().unwrap().selection, left);
+        assert!(matches!(s.mode, Mode::Browsing));
+        for modifier in [
+            KeyModifiers::ALT,
+            KeyModifiers::CONTROL,
+            KeyModifiers::SHIFT,
+        ] {
+            s.key(KeyEvent::new(KeyCode::Left, modifier), &Cancel::default())
+                .unwrap();
+            assert_eq!(s.page, Page::Detail);
+        }
+        // 命令编辑仍使用左右键移动光标，不触发页面返回。
+        s.paste("//help");
+        key(&mut s, KeyCode::Left);
+        assert_eq!(s.page, Page::Detail);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Left);
+        assert_eq!(s.page, Page::Repositories);
+        assert_eq!(s.selected_path(), Some(f.repo));
+        assert_eq!(s.bar.text(), "repo");
+        assert!(s.history.is_empty());
         s.shutdown();
     }
 }

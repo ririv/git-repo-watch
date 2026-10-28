@@ -54,7 +54,7 @@ fn status_and_noninteractive_tui_never_start_checks() {
     assert_eq!(value["repository_count"], 1);
     assert_eq!(value["max_concurrency"], 4);
     assert_eq!(value["report"]["status"], "missing");
-    for args in [&[][..], &["tui"][..]] {
+    for args in [&[][..], &["tui"][..], &["repos"][..]] {
         let out = cli(&store, args);
         assert_eq!(out.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&out.stderr).contains("交互式终端"));

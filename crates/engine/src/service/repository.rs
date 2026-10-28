@@ -73,24 +73,21 @@ impl Service {
         local::history::document(detail, change, cancel)
     }
     pub fn open_terminal(&self, path: &Path, cancel: &Cancel) -> Result<()> {
-        cancel.check()?;
-        ensure!(
-            self.store
-                .config()?
-                .repositories
-                .iter()
-                .any(|registered| registered == path),
-            i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
-        );
+        self.validate_repository_access(path, cancel)?;
         crate::terminal::open(path, cancel)
     }
 
-    pub(super) fn validate_repository(&self, path: &Path, cancel: &Cancel) -> Result<()> {
+    fn validate_repository_access(&self, path: &Path, cancel: &Cancel) -> Result<()> {
         cancel.check()?;
         ensure!(
-            self.store.config()?.repositories.iter().any(|p| p == path),
+            self.session_repository() == Some(path)
+                || self.store.config()?.repositories.iter().any(|p| p == path),
             i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
         );
+        Ok(())
+    }
+    pub(super) fn validate_repository(&self, path: &Path, cancel: &Cancel) -> Result<()> {
+        self.validate_repository_access(path, cancel)?;
         local::open(path)?;
         Ok(())
     }

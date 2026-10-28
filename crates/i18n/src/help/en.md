@@ -1,4 +1,5 @@
 ## Quick navigation
+- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only and are not added to startup or scheduled workflows.
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
@@ -14,7 +15,7 @@
 ## Repository panes
 - Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
 - Focusing a pane adds one level; switching panes replaces it. Maximizing adds no level. Back at a pane root returns to the repository root, then to the home page.
-- At the repository root, arrows select panes by layout; Tab/Shift+Tab cycle. Enter focuses the selected pane before operating its content. A border marks the selection; focusing adds the pane name to breadcrumbs. Esc returns to pane selection and keeps its position; another Esc returns home. Narrow windows show the selected pane.
+- At the repository root, arrows select panes by layout; Tab/Shift+Tab cycle. Enter focuses the selected pane before operating its content. A border marks the selection; focusing adds the pane name to breadcrumbs. Esc returns to pane selection and keeps its position; another Esc returns home. At the left column, ← also returns home; from the right column it first moves left. Narrow windows show the selected pane.
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
 - `/repo branch` always opens the full branch view. Type to search names; `Tab` / `Shift+Tab` cycles All / Local / Remote.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.

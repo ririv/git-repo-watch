@@ -26,6 +26,7 @@ pub struct Service {
     pub store: Store,
     pub git: Git,
     pub scheduler: Manager,
+    session_repository: Option<PathBuf>,
 }
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -85,7 +86,19 @@ impl Service {
             store,
             git: Git::default(),
             scheduler,
+            session_repository: None,
         }
+    }
+    /// Authorize one worktree for this session without registering it for batch workflows.
+    pub fn with_session_repository(mut self, path: PathBuf, cancel: &Cancel) -> Result<Self> {
+        cancel.check()?;
+        let path = std::fs::canonicalize(path)?;
+        local::open(&path)?;
+        self.session_repository = Some(path);
+        Ok(self)
+    }
+    pub fn session_repository(&self) -> Option<&Path> {
+        self.session_repository.as_deref()
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

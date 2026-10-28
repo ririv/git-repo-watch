@@ -71,9 +71,14 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             print!("{HELP}");
             Ok(0)
         }
-        "tui" => {
+        "tui" | "repos" => {
             none(&args)?;
-            tui::run(service, cancel.clone())?;
+            let start = match command.as_str() {
+                "tui" => tui::Start::CurrentDirectory,
+                "repos" => tui::Start::Repositories,
+                _ => unreachable!(),
+            };
+            tui::run(service, cancel.clone(), start)?;
             Ok(0)
         }
         "status" if args == ["--help"] || args == ["-h"] => {

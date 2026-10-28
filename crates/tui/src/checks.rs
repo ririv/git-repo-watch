@@ -173,7 +173,8 @@ impl Screen {
                 .collect::<Result<BTreeMap<_, _>>>()?,
         };
         self.updates.retain(|path, update| {
-            self.config.repositories.contains(path)
+            (self.config.repositories.contains(path)
+                || self.service.session_repository() == Some(path.as_path()))
                 && batch_versions
                     .get(path)
                     .is_none_or(|version| update.order() > *version)
@@ -191,7 +192,8 @@ impl Screen {
                     .next()
                     .expect("validated single-repository report"),
             };
-            if self.config.repositories.contains(&path)
+            if (self.config.repositories.contains(&path)
+                || self.service.session_repository() == Some(path.as_path()))
                 && batch_versions
                     .get(&path)
                     .is_none_or(|version| update.order() > *version)

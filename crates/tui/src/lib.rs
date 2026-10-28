@@ -1,4 +1,6 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
+mod startup;
+pub use startup::Start;
 mod bar;
 mod branches;
 mod browser;
@@ -453,12 +455,12 @@ impl Drop for TerminalGuard {
         );
     }
 }
-pub fn run(service: Service, root: Cancel) -> Result<()> {
+pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
     anyhow::ensure!(
         io::stdin().is_terminal() && io::stdout().is_terminal(),
         i18n::tr!(InteractiveTerminalRequired)
     );
-    let mut screen = Screen::new(service, &root)?;
+    let mut screen = start.resolve(&root)?.open(service, &root)?;
     let mut guard = TerminalGuard::enter(screen.config.interaction_mode)?;
     screen.graphics = graphics::Display::detect();
     let mut link_output = links::Native::default();

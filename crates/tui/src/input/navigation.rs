@@ -68,7 +68,14 @@ impl Screen {
                         session.selection = session.selection.towards(Direction::Down)
                     }
                     (KeyCode::Left, KeyModifiers::NONE) => {
-                        session.selection = session.selection.towards(Direction::Left)
+                        let next = session.selection.towards(Direction::Left);
+                        if next == session.selection {
+                            self.follow_breadcrumb(
+                                crate::navigation::breadcrumbs::Destination::Home,
+                            );
+                        } else {
+                            session.selection = next;
+                        }
                     }
                     (KeyCode::Right, KeyModifiers::NONE) => {
                         session.selection = session.selection.towards(Direction::Right)

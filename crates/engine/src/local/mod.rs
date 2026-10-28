@@ -14,6 +14,24 @@ use std::{
     path::{Path, PathBuf},
 };
 
+/// Locate the containing worktree without modifying its files, index or references.
+pub fn containing_repository(
+    directory: &Path,
+    cancel: &crate::cancel::Cancel,
+) -> Result<Option<PathBuf>> {
+    cancel.check()?;
+    match Repository::discover(directory) {
+        Ok(repo) => {
+            let root = repo
+                .workdir()
+                .context(i18n::tr!(BareRepositoriesAreNotSupported))?;
+            Ok(Some(fs::canonicalize(root)?))
+        }
+        Err(error) if error.code() == git2::ErrorCode::NotFound => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
 pub fn open(path: &Path) -> Result<Repository> {
     let repo = Repository::open_ext(
         path,
