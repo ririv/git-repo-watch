@@ -114,7 +114,7 @@ fn screen(service: Service) -> Screen {
         order: Order::Priority,
         setting_selected: 0,
         settings_focus: None,
-        input_prefix: Default::default(),
+        input_surface: Default::default(),
         scroll: 0,
         message: String::new(),
         tasks: Default::default(),

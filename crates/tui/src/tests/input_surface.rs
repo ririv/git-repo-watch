@@ -1,6 +1,66 @@
 use super::*;
 use crate::{bar::InputBar, command::Context, search::Support, workspace::Section};
 
+#[test]
+fn confirmation_selection_clears_stale_background_from_button_gaps() {
+    use ratatui::{backend::Backend, style::Color};
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        command(&mut s, "repo branch create preview");
+        wait(&mut s);
+        assert!(matches!(s.mode, Mode::Confirm { .. }));
+        for width in [60, 100, 180] {
+            let mut terminal = Terminal::new(TestBackend::new(width, 28)).unwrap();
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            for next in [
+                KeyCode::Right,
+                KeyCode::Left,
+                KeyCode::Tab,
+                KeyCode::BackTab,
+            ] {
+                let inner = view::input::content_area(s.input_area.unwrap());
+                let gap = (
+                    inner.x
+                        + unicode_width::UnicodeWidthStr::width(i18n::tr!(MutationRun)) as u16
+                        + 3,
+                    inner.y,
+                );
+                assert_eq!(terminal.backend().buffer()[gap].symbol(), " ");
+                assert_eq!(terminal.backend().buffer()[gap].bg, Color::Reset);
+                // 模拟终端边界留下的选中色块，应用帧缓存中的分隔空格仍然是默认背景。
+                let mut stale = terminal.backend().buffer()[gap].clone();
+                stale.set_bg(Color::Rgb(180, 145, 220));
+                terminal
+                    .backend_mut()
+                    .draw(std::iter::once((gap.0, gap.1, &stale)))
+                    .unwrap();
+                key(&mut s, next);
+                let expected = terminal
+                    .draw(|frame| view::render(frame, &mut s))
+                    .unwrap()
+                    .buffer
+                    .clone();
+                let inner = view::input::content_area(s.input_area.unwrap());
+                let mut x = inner.x;
+                while x < inner.right() {
+                    let cell = &expected[(x, inner.y)];
+                    assert_eq!(
+                        terminal.backend().buffer()[(x, inner.y)].bg,
+                        cell.bg,
+                        "{language:?} {next:?} x={x}"
+                    );
+                    // 宽字形的续格不由 TestBackend 单独绘制。
+                    x += unicode_width::UnicodeWidthStr::width(cell.symbol()).max(1) as u16;
+                }
+                assert!(!terminal.backend().cursor_visible());
+            }
+        }
+        s.shutdown();
+    }
+}
+
 fn commands_only(s: &mut Screen) {
     assert_eq!(s.search_support(), Support::Unavailable);
     assert!(matches!(s.bar, InputBar::CommandsOnly), "{:?}", s.bar);

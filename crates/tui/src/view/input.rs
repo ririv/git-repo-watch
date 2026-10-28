@@ -1,8 +1,9 @@
 //! Bordered input with explicit editable and locked states.
 mod prefix;
+mod surface;
 use super::feedback::Preview;
 use super::*;
-pub(crate) use prefix::Surface as PrefixSurface;
+pub(crate) use surface::Surface;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 
@@ -509,7 +510,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     }
     let inner = block.inner(area);
     frame.render_widget(block, area);
-    let mut prefix_surface = PrefixSurface::Plain;
+    let mut surface = Surface::Plain;
     match content {
         Content::CommandEntry => {
             let width = inner.width.saturating_sub(2) as usize;
@@ -549,7 +550,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 unicode_width::UnicodeWidthStr::width(prefix) as u16 + 1
             });
             if prefix.is_some() {
-                prefix_surface = PrefixSurface::Label(Rect::new(
+                surface = Surface::Prefix(Rect::new(
                     inner.x,
                     inner.y,
                     prefix_width.min(inner.width),
@@ -622,6 +623,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             execute,
             back,
         } => {
+            surface = Surface::Confirmation {
+                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
+                choice,
+            };
             let button = |label: &str, focused: bool| {
                 Span::styled(
                     format!(" {label} "),
@@ -631,7 +636,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             .bg(INPUT_ACCENT)
                             .add_modifier(Modifier::BOLD)
                     } else {
-                        Style::default().fg(Color::Gray)
+                        Style::default().fg(Color::Gray).bg(Color::Reset)
                     },
                 )
             };
@@ -650,7 +655,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             inner,
         ),
     }
-    screen.input_prefix.update(frame, prefix_surface);
+    screen.input_surface.update(frame, surface);
     render_hint(frame, hint_area, hint);
 }
 fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {
