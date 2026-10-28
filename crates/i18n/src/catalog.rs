@@ -167,6 +167,19 @@ pub enum Message {
     BranchSwitchCommand,
     FetchCommand,
     PullCommand,
+    SyncCommand,
+    SyncPreparing,
+    SyncCurrent,
+    SyncNoRemotes,
+    SyncNoUpstream,
+    SyncLocalUpstream,
+    SyncDetached,
+    SyncUnborn,
+    SyncDiverged,
+    SyncPullReview,
+    SyncPushReview,
+    SyncPulled,
+    SyncPushed,
     StashTitle,
     StashRead,
     StashCommand,
@@ -1572,6 +1585,56 @@ impl Message {
             (Self::FetchCommand, Language::Chinese) => "获取远程跟踪分支",
             (Self::PullCommand, Language::English) => "Fetch and review a fast-forward-only pull",
             (Self::PullCommand, Language::Chinese) => "获取并预览仅允许快进的拉取",
+            (Self::SyncCommand, Language::English) => "Review and sync the current branch",
+            (Self::SyncCommand, Language::Chinese) => "预览并同步当前分支",
+            (Self::SyncPreparing, Language::English) => "Prepare synchronization",
+            (Self::SyncPreparing, Language::Chinese) => "准备同步",
+            (Self::SyncCurrent, Language::English) => "Current branch is synchronized",
+            (Self::SyncCurrent, Language::Chinese) => "当前分支已同步",
+            (Self::SyncNoRemotes, Language::English) => {
+                "No remote configured; synchronization is unavailable"
+            }
+            (Self::SyncNoRemotes, Language::Chinese) => "未配置远程仓库，无法同步",
+            (Self::SyncNoUpstream, Language::English) => {
+                "Set a remote upstream for the current branch before synchronizing"
+            }
+            (Self::SyncNoUpstream, Language::Chinese) => "当前分支没有上游，请先设置远程上游",
+            (Self::SyncLocalUpstream, Language::English) => {
+                "Current branch tracks a local branch; synchronization requires a remote upstream"
+            }
+            (Self::SyncLocalUpstream, Language::Chinese) => "当前上游是本地分支，同步需要远程上游",
+            (Self::SyncDetached, Language::English) => {
+                "Switch to a local branch before synchronizing"
+            }
+            (Self::SyncDetached, Language::Chinese) => "HEAD 已游离，请先切换到本地分支再同步",
+            (Self::SyncUnborn, Language::English) => "Create the first commit before synchronizing",
+            (Self::SyncUnborn, Language::Chinese) => "当前分支尚无提交，请先创建提交",
+            (Self::SyncDiverged, Language::English) => {
+                "Current branch and upstream have diverged; merge or rebase before synchronizing"
+            }
+            (Self::SyncDiverged, Language::Chinese) => {
+                "当前分支与上游已分叉，请先合并或 rebase 后再同步"
+            }
+            (Self::SyncPullReview, Language::English) => {
+                "Branch: {branch}\nUpstream: {upstream}\nSync: ↑0 ↓{commits}\n\nAction: fast-forward pull {commits} commits\nTarget commit: {oid}"
+            }
+            (Self::SyncPullReview, Language::Chinese) => {
+                "分支：{branch}\n上游：{upstream}\n同步：↑0 ↓{commits}\n\n执行：快进拉取 {commits} 个提交\n目标提交：{oid}"
+            }
+            (Self::SyncPushReview, Language::English) => {
+                "Branch: {branch}\nUpstream: {remote}/{reference}\nSync: ↑{commits} ↓0\n\nAction: push {commits} commits\nTarget commit: {oid}"
+            }
+            (Self::SyncPushReview, Language::Chinese) => {
+                "分支：{branch}\n上游：{remote}/{reference}\n同步：↑{commits} ↓0\n\n执行：推送 {commits} 个提交\n目标提交：{oid}"
+            }
+            (Self::SyncPulled, Language::English) => "Synchronized: pulled {branch}\nCommit: {oid}",
+            (Self::SyncPulled, Language::Chinese) => "同步完成：已拉取 {branch}\n提交：{oid}",
+            (Self::SyncPushed, Language::English) => {
+                "Synchronized: pushed {commits} commits from {branch}\nRemote: {remote}/{reference}\nCommit: {oid}"
+            }
+            (Self::SyncPushed, Language::Chinese) => {
+                "同步完成：已推送 {branch} 的 {commits} 个提交\n远程：{remote}/{reference}\n提交：{oid}"
+            }
             (Self::StashTitle, Language::English) => "Stashes",
             (Self::StashTitle, Language::Chinese) => "暂存工作",
             (Self::StashRead, Language::English) => "Read stashes",
@@ -4527,6 +4590,30 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (SyncPullReview $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Branch: {branch}\nUpstream: {upstream}\nSync: ↑0 ↓{commits}\n\nAction: fast-forward pull {commits} commits\nTarget commit: {oid}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("分支：{branch}\n上游：{upstream}\n同步：↑0 ↓{commits}\n\n执行：快进拉取 {commits} 个提交\n目标提交：{oid}" $(, $($args)*)?),
+        }
+    };
+    (SyncPushReview $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Branch: {branch}\nUpstream: {remote}/{reference}\nSync: ↑{commits} ↓0\n\nAction: push {commits} commits\nTarget commit: {oid}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("分支：{branch}\n上游：{remote}/{reference}\n同步：↑{commits} ↓0\n\n执行：推送 {commits} 个提交\n目标提交：{oid}" $(, $($args)*)?),
+        }
+    };
+    (SyncPulled $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Synchronized: pulled {branch}\nCommit: {oid}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("同步完成：已拉取 {branch}\n提交：{oid}" $(, $($args)*)?),
+        }
+    };
+    (SyncPushed $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Synchronized: pushed {commits} commits from {branch}\nRemote: {remote}/{reference}\nCommit: {oid}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("同步完成：已推送 {branch} 的 {commits} 个提交\n远程：{remote}/{reference}\n提交：{oid}" $(, $($args)*)?),
+        }
+    };
     (WorkflowUnknownStep, $token:expr) => {
         match $crate::language() {
             $crate::Language::English => format!("Unknown step: {}; use fetch, pull, push, inspect.", $token),

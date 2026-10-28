@@ -211,6 +211,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 | `/repo diff layout auto\|split\|unified` | 选择自动、双栏或统一差异布局 |
 | `/repo commit` | 预览暂存内容、输入提交说明，确认后提交 |
 | `/repo push` | 获取当前分支对应远程，核对上游，确认后推送 |
+| `/repo sync` | 更新远程状态，预览并确认当前分支所需的快进拉取或推送 |
 | `/repo check` | 立即在后台检查当前选中仓库，不推送 |
 | `/cancel` | 取消后台检查，保留已完成的界面结果 |
 | `/repos check` | 立即在后台检查全部注册仓库，不推送 |
@@ -613,6 +614,8 @@ SQLite 保存已领取的计划和触发刻度，同一时刻即使由多个进�
 在选中仓库上执行 `/repo branch create <name>` 创建本地分支（不切换），或 `/repo branch switch <name>` 切换已有本地分支。切换要求已跟踪文件干净，保护未跟踪文件，并检查目标是否被其他 worktree 占用；检出成功后通过系统 Git 执行 post-checkout 钩子。不会隐式创建远程分支或设置上游。
 
 `/repo fetch` 直接在后台更新配置的远程跟踪引用，遵守 refspec、负 refspec 与 skipFetchAll。`/repo pull` 只 fetch 一次，预览固定上游提交，确认后调用系统 Git 执行 `merge --ff-only --no-autostash`，保留钩子；分叉、脏工作区或预览失效会明确报错。它不自动合并、rebase、保存工作或推送。
+
+`/repo sync` 同步当前检出分支与其远程上游。准备阶段只 fetch 一次；`↑0 ↓0` 直接提示已同步，只有落后时预览快进拉取，只有领先时预览推送；确认页显示分支、上游、提交数和目标提交。双方都有新提交时明确提示先合并或 rebase。没有远程、没有远程上游、HEAD 游离或尚无提交时显示具体提示，不记为仓库失败。推送保留远程核验，可保留尚未提交的修改；拉取沿用工作区保护与预览校验。整个操作使用仓库级后台队列，结果保存在任务记录，完成或失败后更新该仓库的实际状态。
 
 `/repo stash` 打开独立管理列表，可搜索消息和对象 ID、查看详情。`/repo stash save <message>` 保存已跟踪变更，`/repo stash save-all <message>` 同时包含未跟踪文件，均遵守忽略规则。`/repo stash apply <stash-id>` 恢复并保留，`/repo stash pop <stash-id>` 只在成功恢复且没有冲突时删除，`/repo stash drop <stash-id>` 删除而不恢复。选中记录后补全操作命令会预填完整对象 ID；`/repo stash copy` 复制该 ID。恢复冲突时保留原 stash 和工作区的实际冲突，记录失败。
 

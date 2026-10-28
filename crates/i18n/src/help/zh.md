@@ -80,6 +80,7 @@
 - `/repo branch create <name>` 在当前提交创建本地分支，不切换；`/repo branch switch <name>` 切换已有本地分支。切换前要求已跟踪文件干净，不覆盖未跟踪文件，也不切换其他 worktree 占用的分支。
 - `/repo fetch` 立即在后台获取已配置的远程跟踪分支，遵守 refspec、排除与 skipFetchAll 设置，不改工作区或推送。
 - `/repo pull` 获取一次远程，预览固定的上游提交，确认后仅快进；分叉或脏工作区明确报错，不自动 merge、rebase 或 stash。
+- `/repo sync` 更新远程状态，预览当前分支需要的快进拉取或推送，确认后执行；已同步时直接提示。分叉时提示先合并或 rebase；未配置远程或远程上游时提示当前无法同步，不记为仓库失败。结果在后台任务中查看。
 - `/repo stash` 打开独立列表；↑↓选择、Enter 查看详情、←/Esc 返回。进入后 `/` 使用 /repo stash 上下文，列表可搜索消息和对象 ID。
 - `/repo stash save <message>` 保存已跟踪变更；`/repo stash save-all <message>` 也包含未跟踪文件，均不包含忽略文件。
 - `/repo stash apply <stash-id>` 恢复并保留；`/repo stash pop <stash-id>` 恢复成功后删除；`/repo stash drop <stash-id>` 只删除，不恢复。选中列表项后补全这些命令会填入其完整对象 ID，仍需确认。

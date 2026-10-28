@@ -16,6 +16,7 @@ impl Command {
             Action::BranchSwitch => Summary::BranchSwitch,
             Action::Fetch => Summary::Fetch,
             Action::Pull => Summary::Pull,
+            Action::Sync => Summary::Sync,
             Action::Stashes => Summary::Stashes,
             Action::StashSave => Summary::StashSave,
             Action::StashSaveAll => Summary::StashSaveAll,

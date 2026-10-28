@@ -25,11 +25,43 @@ impl Service {
                     state::Operation::PullFetch { completion },
                 )
             }
+            Request::Sync => {
+                let result = operations::sync::prepare(&self.git, path, cancel).map(Plan::Sync);
+                let completion = state::Completion::capture(&result, cancel, |_| {
+                    Change::SynchronizationPrepared
+                });
+                self.refresh_after_write(
+                    path,
+                    result,
+                    vec![],
+                    state::Operation::Workspace {
+                        action: Action::PrepareSync,
+                        completion,
+                    },
+                )
+            }
         }
     }
     pub fn mutate(&self, plan: &Plan, cancel: &Cancel) -> Result<Change> {
         let _lock = self.repository_lock(plan.path(), cancel)?;
-        let result = mutation::execute(&self.git, plan, cancel);
+        let result = match plan {
+            Plan::Sync(plan) => match operations::sync::execute(&self.git, plan, cancel) {
+                operations::sync::Execution::Local(result) => {
+                    result.map(|change| Change::Synchronized { result: change })
+                }
+                operations::sync::Execution::Published(publication) => {
+                    let result = operations::sync::published_result(&publication)
+                        .map(|change| Change::Synchronized { result: change });
+                    return self.refresh_after_write(
+                        plan.path(),
+                        result,
+                        vec![publication.clone()],
+                        state::Operation::Push { publication },
+                    );
+                }
+            },
+            _ => mutation::execute(&self.git, plan, cancel),
+        };
         let completion = state::Completion::capture(&result, cancel, Clone::clone);
         self.refresh_after_write(
             plan.path(),

@@ -27,6 +27,7 @@ pub enum Action {
     BranchSwitch,
     Fetch,
     Pull,
+    Sync,
     Stashes,
     StashSave,
     StashSaveAll,
@@ -303,6 +304,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo pull",
         action: Pull,
         description: i18n::Message::PullCommand,
+    },
+    Command {
+        name: "repo sync",
+        action: Sync,
+        description: i18n::Message::SyncCommand,
     },
     Command {
         name: "repo stash",

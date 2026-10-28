@@ -408,6 +408,16 @@ pub(crate) fn outcome(
         Outcome::MutationCompleted(engine::operations::mutation::Change::FetchSkipped {
             reason,
         }) => reason.label().into(),
+        Outcome::MutationPrepared { plan, .. }
+            if matches!(plan, engine::operations::mutation::Plan::Sync(_)) =>
+        {
+            plan.notice()
+                .map(str::to_owned)
+                .unwrap_or_else(|| crate::mutations::review(plan))
+        }
+        Outcome::MutationCompleted(engine::operations::mutation::Change::Synchronized {
+            result: change,
+        }) => change.detail(),
         Outcome::MutationCompleted(value) => format!("{value:#?}"),
         _ => title.to_owned(),
     });

@@ -140,6 +140,123 @@ fn fetch_is_immediate_and_pull_reviews_then_fast_forwards_without_pushing() {
 }
 
 #[test]
+fn sync_reviews_only_the_needed_action_and_keeps_existing_pull_and_push_entries() {
+    let f = support::Fixture::create();
+    f.advance();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    let remote = support::git(&f.remote, &["rev-parse", "main"]);
+    command(&mut s, "repo sync");
+    assert!(!matches!(s.mode, Mode::Busy(_)));
+    wait(&mut s);
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let text = render(&mut s, 100, 30);
+        assert!(text.contains("main") && text.contains("↑0 ↓1"), "{text}");
+        assert!(text.contains("origin/main"), "{text}");
+        assert!(text.contains(i18n::tr!(MutationRun)), "{text}");
+    }
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.text(), "/repo sync");
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    accept(&mut s);
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), remote);
+    assert_eq!(support::git(&f.remote, &["rev-parse", "main"]), remote);
+    f.commit("outgoing", "committed\n");
+    support::write(f.repo.join("outgoing"), "keep unfinished work\n");
+    command(&mut s, "repo sync");
+    wait(&mut s);
+    let review = render(&mut s, 100, 30);
+    assert!(review.contains("↑1 ↓0"), "{review}");
+    assert!(review.contains("origin/main"), "{review}");
+    assert_eq!(support::git(&f.remote, &["rev-parse", "main"]), remote);
+    accept(&mut s);
+    assert_eq!(
+        support::git(&f.remote, &["rev-parse", "main"]),
+        support::git(&f.repo, &["rev-parse", "HEAD"])
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("outgoing")).unwrap(),
+        "keep unfinished work\n"
+    );
+    assert!(s.updates.contains_key(&f.repo));
+    assert!(s.repository_errors.is_empty());
+    command(&mut s, "repo sync");
+    wait(&mut s);
+    assert!(!matches!(s.mode, Mode::Confirm { .. } | Mode::Error { .. }));
+    assert_eq!(s.message, i18n::tr!(SyncCurrent));
+    for command in ["repo sync", "repo pull", "repo push"] {
+        assert!(
+            crate::command::matches(command)
+                .iter()
+                .any(|candidate| candidate.name == command)
+        );
+    }
+    s.shutdown();
+}
+
+#[test]
+fn sync_without_a_remote_is_a_notice_and_divergence_is_a_visible_failure() {
+    let f = support::Fixture::create();
+    support::git(&f.repo, &["remote", "remove", "origin"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo sync");
+    wait(&mut s);
+    assert!(!matches!(s.mode, Mode::Confirm { .. } | Mode::Error { .. }));
+    assert_eq!(s.message, i18n::tr!(SyncNoRemotes));
+    assert!(s.repository_errors.is_empty());
+    assert_eq!(
+        s.repository_status(&f.repo),
+        crate::repository_list::Status::Normal
+    );
+    s.shutdown();
+
+    let f = support::Fixture::create();
+    f.advance();
+    support::git(&f.repo, &["commit", "--allow-empty", "-m", "local ahead"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    let remote = support::git(&f.remote, &["rev-parse", "main"]);
+    command(&mut s, "repo sync");
+    wait(&mut s);
+    assert!(s.repository_errors[&f.repo].contains(i18n::tr!(SyncDiverged)));
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), head);
+    assert_eq!(support::git(&f.remote, &["rev-parse", "main"]), remote);
+    s.shutdown();
+}
+
+#[test]
+fn pending_sync_review_does_not_replace_new_input_or_open_on_another_repository() {
+    let f = support::Fixture::create();
+    let other = support::Fixture::create();
+    f.advance();
+    let (_home, mut s) = fixture(vec![f.repo.clone(), other.repo.clone()]);
+    s.focus(Some(f.repo.clone()));
+    command(&mut s, "repo sync");
+    s.paste("keep this input");
+    let draft = s.bar.text();
+    wait(&mut s);
+    assert_eq!(s.bar.text(), draft);
+    assert!(!matches!(s.mode, Mode::Confirm { .. }));
+    assert_ne!(
+        support::git(&f.repo, &["rev-parse", "HEAD"]),
+        support::git(&f.remote, &["rev-parse", "main"])
+    );
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "repo sync");
+    s.focus(Some(other.repo.clone()));
+    wait(&mut s);
+    assert_eq!(s.selected_path(), Some(other.repo.clone()));
+    assert!(!matches!(s.mode, Mode::Confirm { .. }));
+    assert!(s.updates.contains_key(&f.repo));
+    assert!(!s.updates.contains_key(&other.repo));
+    s.shutdown();
+}
+
+#[test]
 fn pending_branch_review_never_overwrites_new_input_or_another_repository() {
     let f = support::Fixture::create();
     let other = support::Fixture::create();

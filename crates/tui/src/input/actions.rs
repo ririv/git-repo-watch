@@ -99,6 +99,10 @@ impl Screen {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(engine::operations::mutation::Request::Pull, draft);
             }
+            Action::Sync => {
+                let draft = self.mutation_draft(action, path);
+                self.prepare_mutation(engine::operations::mutation::Request::Sync, draft);
+            }
             Action::Copy(scope) => self.copy_to_clipboard(scope, selection, path),
             Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),

@@ -12,7 +12,7 @@ use git2::{Oid, Repository};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Source {
+pub(crate) enum Source {
     Local {
         reference: String,
     },
@@ -23,12 +23,12 @@ enum Source {
     },
 }
 impl Source {
-    fn reference(&self) -> &str {
+    pub(crate) fn reference(&self) -> &str {
         match self {
             Self::Local { reference } | Self::Remote { reference, .. } => reference,
         }
     }
-    fn read(repo: &Repository, branch: &str) -> Result<Self> {
+    pub(crate) fn read(repo: &Repository, branch: &str) -> Result<Self> {
         fn one(repo: &Repository, key: &str) -> Result<String> {
             let config = repo.config()?;
             let mut values = Vec::new();

@@ -41,6 +41,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Branch(edit::Plan::Create { .. }) => i18n::tr!(BranchCreateCommand),
         Plan::Branch(edit::Plan::Switch { .. }) => i18n::tr!(BranchSwitchCommand),
         Plan::Pull(_) => i18n::tr!(PullCommand),
+        Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save {
             mode: stash::SaveMode::Tracked,
             ..
@@ -75,6 +76,34 @@ pub(crate) fn review(plan: &Plan) -> String {
                 i18n::tf!(PullReview, commits, p.oid, p.upstream())
             }
         },
+        Plan::Sync(plan) => {
+            use engine::operations::sync::Plan;
+            match plan {
+                Plan::Current { .. } => i18n::tr!(SyncCurrent).into(),
+                Plan::Unavailable { reason, .. } => reason.label().into(),
+                Plan::Pull(plan) => {
+                    let commits = match plan.update {
+                        pull::Update::Current => 0,
+                        pull::Update::FastForward { commits } => commits,
+                    };
+                    i18n::tf!(
+                        SyncPullReview,
+                        branch = plan.branch,
+                        upstream = plan.upstream().trim_start_matches("refs/remotes/"),
+                        commits = commits,
+                        oid = plan.oid
+                    )
+                }
+                Plan::Push(plan) => i18n::tf!(
+                    SyncPushReview,
+                    branch = plan.target.branch,
+                    remote = plan.target.remote,
+                    reference = plan.target.remote_ref.trim_start_matches("refs/heads/"),
+                    commits = plan.target.ahead_commits,
+                    oid = plan.target.local_oid
+                ),
+            }
+        }
         Plan::Stash(stash::Plan::Save { message, .. }) => message.clone(),
         Plan::Stash(stash::Plan::Restore { entry, .. }) => {
             format!("{}\n{}", entry.oid, entry.message)
@@ -100,20 +129,20 @@ impl Screen {
             self.message = i18n::tr!(SelectARepositoryFirst).into();
             return;
         };
-        let effect = if matches!(request, Request::Pull) {
+        let effect = if matches!(request, Request::Pull | Request::Sync) {
             Effect::RepositoryWrite
         } else {
             Effect::ReadOnly
         };
-        self.start_repository(
-            path.clone(),
-            i18n::tr!(ConfirmOperation),
-            effect,
-            move |service, cancel, _| {
-                let plan = service.prepare_mutation(&path, request, &cancel)?;
-                Ok(Outcome::MutationPrepared { plan, draft })
-            },
-        );
+        let title = if matches!(request, Request::Sync) {
+            i18n::tr!(SyncPreparing)
+        } else {
+            i18n::tr!(ConfirmOperation)
+        };
+        self.start_repository(path.clone(), title, effect, move |service, cancel, _| {
+            let plan = service.prepare_mutation(&path, request, &cancel)?;
+            Ok(Outcome::MutationPrepared { plan, draft })
+        });
     }
     pub(crate) fn execute_mutation(&mut self, plan: Plan, origin: Mode) {
         self.mode = origin;

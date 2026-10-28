@@ -155,9 +155,9 @@ impl Screen {
                 self.mode = Mode::Stashes(Box::new(crate::stashes::View::List(session)));
             }
             Outcome::MutationPrepared { plan, draft } => {
-                if plan.current() {
+                if let Some(notice) = plan.notice() {
                     self.mode = origin;
-                    self.message = i18n::tr!(PullCurrent).into();
+                    self.message = notice.into();
                 } else {
                     self.mode = Mode::Confirm {
                         operation: Confirmation::Mutation {
@@ -174,6 +174,11 @@ impl Screen {
                 self.refresh_mutated_view();
                 if let engine::operations::mutation::Change::FetchSkipped { reason } = change {
                     self.message = reason.label().into();
+                } else if let engine::operations::mutation::Change::Synchronized {
+                    result: change,
+                } = change
+                {
+                    self.message = change.detail();
                 }
             }
             Outcome::Checked(report) => {

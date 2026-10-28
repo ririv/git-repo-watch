@@ -17,6 +17,23 @@ pub struct PushPlan {
     pub url: String,
 }
 pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
+    prepare_with_refresh(git, path, &[], cancel)
+}
+/// Prepare against tracking references already refreshed under the repository lock.
+pub(crate) fn prepare_fetched(
+    git: &Git,
+    path: &Path,
+    remotes: &[String],
+    cancel: &Cancel,
+) -> Result<PushPlan> {
+    prepare_with_refresh(git, path, remotes, cancel)
+}
+fn prepare_with_refresh(
+    git: &Git,
+    path: &Path,
+    fetched: &[String],
+    cancel: &Cancel,
+) -> Result<PushPlan> {
     let repo = local::open(path)?;
     local::idle(&repo)?;
     let head = local::head(&repo)?;
@@ -41,7 +58,9 @@ pub fn prepare(git: &Git, path: &Path, cancel: &Cancel) -> Result<PushPlan> {
     };
     let url = branches::url(&repo, &remote)?;
     drop(repo);
-    git.fetch(path, &remote, cancel)?;
+    if !fetched.contains(&remote) {
+        git.fetch(path, &remote, cancel)?;
+    }
     let server = git.head(path, &remote, &remote_ref, cancel)?;
     let repo = local::open(path)?;
     ensure!(
@@ -95,6 +114,12 @@ fn validate_review(plan: &PushPlan) -> Result<()> {
                 oid: plan.target.local_oid.parse()?
             },
         i18n::tr!(BranchOrHeadChangedReviewThePush)
+    );
+    ensure!(
+        matches!(super::pull::Source::read(&repo, &plan.target.branch)?,
+            super::pull::Source::Remote { remote, merge, .. }
+                if remote == plan.target.remote && merge == plan.target.remote_ref),
+        i18n::tr!(MutationChanged)
     );
     ensure!(
         branches::url(&repo, &plan.target.remote)? == plan.url,

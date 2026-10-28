@@ -4,6 +4,7 @@ pub mod mutation;
 pub mod pull;
 pub mod push;
 mod skip;
+pub mod sync;
 pub use skip::SkipReason;
 
 pub mod fetch;

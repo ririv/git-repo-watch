@@ -1,5 +1,5 @@
 //! Small reviewed operations compose native local mutations and Git transport.
-use super::pull;
+use super::{pull, sync};
 use crate::{
     cancel::Cancel,
     local::{branches::edit, stash},
@@ -13,17 +13,20 @@ use std::path::Path;
 pub enum Request {
     Branch { action: edit::Action, name: String },
     Pull,
+    Sync,
     Stash(stash::Request),
 }
 #[derive(Debug, Clone)]
 pub enum Plan {
     Branch(edit::Plan),
     Pull(pull::Plan),
+    Sync(sync::Plan),
     Stash(stash::Plan),
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
+    PrepareSync,
     CreateBranch {
         name: String,
     },
@@ -35,6 +38,7 @@ pub enum Action {
         branch: String,
         upstream: String,
     },
+    Sync,
     SaveStash {
         mode: stash::SaveMode,
         message: String,
@@ -52,11 +56,13 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "change", rename_all = "snake_case")]
 pub enum Change {
+    SynchronizationPrepared,
     CreatedBranch { name: String, oid: String },
     SwitchedBranch { name: String, oid: String },
     Fetched { remotes: Vec<String> },
     FetchSkipped { reason: super::SkipReason },
     Pulled { branch: String, oid: String },
+    Synchronized { result: sync::Change },
     SavedStash { oid: String },
     AppliedStash { oid: String },
     PoppedStash { oid: String },
@@ -67,11 +73,19 @@ impl Plan {
         match self {
             Self::Branch(p) => p.path(),
             Self::Pull(p) => &p.path,
+            Self::Sync(p) => p.path(),
             Self::Stash(p) => p.path(),
         }
     }
     pub fn current(&self) -> bool {
         matches!(self,Self::Pull(p) if matches!(p.update,pull::Update::Current))
+    }
+    pub fn notice(&self) -> Option<&'static str> {
+        match self {
+            Self::Pull(_) if self.current() => Some(i18n::tr!(PullCurrent)),
+            Self::Sync(plan) => plan.notice(),
+            _ => None,
+        }
     }
     pub fn action(&self) -> Action {
         match self {
@@ -85,6 +99,7 @@ impl Plan {
                 branch: p.branch.clone(),
                 upstream: p.upstream().into(),
             },
+            Self::Sync(_) => Action::Sync,
             Self::Stash(stash::Plan::Save { mode, message, .. }) => Action::SaveStash {
                 mode: *mode,
                 message: message.clone(),
@@ -144,6 +159,9 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
                 oid: p.oid.to_string(),
             })
         }
+        Plan::Sync(plan) => sync::execute(git, plan, cancel)
+            .into_result()
+            .map(|change| Change::Synchronized { result: change }),
         Plan::Stash(p) => {
             let oid = stash::execute(p, cancel)?.to_string();
             Ok(match p {
