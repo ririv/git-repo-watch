@@ -32,6 +32,7 @@ mod overview;
 mod prefix_segments;
 mod prefix_selection;
 mod preview_loading;
+mod replay;
 mod repository_list;
 mod responsive;
 mod schedule;
@@ -125,6 +126,7 @@ fn screen(service: Service) -> Screen {
         view_revision: 0,
         updates: BTreeMap::new(),
         overview: Default::default(),
+        replay: Default::default(),
         workspace: Default::default(),
         workspace_areas: Vec::new(),
     }

@@ -218,6 +218,7 @@ fn presentation_record(id: usize, pending: bool) -> engine::tasks::Record {
             source: Source::Interactive,
             retry: Retry::Unavailable,
             retry_of: None,
+            operation: None,
         },
         started_at: "2026-10-24T09:30:00-05:00".into(),
         state: State::Finished {

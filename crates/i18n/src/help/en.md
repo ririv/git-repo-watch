@@ -24,6 +24,12 @@
 - Switch panes while maximized without losing selection, filters or scroll positions. Input and commands stay available.
 - At a pane root, Esc leaves focus and restores the tiled layout, just like clicking the repository breadcrumb. Maximizing adds no extra Back step. Esc clears input first; diff and commit details return to their pane first.
 
+## Cherry-pick and revert
+- In history or commit details, `/repo log cherry-pick` applies the selected commit to the current branch; `/repo log revert` creates a new inverse commit. Use `cherry-pick` or `revert` in the history context. Each operation handles one commit.
+- Review the target branch, source commit and files before executing. Merge commits require an explicit mainline parent; the operation uses the difference from that parent to the merge commit, inverted for revert.
+- Conflicted files show a red `U`. Resolve and stage them, then run `/repo continue`. `/repo skip` discards the current commit's conflict resolutions and skips it; `/repo abort` discards this operation and restores its starting state. Both require confirmation.
+- Recovery commands appear only while cherry-pick or revert is in progress, including after restart. Successful recovery marks the corresponding pending task handled while retaining its history.
+
 ## Search and commands
 - Use commands for pane focus, zoom, staging and graph panning. Typing searches immediately; basic navigation and editing keys remain. No terminal configuration changes are needed. Alt+B/F moves by words, Alt+D deletes the next word, and Alt+Left/Right also moves by words in command and commit editors.
 - The command menu sits directly above the input, followed by key hints and one reserved task-status row. Success notices disappear after 5 seconds; pending failures and running tasks remain. Use `/tasks`, `Alt+Enter`, or click the status row to open tasks and return to the original page and input draft.

@@ -233,6 +233,12 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         let search_support = self.search_support();
+        let replay_state = match &self.bar {
+            InputBar::Command {
+                path: Some(path), ..
+            } => self.replay_state(path).cloned(),
+            _ => None,
+        };
         if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
         }
@@ -285,6 +291,7 @@ impl Screen {
                 .filter(|command| {
                     command.action.available(self.config.ai.enabled)
                         && search_support.admits(command.action)
+                        && crate::replay::admits(replay_state.as_ref(), command.action)
                         && selection.admits(command.action, path.as_deref())
                 })
                 .collect::<Vec<_>>();

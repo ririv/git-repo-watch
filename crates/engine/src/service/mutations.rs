@@ -2,6 +2,35 @@
 use super::*;
 use crate::operations::mutation::{self, Action, Change, Plan, Request};
 impl Service {
+    pub fn replay_state(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<operations::replay::Observation> {
+        self.validate_repository(path, cancel)?;
+        operations::replay::Observation::read(path)
+    }
+    pub fn prepare_replay(
+        &self,
+        path: &Path,
+        kind: operations::replay::Kind,
+        commit: git2::Oid,
+        cancel: &Cancel,
+    ) -> Result<operations::replay::Preparation> {
+        let _lock = self.repository_lock(path, cancel)?;
+        operations::replay::prepare(path, kind, commit, cancel)
+    }
+    pub fn choose_replay_parent(
+        &self,
+        candidate: operations::replay::Candidate,
+        parent: std::num::NonZeroUsize,
+        cancel: &Cancel,
+    ) -> Result<Plan> {
+        let _lock = self.repository_lock(&candidate.path, cancel)?;
+        Ok(Plan::Replay(operations::replay::choose(
+            candidate, parent, cancel,
+        )?))
+    }
     pub fn stashes(&self, path: &Path, cancel: &Cancel) -> Result<local::stash::Snapshot> {
         self.validate_repository(path, cancel)?;
         local::stash::read(path, cancel)
@@ -24,6 +53,9 @@ impl Service {
             Request::Stash(request) => {
                 Ok(Plan::Stash(local::stash::prepare(path, request, cancel)?))
             }
+            Request::ReplayControl(control) => Ok(Plan::Replay(
+                operations::replay::prepare_control(path, control, cancel)?,
+            )),
             Request::Pull => {
                 let result = operations::pull::prepare(&self.git, path, cancel).map(Plan::Pull);
                 let completion = state::Completion::capture(&result, cancel, |_| ());
@@ -79,7 +111,7 @@ impl Service {
             _ => mutation::execute(&self.git, plan, cancel),
         };
         let completion = state::Completion::capture(&result, cancel, Clone::clone);
-        self.refresh_after_write(
+        let change = self.refresh_after_write(
             plan.path(),
             result,
             vec![],
@@ -87,7 +119,22 @@ impl Service {
                 action: plan.action(),
                 completion,
             },
-        )
+        )?;
+        if let Plan::Replay(operations::replay::Plan::Control(resume)) = plan {
+            let identity = crate::tasks::Operation::Replay {
+                action: resume.active.kind,
+                commit: resume.active.commit.to_string(),
+            };
+            for record in self.store.tasks(200)? {
+                if record.pending()
+                    && record.spec.operation.as_ref() == Some(&identity)
+                    && matches!(&record.spec.scope, crate::tasks::Scope::Repository { path } if path == plan.path())
+                {
+                    self.store.resolve_task(&record.id)?;
+                }
+            }
+        }
+        Ok(change)
     }
     pub fn fetch(&self, path: &Path, cancel: &Cancel) -> Result<Change> {
         let _lock = self.repository_lock(path, cancel)?;

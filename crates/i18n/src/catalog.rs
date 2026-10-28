@@ -2,6 +2,32 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ReplayCherryPick,
+    ReplayRevert,
+    ReplayContinue,
+    ReplaySkip,
+    ReplayAbort,
+    ReplayMetadataTooLarge,
+    ReplayInvalidState,
+    ReplayAttachedRequired,
+    ReplayInvalidMessage,
+    ReplayParentRequired,
+    ReplayStats,
+    ReplayNotActive,
+    ReplayResolveFirst,
+    ReplaySelectCommit,
+    ReplayParentsTitle,
+    ReplayParentsHint,
+    ReplayPendingHint,
+    ReplayAbortHint,
+    ReplaySkipHint,
+    ReplayMainline,
+    ReplayMainlineHelp,
+    ReplayConflictWorktree,
+    ReplaySource,
+    ReplayTargetBranch,
+    ReplayActive,
+
     PressCtrlCAgainToQuit,
     ComposeTooLarge,
     ComposeFileTooLarge,
@@ -1062,6 +1088,83 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ReplayCherryPick, Language::English) => "Cherry-pick commit",
+            (Self::ReplayCherryPick, Language::Chinese) => "拣选提交",
+            (Self::ReplayRevert, Language::English) => "Revert commit",
+            (Self::ReplayRevert, Language::Chinese) => "撤销提交",
+            (Self::ReplayContinue, Language::English) => "Continue operation",
+            (Self::ReplayContinue, Language::Chinese) => "继续操作",
+            (Self::ReplaySkip, Language::English) => "Skip current commit",
+            (Self::ReplaySkip, Language::Chinese) => "跳过当前提交",
+            (Self::ReplayAbort, Language::English) => "Abort operation",
+            (Self::ReplayAbort, Language::Chinese) => "中止操作",
+            (Self::ReplayMetadataTooLarge, Language::English) => {
+                "Git operation metadata exceeds 1 MiB"
+            }
+            (Self::ReplayMetadataTooLarge, Language::Chinese) => "Git 操作元数据超过 1 MiB",
+            (Self::ReplayInvalidState, Language::English) => {
+                "Git sequencer state is incomplete or inconsistent"
+            }
+            (Self::ReplayInvalidState, Language::Chinese) => "Git 连续操作状态不完整或不一致",
+            (Self::ReplayAttachedRequired, Language::English) => {
+                "Switch to an existing local branch first"
+            }
+            (Self::ReplayAttachedRequired, Language::Chinese) => "请先切换到已有提交的本地分支",
+            (Self::ReplayInvalidMessage, Language::English) => "Commit summary is not valid UTF-8",
+            (Self::ReplayInvalidMessage, Language::Chinese) => "提交标题不是有效的 UTF-8",
+            (Self::ReplayParentRequired, Language::English) => {
+                "Explicitly select a mainline parent for this merge commit"
+            }
+            (Self::ReplayParentRequired, Language::Chinese) => "请明确选择该合并提交的主线父提交",
+            (Self::ReplayStats, Language::English) => "{} files · +{} −{}",
+            (Self::ReplayStats, Language::Chinese) => "{} 个文件 · +{} −{}",
+            (Self::ReplayNotActive, Language::English) => "No cherry-pick or revert is in progress",
+            (Self::ReplayNotActive, Language::Chinese) => "当前没有进行中的 cherry-pick 或 revert",
+            (Self::ReplayResolveFirst, Language::English) => {
+                "Resolve and stage all conflicts before continuing"
+            }
+            (Self::ReplayResolveFirst, Language::Chinese) => "请先解决并暂存所有冲突，再继续",
+            (Self::ReplaySelectCommit, Language::English) => "Select a commit in the history first",
+            (Self::ReplaySelectCommit, Language::Chinese) => "请先在提交历史中选择一个提交",
+            (Self::ReplayParentsTitle, Language::English) => "Select mainline parent",
+            (Self::ReplayParentsTitle, Language::Chinese) => "选择主线父提交",
+            (Self::ReplayParentsHint, Language::English) => {
+                "↑↓ select parent · Enter review · Esc back"
+            }
+            (Self::ReplayParentsHint, Language::Chinese) => "↑↓选择父提交 · Enter 预览 · Esc 返回",
+            (Self::ReplayPendingHint, Language::English) => {
+                "Resolve conflicts in the worktree, then continue, skip or abort."
+            }
+            (Self::ReplayPendingHint, Language::Chinese) => {
+                "请在工作区处理冲突，再选择继续、跳过或中止。"
+            }
+            (Self::ReplayAbortHint, Language::English) => {
+                "Discard this operation and its conflict resolutions; return to its starting state."
+            }
+            (Self::ReplayAbortHint, Language::Chinese) => {
+                "放弃本次操作及冲突处理，回到操作开始前的状态。"
+            }
+            (Self::ReplaySkipHint, Language::English) => {
+                "Skip this commit and discard its conflict resolutions."
+            }
+            (Self::ReplaySkipHint, Language::Chinese) => "跳过当前提交，放弃它的冲突处理。",
+            (Self::ReplayMainlineHelp, Language::English) => {
+                "Use the difference from this parent to the merge commit; revert applies its inverse."
+            }
+            (Self::ReplayMainlineHelp, Language::Chinese) => {
+                "以此父提交到合并提交的差异为操作内容；撤销时应用相反的改动。"
+            }
+            (Self::ReplayConflictWorktree, Language::English) => "Conflicted worktree",
+            (Self::ReplayConflictWorktree, Language::Chinese) => "冲突工作区",
+            (Self::ReplayMainline, Language::English) => "Mainline parent",
+            (Self::ReplayMainline, Language::Chinese) => "主线父提交",
+            (Self::ReplaySource, Language::English) => "Source commit",
+            (Self::ReplaySource, Language::Chinese) => "来源提交",
+            (Self::ReplayTargetBranch, Language::English) => "Target branch",
+            (Self::ReplayTargetBranch, Language::Chinese) => "目标分支",
+            (Self::ReplayActive, Language::English) => "In progress",
+            (Self::ReplayActive, Language::Chinese) => "进行中",
+
             (Self::ComposeTooLarge, Language::English) => {
                 "Composition exceeds 512 units or 128 KiB of patch context; commit part of the changes first."
             }
@@ -4634,6 +4737,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (ReplayStats $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{} files · +{} −{}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{} 个文件 · +{} −{}" $(, $($args)*)?),
+        }
+    };
     (SyncPullReview $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Branch: {branch}\nUpstream: {upstream}\nSync: ↑0 ↓{commits}\n\nAction: fast-forward pull {commits} commits\nTarget commit: {oid}" $(, $($args)*)?),

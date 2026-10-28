@@ -58,12 +58,19 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
                                 path: path.as_os_str().as_encoded_bytes().to_vec(),
                             };
                             index.add(&entry)?;
+                            // 子模块使用内存条目写入，需显式清除冲突阶段。
+                            if (1..=3).any(|stage| index.get_path(path, stage).is_some()) {
+                                index.conflict_remove(path)?;
+                            }
                         } else {
                             require_supported_filters(&repo, path)?;
                             index.add_path(path)?;
                         }
                     }
                     Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+                        if (1..=3).any(|stage| index.get_path(path, stage).is_some()) {
+                            index.conflict_remove(path)?;
+                        }
                         if index.get_path(path, 0).is_some() {
                             index.remove_path(path)?;
                         }

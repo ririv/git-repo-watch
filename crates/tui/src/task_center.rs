@@ -380,6 +380,7 @@ pub(crate) fn spec(title: &str, path: Option<PathBuf>, retry: Retry) -> engine::
         source: engine::tasks::Source::Interactive,
         retry,
         retry_of: None,
+        operation: None,
     }
 }
 pub(crate) fn outcome(
@@ -418,6 +419,14 @@ pub(crate) fn outcome(
         Outcome::MutationCompleted(engine::operations::mutation::Change::Synchronized {
             result: change,
         }) => change.detail(),
+        Outcome::MutationCompleted(engine::operations::mutation::Change::Replayed {
+            kind,
+            commit,
+        }) => format!("{}\n{}: {}", kind.label(), i18n::tr!(ReplaySource), commit),
+        Outcome::MutationCompleted(engine::operations::mutation::Change::ReplayControlled {
+            kind,
+            control,
+        }) => format!("{} · {}", kind.label(), control.label()),
         Outcome::MutationCompleted(value) => format!("{value:#?}"),
         _ => title.to_owned(),
     });

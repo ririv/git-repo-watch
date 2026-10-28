@@ -80,7 +80,9 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
         Head::Initial { .. } => None,
         Head::Existing { oid, .. } => Some(repo.find_commit(oid)?.tree()?),
     };
-    let diff = if change.area == Area::Staged {
+    let diff = if change.kind == 'U' {
+        repo.diff_tree_to_workdir(tree.as_ref(), Some(&mut options))?
+    } else if change.area == Area::Staged {
         repo.diff_tree_to_index(tree.as_ref(), None, Some(&mut options))?
     } else {
         repo.diff_index_to_workdir(None, Some(&mut options))?

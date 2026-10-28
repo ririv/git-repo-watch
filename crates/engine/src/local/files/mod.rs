@@ -4,11 +4,12 @@ pub(crate) mod index;
 pub mod media;
 pub mod patch;
 mod source;
+mod stamp;
 use super::{Head, head, idle, open, utf8_path};
 use anyhow::{Context, Result, ensure};
 pub(crate) use diff::collect;
 pub use diff::{diff, document};
-use git2::{Delta, Oid, Repository, Status, StatusOptions};
+use git2::{Delta, Repository, Status, StatusOptions};
 pub use index::edit;
 pub(crate) use source::Storage;
 use std::path::{Path, PathBuf};
@@ -58,7 +59,8 @@ pub struct Change {
 pub struct Files {
     pub path: PathBuf,
     pub(crate) head: Head,
-    pub(crate) tree: Oid,
+    pub(crate) index: stamp::Stamp,
+    pub operation: std::sync::Arc<crate::operations::replay::Observation>,
     pub changes: Vec<Change>,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -107,10 +109,16 @@ fn changes(repo: &Repository) -> Result<Vec<Change>> {
     let mut result = Vec::new();
     for entry in statuses.iter() {
         let s = entry.status();
-        ensure!(
-            !s.contains(Status::CONFLICTED),
-            i18n::tr!(RepositoryHasUnresolvedConflicts)
-        );
+        if s.contains(Status::CONFLICTED) {
+            result.push(Change {
+                area: Area::Unstaged,
+                kind: 'U',
+                location: Location::Path(
+                    entry.path().context(i18n::tr!(GitPathIsNotUtf8And))?.into(),
+                ),
+            });
+            continue;
+        }
         if s.intersects(
             Status::INDEX_NEW
                 | Status::INDEX_MODIFIED
@@ -187,26 +195,38 @@ impl Files {
 }
 pub fn read(path: &Path) -> Result<Files> {
     let repo = open(path)?;
-    idle(&repo)?;
+    allow_editing(&repo)?;
     let head = head(&repo)?;
-    let tree = repo.index()?.write_tree()?;
+    let index = stamp::Stamp::read(&mut repo.index()?)?;
     let result = Files {
         path: path.to_owned(),
         head,
-        tree,
+        index,
+        operation: std::sync::Arc::new(crate::operations::replay::Observation::read(path)?),
         changes: changes(&repo)?,
     };
     validate(&repo, &result)?;
     Ok(result)
 }
+fn allow_editing(repo: &Repository) -> Result<()> {
+    if crate::operations::replay::state::kind(repo.state()).is_some() {
+        Ok(())
+    } else {
+        idle(repo)
+    }
+}
 pub(crate) fn validate(repo: &Repository, f: &Files) -> Result<()> {
-    idle(repo)?;
+    allow_editing(repo)?;
+    ensure!(
+        crate::operations::replay::state::read(repo)? == f.operation.state,
+        i18n::tr!(MutationChanged)
+    );
     ensure!(
         head(repo)? == f.head,
         i18n::tr!(BranchOrHeadChangedRefreshTheFile)
     );
     ensure!(
-        repo.index()?.write_tree()? == f.tree,
+        stamp::Stamp::read(&mut repo.index()?)? == f.index,
         i18n::tr!(IndexChangedRefreshTheFileList)
     );
     Ok(())

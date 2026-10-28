@@ -36,7 +36,7 @@ pub fn prepare(path: &Path) -> Result<CommitPlan> {
     let plan = CommitPlan {
         path: path.to_owned(),
         head: snapshot.head.clone(),
-        tree: snapshot.tree,
+        tree: snapshot.index.tree()?,
         files: selected
             .iter()
             .map(|c| c.location.name().to_owned())

@@ -13,6 +13,7 @@ use std::path::Path;
 pub enum Request {
     Branch { action: edit::Action, name: String },
     Pull,
+    ReplayControl(super::replay::Control),
     Sync,
     Stash(stash::Request),
 }
@@ -20,6 +21,7 @@ pub enum Request {
 pub enum Plan {
     Branch(edit::Plan),
     Pull(pull::Plan),
+    Replay(super::replay::Plan),
     Sync(sync::Plan),
     Stash(stash::Plan),
 }
@@ -27,6 +29,15 @@ pub enum Plan {
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
     PrepareSync,
+    Replay {
+        kind: super::replay::Kind,
+        commit: String,
+    },
+    ReplayControl {
+        kind: super::replay::Kind,
+        control: super::replay::Control,
+        commit: String,
+    },
     CreateBranch {
         name: String,
     },
@@ -57,22 +68,54 @@ pub enum Action {
 #[serde(tag = "change", rename_all = "snake_case")]
 pub enum Change {
     SynchronizationPrepared,
-    CreatedBranch { name: String, oid: String },
-    SwitchedBranch { name: String, oid: String },
-    Fetched { remotes: Vec<String> },
-    FetchSkipped { reason: super::SkipReason },
-    Pulled { branch: String, oid: String },
-    Synchronized { result: sync::Change },
-    SavedStash { oid: String },
-    AppliedStash { oid: String },
-    PoppedStash { oid: String },
-    DroppedStash { oid: String },
+    Replayed {
+        kind: super::replay::Kind,
+        commit: String,
+    },
+    ReplayControlled {
+        kind: super::replay::Kind,
+        control: super::replay::Control,
+    },
+    CreatedBranch {
+        name: String,
+        oid: String,
+    },
+    SwitchedBranch {
+        name: String,
+        oid: String,
+    },
+    Fetched {
+        remotes: Vec<String>,
+    },
+    FetchSkipped {
+        reason: super::SkipReason,
+    },
+    Pulled {
+        branch: String,
+        oid: String,
+    },
+    Synchronized {
+        result: sync::Change,
+    },
+    SavedStash {
+        oid: String,
+    },
+    AppliedStash {
+        oid: String,
+    },
+    PoppedStash {
+        oid: String,
+    },
+    DroppedStash {
+        oid: String,
+    },
 }
 impl Plan {
     pub fn path(&self) -> &Path {
         match self {
             Self::Branch(p) => p.path(),
             Self::Pull(p) => &p.path,
+            Self::Replay(p) => p.path(),
             Self::Sync(p) => p.path(),
             Self::Stash(p) => p.path(),
         }
@@ -100,6 +143,17 @@ impl Plan {
                 upstream: p.upstream().into(),
             },
             Self::Sync(_) => Action::Sync,
+            Self::Replay(p) => match p {
+                super::replay::Plan::Start(_) => Action::Replay {
+                    kind: p.kind(),
+                    commit: p.commit().to_string(),
+                },
+                super::replay::Plan::Control(c) => Action::ReplayControl {
+                    kind: p.kind(),
+                    control: c.control,
+                    commit: p.commit().to_string(),
+                },
+            },
             Self::Stash(stash::Plan::Save { mode, message, .. }) => Action::SaveStash {
                 mode: *mode,
                 message: message.clone(),
@@ -162,6 +216,19 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
         Plan::Sync(plan) => sync::execute(git, plan, cancel)
             .into_result()
             .map(|change| Change::Synchronized { result: change }),
+        Plan::Replay(p) => {
+            super::replay::execute(git, p, cancel)?;
+            Ok(match p {
+                super::replay::Plan::Start(_) => Change::Replayed {
+                    kind: p.kind(),
+                    commit: p.commit().to_string(),
+                },
+                super::replay::Plan::Control(c) => Change::ReplayControlled {
+                    kind: p.kind(),
+                    control: c.control,
+                },
+            })
+        }
         Plan::Stash(p) => {
             let oid = stash::execute(p, cancel)?.to_string();
             Ok(match p {

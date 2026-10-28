@@ -35,6 +35,17 @@ impl Command {
             Action::BrowserPreview => Summary::BrowserPreview,
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
+            Action::Replay(engine::operations::replay::Kind::CherryPick) => {
+                Summary::ReplayCherryPick
+            }
+            Action::Replay(engine::operations::replay::Kind::Revert) => Summary::ReplayRevert,
+            Action::ReplayControl(engine::operations::replay::Control::Continue) => {
+                Summary::ReplayContinue
+            }
+            Action::ReplayControl(engine::operations::replay::Control::Skip) => Summary::ReplaySkip,
+            Action::ReplayControl(engine::operations::replay::Control::Abort) => {
+                Summary::ReplayAbort
+            }
             Action::FileLayoutMenu => Summary::FileLayoutMenu,
             Action::DiffLayoutMenu => Summary::DiffLayoutMenu,
             Action::FilterMenu => Summary::FilterMenu,

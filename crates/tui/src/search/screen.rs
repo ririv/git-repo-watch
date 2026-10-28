@@ -40,7 +40,17 @@ impl Screen {
         self.bar.commands(self.config.ai.enabled).map(|commands| {
             commands
                 .into_iter()
-                .filter(|command| support.admits(command.action))
+                .filter(|command| {
+                    let path = match &self.bar {
+                        InputBar::Command { path, .. } => path.as_deref(),
+                        _ => None,
+                    };
+                    support.admits(command.action)
+                        && crate::replay::admits(
+                            path.and_then(|p| self.replay_state(p)),
+                            command.action,
+                        )
+                })
                 .collect()
         })
     }

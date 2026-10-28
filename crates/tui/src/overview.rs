@@ -28,7 +28,6 @@ impl Content {
             Self::Ready(snapshot) | Self::Refreshing(snapshot) => Some(&snapshot.path),
         }
     }
-    #[cfg(test)]
     pub fn snapshot(&self) -> Option<&Snapshot> {
         match self {
             Self::Ready(snapshot) | Self::Refreshing(snapshot) => Some(snapshot),

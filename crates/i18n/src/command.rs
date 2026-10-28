@@ -43,6 +43,11 @@ pub enum CommandSummary {
     BrowserPreview,
     Log,
     LogMore,
+    ReplayCherryPick,
+    ReplayRevert,
+    ReplayContinue,
+    ReplaySkip,
+    ReplayAbort,
     FileLayoutMenu,
     DiffLayoutMenu,
     FilterMenu,
@@ -93,6 +98,20 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ReplayCherryPick, Language::Chinese) => "将所选提交应用到当前分支",
+            (Self::ReplayCherryPick, Language::English) => {
+                "Apply selected commit to current branch"
+            }
+            (Self::ReplayRevert, Language::Chinese) => "新增提交以撤销所选提交",
+            (Self::ReplayRevert, Language::English) => "Undo selected commit with a new commit",
+            (Self::ReplayContinue, Language::Chinese) => "解决冲突并暂存后继续",
+            (Self::ReplayContinue, Language::English) => {
+                "Continue after resolving and staging conflicts"
+            }
+            (Self::ReplaySkip, Language::Chinese) => "跳过当前提交",
+            (Self::ReplaySkip, Language::English) => "Skip the current commit",
+            (Self::ReplayAbort, Language::Chinese) => "中止并恢复操作前的状态",
+            (Self::ReplayAbort, Language::English) => "Abort and restore the pre-operation state",
             (Self::Compose, Language::English) => "Compose commits",
             (Self::Compose, Language::Chinese) => "编排提交",
             (Self::ComposeNext, Language::English) => "Commit next",

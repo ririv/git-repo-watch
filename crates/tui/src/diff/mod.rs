@@ -91,6 +91,7 @@ impl Layout {
 pub(super) enum Comparison {
     Staged,
     Working,
+    Conflict,
     History {
         before: engine::local::history::Base,
         after: engine::local::history::Oid,
@@ -101,6 +102,7 @@ impl Comparison {
         match self {
             Self::Staged => ("HEAD".into(), i18n::tr!(Index).into()),
             Self::Working => (i18n::tr!(Index).into(), i18n::tr!(Worktree).into()),
+            Self::Conflict => ("HEAD".into(), i18n::tr!(ReplayConflictWorktree).into()),
             Self::History { before, after } => (
                 match before {
                     engine::local::history::Base::Empty => i18n::tr!(HistoryRoot).into(),
@@ -260,7 +262,7 @@ pub(crate) fn prepare_inline_history(
     )
 }
 
-fn prepare_comparison(
+pub(super) fn prepare_comparison(
     title: &str,
     document: Document,
     comparison: Comparison,

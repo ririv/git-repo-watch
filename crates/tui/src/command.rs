@@ -46,6 +46,8 @@ pub enum Action {
     BrowserPreview,
     Log,
     LogMore,
+    Replay(engine::operations::replay::Kind),
+    ReplayControl(engine::operations::replay::Control),
     FileLayoutMenu,
     FileLayout(crate::files::Layout),
     DiffLayoutMenu,
@@ -144,6 +146,31 @@ pub const COMMANDS: &[Command] = &[
         name: "repo log",
         action: Log,
         description: i18n::Message::HistoryCommand,
+    },
+    Command {
+        name: "repo log cherry-pick",
+        action: Replay(engine::operations::replay::Kind::CherryPick),
+        description: i18n::Message::ReplayCherryPick,
+    },
+    Command {
+        name: "repo log revert",
+        action: Replay(engine::operations::replay::Kind::Revert),
+        description: i18n::Message::ReplayRevert,
+    },
+    Command {
+        name: "repo continue",
+        action: ReplayControl(engine::operations::replay::Control::Continue),
+        description: i18n::Message::ReplayContinue,
+    },
+    Command {
+        name: "repo skip",
+        action: ReplayControl(engine::operations::replay::Control::Skip),
+        description: i18n::Message::ReplaySkip,
+    },
+    Command {
+        name: "repo abort",
+        action: ReplayControl(engine::operations::replay::Control::Abort),
+        description: i18n::Message::ReplayAbort,
     },
     Command {
         name: "repo log more",

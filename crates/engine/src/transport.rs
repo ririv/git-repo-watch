@@ -96,6 +96,45 @@ impl Git {
             .remove(reference)
             .context(i18n::tr!(RemoteUpstreamBranchDoesNotExistAlt))
     }
+    fn run_replay(&self, path: &Path, args: Vec<OsString>, cancel: &Cancel) -> Result<()> {
+        process::run_with_environment(
+            Path::new("/usr/bin/git"),
+            &args,
+            Some(path),
+            cancel,
+            self.timeout,
+            &[
+                ("GIT_EDITOR".into(), "/usr/bin/true".into()),
+                ("GIT_SEQUENCE_EDITOR".into(), "/usr/bin/true".into()),
+            ],
+        )?
+        .success("git")?;
+        Ok(())
+    }
+    pub fn replay(
+        &self,
+        path: &Path,
+        kind: crate::operations::replay::Kind,
+        oid: git2::Oid,
+        parent: Option<std::num::NonZeroUsize>,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let mut args = strings(&[kind.command(), "--no-edit"]);
+        if let Some(parent) = parent {
+            args.extend(strings(&["--mainline", &parent.to_string()]));
+        }
+        args.extend(strings(&["--", &oid.to_string()]));
+        self.run_replay(path, args, cancel)
+    }
+    pub fn replay_control(
+        &self,
+        path: &Path,
+        kind: crate::operations::replay::Kind,
+        control: crate::operations::replay::Control,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.run_replay(path, strings(&[kind.command(), control.argument()]), cancel)
+    }
     pub fn commit(&self, path: &Path, message: &str, cancel: &Cancel) -> Result<()> {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())

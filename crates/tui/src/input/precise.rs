@@ -79,7 +79,8 @@ impl Screen {
                         }
                     }
                     Target::Settings => self.scroll = offset,
-                    Target::ScheduleButton
+                    Target::ReplayParent
+                    | Target::ScheduleButton
                     | Target::WorkflowSteps
                     | Target::WorkflowToggle
                     | Target::WorkflowActions => {
@@ -104,6 +105,24 @@ impl Screen {
             }
 
             Action::Select(target, index) => match target {
+                Target::ReplayParent => {
+                    let Mode::Confirm {
+                        operation:
+                            crate::Confirmation::ReplayParents {
+                                candidate,
+                                selected,
+                                ..
+                            },
+                        ..
+                    } = &mut self.mode
+                    else {
+                        return false;
+                    };
+                    if index >= candidate.parents.len() {
+                        return false;
+                    }
+                    *selected = index;
+                }
                 Target::ScheduleButton => return false,
                 Target::WorkflowSteps | Target::WorkflowToggle | Target::WorkflowActions => {
                     if !matches!(self.mode, Mode::Workflow(_)) {

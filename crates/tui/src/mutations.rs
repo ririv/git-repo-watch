@@ -40,6 +40,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
     match plan {
         Plan::Branch(edit::Plan::Create { .. }) => i18n::tr!(BranchCreateCommand),
         Plan::Branch(edit::Plan::Switch { .. }) => i18n::tr!(BranchSwitchCommand),
+        Plan::Replay(plan) => plan.title(),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save {
@@ -70,6 +71,7 @@ pub(crate) fn review(plan: &Plan) -> String {
             i18n::tr!(MutationTarget),
             p.oid()
         ),
+        Plan::Replay(plan) => crate::replay::review(plan),
         Plan::Pull(p) => match p.update {
             pull::Update::Current => i18n::tr!(PullCurrent).into(),
             pull::Update::FastForward { commits } => {
@@ -158,10 +160,22 @@ impl Screen {
     pub(crate) fn execute_mutation(&mut self, plan: Plan, origin: Mode) {
         self.mode = origin;
         self.sync_bar();
-        self.start_repository(
+        let mut spec = crate::task_center::spec(
+            title(&plan),
+            Some(plan.path().into()),
+            engine::tasks::Retry::Unavailable,
+        );
+        if let Plan::Replay(replay) = &plan {
+            spec.operation = Some(engine::tasks::Operation::Replay {
+                action: replay.kind(),
+                commit: replay.commit().to_string(),
+            });
+        }
+        self.start_repository_tracked(
             plan.path().into(),
             title(&plan),
             Effect::RepositoryWrite,
+            spec,
             move |service, cancel, _| {
                 Ok(Outcome::MutationCompleted(service.mutate(&plan, &cancel)?))
             },

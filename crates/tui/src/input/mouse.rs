@@ -462,6 +462,12 @@ impl Screen {
                 | Mode::Changes(_)
                 | Mode::History(_)
                 | Mode::Composition(_)
+        ) && !matches!(
+            self.mode,
+            Mode::Confirm {
+                operation: Confirmation::ReplayParents { .. },
+                ..
+            }
         ) {
             return Ok(false);
         }

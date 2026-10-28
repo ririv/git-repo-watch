@@ -16,6 +16,7 @@ pub struct Snapshot {
     pub captured_at: String,
     pub checkout: Section<Checkout>,
     pub operation: Operation,
+    pub replay: crate::operations::replay::Observation,
     pub changes: Section<Changes>,
     pub depth: crate::local::history::Depth,
 }
@@ -36,6 +37,7 @@ pub fn read(path: &Path, cancel: &Cancel) -> Result<Snapshot> {
         captured_at: chrono::Utc::now().to_rfc3339(),
         checkout,
         operation: repo.state(),
+        replay: crate::operations::replay::Observation::read(path)?,
         changes,
         depth: if repo.is_shallow() {
             crate::local::history::Depth::Shallow

@@ -11,8 +11,29 @@ pub(super) fn render(
 ) {
     session.set_layout(layout);
     let border = block(title.to_owned());
-    let inner = border.inner(area);
+    let mut inner = border.inner(area);
     frame.render_widget(border, area);
+    if let engine::operations::replay::State::Active(active) = &session.snapshot.operation.state {
+        let parts = Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).split(inner);
+        frame.render_widget(
+            Paragraph::new(vec![
+                Line::styled(
+                    format!(
+                        "{} · {}",
+                        active.kind.label(),
+                        &active.commit.to_string()[..12]
+                    ),
+                    Style::default().fg(WARN).bold(),
+                ),
+                Line::styled(
+                    "/repo continue · /repo skip · /repo abort",
+                    Style::default().fg(ACCENT),
+                ),
+            ]),
+            parts[0],
+        );
+        inner = parts[1];
+    }
     let mut offsets = session.offsets;
     let rows = session.rows();
     let projected = session.entries(layout);
@@ -91,7 +112,13 @@ pub(super) fn render(
                 ListItem::new(marked_line(
                     &line,
                     change.kind,
-                    if staged { GOOD } else { WARN },
+                    if change.kind == 'U' {
+                        BAD
+                    } else if staged {
+                        GOOD
+                    } else {
+                        WARN
+                    },
                     parts[1].width as usize,
                 ))
             })

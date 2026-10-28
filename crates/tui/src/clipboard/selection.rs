@@ -66,6 +66,27 @@ impl Content {
         }
     }
 }
+#[derive(Debug, Clone)]
+pub(crate) enum CommitSelection {
+    Selected {
+        oid: engine::local::history::Oid,
+        content: Content,
+    },
+    Unavailable(Content),
+}
+impl CommitSelection {
+    fn content(&self) -> &Content {
+        match self {
+            Self::Selected { content, .. } | Self::Unavailable(content) => content,
+        }
+    }
+    fn oid(&self) -> Option<engine::local::history::Oid> {
+        match self {
+            Self::Selected { oid, .. } => Some(*oid),
+            Self::Unavailable(_) => None,
+        }
+    }
+}
 #[derive(Debug, Clone, Default)]
 pub(crate) enum Selection {
     #[default]
@@ -75,7 +96,7 @@ pub(crate) enum Selection {
         opener: Option<crate::browser::opening::OpenTarget>,
     },
     Diff(Content),
-    Log(Content),
+    Log(CommitSelection),
     Branch(Content),
     Stash(Content),
     Error(Content),
@@ -84,8 +105,8 @@ impl Selection {
     fn content(&self, scope: Scope) -> Option<&Content> {
         match (self, scope) {
             (Self::Browser { content, .. }, Scope::Browser) => Some(content),
+            (Self::Log(selection), Scope::Log) => Some(selection.content()),
             (Self::Diff(content), Scope::Diff)
-            | (Self::Log(content), Scope::Log)
             | (Self::Branch(content), Scope::Branch)
             | (Self::Stash(content), Scope::Stash)
             | (Self::Error(content), Scope::Error) => Some(content),
@@ -111,6 +132,12 @@ impl Selection {
             _ => None,
         }
     }
+    pub fn commit(&self) -> Option<engine::local::history::Oid> {
+        match self {
+            Self::Log(selection) => selection.oid(),
+            _ => None,
+        }
+    }
     pub fn admits(&self, action: Action, path: Option<&Path>) -> bool {
         if self.is_error() {
             return matches!(
@@ -119,6 +146,7 @@ impl Selection {
             );
         }
         match action {
+            Action::Replay(_) => path.is_some() && self.commit().is_some(),
             Action::BrowserToggle | Action::BrowserSplit => self.opener().is_some(),
             Action::BrowserSource => self.opener().is_some_and(|target| {
                 target.presentation
@@ -200,14 +228,17 @@ impl Screen {
                 },
             }),
             Mode::History(view) => match view.as_ref() {
-                history::View::Graph(session) => Selection::Log(commit(session)),
-                history::View::Commit(commit) => Selection::Log(Content::paths(
-                    commit
-                        .files
-                        .selected()
-                        .and_then(|i| commit.rows().get(i).copied())
-                        .map(|change| change.location.name().to_owned()),
-                )),
+                history::View::Graph(session) => log(session),
+                history::View::Commit(commit) => Selection::Log(CommitSelection::Selected {
+                    oid: commit.detail.oid,
+                    content: Content::paths(
+                        commit
+                            .files
+                            .selected()
+                            .and_then(|i| commit.rows().get(i).copied())
+                            .map(|change| change.location.name().to_owned()),
+                    ),
+                }),
                 history::View::Diff { content, .. } => Selection::Diff(Content::document(content)),
             },
             Mode::Stashes(view) => Selection::Stash(match view.selected() {
@@ -232,7 +263,10 @@ impl Screen {
                     workspace::Section::Worktree => {
                         Selection::Diff(panel(&session.files, file_paths))
                     }
-                    workspace::Section::History => Selection::Log(panel(&session.history, commit)),
+                    workspace::Section::History => match &session.history {
+                        workspace::Panel::Ready(session) => log(session),
+                        other => Selection::Log(CommitSelection::Unavailable(panel(other, commit))),
+                    },
                     workspace::Section::Branches => {
                         Selection::Branch(panel(&session.branches, branch))
                     }
@@ -273,4 +307,14 @@ fn panel<T>(panel: &workspace::Panel<T>, select: impl FnOnce(&T) -> Content) -> 
         workspace::Panel::Loading => Content::Unavailable(Unavailable::Loading),
         workspace::Panel::Failed(error) => Content::text(Target::Error, error.clone()),
     }
+}
+
+fn log(session: &history::Session) -> Selection {
+    Selection::Log(match session.selected() {
+        Some(entry) => CommitSelection::Selected {
+            oid: entry.oid,
+            content: commit(session),
+        },
+        None => CommitSelection::Unavailable(Content::Unavailable(Unavailable::Empty)),
+    })
 }

@@ -95,6 +95,22 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
             }
+            Action::Replay(kind) => {
+                if let Some(commit) = selection.commit() {
+                    let mut draft = self.mutation_draft(action, path);
+                    draft.selection = selection;
+                    self.prepare_replay(kind, commit, draft);
+                } else {
+                    self.message = i18n::tr!(ReplaySelectCommit).into();
+                }
+            }
+            Action::ReplayControl(control) => {
+                let draft = self.mutation_draft(action, path);
+                self.prepare_mutation(
+                    engine::operations::mutation::Request::ReplayControl(control),
+                    draft,
+                );
+            }
             Action::Pull => {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(engine::operations::mutation::Request::Pull, draft);
@@ -271,7 +287,7 @@ impl Screen {
                     self.start_repository(
                         path.clone(),
                         i18n::tr!(OpenRepositoryTerminal),
-                        Effect::ReadOnly,
+                        Effect::Terminal,
                         move |service, cancel, _| {
                             service.open_terminal(&path, &cancel)?;
                             Ok(Outcome::TerminalOpened(path))
@@ -460,6 +476,12 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
+            Confirmation::ReplayParents {
+                candidate,
+                selected,
+                origin,
+                draft,
+            } => self.choose_replay_parent(*candidate, selected, *origin, draft),
             Confirmation::Mutation { plan, origin, .. } => self.execute_mutation(*plan, *origin),
             Confirmation::Schedule(operation) => self.start(
                 match operation {

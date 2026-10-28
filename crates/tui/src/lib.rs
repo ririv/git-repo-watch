@@ -35,6 +35,7 @@ mod overview;
 mod pointer;
 mod preview;
 mod prompt_editor;
+mod replay;
 mod repository_list;
 mod repository_tasks;
 mod scrollbar;
@@ -135,6 +136,12 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
+    ReplayParents {
+        candidate: Box<engine::operations::replay::Candidate>,
+        selected: usize,
+        origin: Box<Mode>,
+        draft: bar::CommandDraft,
+    },
     Mutation {
         plan: Box<engine::operations::mutation::Plan>,
         origin: Box<Mode>,
@@ -152,6 +159,7 @@ enum Confirmation {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Effect {
     ReadOnly,
+    Terminal,
     Check,
     IndexWrite,
     RepositoryWrite,
@@ -190,6 +198,10 @@ enum Outcome {
     Checked(domain::Report),
     Branches(Box<branches::View>),
     Stashes(engine::local::stash::Snapshot),
+    ReplayPrepared {
+        preparation: Box<engine::operations::replay::Preparation>,
+        draft: bar::CommandDraft,
+    },
     MutationPrepared {
         plan: engine::operations::mutation::Plan,
         draft: bar::CommandDraft,
@@ -253,6 +265,7 @@ struct Screen {
     view_revision: u64,
     updates: BTreeMap<PathBuf, checks::Update>,
     overview: overview::Overview,
+    replay: replay::Cache,
     workspace: workspace::Workspace,
     workspace_areas: Vec<(ratatui::layout::Rect, workspace::Section)>,
 }
@@ -314,6 +327,7 @@ impl Screen {
             view_revision: 0,
             updates: BTreeMap::new(),
             overview: Default::default(),
+            replay: Default::default(),
             workspace: Default::default(),
             workspace_areas: Vec::new(),
         };

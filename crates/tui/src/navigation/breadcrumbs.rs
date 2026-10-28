@@ -32,6 +32,14 @@ pub(super) fn repository(mode: &Mode) -> Option<&Path> {
         Mode::Branches(view) => Some(&view.session().snapshot.path),
         Mode::Stashes(view) => Some(&view.session().snapshot.path),
         Mode::Busy(pending) => repository(&pending.origin),
+        Mode::Confirm {
+            operation: crate::Confirmation::ReplayParents { candidate, .. },
+            ..
+        } => Some(&candidate.path),
+        Mode::Confirm {
+            operation: crate::Confirmation::Mutation { plan, .. },
+            ..
+        } => Some(plan.path()),
         Mode::Error { origin, .. } => repository(origin),
         _ => mode
             .file_session()

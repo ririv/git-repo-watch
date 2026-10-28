@@ -40,12 +40,18 @@ impl Position {
 pub struct Guard {
     pub position: Position,
     fingerprint: [u8; 32],
+    operation: git2::RepositoryState,
 }
 impl Guard {
     pub fn capture(path: &Path, cancel: &Cancel) -> Result<Self> {
         cancel.check()?;
         let repo = open(path)?;
         idle(&repo)?;
+        Self::capture_current(path, cancel)
+    }
+    pub(crate) fn capture_current(path: &Path, cancel: &Cancel) -> Result<Self> {
+        cancel.check()?;
+        let repo = open(path)?;
         let position = Position::read(&repo)?;
         let mut hash = Sha256::new();
         // 比较索引内容，不比较 stat 缓存，外部 git status 的缓存刷新不使预览失效。
@@ -104,7 +110,15 @@ impl Guard {
         Ok(Self {
             position,
             fingerprint: hash.finalize().into(),
+            operation: repo.state(),
         })
+    }
+    pub(crate) fn validate_current(&self, path: &Path, cancel: &Cancel) -> Result<()> {
+        ensure!(
+            Self::capture_current(path, cancel)? == *self,
+            i18n::tr!(MutationChanged)
+        );
+        Ok(())
     }
     pub fn validate(&self, path: &Path, cancel: &Cancel) -> Result<()> {
         ensure!(

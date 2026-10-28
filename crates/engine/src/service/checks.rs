@@ -121,6 +121,7 @@ impl Service {
                     }
                 },
                 retry_of,
+                operation: None,
             },
             cancel,
         )?;
@@ -212,6 +213,7 @@ impl Service {
                     path: path.to_owned(),
                 },
                 retry_of,
+                operation: None,
             },
             cancel,
         )?;

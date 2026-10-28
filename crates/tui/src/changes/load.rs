@@ -60,10 +60,10 @@ impl Loader {
             let result = service
                 .diff(&request.snapshot, change, &task_cancel)
                 .and_then(|document| {
-                    document::prepare(
+                    document::prepare_change(
                         &change.location.display(),
                         document,
-                        change.area,
+                        change,
                         &task_cancel,
                     )
                 })

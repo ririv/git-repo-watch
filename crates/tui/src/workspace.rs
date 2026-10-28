@@ -143,7 +143,8 @@ impl Workspace {
             Mode::Confirm {
                 operation:
                     crate::Confirmation::Configure { origin, .. }
-                    | crate::Confirmation::Mutation { origin, .. },
+                    | crate::Confirmation::Mutation { origin, .. }
+                    | crate::Confirmation::ReplayParents { origin, .. },
                 ..
             } => self.save(*origin),
             _ => {}

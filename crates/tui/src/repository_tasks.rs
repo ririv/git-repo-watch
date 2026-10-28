@@ -46,6 +46,7 @@ impl Task {
 #[derive(Debug)]
 struct Completion {
     outcome: Result<Outcome>,
+    replay: Option<engine::operations::replay::Observation>,
     refresh: Refresh,
     view: Result<crate::mutations::readback::Readback>,
 }
@@ -107,6 +108,7 @@ impl Screen {
                 Err(error) => {
                     let _ = tx.send(Completion {
                         outcome: Err(error),
+                        replay: None,
                         refresh: Refresh::Unchanged,
                         view: Ok(crate::mutations::readback::Readback::Unchanged),
                     });
@@ -144,7 +146,9 @@ impl Screen {
                         },
                         Err(error) => Refresh::Failed(error),
                     },
-                    Effect::ReadOnly | Effect::Check | Effect::Configuration => Refresh::Unchanged,
+                    Effect::ReadOnly | Effect::Terminal | Effect::Check | Effect::Configuration => {
+                        Refresh::Unchanged
+                    }
                 },
             };
             let view = if progress.measurements.is_empty()
@@ -158,6 +162,20 @@ impl Screen {
                     (result, Ok(())) => result,
                     (Ok(_), Err(error)) => Err(error),
                     (Err(read), Err(progress)) => Err(read.context(progress)),
+                }
+            };
+            let replay = if effect == Effect::Terminal {
+                None
+            } else {
+                match service.replay_state(&task_path, &Cancel::default()) {
+                    Ok(observation) => Some(observation),
+                    Err(error) => {
+                        outcome = match outcome {
+                            Ok(_) => Err(error),
+                            Err(operation) => Err(operation.context(error)),
+                        };
+                        None
+                    }
                 }
             };
             let timings = progress.measurements.finish();
@@ -177,6 +195,7 @@ impl Screen {
             }
             let _ = tx.send(Completion {
                 outcome,
+                replay,
                 refresh,
                 view,
             });
@@ -220,6 +239,7 @@ impl Screen {
                         outcome: Err(anyhow::anyhow!(i18n::tr!(
                             BackgroundWorkerTerminatedUnexpectedly
                         ))),
+                        replay: None,
                         refresh: Refresh::Unchanged,
                         view: Ok(crate::mutations::readback::Readback::Unchanged),
                     },
@@ -234,6 +254,9 @@ impl Screen {
                 .expect("completed repository task");
             if task.handle.join().is_err() {
                 completion.outcome = Err(anyhow::anyhow!(i18n::tr!(BackgroundWorkerPanicked)));
+            }
+            if let Some(observation) = completion.replay {
+                self.replay.observe(path.clone(), observation);
             }
             let selected = self.selected_path();
             match completion.refresh {

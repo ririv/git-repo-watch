@@ -111,12 +111,13 @@ impl Screen {
             match result {
                 Ok(outcome) => self.finish(outcome, *pending.origin, root),
                 Err(e) => {
-                    let detail =
-                        if pending.effect != Effect::ReadOnly && pending.cancel.is_cancelled() {
-                            i18n::tf!(OperationInterruptedSomeWritesMayHaveCompleted, e = e)
-                        } else {
-                            format!("{e:#}")
-                        };
+                    let detail = if !matches!(pending.effect, Effect::ReadOnly | Effect::Terminal)
+                        && pending.cancel.is_cancelled()
+                    {
+                        i18n::tf!(OperationInterruptedSomeWritesMayHaveCompleted, e = e)
+                    } else {
+                        format!("{e:#}")
+                    };
                     self.mode = Mode::Error {
                         origin: pending.origin,
                         title: pending.title,
@@ -153,6 +154,9 @@ impl Screen {
                 };
                 self.workspace.save(origin);
                 self.mode = Mode::Stashes(Box::new(crate::stashes::View::List(session)));
+            }
+            Outcome::ReplayPrepared { preparation, draft } => {
+                self.replay_prepared(*preparation, draft, origin)
             }
             Outcome::MutationPrepared { plan, draft } => {
                 if let Some(notice) = plan.notice() {

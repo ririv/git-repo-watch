@@ -327,14 +327,34 @@ impl Screen {
                 self.mode = Mode::History(view);
             }
             Mode::Confirm {
-                operation,
+                mut operation,
                 mut choice,
-            } => match choice.input(key.code) {
+            } => match match &mut operation {
+                Confirmation::ReplayParents {
+                    selected,
+                    candidate,
+                    ..
+                } => match key.code {
+                    KeyCode::Up => {
+                        *selected = selected.saturating_sub(1);
+                        confirmation::Input::Pending
+                    }
+                    KeyCode::Down => {
+                        *selected = (*selected + 1).min(candidate.parents.len() - 1);
+                        confirmation::Input::Pending
+                    }
+                    KeyCode::Enter => confirmation::Input::Execute,
+                    KeyCode::Esc => confirmation::Input::Return,
+                    _ => confirmation::Input::Pending,
+                },
+                _ => choice.input(key.code),
+            } {
                 confirmation::Input::Execute => self.confirm(operation),
                 confirmation::Input::Return => {
                     self.mode = match operation {
                         Confirmation::Configure { origin, draft, .. }
-                        | Confirmation::Mutation { origin, draft, .. } => {
+                        | Confirmation::Mutation { origin, draft, .. }
+                        | Confirmation::ReplayParents { origin, draft, .. } => {
                             self.mode = *origin;
                             self.bar = crate::bar::InputBar::Command {
                                 input: draft.input,

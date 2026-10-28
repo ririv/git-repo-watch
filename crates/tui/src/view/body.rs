@@ -134,6 +134,14 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     UnregisterRepositoryFilesOnDiskAreRetained,
                     safe(&path.to_string_lossy())
                 ),
+                Confirmation::ReplayParents {
+                    candidate,
+                    selected,
+                    ..
+                } => {
+                    super::replay::parents(frame, area, candidate, *selected, &mut screen.pointer);
+                    return;
+                }
                 Confirmation::Mutation { plan, .. } => multiline(&crate::mutations::review(plan)),
                 Confirmation::Configure { command, value, .. } => {
                     format!(

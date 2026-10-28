@@ -41,12 +41,22 @@ pub enum Retry {
     Fetch { path: PathBuf },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum Operation {
+    Replay {
+        action: crate::operations::replay::Kind,
+        commit: String,
+    },
+}
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct Spec {
     pub title: String,
     pub scope: Scope,
     pub source: Source,
     pub retry: Retry,
     pub retry_of: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operation: Option<Operation>,
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case")]

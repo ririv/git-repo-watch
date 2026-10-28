@@ -13,6 +13,7 @@ pub(crate) enum Target {
     Stashes,
     History,
     HistoryFiles,
+    ReplayParent,
     Settings,
     ScheduleButton,
     WorkflowSteps,

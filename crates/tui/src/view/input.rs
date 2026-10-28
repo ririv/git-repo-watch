@@ -415,6 +415,23 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 Content::CommitActions { draft: editor },
                 browsing_hint(screen),
             ),
+            Mode::Confirm {
+                operation:
+                    Confirmation::ReplayParents {
+                        candidate,
+                        selected,
+                        ..
+                    },
+                ..
+            } => (
+                i18n::tr!(ReplayParentsTitle),
+                Content::Locked(format!(
+                    "{} {}",
+                    i18n::tr!(ReplayMainline),
+                    candidate.parents[*selected].number
+                )),
+                i18n::tr!(ReplayParentsHint),
+            ),
             Mode::Confirm { operation, choice } => (
                 i18n::tr!(ConfirmOperationAlt),
                 Content::Choices {
@@ -426,6 +443,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             engine::scheduler::Control::Apply => i18n::tr!(ActionApply),
                         },
                         Confirmation::Mutation { .. } => i18n::tr!(MutationRun),
+                        Confirmation::ReplayParents { .. } => {
+                            unreachable!("parent chooser has its own footer")
+                        }
                         Confirmation::Remove(_) => i18n::tr!(ActionUnregister),
                         Confirmation::Configure { command, .. } => match command {
                             command::ConfigArgument::Add => i18n::tr!(ActionAdd),

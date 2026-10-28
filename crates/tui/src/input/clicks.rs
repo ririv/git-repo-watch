@@ -133,6 +133,21 @@ impl Screen {
                 },
                 _ => None,
             },
+            Target::ReplayParent => match &self.mode {
+                Mode::Confirm {
+                    operation:
+                        crate::Confirmation::ReplayParents {
+                            candidate,
+                            selected,
+                            ..
+                        },
+                    ..
+                } => Some(Identity::Commit {
+                    repository: candidate.path.clone(),
+                    oid: candidate.parents[*selected].oid.to_string(),
+                }),
+                _ => None,
+            },
             Target::History | Target::HistoryFiles => match &self.mode {
                 Mode::History(view) => match (view.as_ref(), target) {
                     (history::View::Graph(session), Target::History) => Some(Identity::Commit {

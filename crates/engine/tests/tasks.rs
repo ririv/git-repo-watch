@@ -20,6 +20,7 @@ fn spec() -> Spec {
         source: Source::Interactive,
         retry: Retry::Unavailable,
         retry_of: None,
+        operation: None,
     }
 }
 fn failed(detail: &str) -> Outcome {

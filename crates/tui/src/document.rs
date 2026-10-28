@@ -26,6 +26,18 @@ impl View {
         }
     }
 }
+pub(super) fn prepare_change(
+    title: &str,
+    document: Document,
+    change: &engine::local::files::Change,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    if change.kind == 'U' {
+        prepare_with(title, document, diff::Comparison::Conflict, cancel)
+    } else {
+        prepare(title, document, change.area, cancel)
+    }
+}
 pub(super) fn prepare(
     title: &str,
     document: Document,
@@ -76,6 +88,9 @@ fn prepare_with(
     let text = match comparison {
         diff::Comparison::Staged => diff::prepare(title, document, Area::Staged, cancel)?,
         diff::Comparison::Working => diff::prepare(title, document, Area::Unstaged, cancel)?,
+        diff::Comparison::Conflict => {
+            diff::prepare_comparison(title, document, comparison, cancel)?
+        }
         diff::Comparison::History { before, after } => {
             diff::prepare_history(title, document, before, after, cancel)?
         }

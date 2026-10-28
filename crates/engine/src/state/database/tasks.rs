@@ -242,6 +242,7 @@ pub(super) fn import_operations(tx: &Transaction<'_>) -> Result<()> {
                 source: Source::Imported,
                 retry: Retry::Unavailable,
                 retry_of: None,
+                operation: None,
             },
             started_at: operation.at.clone(),
             state: State::Finished {
