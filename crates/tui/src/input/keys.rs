@@ -231,6 +231,23 @@ impl Screen {
                             }
                             return Ok(false);
                         }
+                        KeyCode::Up | KeyCode::Down
+                            if session.selection.active()
+                                && key.modifiers == KeyModifiers::SHIFT =>
+                        {
+                            if key.code == KeyCode::Down
+                                && session.state.selected() == session.records.len().checked_sub(1)
+                                && session.cursor().is_some()
+                            {
+                                self.mode = Mode::History(view);
+                                self.more_history();
+                                return Ok(false);
+                            }
+                            let delta = if key.code == KeyCode::Up { -1 } else { 1 };
+                            if let Err(error) = session.extend_selection(delta) {
+                                self.message = format!("{error:#}");
+                            }
+                        }
                         KeyCode::Up => session.advance(-1),
                         KeyCode::Down
                             if session.state.selected() == session.records.len().checked_sub(1)
@@ -243,12 +260,34 @@ impl Screen {
                         KeyCode::Down => session.advance(1),
                         KeyCode::PageUp => session.advance(-10),
                         KeyCode::PageDown => session.advance(10),
-                        KeyCode::Home => session
-                            .state
-                            .select((!session.records.is_empty()).then_some(0)),
-                        KeyCode::End => session.state.select(session.records.len().checked_sub(1)),
+                        KeyCode::Home => {
+                            session.selection.settle();
+                            session
+                                .state
+                                .select((!session.records.is_empty()).then_some(0));
+                        }
+                        KeyCode::End => {
+                            session.selection.settle();
+                            session.state.select(session.records.len().checked_sub(1));
+                        }
                         KeyCode::Tab => session.next_match(false),
                         KeyCode::BackTab => session.next_match(true),
+                        KeyCode::Enter if session.selection.active() => {
+                            if session.selection.count() == 0 {
+                                self.message = i18n::tr!(HistorySelectionRequired).into();
+                                self.mode = Mode::History(view);
+                            } else {
+                                session.selection.settle();
+                                self.mode = Mode::History(view);
+                                let selection = self.copy_selection();
+                                let path = self.scope_path();
+                                let kind = engine::operations::replay::Kind::CherryPick;
+                                let mut draft = self.mutation_draft(Action::Replay(kind), path);
+                                draft.return_to = crate::bar::ReturnTo::View;
+                                self.prepare_replay(kind, selection.commits(), draft);
+                            }
+                            return Ok(false);
+                        }
                         KeyCode::Enter | KeyCode::Right => {
                             self.mode = Mode::History(view);
                             self.open_history_commit();
@@ -364,13 +403,18 @@ impl Screen {
                         | Confirmation::Mutation { origin, draft, .. }
                         | Confirmation::ReplayParents { origin, draft, .. } => {
                             self.mode = *origin;
-                            self.bar = crate::bar::InputBar::Command {
-                                input: draft.input,
-                                path: draft.path,
-                                selection: draft.selection,
-                                selected: 0,
-                                menu: Default::default(),
-                            };
+                            match draft.return_to {
+                                crate::bar::ReturnTo::View => self.sync_bar(),
+                                crate::bar::ReturnTo::Command => {
+                                    self.bar = crate::bar::InputBar::Command {
+                                        input: draft.input,
+                                        path: draft.path,
+                                        selection: draft.selection,
+                                        selected: 0,
+                                        menu: Default::default(),
+                                    };
+                                }
+                            }
                             self.message.clear();
                             return Ok(false);
                         }

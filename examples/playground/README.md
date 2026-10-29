@@ -80,7 +80,7 @@ python3 examples/playground/create.py --case cherry-pick-batch
 
 ## 批量拣选演练
 
-`cherry-pick-batch` 的 `feature/batch` 有三条提交，分别带 `example/batch-1`、`example/batch-2`、`example/batch-3` 标签，均未合入当前 `main`。在历史图执行 `/repo log select` 进入选择模式，勾选三条“批量演练”提交后执行 `/repo log cherry-pick`，预览将按 1、2、3 排列；第二条修改第一条新增的文件，可验证提交依赖和实际执行顺序。
+`cherry-pick-batch` 的 `feature/batch` 有三条提交，分别带 `example/batch-1`、`example/batch-2`、`example/batch-3` 标签，均未合入当前 `main`。在历史图执行 `/repo log select` 进入选择模式，用 `Space` 或 `Shift+↑↓` 勾选三条“批量演练”提交后按 `Enter` 预览拣选，预览将按 1、2、3 排列；第二条修改第一条新增的文件，可验证提交依赖和实际执行顺序。
 
 ## 子模块演练
 

@@ -25,6 +25,8 @@ pub enum Message {
     HistorySelectClear,
     HistorySelectDone,
     HistorySelectionHint,
+    HistorySelectionRequired,
+    HistorySelectionBack,
 
     ReplayCherryPick,
     ReplayRevert,
@@ -1145,11 +1147,15 @@ impl Message {
             (Self::HistorySelectDone, Language::English) => "Exit selection and clear marks",
             (Self::HistorySelectDone, Language::Chinese) => "退出选择并清空勾选",
             (Self::HistorySelectionHint, Language::English) => {
-                "↑↓ move · Space mark · Enter details · Esc exit selection"
+                "↑↓ move · Space mark · Shift+↑↓ range · Enter preview · Esc exit"
             }
             (Self::HistorySelectionHint, Language::Chinese) => {
-                "↑↓移动 · Space勾选 · Enter详情 · Esc退出选择"
+                "↑↓移动 · Space勾选 · Shift+↑↓范围 · Enter预览拣选 · Esc退出"
             }
+            (Self::HistorySelectionRequired, Language::English) => "Mark commits before previewing",
+            (Self::HistorySelectionRequired, Language::Chinese) => "请先勾选提交，再预览拣选",
+            (Self::HistorySelectionBack, Language::English) => "Back to selection",
+            (Self::HistorySelectionBack, Language::Chinese) => "返回选择",
             (Self::ReplayBatchAtLeastTwo, Language::English) => {
                 "Select at least two commits for a batch"
             }

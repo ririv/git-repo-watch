@@ -153,7 +153,10 @@ impl Screen {
                 } else {
                     service.prepare_mutation(&path, request, &cancel)?
                 };
-                Ok(Outcome::MutationPrepared { plan, draft })
+                Ok(Outcome::MutationPrepared {
+                    plan: Box::new(plan),
+                    draft,
+                })
             },
         );
     }
@@ -224,6 +227,7 @@ impl Screen {
             ),
             path,
             selection: self.copy_selection(),
+            return_to: crate::bar::ReturnTo::Command,
         }
     }
 }

@@ -129,6 +129,7 @@ impl Session {
         Ok(())
     }
     pub fn advance(&mut self, delta: isize) {
+        self.selection.settle();
         if !self.records.is_empty() {
             self.state.select(Some(
                 self.state
@@ -138,6 +139,20 @@ impl Session {
                     .min(self.records.len() - 1),
             ));
         }
+    }
+    pub fn extend_selection(&mut self, delta: isize) -> Result<()> {
+        let Some(from) = self.state.selected() else {
+            return Ok(());
+        };
+        let tip = from
+            .saturating_add_signed(delta)
+            .min(self.records.len() - 1);
+        if tip != from {
+            self.selection
+                .extend(from, tip, |index| self.records[index].entry.oid)?;
+            self.state.select(Some(tip));
+        }
+        Ok(())
     }
     pub fn matches_entry(&self, entry: &Entry) -> bool {
         let needle = self.query.to_lowercase();
@@ -162,12 +177,14 @@ impl Session {
         )
     }
     pub fn search(&mut self, query: String) {
+        self.selection.settle();
         self.query = query;
         if let Some(index) = self.matches().nearest(self.state.selected()) {
             self.state.select(Some(index));
         }
     }
     pub fn next_match(&mut self, backwards: bool) {
+        self.selection.settle();
         if !self.query.is_empty()
             && let Some(index) = self.matches().step(self.state.selected(), backwards)
         {

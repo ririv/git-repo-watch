@@ -66,6 +66,12 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     key(&mut s, KeyCode::Insert);
     assert!(marked(&s).is_empty());
     assert!(!render(&mut s, 120, 30).contains("[ ]"));
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert!(
+        matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)))
+    );
+    key(&mut s, KeyCode::Esc);
     command(&mut s, "repo log select");
     let choosing = render(&mut s, 120, 30);
     assert!(choosing.contains("[ ]"), "{choosing}");
@@ -73,6 +79,11 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
         choosing.contains(i18n::tr!(HistorySelectionHint)),
         "{choosing}"
     );
+    key(&mut s, KeyCode::Enter);
+    assert!(
+        matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
+    );
+    assert_eq!(s.message, i18n::tr!(HistorySelectionRequired));
     key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s).len(), 1);
     command(&mut s, "repo log select clear");
@@ -123,6 +134,60 @@ fn selected_count_remains_visible_while_graphics_load_or_are_unavailable() {
 }
 
 #[test]
+fn shift_arrows_extend_shrink_and_start_separate_ranges_with_search_text_present() {
+    let f = support::Fixture::create();
+    for index in 0..7 {
+        f.commit("steps.txt", &format!("step {index}\n"));
+    }
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    command(&mut s, "repo log select");
+    let ids = match &s.mode {
+        Mode::History(view) => view
+            .session()
+            .records
+            .iter()
+            .map(|record| record.entry.oid.to_string())
+            .collect::<Vec<_>>(),
+        _ => panic!("history"),
+    };
+    select(&mut s, &ids[4]);
+    key(&mut s, KeyCode::Char(' '));
+    select(&mut s, &ids[2]);
+    for code in [KeyCode::Down, KeyCode::Down, KeyCode::Up] {
+        s.key(KeyEvent::new(code, KeyModifiers::SHIFT), &Cancel::default())
+            .unwrap();
+    }
+    assert_eq!(marked(&s), [ids[4].clone(), ids[3].clone(), ids[2].clone()]);
+    key(&mut s, KeyCode::Down);
+    s.key(
+        KeyEvent::new(KeyCode::Down, KeyModifiers::SHIFT),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert_eq!(
+        marked(&s),
+        [
+            ids[5].clone(),
+            ids[4].clone(),
+            ids[3].clone(),
+            ids[2].clone()
+        ]
+    );
+    s.paste("steps");
+    s.key(
+        KeyEvent::new(KeyCode::Up, KeyModifiers::SHIFT),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert_eq!(s.bar.editor().text, "steps");
+    assert!(matches!(&s.mode, Mode::History(view) if view.session().state.selected() == Some(4)));
+    assert_eq!(marked(&s).len(), 4);
+    s.shutdown();
+}
+
+#[test]
 fn selection_space_marks_rows_while_nonempty_search_keeps_spaces_for_editing() {
     let f = support::Fixture::create();
     f.commit("next.txt", "next\n");
@@ -153,7 +218,7 @@ fn selection_space_marks_rows_while_nonempty_search_keeps_spaces_for_editing() {
 }
 
 #[test]
-fn checkbox_commands_search_and_detail_navigation_share_a_frozen_oldest_first_selection() {
+fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selection() {
     let f = support::Fixture::create();
     support::git(&f.repo, &["checkout", "-b", "source"]);
     f.commit("picked-one.txt", "one\n");
@@ -191,18 +256,16 @@ fn checkbox_commands_search_and_detail_navigation_share_a_frozen_oldest_first_se
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    assert!(
-        matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)))
-    );
     assert_eq!(
-        s.copy_selection()
-            .commits()
-            .iter()
-            .map(ToString::to_string)
+        batch(&s)
+            .steps()
+            .map(|step| step.candidate.commit.to_string())
             .collect::<Vec<_>>(),
         [first.clone(), second.clone()]
     );
+    assert!(render(&mut s, 120, 30).contains(i18n::tr!(HistorySelectionBack)));
     key(&mut s, KeyCode::Esc);
+    assert!(s.bar.is_plain());
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
     // 输入仍用于定位；选择命令只作用于已加载且匹配的提交。
     s.paste("picked");
@@ -364,6 +427,10 @@ fn selected_commits_and_search_survive_loading_the_next_history_page() {
     let first = session.selected().unwrap().oid;
     session.search("pages".into());
     let query = session.query.clone();
+    session.state.select(Some(session.records.len() - 2));
+    session.extend_selection(1).unwrap();
+    let before_page = session.picks();
+    assert!(before_page.contains(&first));
     let next = s
         .service
         .history(
@@ -373,15 +440,23 @@ fn selected_commits_and_search_survive_loading_the_next_history_page() {
         )
         .unwrap();
     session.append(next, &Cancel::default()).unwrap();
-    assert_eq!(session.picks(), [first]);
+    assert_eq!(session.picks(), before_page);
     assert_eq!(session.query, query);
     assert!(session.records.len() > 100);
+    session.extend_selection(1).unwrap();
+    let next_page = session.records[100].entry.oid;
+    assert!(session.picks().contains(&next_page));
+    session.extend_selection(-1).unwrap();
+    assert_eq!(session.picks(), before_page);
     session.state.select(Some(session.records.len() - 1));
     let oldest = session.selected().unwrap().oid;
     session
         .mark(crate::history::SelectionAction::Toggle)
         .unwrap();
-    assert_eq!(session.picks(), [oldest, first]);
+    let expected = std::iter::once(oldest)
+        .chain(before_page)
+        .collect::<Vec<_>>();
+    assert_eq!(session.picks(), expected);
 }
 
 #[test]

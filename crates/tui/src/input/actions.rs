@@ -242,6 +242,7 @@ impl Screen {
                         input: command::Input::global(Editor::new("/repo diff layout".into())),
                         path,
                         selection,
+                        return_to: crate::bar::ReturnTo::Command,
                     },
                     0,
                 );

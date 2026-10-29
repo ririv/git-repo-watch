@@ -5,11 +5,17 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::cancel::Cancel;
 use std::path::PathBuf;
+#[derive(Debug, Clone, Copy)]
+pub(crate) enum ReturnTo {
+    Command,
+    View,
+}
 #[derive(Debug)]
 pub(crate) struct CommandDraft {
     pub input: command::Input,
     pub path: Option<PathBuf>,
     pub selection: crate::clipboard::Selection,
+    pub return_to: ReturnTo,
 }
 #[derive(Debug)]
 pub(crate) enum InputBar {
@@ -365,6 +371,7 @@ impl Screen {
                                     input: input.clone(),
                                     path: path.clone(),
                                     selection: selection.clone(),
+                                    return_to: ReturnTo::Command,
                                 };
                                 match argument.mutation(&value) {
                                     Ok(Some(request)) => self.prepare_mutation(request, draft),
@@ -384,6 +391,7 @@ impl Screen {
                                 input: input.clone(),
                                 path: path.clone(),
                                 selection: selection.clone(),
+                                return_to: ReturnTo::Command,
                             };
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);

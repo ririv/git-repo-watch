@@ -459,13 +459,16 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             _ => i18n::tr!(ActionSave),
                         },
                     },
-                    back: if matches!(
-                        operation,
-                        Confirmation::Configure { .. } | Confirmation::Mutation { .. }
-                    ) {
-                        i18n::tr!(ActionReturnEdit)
-                    } else {
-                        i18n::tr!(ActionCancel)
+                    back: match operation {
+                        Confirmation::Mutation { draft, .. }
+                            if matches!(draft.return_to, crate::bar::ReturnTo::View) =>
+                        {
+                            i18n::tr!(HistorySelectionBack)
+                        }
+                        Confirmation::Configure { .. } | Confirmation::Mutation { .. } => {
+                            i18n::tr!(ActionReturnEdit)
+                        }
+                        _ => i18n::tr!(ActionCancel),
                     },
                 },
                 i18n::tr!(ConfirmSelectHint),

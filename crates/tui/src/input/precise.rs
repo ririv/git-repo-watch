@@ -240,6 +240,7 @@ impl Screen {
                         (history::View::Graph(session), Target::History)
                             if index < session.records.len() =>
                         {
+                            session.selection.settle();
                             session.state.select(Some(index))
                         }
                         (history::View::Commit(commit), Target::HistoryFiles)

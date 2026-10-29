@@ -203,7 +203,7 @@ enum Outcome {
         draft: bar::CommandDraft,
     },
     MutationPrepared {
-        plan: engine::operations::mutation::Plan,
+        plan: Box<engine::operations::mutation::Plan>,
         draft: bar::CommandDraft,
     },
     MutationCompleted(engine::operations::mutation::Change),

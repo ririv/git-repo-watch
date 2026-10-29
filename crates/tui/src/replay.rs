@@ -64,7 +64,9 @@ impl Screen {
             move |service, cancel, _| {
                 if commits.len() > 1 {
                     return Ok(Outcome::MutationPrepared {
-                        plan: service.prepare_cherry_pick_sequence(&path, &commits, &cancel)?,
+                        plan: Box::new(
+                            service.prepare_cherry_pick_sequence(&path, &commits, &cancel)?,
+                        ),
                         draft,
                     });
                 }
@@ -119,7 +121,7 @@ impl Screen {
             Effect::ReadOnly,
             move |service, cancel, _| {
                 Ok(Outcome::MutationPrepared {
-                    plan: service.choose_replay_parent(candidate, parent, &cancel)?,
+                    plan: Box::new(service.choose_replay_parent(candidate, parent, &cancel)?),
                     draft,
                 })
             },

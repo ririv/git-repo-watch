@@ -165,7 +165,7 @@ impl Screen {
                 } else {
                     self.mode = Mode::Confirm {
                         operation: Confirmation::Mutation {
-                            plan: Box::new(plan),
+                            plan,
                             origin: Box::new(origin),
                             draft,
                         },

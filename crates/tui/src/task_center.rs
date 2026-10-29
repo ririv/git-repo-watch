@@ -410,7 +410,7 @@ pub(crate) fn outcome(
             reason,
         }) => reason.label().into(),
         Outcome::MutationPrepared { plan, .. }
-            if matches!(plan, engine::operations::mutation::Plan::Sync(_)) =>
+            if matches!(plan.as_ref(), engine::operations::mutation::Plan::Sync(_)) =>
         {
             plan.notice()
                 .map(str::to_owned)
