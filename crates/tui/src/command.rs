@@ -20,8 +20,6 @@ pub enum Action {
     Search(crate::search::Mode),
     Focus,
     Zoom,
-    PanLeft,
-    PanRight,
     Branches,
     BranchCreate,
     BranchSwitch,
@@ -588,16 +586,6 @@ pub const COMMANDS: &[Command] = &[
         name: "quit",
         action: Quit,
         description: i18n::Message::Quit,
-    },
-    Command {
-        name: "repo log pan left",
-        action: PanLeft,
-        description: i18n::Message::PanePanLeftCommand,
-    },
-    Command {
-        name: "repo log pan right",
-        action: PanRight,
-        description: i18n::Message::PanePanRightCommand,
     },
 ];
 pub fn matches(input: &str) -> Vec<&'static Command> {

@@ -144,7 +144,7 @@
 - `↑↓` / `PgUp` / `PgDn` selects; `Enter` opens commit details and then a historical file diff; empty-input `Esc` goes back.
 - Each page contains up to 100 commits; `↓` at the bottom or `/repo log more` loads the next page. `Ctrl+R` refreshes the reference snapshot.
 - Type to locate loaded commits by hash, title, author or ref. Nodes remain visible; `↑` / `↓` wraps through previous / next matches (`Tab` / `Shift+Tab` also remains available).
-- `/repo log pan left` / `right` pans a wide graph. Wide terminals show a metadata preview.
+- With an empty input, ←→ scrolls overflowing graph lanes or text while short hashes stay fixed. Wide terminals show a metadata preview.
 - Commit details show the message and metadata above the file list. Wide screens add one continuous unified diff on the right. Selecting a file locates its diff; Enter opens the full file diff, and Back preserves selection and position. Narrow screens hide the continuous preview.
 - Type to filter or locate in the file pane; Tab switches merge parents. The wheel scrolls each pane independently. Use /focus to switch panes and /zoom to maximize or restore. In the message or preview pane, arrows and PgUp/PgDn scroll content.
 - Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.
@@ -187,7 +187,7 @@
 - Vertical scrollbars sit in the right border over content rows only, excluding fixed headers. Unstaged and staged groups have separate tracks; content that fits has no scrollbar.
 - At the repository root, arrows select panes. Inside focused content, use global `/focus` to switch panes; arrows retain their content actions.
 - In a diff preview with empty input, ←→ scrolls long lines. Line numbers and change markers stay fixed; split columns pan together. Esc goes back. Overflowing content has a scrollbar embedded in the bottom border without taking a content row.
-- In history, ←→ scrolls refs and subjects while graph lanes and short hashes stay fixed. /repo log pan left / right pans the graph, Enter opens details, and Esc goes back.
+- In history, ←→ scrolls overflowing graph lanes, refs and subjects together; each region stops at its own boundary and short hashes stay fixed. Enter opens details, and Esc goes back.
 - Horizontal wheel and Shift + vertical wheel also work when forwarded by the terminal. With text in the input, arrow keys edit the input; command and confirmation selectors keep their own keys.
 
 <!-- optional-ai -->

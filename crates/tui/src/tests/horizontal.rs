@@ -162,7 +162,6 @@ fn history_text_scroll_keeps_topology_hash_selection_and_editor_independent() {
     let text = render(&mut s, 100, 32);
     assert!(text.contains("HISTORYTAIL"), "{text}");
     assert!(text.contains(&oid.to_string()[..8]));
-    assert_eq!(graph(&s).pan, 0);
     assert_eq!(graph(&s).selected().unwrap().oid, oid);
     assert_eq!(graph(&s).records.len(), count);
     let offset = graph(&s).horizontal.offset();
@@ -182,5 +181,131 @@ fn history_text_scroll_keeps_topology_hash_selection_and_editor_independent() {
     assert_eq!(graph(&s).horizontal.offset(), 0);
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
+    s.shutdown();
+}
+
+fn wide_history() -> support::Fixture {
+    let fixture = support::Fixture::create();
+    let tree = support::git(&fixture.repo, &["rev-parse", "HEAD^{tree}"]);
+    let parent = support::git(&fixture.repo, &["rev-parse", "HEAD"]);
+    // 多父提交的合并明确保留并行轨道，标题保持简短以单独验证图线溢出。
+    let mut parents = Vec::new();
+    for index in 0..20 {
+        let oid = support::git(
+            &fixture.repo,
+            &[
+                "commit-tree",
+                &tree,
+                "-p",
+                &parent,
+                "-m",
+                &format!("node-{index:02}"),
+            ],
+        );
+        support::git(
+            &fixture.repo,
+            &["update-ref", &format!("refs/heads/b{index:02}"), &oid],
+        );
+        parents.push(oid);
+    }
+    let mut args = vec!["commit-tree", &tree];
+    for parent in &parents {
+        args.extend(["-p", parent.as_str()]);
+    }
+    args.extend(["-m", "wide merge"]);
+    let merge = support::git(&fixture.repo, &args);
+    support::git(&fixture.repo, &["update-ref", "refs/heads/main", &merge]);
+    fixture
+}
+
+#[test]
+fn history_arrows_scroll_wide_graphs_without_hiding_short_text_and_share_the_scrollbar() {
+    let f = wide_history();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    let before = render(&mut s, 90, 40);
+    let oid = graph(&s).selected().unwrap().oid;
+    let subject = graph(&s).selected().unwrap().subject.clone();
+    let count = graph(&s).records.len();
+    assert!(graph(&s).width >= 39);
+    assert!(before.contains(&subject), "{before}");
+    key(&mut s, KeyCode::Right);
+    let after = render(&mut s, 90, 40);
+    assert_eq!(graph(&s).horizontal.offset(), 4);
+    assert!(after.contains(&subject), "{after}");
+    pan_end(&mut s);
+    let after = render(&mut s, 90, 40);
+    let offset = graph(&s).horizontal.offset();
+    assert!(offset >= 4);
+    assert!(after.contains(&subject), "{after}");
+    assert!(after.contains(&oid.to_string()[..8]), "{after}");
+    assert_eq!(graph(&s).records.len(), count);
+    assert_eq!(graph(&s).selected().unwrap().oid, oid);
+    key(&mut s, KeyCode::Right);
+    assert_eq!(graph(&s).horizontal.offset(), offset);
+    // 图线单独溢出时，滚动条位于图的下方，可直接点击回到起点。
+    let area = s.body_area.unwrap();
+    let hit = s
+        .pointer
+        .hit(ratatui::layout::Position::new(
+            area.x + 2,
+            area.bottom() - 1,
+        ))
+        .unwrap();
+    assert!(matches!(
+        hit,
+        crate::pointer::Hit::Scrollbar(crate::pointer::Action::Scroll(
+            crate::pointer::ScrollTarget::HistoryHorizontal,
+            _
+        ))
+    ));
+    s.mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(crossterm::event::MouseButton::Left),
+            modifiers: KeyModifiers::NONE,
+            column: area.x + 2,
+            row: area.bottom() - 1,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert_eq!(graph(&s).horizontal.offset(), 0);
+    key(&mut s, KeyCode::Right);
+    render(&mut s, 90, 40);
+    assert!(graph(&s).horizontal.offset() > 0);
+    render(&mut s, 800, 40);
+    assert_eq!(graph(&s).horizontal.offset(), 0);
+    assert!(!graph(&s).horizontal.overflowing());
+    s.shutdown();
+}
+
+#[test]
+fn unified_history_scroll_reaches_long_text_and_ignores_graph_overflow_without_pixels() {
+    let f = wide_history();
+    let long_subject = format!("{}LONGTAIL", "中文".repeat(80));
+    support::git(&f.repo, &["commit", "--allow-empty", "-m", &long_subject]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    render(&mut s, 90, 40);
+    pan_end(&mut s);
+    let text = render(&mut s, 90, 40);
+    assert!(text.contains("LONGTAIL"), "{text}");
+    assert!(graph(&s).horizontal.offset() > graph(&s).width);
+    assert!(graph(&s).graph_offset(29) < graph(&s).horizontal.offset());
+    s.shutdown();
+
+    let f = wide_history();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.graphics = crate::graphics::Display::new(crate::graphics::Support::Unavailable(
+        "no image protocol".into(),
+    ));
+    command(&mut s, "repo log");
+    wait(&mut s);
+    render(&mut s, 90, 40);
+    key(&mut s, KeyCode::Right);
+    assert_eq!(graph(&s).horizontal.offset(), 0);
+    assert!(!graph(&s).horizontal.overflowing());
     s.shutdown();
 }

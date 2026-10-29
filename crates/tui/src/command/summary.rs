@@ -10,7 +10,6 @@ impl Command {
             Action::Tasks => Summary::Tasks,
             Action::Focus => Summary::PaneFocus,
             Action::Zoom => Summary::PaneZoom,
-            Action::PanLeft | Action::PanRight => Summary::PanePan,
             Action::Branches => Summary::Branches,
             Action::BranchCreate => Summary::BranchCreate,
             Action::BranchSwitch => Summary::BranchSwitch,

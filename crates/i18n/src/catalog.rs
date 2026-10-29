@@ -146,8 +146,6 @@ pub enum Message {
     PaneFocusTitle,
     PaneFocusHint,
     PaneZoomCommand,
-    PanePanLeftCommand,
-    PanePanRightCommand,
     PaneUnavailable,
     TasksCheck,
     TasksScheduledCheck,
@@ -1578,10 +1576,6 @@ impl Message {
             (Self::PaneFocusCommand, Language::Chinese) => "进入面板聚焦模式",
             (Self::PaneZoomCommand, Language::English) => "Maximize or restore focused pane",
             (Self::PaneZoomCommand, Language::Chinese) => "放大或还原当前面板",
-            (Self::PanePanLeftCommand, Language::English) => "Pan graph left",
-            (Self::PanePanLeftCommand, Language::Chinese) => "向左平移图线",
-            (Self::PanePanRightCommand, Language::English) => "Pan graph right",
-            (Self::PanePanRightCommand, Language::Chinese) => "向右平移图线",
             (Self::PaneUnavailable, Language::English) => {
                 "This view has no applicable pane operation."
             }
@@ -2809,10 +2803,10 @@ impl Message {
                 "输入关键词定位已加载提交，或输入 / 查看命令"
             }
             (Self::HistoryInputHint, Language::English) => {
-                "↑↓ select · Enter details · /pan left/right · Esc back"
+                "↑↓ select · ←→ scroll · Enter details · Esc back"
             }
             (Self::HistoryInputHint, Language::Chinese) => {
-                "↑↓选择 · Enter详情 · /pan left/right · Esc返回"
+                "↑↓选择 · ←→ 横向滚动 · Enter详情 · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
                 "↑↓ files · Enter diff · Tab parent · /focus panes · Esc back"

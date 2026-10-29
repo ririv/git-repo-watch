@@ -17,7 +17,6 @@ pub enum CommandSummary {
     SearchLocate,
     PaneFocus,
     PaneZoom,
-    PanePan,
     Tasks,
     Branches,
     BranchCreate,
@@ -145,8 +144,6 @@ impl CommandSummary {
             (Self::PaneFocus, Language::Chinese) => "切换面板焦点",
             (Self::PaneZoom, Language::English) => "Maximize or restore",
             (Self::PaneZoom, Language::Chinese) => "放大或还原面板",
-            (Self::PanePan, Language::English) => "Pan graph lanes",
-            (Self::PanePan, Language::Chinese) => "平移历史图线",
 
             (Self::Tasks, Language::English) => "Background tasks and history",
             (Self::Tasks, Language::Chinese) => "后台任务和历史记录",

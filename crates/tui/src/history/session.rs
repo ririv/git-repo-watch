@@ -25,7 +25,6 @@ pub(crate) struct Session {
     pub continuation: Continuation,
     pub state: ListState,
     pub query: String,
-    pub pan: usize,
     pub horizontal: crate::horizontal::Viewport,
     pub width: usize,
     pub selection: super::selection::Selection,
@@ -40,7 +39,6 @@ impl Session {
             continuation: Continuation::End,
             state: ListState::default(),
             query: String::new(),
-            pan: 0,
             horizontal: Default::default(),
             width: 1,
             selection: Default::default(),
@@ -77,6 +75,11 @@ impl Session {
             .selected()
             .and_then(|index| self.records.get(index))
             .map(|record| &record.entry)
+    }
+    pub fn graph_offset(&self, columns: u16) -> usize {
+        self.horizontal
+            .offset()
+            .min(self.width.saturating_sub(usize::from(columns)))
     }
     pub fn picks(&self) -> Vec<Oid> {
         // 图按拓扑从新到旧排列；执行次序固定为旧到新，不依赖勾选先后。

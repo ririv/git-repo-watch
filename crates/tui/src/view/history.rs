@@ -189,7 +189,7 @@ fn graph(
     } else {
         0
     };
-    // 图与短哈希固定，只有引用名称和提交标题横向滚动。
+    // 图线与文字共用横向位置，各自只滚动溢出的部分，短哈希始终固定。
     let text_width = graph_area.width.saturating_sub(graph_width + 11) as usize;
     let lines: Vec<_> = session
         .records
@@ -201,13 +201,30 @@ fn graph(
         })
         .collect();
     let widest = lines.iter().map(Line::width).max().unwrap_or(0);
+    let graph_overflow = if graph_width > 0 {
+        session.width.saturating_sub(usize::from(graph_width))
+    } else {
+        0
+    };
+    let text_overflow = widest.saturating_sub(text_width);
     session
         .horizontal
-        .constrain(widest.saturating_sub(text_width));
+        .constrain(graph_overflow.max(text_overflow));
+    let text_offset = session.horizontal.offset().min(text_overflow);
+    let scroll_start = if graph_overflow > 0 {
+        graph_area.x
+    } else {
+        content_area.right() - text_width as u16
+    };
+    let scroll_end = if text_overflow > 0 {
+        content_area.right()
+    } else {
+        graph_area.x + graph_width
+    };
     session.horizontal.render_on_border(
         frame,
         parts[0],
-        content_area.right() - text_width as u16..content_area.right(),
+        scroll_start..scroll_end,
         hits,
         crate::pointer::ScrollTarget::HistoryHorizontal,
     );
@@ -233,9 +250,7 @@ fn graph(
                     Style::default().fg(WARN),
                 ),
             ]);
-            spans.extend(
-                crate::horizontal::clip(&line, session.horizontal.offset(), text_width).spans,
-            );
+            spans.extend(crate::horizontal::clip(&line, text_offset, text_width).spans);
             ListItem::new(Line::from(spans)).style(
                 if !session.query.is_empty() && session.matches_entry(&record.entry) {
                     Style::default().bold()

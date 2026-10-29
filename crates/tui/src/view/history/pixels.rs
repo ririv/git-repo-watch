@@ -18,10 +18,11 @@ pub(super) fn render(
     };
     let first = session.state.offset();
     let end = (first + usize::from(area.height)).min(session.records.len());
+    let pan = session.graph_offset(columns);
     let key = |index| Key {
         source: crate::graphics::Source::Graph(session.source),
         index,
-        pan: session.pan,
+        pan,
         columns,
         rows: 1,
         metrics,
@@ -33,7 +34,6 @@ pub(super) fn render(
         .chain(end..(end + 12).min(session.records.len()))
     {
         let records = session.records.clone();
-        let pan = session.pan;
         display.request(key(index), move || {
             let record = &records[index];
             let node = match &record.entry.ancestry {

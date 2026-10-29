@@ -80,17 +80,4 @@ impl Screen {
             self.message = i18n::tr!(PaneUnavailable).into();
         }
     }
-    pub(super) fn pan_graph(&mut self, backwards: bool) {
-        if let Mode::History(view) = &mut self.mode
-            && let crate::history::View::Graph(session) = view.as_mut()
-        {
-            session.pan = if backwards {
-                session.pan.saturating_sub(2)
-            } else {
-                (session.pan + 2).min(session.width.saturating_sub(1))
-            };
-        } else {
-            self.message = i18n::tr!(PaneUnavailable).into();
-        }
-    }
 }
