@@ -14,7 +14,7 @@ pub(super) fn render(
     let mut inner = border.inner(area);
     frame.render_widget(border, area);
     if let engine::operations::replay::State::Active(active) = &session.snapshot.operation.state {
-        let parts = Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).split(inner);
+        let parts = Layout::vertical([Constraint::Length(3), Constraint::Min(0)]).split(inner);
         frame.render_widget(
             Paragraph::new(vec![
                 Line::styled(
@@ -26,12 +26,57 @@ pub(super) fn render(
                     Style::default().fg(WARN).bold(),
                 ),
                 Line::styled(
-                    "/repo continue · /repo skip · /repo abort",
-                    Style::default().fg(ACCENT),
+                    format!(
+                        "{}: {} · {}: {}",
+                        i18n::tr!(ReplayConflictsShort),
+                        active.conflicts.len(),
+                        i18n::tr!(ReplayRemainingShort),
+                        active.remaining().len()
+                    ),
+                    Style::default().fg(if active.conflicts.is_empty() {
+                        GOOD
+                    } else {
+                        BAD
+                    }),
                 ),
             ]),
             parts[0],
         );
+        let buttons = Layout::horizontal([
+            Constraint::Percentage(34),
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+        ])
+        .split(Rect::new(
+            parts[0].x,
+            parts[0].y.saturating_add(2),
+            parts[0].width,
+            parts[0].height.saturating_sub(2).min(1),
+        ));
+        for (button, control) in buttons.iter().zip([
+            engine::operations::replay::Control::Continue,
+            engine::operations::replay::Control::Skip,
+            engine::operations::replay::Control::Abort,
+        ]) {
+            let enabled = control != engine::operations::replay::Control::Continue
+                || active.conflicts.is_empty();
+            let label = match control {
+                engine::operations::replay::Control::Continue => i18n::tr!(ReplayContinueShort),
+                engine::operations::replay::Control::Skip => i18n::tr!(ReplaySkipShort),
+                engine::operations::replay::Control::Abort => i18n::tr!(ReplayAbortShort),
+            };
+            frame.render_widget(
+                Paragraph::new(format!("[{label}]")).style(Style::default().fg(if enabled {
+                    ACCENT
+                } else {
+                    MUTED
+                })),
+                *button,
+            );
+            if enabled {
+                hits.button(*button, crate::pointer::Action::ReplayControl(control));
+            }
+        }
         inner = parts[1];
     }
     let mut offsets = session.offsets;
@@ -158,7 +203,7 @@ pub(super) fn render(
     session.offsets = offsets;
 }
 
-fn checkbox(state: CheckState) -> Vec<Span<'static>> {
+pub(super) fn checkbox(state: CheckState) -> Vec<Span<'static>> {
     let mark = match state {
         CheckState::Unchecked => Span::raw(" "),
         CheckState::Mixed => Span::styled("−", Style::default().fg(WARN).bold()),

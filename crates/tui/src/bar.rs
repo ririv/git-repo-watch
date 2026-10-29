@@ -388,7 +388,7 @@ impl Screen {
                             let cursor = *selected;
                             self.open_layout_picker(draft, cursor);
                         } else if command.action.argument().is_some()
-                            && command.action != Action::AiPrompt
+                            && !matches!(command.action, Action::AiPrompt | Action::LogSelect)
                         {
                             selection.complete(input, command);
                             *selected = 0;
@@ -459,7 +459,8 @@ impl Screen {
         }
         if key.code == KeyCode::Char(' ')
             && self.bar.editor().text.is_empty()
-            && matches!(self.mode, Mode::Files(_) | Mode::Changes(_))
+            && (matches!(self.mode, Mode::Files(_) | Mode::Changes(_))
+                || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
         {
             return Ok(BarEvent::Pass);
         }

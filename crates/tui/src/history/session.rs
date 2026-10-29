@@ -5,6 +5,7 @@ use engine::{
     local::history::{self, Continuation, Entry, Oid, Page, References},
 };
 use ratatui::widgets::ListState;
+use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 const MAX_LANES: usize = 64;
@@ -27,6 +28,7 @@ pub(crate) struct Session {
     pub pan: usize,
     pub horizontal: crate::horizontal::Viewport,
     pub width: usize,
+    pub selection: super::selection::Selection,
     layout: graph::Layout<Oid>,
 }
 impl Session {
@@ -41,6 +43,7 @@ impl Session {
             pan: 0,
             horizontal: Default::default(),
             width: 1,
+            selection: Default::default(),
             layout: graph::Layout::default(),
         };
         session.append(page, cancel)?;
@@ -74,6 +77,56 @@ impl Session {
             .selected()
             .and_then(|index| self.records.get(index))
             .map(|record| &record.entry)
+    }
+    pub fn picks(&self) -> Vec<Oid> {
+        // 图按拓扑从新到旧排列；执行次序固定为旧到新，不依赖勾选先后。
+        self.records
+            .iter()
+            .rev()
+            .filter(|record| self.selection.contains(&record.entry.oid))
+            .map(|record| record.entry.oid)
+            .collect()
+    }
+    pub fn mark(&mut self, action: super::SelectionAction) -> Result<()> {
+        match action {
+            super::SelectionAction::Start => {
+                self.selection.begin();
+            }
+            super::SelectionAction::Done => self.selection.finish(),
+            super::SelectionAction::Clear => self.selection.begin().clear(),
+            super::SelectionAction::All => {
+                let marked = self
+                    .records
+                    .iter()
+                    .filter(|record| self.matches_entry(&record.entry))
+                    .map(|record| record.entry.oid)
+                    .collect::<BTreeSet<_>>();
+                ensure!(
+                    marked.len() <= engine::operations::replay::batch::MAX_COMMITS,
+                    i18n::tr!(ReplayBatchTooLarge)
+                );
+                let current = self.selection.begin();
+                ensure!(
+                    current.union(&marked).count()
+                        <= engine::operations::replay::batch::MAX_COMMITS,
+                    i18n::tr!(ReplayBatchTooLarge)
+                );
+                current.extend(marked);
+            }
+            super::SelectionAction::Toggle => {
+                if let Some(oid) = self.selected().map(|entry| entry.oid) {
+                    let marked = self.selection.begin();
+                    if !marked.remove(&oid) {
+                        ensure!(
+                            marked.len() < engine::operations::replay::batch::MAX_COMMITS,
+                            i18n::tr!(ReplayBatchTooLarge)
+                        );
+                        marked.insert(oid);
+                    }
+                }
+            }
+        }
+        Ok(())
     }
     pub fn advance(&mut self, delta: isize) {
         if !self.records.is_empty() {

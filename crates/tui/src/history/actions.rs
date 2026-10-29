@@ -5,6 +5,18 @@ use engine::local::history::{Parent, Request};
 use std::path::PathBuf;
 
 impl Screen {
+    pub(crate) fn mark_history(&mut self, action: SelectionAction) {
+        let result = match &mut self.mode {
+            Mode::History(view) => match view.as_mut() {
+                View::Graph(session) => session.mark(action),
+                _ => return,
+            },
+            _ => return,
+        };
+        if let Err(error) = result {
+            self.message = format!("{error:#}");
+        }
+    }
     pub(crate) fn poll_history_review(&mut self) -> bool {
         let Mode::History(view) = &mut self.mode else {
             return false;

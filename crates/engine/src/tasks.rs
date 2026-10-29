@@ -43,6 +43,10 @@ pub enum Retry {
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Operation {
+    ReplaySequence {
+        action: crate::operations::replay::Kind,
+        start: String,
+    },
     Replay {
         action: crate::operations::replay::Kind,
         commit: String,

@@ -2,6 +2,30 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ReplayPaused,
+    ReplayBatchAtLeastTwo,
+    ReplayContinueShort,
+    ReplaySkipShort,
+    ReplayAbortShort,
+    ReplayConflictsShort,
+    ReplayRemainingShort,
+
+    ReplayBatchTitle,
+    ReplayBatchTooLarge,
+    ReplayDuplicateCommit,
+    ReplayBatchMerge,
+    ReplayOrder,
+    ReplayQueueRemaining,
+    ReplayConflictFiles,
+    ReplayReadyContinue,
+    HistoryMarked,
+    HistorySelect,
+    HistorySelectToggle,
+    HistorySelectAll,
+    HistorySelectClear,
+    HistorySelectDone,
+    HistorySelectionHint,
+
     ReplayCherryPick,
     ReplayRevert,
     ReplayContinue,
@@ -1088,7 +1112,63 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ReplayBatchTitle, Language::English) => "Cherry-pick selected commits",
+            (Self::ReplayBatchTitle, Language::Chinese) => "拣选所选提交",
+            (Self::ReplayBatchTooLarge, Language::English) => "Select at most 512 commits",
+            (Self::ReplayBatchTooLarge, Language::Chinese) => "最多勾选 512 条提交",
+            (Self::ReplayDuplicateCommit, Language::English) => {
+                "A commit was selected more than once"
+            }
+            (Self::ReplayDuplicateCommit, Language::Chinese) => "提交被重复选择",
+            (Self::ReplayBatchMerge, Language::English) => {
+                "Replay merge commits separately and choose their mainline parent"
+            }
+            (Self::ReplayBatchMerge, Language::Chinese) => "合并提交请单独操作，并选择主线父提交",
+            (Self::ReplayOrder, Language::English) => "Execution order (oldest first)",
+            (Self::ReplayOrder, Language::Chinese) => "执行顺序（从旧到新）",
+            (Self::ReplayQueueRemaining, Language::English) => "Remaining commits",
+            (Self::ReplayQueueRemaining, Language::Chinese) => "后续提交",
+            (Self::ReplayConflictFiles, Language::English) => "Unresolved files",
+            (Self::ReplayConflictFiles, Language::Chinese) => "待解决文件",
+            (Self::ReplayReadyContinue, Language::English) => "Conflicts staged; ready to continue",
+            (Self::ReplayReadyContinue, Language::Chinese) => "冲突已暂存，可以继续",
+            (Self::HistoryMarked, Language::English) => "Selected commits",
+            (Self::HistoryMarked, Language::Chinese) => "已选提交",
+            (Self::HistorySelect, Language::English) => "Enter commit selection",
+            (Self::HistorySelect, Language::Chinese) => "进入提交选择",
+            (Self::HistorySelectToggle, Language::English) => "Toggle the current commit",
+            (Self::HistorySelectToggle, Language::Chinese) => "勾选或取消当前提交",
+            (Self::HistorySelectAll, Language::English) => "Select loaded matching commits",
+            (Self::HistorySelectAll, Language::Chinese) => "勾选已加载的匹配提交",
+            (Self::HistorySelectClear, Language::English) => "Clear selected commits",
+            (Self::HistorySelectClear, Language::Chinese) => "清空已选提交",
+            (Self::HistorySelectDone, Language::English) => "Exit selection and clear marks",
+            (Self::HistorySelectDone, Language::Chinese) => "退出选择并清空勾选",
+            (Self::HistorySelectionHint, Language::English) => {
+                "↑↓ move · Space mark · Enter details · Esc exit selection"
+            }
+            (Self::HistorySelectionHint, Language::Chinese) => {
+                "↑↓移动 · Space勾选 · Enter详情 · Esc退出选择"
+            }
+            (Self::ReplayBatchAtLeastTwo, Language::English) => {
+                "Select at least two commits for a batch"
+            }
+            (Self::ReplayBatchAtLeastTwo, Language::Chinese) => "批量拣选至少需要两条提交",
+            (Self::ReplayContinueShort, Language::English) => "Continue",
+            (Self::ReplayContinueShort, Language::Chinese) => "继续",
+            (Self::ReplaySkipShort, Language::English) => "Skip",
+            (Self::ReplaySkipShort, Language::Chinese) => "跳过",
+            (Self::ReplayAbortShort, Language::English) => "Abort",
+            (Self::ReplayAbortShort, Language::Chinese) => "中止",
+            (Self::ReplayConflictsShort, Language::English) => "Conflicts",
+            (Self::ReplayConflictsShort, Language::Chinese) => "冲突文件",
+            (Self::ReplayRemainingShort, Language::English) => "Next",
+            (Self::ReplayRemainingShort, Language::Chinese) => "后续",
             (Self::ReplayCherryPick, Language::English) => "Cherry-pick commit",
+            (Self::ReplayPaused, Language::English) => {
+                "Operation paused; review task details, then continue, skip or abort"
+            }
+            (Self::ReplayPaused, Language::Chinese) => "操作已暂停；查看任务详情后继续、跳过或中止",
             (Self::ReplayCherryPick, Language::Chinese) => "拣选提交",
             (Self::ReplayRevert, Language::English) => "Revert commit",
             (Self::ReplayRevert, Language::Chinese) => "撤销提交",
@@ -2644,10 +2724,10 @@ impl Message {
                 "输入关键词定位已加载提交，或输入 / 查看命令"
             }
             (Self::HistoryInputHint, Language::English) => {
-                "↑↓ select · ←→ text · Enter details · /pan left/right · Esc back"
+                "↑↓ select · Enter details · /pan left/right · Esc back"
             }
             (Self::HistoryInputHint, Language::Chinese) => {
-                "↑↓选择 · ←→文字 · Enter详情 · /pan left/right · Esc返回"
+                "↑↓选择 · Enter详情 · /pan left/right · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
                 "↑↓ files · Enter diff · Tab parent · /focus panes · Esc back"

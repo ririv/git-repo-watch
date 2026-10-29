@@ -423,6 +423,14 @@ pub(crate) fn outcome(
             kind,
             commit,
         }) => format!("{}\n{}: {}", kind.label(), i18n::tr!(ReplaySource), commit),
+        Outcome::MutationCompleted(engine::operations::mutation::Change::ReplayedSequence {
+            commits,
+        }) => format!(
+            "{}\n{}\n{}",
+            i18n::tr!(ReplayBatchTitle),
+            i18n::tr!(ReplayOrder),
+            commits.join("\n")
+        ),
         Outcome::MutationCompleted(engine::operations::mutation::Change::ReplayControlled {
             kind,
             control,

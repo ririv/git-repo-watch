@@ -47,7 +47,12 @@ impl Screen {
             (None, None) => None,
         }
     }
-    pub(crate) fn prepare_replay(&mut self, kind: replay::Kind, commit: Oid, draft: CommandDraft) {
+    pub(crate) fn prepare_replay(
+        &mut self,
+        kind: replay::Kind,
+        commits: Vec<Oid>,
+        draft: CommandDraft,
+    ) {
         let Some(path) = draft.path.clone() else {
             self.message = i18n::tr!(SelectARepositoryFirst).into();
             return;
@@ -57,6 +62,15 @@ impl Screen {
             kind.label(),
             Effect::ReadOnly,
             move |service, cancel, _| {
+                if commits.len() > 1 {
+                    return Ok(Outcome::MutationPrepared {
+                        plan: service.prepare_cherry_pick_sequence(&path, &commits, &cancel)?,
+                        draft,
+                    });
+                }
+                let commit = *commits
+                    .first()
+                    .ok_or_else(|| anyhow::anyhow!(i18n::tr!(ReplaySelectCommit)))?;
                 Ok(Outcome::ReplayPrepared {
                     preparation: Box::new(service.prepare_replay(&path, kind, commit, &cancel)?),
                     draft,
@@ -114,6 +128,28 @@ impl Screen {
 }
 pub(crate) fn review(plan: &replay::Plan) -> String {
     match plan {
+        replay::Plan::Batch(batch) => {
+            let mut text = format!(
+                "{}: {}\n\n{} · {}\n",
+                i18n::tr!(ReplayTargetBranch),
+                batch.first.candidate.branch,
+                i18n::tr!(ReplayOrder),
+                batch.steps().count()
+            );
+            for (index, step) in batch.steps().enumerate() {
+                text.push_str(&format!(
+                    "\n{}  {}  {}\n{}\n",
+                    index + 1,
+                    step.candidate.commit,
+                    step.candidate.summary,
+                    step.summary
+                ));
+                for path in &step.files {
+                    text.push_str(&format!("  {}\n", path.display()));
+                }
+            }
+            text
+        }
         replay::Plan::Start(p) => {
             let mut text = format!(
                 "{}: {}\n{}: {}\n{}\n",
@@ -138,19 +174,36 @@ pub(crate) fn review(plan: &replay::Plan) -> String {
             }
             text
         }
-        replay::Plan::Control(p) => format!(
-            "{}: {}\n{}: {}\n{}: {}\n\n{}",
-            i18n::tr!(ReplayTargetBranch),
-            p.branch,
-            i18n::tr!(ReplayActive),
-            p.active.kind.label(),
-            i18n::tr!(ReplaySource),
-            p.active.commit,
-            match p.control {
-                replay::Control::Continue => i18n::tr!(ReplayPendingHint),
-                replay::Control::Skip => i18n::tr!(ReplaySkipHint),
-                replay::Control::Abort => i18n::tr!(ReplayAbortHint),
+        replay::Plan::Control(p) => {
+            let mut text = format!(
+                "{}: {}\n{}: {}\n{}: {}\n\n{}",
+                i18n::tr!(ReplayTargetBranch),
+                p.branch,
+                i18n::tr!(ReplayActive),
+                p.active.kind.label(),
+                i18n::tr!(ReplaySource),
+                p.active.commit,
+                match p.control {
+                    replay::Control::Continue => i18n::tr!(ReplayPendingHint),
+                    replay::Control::Skip => i18n::tr!(ReplaySkipHint),
+                    replay::Control::Abort => i18n::tr!(ReplayAbortHint),
+                }
+            );
+            text.push_str(&format!(
+                "\n\n{}: {}",
+                i18n::tr!(ReplayQueueRemaining),
+                p.active.remaining().len()
+            ));
+            for oid in p.active.remaining() {
+                text.push_str(&format!("\n{oid}"));
             }
-        ),
+            if !p.active.conflicts.is_empty() {
+                text.push_str(&format!("\n\n{}", i18n::tr!(ReplayConflictFiles)));
+                for path in &p.active.conflicts {
+                    text.push_str(&format!("\n{}", path.display()));
+                }
+            }
+            text
+        }
     }
 }

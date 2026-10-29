@@ -232,6 +232,9 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             crate::stashes::View::Detail { .. } => i18n::tr!(PgdnScrollEscBackCommands),
         },
         Mode::History(view) => match view.as_ref() {
+            crate::history::View::Graph(session) if session.selection.active() => {
+                i18n::tr!(HistorySelectionHint)
+            }
             crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
             crate::history::View::Commit(commit) => match commit.focus {
                 crate::history::Focus::Files => i18n::tr!(HistoryCommitInputHint),

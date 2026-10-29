@@ -27,6 +27,8 @@ impl Screen {
             editor.restore();
         }
         match action {
+            Action::LogSelect => self.mark_history(history::SelectionAction::Start),
+            Action::LogSelection(action) => self.mark_history(action),
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {
@@ -97,9 +99,13 @@ impl Screen {
             }
             Action::Replay(kind) => {
                 if let Some(commit) = selection.commit() {
+                    let commits = match kind {
+                        engine::operations::replay::Kind::CherryPick => selection.commits(),
+                        engine::operations::replay::Kind::Revert => vec![commit],
+                    };
                     let mut draft = self.mutation_draft(action, path);
                     draft.selection = selection;
-                    self.prepare_replay(kind, commit, draft);
+                    self.prepare_replay(kind, commits, draft);
                 } else {
                     self.message = i18n::tr!(ReplaySelectCommit).into();
                 }

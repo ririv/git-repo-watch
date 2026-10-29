@@ -43,6 +43,7 @@ pub enum CommandSummary {
     BrowserPreview,
     Log,
     LogMore,
+    LogSelection,
     ReplayCherryPick,
     ReplayRevert,
     ReplayContinue,
@@ -98,6 +99,8 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::LogSelection, Language::Chinese) => "勾选提交以批量拣选",
+            (Self::LogSelection, Language::English) => "Select commits for batch cherry-pick",
             (Self::ReplayCherryPick, Language::Chinese) => "将所选提交应用到当前分支",
             (Self::ReplayCherryPick, Language::English) => {
                 "Apply selected commit to current branch"

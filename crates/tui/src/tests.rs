@@ -33,6 +33,7 @@ mod prefix_segments;
 mod prefix_selection;
 mod preview_loading;
 mod replay;
+mod replay_batch;
 mod repository_list;
 mod responsive;
 mod schedule;

@@ -135,6 +135,16 @@ impl Git {
     ) -> Result<()> {
         self.run_replay(path, strings(&[kind.command(), control.argument()]), cancel)
     }
+    pub fn cherry_pick_sequence(
+        &self,
+        path: &Path,
+        commits: &[git2::Oid],
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let mut args = strings(&["cherry-pick", "--no-edit", "--"]);
+        args.extend(commits.iter().map(|oid| OsString::from(oid.to_string())));
+        self.run_replay(path, args, cancel)
+    }
     pub fn commit(&self, path: &Path, message: &str, cancel: &Cancel) -> Result<()> {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())

@@ -28,6 +28,9 @@ pub enum Plan {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
+    ReplaySequence {
+        commits: Vec<String>,
+    },
     PrepareSync,
     Replay {
         kind: super::replay::Kind,
@@ -67,6 +70,9 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "change", rename_all = "snake_case")]
 pub enum Change {
+    ReplayedSequence {
+        commits: Vec<String>,
+    },
     SynchronizationPrepared,
     Replayed {
         kind: super::replay::Kind,
@@ -144,6 +150,12 @@ impl Plan {
             },
             Self::Sync(_) => Action::Sync,
             Self::Replay(p) => match p {
+                super::replay::Plan::Batch(batch) => Action::ReplaySequence {
+                    commits: batch
+                        .steps()
+                        .map(|step| step.candidate.commit.to_string())
+                        .collect(),
+                },
                 super::replay::Plan::Start(_) => Action::Replay {
                     kind: p.kind(),
                     commit: p.commit().to_string(),
@@ -219,6 +231,12 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
         Plan::Replay(p) => {
             super::replay::execute(git, p, cancel)?;
             Ok(match p {
+                super::replay::Plan::Batch(batch) => Change::ReplayedSequence {
+                    commits: batch
+                        .steps()
+                        .map(|step| step.candidate.commit.to_string())
+                        .collect(),
+                },
                 super::replay::Plan::Start(_) => Change::Replayed {
                     kind: p.kind(),
                     commit: p.commit().to_string(),

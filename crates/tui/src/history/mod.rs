@@ -1,12 +1,22 @@
 //! Commit-graph sessions and read-only workflows, separate from terminal drawing.
 mod actions;
 pub(crate) mod review;
+mod selection;
 mod session;
 use crate::document;
 use engine::local::history::Detail;
 use ratatui::widgets::ListState;
 pub(super) use session::Session;
 use std::sync::Arc;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionAction {
+    Start,
+    Toggle,
+    All,
+    Clear,
+    Done,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Focus {

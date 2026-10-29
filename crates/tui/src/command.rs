@@ -46,6 +46,8 @@ pub enum Action {
     BrowserPreview,
     Log,
     LogMore,
+    LogSelect,
+    LogSelection(crate::history::SelectionAction),
     Replay(engine::operations::replay::Kind),
     ReplayControl(engine::operations::replay::Control),
     FileLayoutMenu,
@@ -151,6 +153,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo log cherry-pick",
         action: Replay(engine::operations::replay::Kind::CherryPick),
         description: i18n::Message::ReplayCherryPick,
+    },
+    Command {
+        name: "repo log select",
+        action: LogSelect,
+        description: i18n::Message::HistorySelect,
     },
     Command {
         name: "repo log revert",

@@ -83,6 +83,7 @@ pub(super) fn render(
         None
     };
     if let Some(text) = text {
+        frame.render_widget(Clear, status);
         frame.render_widget(
             Paragraph::new(text).style(Style::default().fg(WARN)),
             Rect {

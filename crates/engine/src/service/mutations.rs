@@ -31,6 +31,17 @@ impl Service {
             candidate, parent, cancel,
         )?))
     }
+    pub fn prepare_cherry_pick_sequence(
+        &self,
+        path: &Path,
+        commits: &[git2::Oid],
+        cancel: &Cancel,
+    ) -> Result<Plan> {
+        let _lock = self.repository_lock(path, cancel)?;
+        Ok(Plan::Replay(operations::replay::batch::prepare(
+            path, commits, cancel,
+        )?))
+    }
     pub fn stashes(&self, path: &Path, cancel: &Cancel) -> Result<local::stash::Snapshot> {
         self.validate_repository(path, cancel)?;
         local::stash::read(path, cancel)
@@ -121,10 +132,11 @@ impl Service {
             },
         )?;
         if let Plan::Replay(operations::replay::Plan::Control(resume)) = plan {
-            let identity = crate::tasks::Operation::Replay {
-                action: resume.active.kind,
-                commit: resume.active.commit.to_string(),
-            };
+            let identity = resume.active.operation();
+            if matches!(operations::replay::state::read(&local::open(plan.path())?)?, operations::replay::State::Active(active) if active.operation() == identity)
+            {
+                return Ok(change);
+            }
             for record in self.store.tasks(200)? {
                 if record.pending()
                     && record.spec.operation.as_ref() == Some(&identity)

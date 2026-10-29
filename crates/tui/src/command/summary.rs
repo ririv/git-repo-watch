@@ -35,6 +35,7 @@ impl Command {
             Action::BrowserPreview => Summary::BrowserPreview,
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
+            Action::LogSelect | Action::LogSelection(_) => Summary::LogSelection,
             Action::Replay(engine::operations::replay::Kind::CherryPick) => {
                 Summary::ReplayCherryPick
             }

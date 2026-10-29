@@ -115,8 +115,31 @@ fn graph(
     let shallow = session.references.depth == engine::local::history::Depth::Shallow;
     let header_rows = 2 + u16::from(query_missing) + u16::from(shallow);
     let body = Layout::vertical([Constraint::Length(header_rows), Constraint::Min(1)]).split(inner);
+    let selection = if session.selection.active() {
+        Span::styled(
+            format!(
+                "{}: {} · ",
+                i18n::tr!(HistoryMarked),
+                session.selection.count()
+            ),
+            Style::default().fg(ACCENT),
+        )
+    } else {
+        Span::raw("")
+    };
+    // 图形提示只覆盖范围说明，始终保留已选数量，不额外增加状态行。
+    let selection_width = selection.width().min(usize::from(body[0].width)) as u16;
+    let graphics_status = Rect::new(
+        body[0].x + selection_width,
+        body[0].y,
+        body[0].width.saturating_sub(selection_width),
+        body[0].height.min(1),
+    );
     let mut status = vec![
-        Line::styled(i18n::tr!(HistoryScope), Style::default().fg(MUTED)),
+        Line::from(vec![
+            selection,
+            Span::styled(i18n::tr!(HistoryScope), Style::default().fg(MUTED)),
+        ]),
         Line::from(format!(
             "{}: {} · {}",
             i18n::tr!(HistoryLoaded),
@@ -127,7 +150,7 @@ fn graph(
                 i18n::tr!(HistoryMore)
             } else {
                 i18n::tr!(HistoryMoreSearch)
-            }
+            },
         )),
     ];
     if query_missing {
@@ -152,13 +175,24 @@ fn graph(
         body[1].width.saturating_sub(inset),
         body[1].height,
     );
+    let checkbox_width = if session.selection.active() {
+        4u16.min(content_area.width)
+    } else {
+        0
+    };
+    let graph_area = Rect::new(
+        content_area.x + checkbox_width,
+        content_area.y,
+        content_area.width.saturating_sub(checkbox_width),
+        content_area.height,
+    );
     let graph_width = if metrics.is_ok() {
-        session.width.min((content_area.width as usize / 3).max(1)) as u16
+        (session.width.min((graph_area.width as usize / 3).max(1)) as u16).min(graph_area.width)
     } else {
         0
     };
     // 图与短哈希固定，只有引用名称和提交标题横向滚动。
-    let text_width = content_area.width.saturating_sub(graph_width + 11) as usize;
+    let text_width = graph_area.width.saturating_sub(graph_width + 11) as usize;
     let lines: Vec<_> = session
         .records
         .iter()
@@ -184,13 +218,22 @@ fn graph(
         .iter()
         .zip(lines)
         .map(|(record, line)| {
-            let mut spans = vec![
+            let mut spans = if session.selection.active() {
+                super::files::checkbox(if session.selection.contains(&record.entry.oid) {
+                    crate::files::CheckState::Checked
+                } else {
+                    crate::files::CheckState::Unchecked
+                })
+            } else {
+                Vec::new()
+            };
+            spans.extend([
                 Span::raw(" ".repeat(usize::from(graph_width))),
                 Span::styled(
                     format!("  {} ", &record.entry.oid.to_string()[..8]),
                     Style::default().fg(WARN),
                 ),
-            ];
+            ]);
             spans.extend(
                 crate::horizontal::clip(&line, session.horizontal.offset(), text_width).spans,
             );
@@ -228,23 +271,37 @@ fn graph(
             session.state.offset(),
             crate::pointer::Target::History,
         );
+        if session.selection.active() {
+            for (row, index) in (session.state.offset()..session.records.len())
+                .take(content_area.height as usize)
+                .enumerate()
+            {
+                hits.button(
+                    Rect::new(
+                        content_area.x,
+                        content_area.y + row as u16,
+                        3.min(content_area.width),
+                        1,
+                    ),
+                    crate::pointer::Action::ToggleCommit(index),
+                );
+            }
+        }
         match metrics {
             Ok(metrics) => pixels::render(
                 frame,
-                content_area,
+                graph_area,
                 session,
                 graphics,
                 metrics,
                 graph_width,
-                body[0],
+                graphics_status,
             ),
             Err(error) => {
+                frame.render_widget(Clear, graphics_status);
                 frame.render_widget(
                     Paragraph::new(error).style(Style::default().fg(WARN)),
-                    Rect {
-                        height: 1,
-                        ..body[0]
-                    },
+                    graphics_status,
                 );
             }
         }

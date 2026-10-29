@@ -190,7 +190,7 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     command(&mut s, "repo log cherry-pick");
     wait(&mut s);
     accept(&mut s);
-    assert!(matches!(s.mode, Mode::Error { .. }));
+    assert!(matches!(s.mode, Mode::Changes(_)), "{:?}", s.mode);
     let failed = s
         .service
         .store
@@ -211,7 +211,7 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     assert!(available(&mut s, "repo abort"));
     assert!(!available(&mut s, "repo log cherry-pick"));
     let text = render(&mut s, 140, 38);
-    assert!(text.contains("/repo continue"), "{text}");
+    assert!(text.contains(i18n::tr!(ReplayContinueShort)), "{text}");
     assert!(text.contains(i18n::tr!(ReplayConflictWorktree)), "{text}");
     assert!(text.contains("<<<<<<<"), "{text}");
     support::write(f.repo.join("conflict.txt"), "resolved\n");

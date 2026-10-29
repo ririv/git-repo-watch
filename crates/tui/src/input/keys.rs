@@ -210,6 +210,14 @@ impl Screen {
             Mode::History(mut view) => {
                 match view.as_mut() {
                     history::View::Graph(session) => match key.code {
+                        KeyCode::Char(' ') | KeyCode::Insert if session.selection.active() => {
+                            if let Err(error) = session.mark(history::SelectionAction::Toggle) {
+                                self.message = format!("{error:#}");
+                            }
+                        }
+                        KeyCode::Esc if session.selection.active() => {
+                            session.selection.finish();
+                        }
                         KeyCode::Esc | KeyCode::Left => {
                             if matches!(self.page, Page::View(_)) {
                                 self.return_to_view();

@@ -8,6 +8,29 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::ToggleCommit(index) => {
+                let Mode::History(view) = &mut self.mode else {
+                    return false;
+                };
+                let history::View::Graph(session) = view.as_mut() else {
+                    return false;
+                };
+                if !session.selection.active() || index >= session.records.len() {
+                    return false;
+                }
+                session.state.select(Some(index));
+                self.mark_history(history::SelectionAction::Toggle);
+            }
+            Action::ReplayControl(control) => {
+                let Some(path) = self.scope_path() else {
+                    return false;
+                };
+                let draft = self.mutation_draft(crate::Action::ReplayControl(control), Some(path));
+                self.prepare_mutation(
+                    engine::operations::mutation::Request::ReplayControl(control),
+                    draft,
+                );
+            }
             Action::RepositoryMenu(menu) => {
                 if !self.repository_list_active() {
                     return false;

@@ -10,6 +10,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    LogSelection,
     Filter,
     Sort,
     FileView,
@@ -23,6 +24,7 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    LogSelection(crate::history::SelectionAction),
     Filter(Filter),
     Sort(Order),
     FileView(Layout),
@@ -42,6 +44,31 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::LogSelection(crate::history::SelectionAction::Start),
+        token: "start",
+        description: M::HistorySelect,
+    },
+    Option {
+        value: Value::LogSelection(crate::history::SelectionAction::Toggle),
+        token: "toggle",
+        description: M::HistorySelectToggle,
+    },
+    Option {
+        value: Value::LogSelection(crate::history::SelectionAction::All),
+        token: "all",
+        description: M::HistorySelectAll,
+    },
+    Option {
+        value: Value::LogSelection(crate::history::SelectionAction::Clear),
+        token: "clear",
+        description: M::HistorySelectClear,
+    },
+    Option {
+        value: Value::LogSelection(crate::history::SelectionAction::Done),
+        token: "done",
+        description: M::HistorySelectDone,
+    },
     Option {
         value: Value::TextWrap(true),
         token: "true",
@@ -186,6 +213,7 @@ const OPTIONS: &[Option] = &[
 impl Value {
     pub fn action(self) -> Action {
         match self {
+            Self::LogSelection(value) => Action::LogSelection(value),
             Self::Filter(value) => Action::Filter(value),
             Self::Sort(value) => Action::Sort(value),
             Self::FileView(value) => Action::FileLayout(value),
@@ -200,6 +228,7 @@ impl Value {
     }
     fn kind(self) -> Kind {
         match self {
+            Self::LogSelection(_) => Kind::LogSelection,
             Self::Filter(_) => Kind::Filter,
             Self::Sort(_) => Kind::Sort,
             Self::FileView(_) => Kind::FileView,
@@ -216,6 +245,7 @@ impl Value {
 impl Kind {
     pub fn action(self) -> Action {
         match self {
+            Self::LogSelection => Action::LogSelect,
             Self::Filter => Action::FilterMenu,
             Self::Sort => Action::SortMenu,
             Self::FileView => Action::FileLayoutMenu,
@@ -236,6 +266,7 @@ impl Kind {
     }
     pub fn current(self, screen: &Screen) -> std::option::Option<Value> {
         Some(match self {
+            Self::LogSelection => return None,
             Self::Filter => Value::Filter(screen.filter),
             Self::Sort => Value::Sort(screen.order),
             Self::FileView => Value::FileView(screen.file_layout),

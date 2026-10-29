@@ -1,4 +1,5 @@
 //! Reviewed commit replay composes native Git sequencing with immutable repository guards.
+pub mod batch;
 pub mod state;
 use crate::{
     cancel::Cancel,
@@ -9,6 +10,7 @@ use crate::{
     transport::Git,
 };
 use anyhow::{Context, Result, ensure};
+pub use batch::Batch;
 use git2::Oid;
 use serde::{Deserialize, Serialize};
 pub use state::{Active, Observation, State};
@@ -116,31 +118,49 @@ pub struct Resume {
 #[derive(Debug, Clone)]
 pub enum Plan {
     Start(Start),
+    Batch(Box<Batch>),
     Control(Resume),
 }
 impl Plan {
     pub fn path(&self) -> &Path {
         match self {
             Self::Start(p) => &p.candidate.path,
+            Self::Batch(p) => &p.first.candidate.path,
             Self::Control(p) => &p.path,
         }
     }
     pub fn kind(&self) -> Kind {
         match self {
             Self::Start(p) => p.candidate.kind,
+            Self::Batch(_) => Kind::CherryPick,
             Self::Control(p) => p.active.kind,
         }
     }
     pub fn commit(&self) -> Oid {
         match self {
             Self::Start(p) => p.candidate.commit,
+            Self::Batch(p) => p.first.candidate.commit,
             Self::Control(p) => p.active.commit,
         }
     }
     pub fn title(&self) -> &'static str {
         match self {
             Self::Start(p) => p.candidate.kind.label(),
+            Self::Batch(_) => i18n::tr!(ReplayBatchTitle),
             Self::Control(p) => p.control.label(),
+        }
+    }
+    pub fn operation(&self) -> crate::tasks::Operation {
+        match self {
+            Self::Start(p) => crate::tasks::Operation::Replay {
+                action: p.candidate.kind,
+                commit: p.candidate.commit.to_string(),
+            },
+            Self::Batch(p) => crate::tasks::Operation::ReplaySequence {
+                action: Kind::CherryPick,
+                start: p.start.to_string(),
+            },
+            Self::Control(p) => p.active.operation(),
         }
     }
 }
@@ -148,6 +168,24 @@ pub fn prepare(path: &Path, kind: Kind, commit: Oid, cancel: &Cancel) -> Result<
     let repo = local::open(path)?;
     local::guard::clean_tracked(&repo)?;
     let guard = Guard::capture(path, cancel)?;
+    let candidate = candidate(&repo, path, kind, commit, guard)?;
+    if candidate.parents.len() > 1 {
+        Ok(Preparation::Parents(candidate))
+    } else {
+        Ok(Preparation::Ready(finish(
+            candidate,
+            Mainline::Ordinary,
+            cancel,
+        )?))
+    }
+}
+fn candidate(
+    repo: &git2::Repository,
+    path: &Path,
+    kind: Kind,
+    commit: Oid,
+    guard: Guard,
+) -> Result<Candidate> {
     let Position::Attached { name, .. } = &guard.position else {
         anyhow::bail!(i18n::tr!(ReplayAttachedRequired));
     };
@@ -167,7 +205,7 @@ pub fn prepare(path: &Path, kind: Kind, commit: Oid, cancel: &Cancel) -> Result<
             })
         })
         .collect::<Result<Vec<_>>>()?;
-    let candidate = Candidate {
+    Ok(Candidate {
         path: path.into(),
         kind,
         branch: name.trim_start_matches("refs/heads/").into(),
@@ -179,16 +217,7 @@ pub fn prepare(path: &Path, kind: Kind, commit: Oid, cancel: &Cancel) -> Result<
             .into(),
         parents,
         guard,
-    };
-    if source.parent_count() > 1 {
-        Ok(Preparation::Parents(candidate))
-    } else {
-        Ok(Preparation::Ready(finish(
-            candidate,
-            Mainline::Ordinary,
-            cancel,
-        )?))
-    }
+    })
 }
 pub fn choose(candidate: Candidate, parent: NonZeroUsize, cancel: &Cancel) -> Result<Plan> {
     ensure!(candidate.parents.len() > 1, i18n::tr!(ReplayParentRequired));
@@ -203,6 +232,9 @@ pub fn choose(candidate: Candidate, parent: NonZeroUsize, cancel: &Cancel) -> Re
 fn finish(candidate: Candidate, mainline: Mainline, cancel: &Cancel) -> Result<Plan> {
     candidate.guard.validate(&candidate.path, cancel)?;
     let repo = local::open(&candidate.path)?;
+    Ok(Plan::Start(describe(&repo, candidate, mainline)?))
+}
+fn describe(repo: &git2::Repository, candidate: Candidate, mainline: Mainline) -> Result<Start> {
     let commit = repo.find_commit(candidate.commit)?;
     let before = match &mainline {
         Mainline::Merge(p) => Some(repo.find_commit(p.oid)?.tree()?),
@@ -229,12 +261,12 @@ fn finish(candidate: Candidate, mainline: Mainline, cancel: &Cancel) -> Result<P
                 .context(i18n::tr!(ChangeHasNoPath))
         })
         .collect::<Result<Vec<_>>>()?;
-    Ok(Plan::Start(Start {
+    Ok(Start {
         candidate,
         mainline,
         files,
         summary,
-    }))
+    })
 }
 pub fn prepare_control(path: &Path, control: Control, cancel: &Cancel) -> Result<Plan> {
     let repo = local::open(path)?;
@@ -263,6 +295,7 @@ pub fn prepare_control(path: &Path, control: Control, cancel: &Cancel) -> Result
 }
 pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<()> {
     match plan {
+        Plan::Batch(batch) => batch::execute(git, batch, cancel),
         Plan::Start(p) => {
             p.candidate.guard.validate(&p.candidate.path, cancel)?;
             let parent = match &p.mainline {

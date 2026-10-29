@@ -43,6 +43,8 @@ pub(crate) enum Action {
         offset: usize,
     },
     ToggleFile(usize),
+    ToggleCommit(usize),
+    ReplayControl(engine::operations::replay::Control),
     Select(Target, usize),
     Scroll(ScrollTarget, usize),
 }

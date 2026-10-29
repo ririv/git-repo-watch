@@ -68,8 +68,14 @@ impl Content {
 }
 #[derive(Debug, Clone)]
 pub(crate) enum CommitSelection {
+    Graph {
+        oid: engine::local::history::Oid,
+        marked: Vec<engine::local::history::Oid>,
+        content: Content,
+    },
     Selected {
         oid: engine::local::history::Oid,
+        marked: Vec<engine::local::history::Oid>,
         content: Content,
     },
     Unavailable(Content),
@@ -77,12 +83,14 @@ pub(crate) enum CommitSelection {
 impl CommitSelection {
     fn content(&self) -> &Content {
         match self {
-            Self::Selected { content, .. } | Self::Unavailable(content) => content,
+            Self::Graph { content, .. }
+            | Self::Selected { content, .. }
+            | Self::Unavailable(content) => content,
         }
     }
     fn oid(&self) -> Option<engine::local::history::Oid> {
         match self {
-            Self::Selected { oid, .. } => Some(*oid),
+            Self::Graph { oid, .. } | Self::Selected { oid, .. } => Some(*oid),
             Self::Unavailable(_) => None,
         }
     }
@@ -138,6 +146,14 @@ impl Selection {
             _ => None,
         }
     }
+    pub fn commits(&self) -> Vec<engine::local::history::Oid> {
+        match self {
+            Self::Log(
+                CommitSelection::Graph { marked, .. } | CommitSelection::Selected { marked, .. },
+            ) if !marked.is_empty() => marked.clone(),
+            _ => self.commit().into_iter().collect(),
+        }
+    }
     pub fn admits(&self, action: Action, path: Option<&Path>) -> bool {
         if self.is_error() {
             return matches!(
@@ -146,6 +162,9 @@ impl Selection {
             );
         }
         match action {
+            Action::LogSelect | Action::LogSelection(_) => {
+                matches!(self, Self::Log(CommitSelection::Graph { .. }))
+            }
             Action::Replay(_) => path.is_some() && self.commit().is_some(),
             Action::BrowserToggle | Action::BrowserSplit => self.opener().is_some(),
             Action::BrowserSource => self.opener().is_some_and(|target| {
@@ -231,6 +250,7 @@ impl Screen {
                 history::View::Graph(session) => log(session),
                 history::View::Commit(commit) => Selection::Log(CommitSelection::Selected {
                     oid: commit.detail.oid,
+                    marked: commit.graph.picks(),
                     content: Content::paths(
                         commit
                             .files
@@ -311,9 +331,22 @@ fn panel<T>(panel: &workspace::Panel<T>, select: impl FnOnce(&T) -> Content) -> 
 
 fn log(session: &history::Session) -> Selection {
     Selection::Log(match session.selected() {
-        Some(entry) => CommitSelection::Selected {
+        Some(entry) => CommitSelection::Graph {
             oid: entry.oid,
-            content: commit(session),
+            marked: session.picks(),
+            content: if session.selection.count() == 0 {
+                commit(session)
+            } else {
+                Content::text(
+                    Target::Commit,
+                    session
+                        .picks()
+                        .iter()
+                        .map(ToString::to_string)
+                        .collect::<Vec<_>>()
+                        .join("\n"),
+                )
+            },
         },
         None => CommitSelection::Unavailable(Content::Unavailable(Unavailable::Empty)),
     })

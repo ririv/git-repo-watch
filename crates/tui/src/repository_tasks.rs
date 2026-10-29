@@ -388,6 +388,24 @@ impl Screen {
                         continue;
                     }
                     if same_view {
+                        if task.effect == Effect::RepositoryWrite
+                            && matches!(
+                                self.replay_state(&path),
+                                Some(engine::operations::replay::State::Active(_))
+                            )
+                        {
+                            let message = match self.replay_state(&path) {
+                                Some(engine::operations::replay::State::Active(active))
+                                    if !active.conflicts.is_empty() =>
+                                {
+                                    i18n::tr!(ReplayResolveFirst)
+                                }
+                                _ => i18n::tr!(ReplayPaused),
+                            };
+                            self.open_view(crate::navigation::View::Diff, path.clone());
+                            self.message = message.into();
+                            continue;
+                        }
                         let mut origin = self.take_mode();
                         if let Mode::Composition(session) = &mut origin {
                             session.restore();

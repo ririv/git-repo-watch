@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="480" height="160" viewBox="0 0 480 160">
+  <rect width="480" height="160" rx="16" fill="#202336"/>
+  <circle cx="72" cy="80" r="32" fill="#63a8f8"/>
+  <path d="M58 80l10 10 20-24" fill="none" stroke="white" stroke-width="7"/>
+  <text x="128" y="92" fill="white" font-size="36" font-family="sans-serif">GW Example</text>
+</svg>

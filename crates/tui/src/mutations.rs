@@ -166,10 +166,7 @@ impl Screen {
             engine::tasks::Retry::Unavailable,
         );
         if let Plan::Replay(replay) = &plan {
-            spec.operation = Some(engine::tasks::Operation::Replay {
-                action: replay.kind(),
-                commit: replay.commit().to_string(),
-            });
+            spec.operation = Some(replay.operation());
         }
         self.start_repository_tracked(
             plan.path().into(),
