@@ -1,6 +1,6 @@
 //! Staged and unstaged trees share selectable rows and tri-state directory checkboxes.
 use super::*;
-use crate::files::{CheckState, Group};
+use crate::files::Group;
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -125,7 +125,8 @@ pub(super) fn render(
         let items = entries
             .iter()
             .map(|entry| {
-                let mut spans = checkbox(session.check_state(entry, &rows));
+                let mut spans = super::checkbox::spans(session.check_state(entry, &rows));
+                spans.push(Span::raw(" "));
                 let crate::files::tree::Row::File {
                     index,
                     prefix,
@@ -201,21 +202,6 @@ pub(super) fn render(
         row_offset += entries.len();
     }
     session.offsets = offsets;
-}
-
-pub(super) fn checkbox(state: CheckState) -> Vec<Span<'static>> {
-    let mark = match state {
-        CheckState::Unchecked => Span::raw(" "),
-        CheckState::Mixed => Span::styled("−", Style::default().fg(WARN).bold()),
-        CheckState::Checked => {
-            Span::styled("✓", Style::default().fg(Color::Rgb(73, 199, 140)).bold())
-        }
-    };
-    vec![
-        Span::styled("[", Style::default().fg(MUTED)),
-        mark,
-        Span::styled("] ", Style::default().fg(MUTED)),
-    ]
 }
 
 /// Keep a file status marker pinned to the last column, clipping only the label.

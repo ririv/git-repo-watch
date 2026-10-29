@@ -74,7 +74,7 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     key(&mut s, KeyCode::Esc);
     command(&mut s, "repo log select");
     let choosing = render(&mut s, 120, 30);
-    assert!(choosing.contains("[ ]"), "{choosing}");
+    assert!(choosing.contains("│[ ]"), "{choosing}");
     assert!(
         choosing.contains(i18n::tr!(HistorySelectionHint)),
         "{choosing}"

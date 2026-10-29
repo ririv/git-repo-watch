@@ -167,23 +167,20 @@ fn graph(
     }
     frame.render_widget(Paragraph::new(status), body[0]);
     let metrics = graphics.metrics();
-    // 留白仅作用于图所在的提交行，顶部状态和空列表提示保持原位。
-    let inset = u16::from(metrics.is_ok()).min(body[1].width);
-    let content_area = Rect::new(
-        body[1].x + inset,
-        body[1].y,
-        body[1].width.saturating_sub(inset),
-        body[1].height,
-    );
+    let content_area = body[1];
     let checkbox_width = if session.selection.active() {
-        4u16.min(content_area.width)
+        super::checkbox::WIDTH.min(content_area.width)
     } else {
         0
     };
+    // 图统一负责自身左侧的一格留白，不由复选框或列表外边距提供。
+    let graph_inset = 1u16.min(content_area.width.saturating_sub(checkbox_width));
     let graph_area = Rect::new(
-        content_area.x + checkbox_width,
+        content_area.x + checkbox_width + graph_inset,
         content_area.y,
-        content_area.width.saturating_sub(checkbox_width),
+        content_area
+            .width
+            .saturating_sub(checkbox_width + graph_inset),
         content_area.height,
     );
     let graph_width = if metrics.is_ok() {
@@ -219,7 +216,7 @@ fn graph(
         .zip(lines)
         .map(|(record, line)| {
             let mut spans = if session.selection.active() {
-                super::files::checkbox(if session.selection.contains(&record.entry.oid) {
+                super::checkbox::spans(if session.selection.contains(&record.entry.oid) {
                     crate::files::CheckState::Checked
                 } else {
                     crate::files::CheckState::Unchecked
@@ -228,6 +225,7 @@ fn graph(
                 Vec::new()
             };
             spans.extend([
+                Span::raw(" ".repeat(usize::from(graph_inset))),
                 Span::raw(" ".repeat(usize::from(graph_width))),
                 Span::styled(
                     format!("  {} ", &record.entry.oid.to_string()[..8]),
@@ -280,7 +278,7 @@ fn graph(
                     Rect::new(
                         content_area.x,
                         content_area.y + row as u16,
-                        3.min(content_area.width),
+                        checkbox_width,
                         1,
                     ),
                     crate::pointer::Action::ToggleCommit(index),

@@ -4,6 +4,7 @@ mod branches;
 mod breadcrumbs;
 pub(super) mod browser;
 mod candidates;
+mod checkbox;
 pub(crate) use candidates::Viewport as CandidateViewport;
 pub(super) mod changes;
 mod commands;
