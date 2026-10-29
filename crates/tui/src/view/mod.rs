@@ -21,6 +21,7 @@ pub(super) mod input;
 pub(super) mod layout_picker;
 mod overview;
 mod prompt;
+mod push;
 mod replay;
 mod repository;
 mod repository_list;

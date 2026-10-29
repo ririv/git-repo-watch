@@ -8,6 +8,12 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::PushRemote(index) => {
+                let Mode::PushTarget(session) = &mut self.mode else {
+                    return false;
+                };
+                session.choose(index);
+            }
             Action::HistoryMenu(input) => return self.history_menu_pointer(input),
             Action::ToggleCommit(index) => {
                 let Mode::History(view) = &mut self.mode else {

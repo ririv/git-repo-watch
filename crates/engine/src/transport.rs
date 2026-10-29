@@ -6,6 +6,11 @@ use std::{collections::BTreeMap, ffi::OsString, path::Path, time::Duration};
 pub struct Git {
     pub timeout: Duration,
 }
+pub(crate) enum PushMode {
+    FastForward,
+    Create,
+    ForceWithLease(git2::Oid),
+}
 impl Default for Git {
     fn default() -> Self {
         Self {
@@ -95,6 +100,15 @@ impl Git {
         self.heads(path, remote, cancel)?
             .remove(reference)
             .context(i18n::tr!(RemoteUpstreamBranchDoesNotExistAlt))
+    }
+    pub fn branch_tip(
+        &self,
+        path: &Path,
+        remote: &str,
+        reference: &str,
+        cancel: &Cancel,
+    ) -> Result<Option<git2::Oid>> {
+        Ok(self.heads(path, remote, cancel)?.remove(reference))
     }
     fn run_replay(&self, path: &Path, args: Vec<OsString>, cancel: &Cancel) -> Result<()> {
         process::run_with_environment(
@@ -206,6 +220,22 @@ impl Git {
         Ok(())
     }
     pub fn push(&self, path: &Path, target: &PushTarget, cancel: &Cancel) -> Result<()> {
+        self.push_mode(path, target, PushMode::FastForward, cancel)
+    }
+    pub(crate) fn push_mode(
+        &self,
+        path: &Path,
+        target: &PushTarget,
+        mode: PushMode,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let protection = match mode {
+            PushMode::FastForward => "--no-force".to_owned(),
+            PushMode::Create => format!("--force-with-lease={}:", target.remote_ref),
+            PushMode::ForceWithLease(expected) => {
+                format!("--force-with-lease={}:{}", target.remote_ref, expected)
+            }
+        };
         self.run(
             path,
             strings(&[
@@ -215,13 +245,32 @@ impl Git {
                 "push.followTags=false",
                 "push",
                 "--porcelain",
-                "--no-force",
+                &protection,
                 "--no-mirror",
                 "--no-follow-tags",
                 "--recurse-submodules=no",
                 "--",
                 &target.remote,
                 &format!("{}:{}", target.local_oid, target.remote_ref),
+            ]),
+            cancel,
+        )?;
+        Ok(())
+    }
+    pub(crate) fn set_upstream(
+        &self,
+        path: &Path,
+        branch: &str,
+        reference: &str,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.run(
+            path,
+            strings(&[
+                "branch",
+                &format!("--set-upstream-to={reference}"),
+                "--",
+                branch,
             ]),
             cancel,
         )?;

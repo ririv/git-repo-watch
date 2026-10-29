@@ -168,6 +168,24 @@ impl Service {
         let _lock = self.repository_lock(path, cancel)?;
         operations::push::prepare(&self.git, path, cancel)
     }
+    pub fn prepare_interactive_push(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<operations::push::Preparation> {
+        let _lock = self.repository_lock(path, cancel)?;
+        operations::push::prepare_interactive(&self.git, path, cancel)
+    }
+    pub fn prepare_push_target(
+        &self,
+        request: &operations::push::TargetRequest,
+        remote: &str,
+        branch: &str,
+        cancel: &Cancel,
+    ) -> Result<PushPlan> {
+        let _lock = self.repository_lock(&request.path, cancel)?;
+        operations::push::prepare_target(&self.git, request, remote, branch, cancel)
+    }
     pub fn push(&self, plan: &PushPlan, cancel: &Cancel) -> Result<Publication> {
         let _lock = self.repository_lock(&plan.path, cancel)?;
         let result = operations::push::execute(&self.git, plan, cancel);

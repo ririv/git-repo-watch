@@ -406,6 +406,7 @@ pub(crate) fn outcome(
             }
         },
         Outcome::Published(value) => format!("{value:#?}"),
+        Outcome::PushPrepared(preparation) => crate::push::preparation_notice(preparation).into(),
         Outcome::MutationCompleted(engine::operations::mutation::Change::FetchSkipped {
             reason,
         }) => reason.label().into(),

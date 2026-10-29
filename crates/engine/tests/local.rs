@@ -172,14 +172,14 @@ fn explicit_push_preserves_upstream_policy_and_rejects_stale_review() {
     let cancel = Cancel::default();
     let plan = push::prepare(&git_runner, &f.repo, &cancel).unwrap();
     let before = git(&f.remote, &["rev-parse", "main"]);
-    assert_ne!(before, plan.target.local_oid);
+    assert_ne!(before, plan.target().local_oid);
     assert!(matches!(
         push::execute(&git_runner, &plan, &cancel),
         Publication::Pushed { .. }
     ));
     assert_eq!(
         git(&f.remote, &["rev-parse", "main"]),
-        plan.target.local_oid
+        plan.target().local_oid
     );
     f.commit("next", "next");
     let plan = push::prepare(&git_runner, &f.repo, &cancel).unwrap();
@@ -190,7 +190,7 @@ fn explicit_push_preserves_upstream_policy_and_rejects_stale_review() {
     ));
     assert_ne!(
         git(&f.remote, &["rev-parse", "main"]),
-        plan.target.local_oid
+        plan.target().local_oid
     );
     git(&f.repo, &["branch", "--unset-upstream"]);
     assert!(

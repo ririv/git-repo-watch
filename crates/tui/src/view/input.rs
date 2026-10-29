@@ -481,11 +481,27 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 },
                 i18n::tr!(ConfirmSelectHint),
             ),
-            Mode::PushConfirm { choice, .. } => (
+            Mode::PushTarget(session) => (
+                i18n::tr!(PushTargetBranch),
+                if session.editing() {
+                    Content::Editable {
+                        editor: session.editor(),
+                        placeholder: i18n::tr!(PushTargetBranch),
+                    }
+                } else {
+                    Content::Locked(session.editor().text.clone())
+                },
+                i18n::tr!(PushTargetHint),
+            ),
+            Mode::PushConfirm { choice, plan, .. } => (
                 i18n::tr!(ConfirmPushAlt),
                 Content::Choices {
                     choice: *choice,
-                    execute: i18n::tr!(ActionPush),
+                    execute: if plan.force_behind().is_some() {
+                        i18n::tr!(PushForceTitle)
+                    } else {
+                        i18n::tr!(ActionPush)
+                    },
                     back: i18n::tr!(ActionCancel),
                 },
                 i18n::tr!(ConfirmReviewHint),

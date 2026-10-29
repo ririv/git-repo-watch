@@ -97,8 +97,40 @@ pub struct PushTarget {
     pub local_oid: String,
     pub remote: String,
     pub remote_ref: String,
-    pub remote_oid: String,
+    pub remote_oid: RemoteTip,
     pub ahead_commits: usize,
+}
+/// Encode branch creation with Git's null object ID, preserving stored record compatibility.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "String", into = "String")]
+pub enum RemoteTip {
+    Existing(String),
+    Absent,
+}
+impl From<String> for RemoteTip {
+    fn from(value: String) -> Self {
+        if value == git2::Oid::ZERO_SHA1.to_string() {
+            Self::Absent
+        } else {
+            Self::Existing(value)
+        }
+    }
+}
+impl From<RemoteTip> for String {
+    fn from(value: RemoteTip) -> Self {
+        match value {
+            RemoteTip::Existing(oid) => oid,
+            RemoteTip::Absent => git2::Oid::ZERO_SHA1.to_string(),
+        }
+    }
+}
+impl std::fmt::Display for RemoteTip {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Existing(oid) => f.write_str(oid),
+            Self::Absent => f.write_str("∅"),
+        }
+    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

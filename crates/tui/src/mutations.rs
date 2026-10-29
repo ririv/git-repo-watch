@@ -96,14 +96,17 @@ pub(crate) fn review(plan: &Plan) -> String {
                         oid = plan.oid
                     )
                 }
-                Plan::Push(plan) => i18n::tf!(
-                    SyncPushReview,
-                    branch = plan.target.branch,
-                    remote = plan.target.remote,
-                    reference = plan.target.remote_ref.trim_start_matches("refs/heads/"),
-                    commits = plan.target.ahead_commits,
-                    oid = plan.target.local_oid
-                ),
+                Plan::Push(plan) => {
+                    let target = plan.target();
+                    i18n::tf!(
+                        SyncPushReview,
+                        branch = target.branch,
+                        remote = target.remote,
+                        reference = target.remote_ref.trim_start_matches("refs/heads/"),
+                        commits = target.ahead_commits,
+                        oid = target.local_oid
+                    )
+                }
             }
         }
         Plan::Stash(stash::Plan::Save { message, .. }) => message.clone(),

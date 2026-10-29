@@ -15,6 +15,7 @@ impl Screen {
         self.clicks.reset();
         self.drag = None;
         match &mut self.mode {
+            Mode::PushTarget(session) => session.insert(text),
             Mode::Composition(session) => match &mut session.state {
                 crate::composition::State::Editing(editor) => {
                     self.message = editor
@@ -154,6 +155,7 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::PushTarget(session) => self.push_target_key(session, key),
             Mode::CompositionWaiting(waiting) => self.composition_waiting_key(waiting, key),
             Mode::Composition(session) => self.compose_key(session, key, root),
             Mode::PromptEditor(mut session) => {
@@ -523,14 +525,7 @@ impl Screen {
             } => {
                 match choice.input(key.code) {
                     confirmation::Input::Execute => {
-                        self.start_repository(
-                            plan.path.clone(),
-                            i18n::tr!(PushCurrentBranch),
-                            Effect::Push,
-                            move |service, cancel, _| {
-                                Ok(Outcome::Published(service.push(&plan, &cancel)?))
-                            },
-                        );
+                        self.execute_push(plan);
                         return Ok(false);
                     }
                     confirmation::Input::Return => {

@@ -2,6 +2,20 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    PushConfirmationNeeded,
+    PushTargetNeeded,
+    PushRemoteRequired,
+    PushInvalidBranch,
+    PushTargetTitle,
+    PushTargetBranch,
+    PushTargetHint,
+    PushForceTitle,
+    PushForceWarning,
+    PushRemoteTip,
+    PushNewTip,
+    PushRecreateTitle,
+    PushSetUpstream,
+
     ReplayPaused,
     ReplayBatchAtLeastTwo,
     ReplayContinueShort,
@@ -1120,6 +1134,47 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::PushConfirmationNeeded, Language::English) => {
+                "Push has not run: confirmation required. Run /repo push again to review."
+            }
+            (Self::PushConfirmationNeeded, Language::Chinese) => {
+                "推送尚未执行：需要确认，可再次执行 /repo push 查看。"
+            }
+            (Self::PushTargetNeeded, Language::English) => {
+                "Push has not run: choose a destination. Run /repo push again to choose."
+            }
+            (Self::PushTargetNeeded, Language::Chinese) => {
+                "推送尚未执行：需要选择目标，可再次执行 /repo push 选择。"
+            }
+            (Self::PushRemoteRequired, Language::English) => "Select a configured remote",
+            (Self::PushRemoteRequired, Language::Chinese) => "请选择已配置的远程仓库",
+            (Self::PushInvalidBranch, Language::English) => "Enter a valid remote branch name",
+            (Self::PushInvalidBranch, Language::Chinese) => "请输入有效的远程分支名",
+            (Self::PushTargetTitle, Language::English) => "Publish branch",
+            (Self::PushTargetTitle, Language::Chinese) => "发布分支",
+            (Self::PushTargetBranch, Language::English) => "Remote branch",
+            (Self::PushTargetBranch, Language::Chinese) => "目标分支",
+            (Self::PushTargetHint, Language::English) => {
+                "↑↓ / Tab remote · Edit branch · Enter publish · Esc back"
+            }
+            (Self::PushTargetHint, Language::Chinese) => {
+                "↑↓ / Tab 选择远程 · 输入分支名 · Enter 发布 · Esc 返回"
+            }
+            (Self::PushForceTitle, Language::English) => "Force push",
+            (Self::PushForceTitle, Language::Chinese) => "强制推送",
+            (Self::PushForceWarning, Language::English) => {
+                "Commits removed from this remote branch"
+            }
+            (Self::PushForceWarning, Language::Chinese) => "将从此远程分支历史中移除的提交",
+            (Self::PushRemoteTip, Language::English) => "Previous remote commit",
+            (Self::PushRemoteTip, Language::Chinese) => "原远程提交",
+            (Self::PushNewTip, Language::English) => "New remote commit",
+            (Self::PushNewTip, Language::Chinese) => "推送后提交",
+            (Self::PushRecreateTitle, Language::English) => "Recreate remote branch",
+            (Self::PushRecreateTitle, Language::Chinese) => "重新创建远程分支",
+            (Self::PushSetUpstream, Language::English) => "Set upstream after a successful push",
+            (Self::PushSetUpstream, Language::Chinese) => "推送成功后设置上游",
+
             (Self::ReplayBatchTitle, Language::English) => "Cherry-pick selected commits",
             (Self::ReplayBatchTitle, Language::Chinese) => "拣选所选提交",
             (Self::ReplayBatchTooLarge, Language::English) => "Select at most 512 commits",

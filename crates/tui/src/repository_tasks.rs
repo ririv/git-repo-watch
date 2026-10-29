@@ -311,8 +311,11 @@ impl Screen {
                 };
             let waiting_here = matches!(&self.mode, Mode::CompositionWaiting(waiting) if waiting.path == path)
                 && task.effect == Effect::ReadOnly;
+            let publishing_here = matches!(&self.mode, Mode::PushTarget(session) if session.request.path == path && !session.editing())
+                && task.effect == Effect::Push;
             let same_view = submitting_here
                 || waiting_here
+                || publishing_here
                 || (task.page == self.page
                     && task.revision == self.view_revision
                     && self.scope_path() == task.scope
@@ -353,6 +356,8 @@ impl Screen {
                     if same_view {
                         let origin = self.take_mode();
                         self.finish(outcome, origin, root);
+                    } else if let Outcome::PushPrepared(preparation) = outcome {
+                        self.message = crate::push::preparation_notice(&preparation).into();
                     } else {
                         self.message =
                             i18n::tf!(RepositoryTaskCompleted, view::name(&path), task.title);
@@ -412,6 +417,9 @@ impl Screen {
                         }
                         if let Mode::CommitMessage { editor, .. } = &mut origin {
                             editor.restore();
+                        }
+                        if let Mode::PushTarget(session) = &mut origin {
+                            session.restore();
                         }
                         self.mode = Mode::Error {
                             origin: Box::new(origin),

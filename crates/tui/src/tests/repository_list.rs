@@ -67,7 +67,7 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
             local_oid: "a".repeat(40),
             remote: "origin".into(),
             remote_ref: "refs/heads/main".into(),
-            remote_oid: "b".repeat(40),
+            remote_oid: engine::domain::RemoteTip::Existing("b".repeat(40)),
             ahead_commits: 1,
         },
     });
@@ -578,7 +578,7 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
         local_oid: "a".repeat(40),
         remote: "origin".into(),
         remote_ref: format!("refs/heads/{branch}"),
-        remote_oid: "b".repeat(40),
+        remote_oid: engine::domain::RemoteTip::Existing("b".repeat(40)),
         ahead_commits: 1,
     };
     pushes.extend([

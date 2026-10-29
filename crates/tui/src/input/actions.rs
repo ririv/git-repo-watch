@@ -280,9 +280,12 @@ impl Screen {
                     } else {
                         self.start_repository(
                             path.clone(),
-                            i18n::tr!(ValidateCurrentBranchAndRemoteUpstream),
-                            Effect::ReadOnly,
-                            move |s, c, _| Ok(Outcome::PushPrepared(s.prepare_push(&path, &c)?)),
+                            i18n::tr!(PushCurrentBranch),
+                            Effect::Push,
+                            move |s, c, _| {
+                                let preparation = s.prepare_interactive_push(&path, &c)?;
+                                crate::push::prepare_or_push(s, preparation, &c)
+                            },
                         )
                     }
                 } else {

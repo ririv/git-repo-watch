@@ -187,7 +187,7 @@ fn inspect(
                             local_oid: branch.oid.to_string(),
                             remote: remote.clone(),
                             remote_ref: remote_ref.clone(),
-                            remote_oid: server.to_string(),
+                            remote_oid: crate::domain::RemoteTip::Existing(server.to_string()),
                             ahead_commits: ahead,
                         };
                         let t = Instant::now();

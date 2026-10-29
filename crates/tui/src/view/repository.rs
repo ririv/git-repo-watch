@@ -416,7 +416,7 @@ mod tests {
             local_oid: "a".repeat(40),
             remote: "origin".into(),
             remote_ref: "refs/heads/main".into(),
-            remote_oid: "b".repeat(40),
+            remote_oid: engine::domain::RemoteTip::Existing("b".repeat(40)),
             ahead_commits: 1,
         };
         if failed {

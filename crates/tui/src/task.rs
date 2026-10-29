@@ -249,13 +249,8 @@ impl Screen {
                 self.finish(Outcome::CommitPrepared(plan), origin, root);
                 self.generate_commit_message();
             }
-            Outcome::PushPrepared(plan) => {
-                self.workspace.save(origin);
-                self.mode = Mode::PushConfirm {
-                    plan,
-                    scroll: 0,
-                    choice: Default::default(),
-                }
+            Outcome::PushPrepared(preparation) => {
+                self.finish_push_preparation(*preparation, origin)
             }
             Outcome::Committed(result) => {
                 self.mode = Mode::Browsing;
@@ -271,7 +266,10 @@ impl Screen {
             }
             Outcome::Published(result) => match result {
                 Publication::Pushed { target } => {
-                    self.mode = Mode::Browsing;
+                    self.mode = match origin {
+                        Mode::PushConfirm { .. } | Mode::PushTarget(_) => Mode::Browsing,
+                        origin => origin,
+                    };
                     self.message = i18n::tf!(
                         PushedRepositoryUpdated,
                         target.branch,
@@ -319,6 +317,9 @@ impl Screen {
         {
             self.commit_generator.cancel();
             editor.restore();
+        }
+        if let Mode::PushTarget(session) = &mut self.mode {
+            session.restore();
         }
         let origin = Box::new(self.take_mode());
         self.mode = Mode::Error {

@@ -35,6 +35,7 @@ mod overview;
 mod pointer;
 mod preview;
 mod prompt_editor;
+mod push;
 mod replay;
 mod repository_list;
 mod repository_tasks;
@@ -116,6 +117,7 @@ enum Mode {
         plan: PushPlan,
         scroll: usize,
     },
+    PushTarget(Box<push::Session>),
     Busy(Pending),
     Error {
         origin: Box<Mode>,
@@ -214,7 +216,7 @@ enum Outcome {
     CompositionCommitted(Box<engine::composition::Progress>),
     CommitPrepared(CommitPlan),
     CommitForGeneration(CommitPlan),
-    PushPrepared(PushPlan),
+    PushPrepared(Box<engine::operations::push::Preparation>),
     Committed(CommitResult),
     Published(Publication),
     Text(String),

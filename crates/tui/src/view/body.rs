@@ -95,20 +95,17 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &mut screen.pointer,
             screen.bar.is_plain(),
         ),
+        Mode::PushTarget(session) => super::push::target(frame, area, session, &mut screen.pointer),
         Mode::PushConfirm { plan, scroll, .. } => text_view(
             frame,
             area,
-            &i18n::tf!(
-                RepositoryBranchRemoteUpstreamUrlPendingCommits,
-                safe(&plan.path.to_string_lossy()),
-                safe(&plan.target.branch),
-                safe(&plan.target.remote),
-                safe(&plan.target.remote_ref),
-                safe(&plan.url),
-                plan.target.ahead_commits
-            ),
+            &multiline(&crate::push::review(plan)),
             scroll,
-            i18n::tr!(ConfirmPush),
+            if plan.force_behind().is_some() {
+                i18n::tr!(PushForceTitle)
+            } else {
+                i18n::tr!(PushRecreateTitle)
+            },
             &mut screen.pointer,
         ),
         Mode::Error { detail, scroll, .. } => text_view(

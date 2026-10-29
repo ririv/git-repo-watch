@@ -33,6 +33,7 @@ mod overview;
 mod prefix_segments;
 mod prefix_selection;
 mod preview_loading;
+mod push;
 mod replay;
 mod replay_batch;
 mod repository_list;
@@ -413,21 +414,7 @@ fn file_selection_commit_and_push_through_command_bar() {
         assert!(support::git(&f.repo, &["status", "--porcelain"]).contains("two.txt"));
         command(&mut s, "repo push");
         wait(&mut s);
-        assert!(matches!(s.mode, Mode::PushConfirm { .. }));
-        let remote_before = support::git(&f.remote, &["rev-parse", "main"]);
-        key(&mut s, KeyCode::Tab);
-        key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.mode, Mode::Browsing));
-        assert_eq!(
-            remote_before,
-            support::git(&f.remote, &["rev-parse", "main"])
-        );
-        command(&mut s, "repo push");
-        wait(&mut s);
-        key(&mut s, KeyCode::Right);
-        key(&mut s, KeyCode::BackTab);
-        key(&mut s, KeyCode::Enter);
-        wait(&mut s);
+        assert!(!matches!(s.mode, Mode::PushConfirm { .. }));
         assert!(s.message.contains(if language == i18n::Language::English {
             "Pushed"
         } else {

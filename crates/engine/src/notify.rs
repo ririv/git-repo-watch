@@ -68,7 +68,7 @@ mod tests {
             local_oid: "a".repeat(40),
             remote: "origin".into(),
             remote_ref: "refs/heads/feature".into(),
-            remote_oid: "b".repeat(40),
+            remote_oid: crate::domain::RemoteTip::Existing("b".repeat(40)),
             ahead_commits: 1,
         };
         for (language, title, details) in [

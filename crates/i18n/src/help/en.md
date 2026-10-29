@@ -130,7 +130,7 @@
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Tab`/`Shift+Tab` cycles the editor and horizontal actions; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
-- `/repo push` fetches and validates the upstream, then asks for confirmation. Only the reviewed branch snapshot is pushed.
+- `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Startup and scheduled workflows remain non-forced.
 - `/repo terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
 ## Image previews
