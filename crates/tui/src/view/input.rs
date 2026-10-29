@@ -295,6 +295,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             Content::Locked(screen.focused_pane_name().into()),
             i18n::tr!(PaneFocusHint),
         )
+    } else if let Mode::History(view) = mode
+        && let Some(menu) = view.session().selection.menu()
+    {
+        (
+            i18n::tr!(HistoryActionsTitle),
+            Content::Locked(i18n::tf!(HistoryActionsCount, count = menu.count())),
+            i18n::tr!(HistoryActionsHint),
+        )
     } else if let crate::bar::InputBar::Layout { selected, .. } = bar {
         (
             i18n::tr!(LayoutPickerTitle),

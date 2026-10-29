@@ -6,7 +6,10 @@ use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         self.exit_sequence.reset();
-        if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
+        if self.tasks.session.open()
+            || self.focus_mode == crate::focus::State::Selecting
+            || self.history_actions().is_some()
+        {
             return;
         }
         self.clicks.reset();
@@ -63,6 +66,9 @@ impl Screen {
         self.drag = None;
         if ctrl_c(key) {
             self.view_revision += 1;
+            if !self.tasks.session.open() && self.close_history_actions() {
+                return Ok(false);
+            }
             return Ok(self.interrupt_key(key));
         }
         self.exit_sequence.reset();
@@ -70,6 +76,9 @@ impl Screen {
             return Ok(false);
         }
         if self.tasks_key(key) {
+            return Ok(false);
+        }
+        if self.history_actions_key(key) {
             return Ok(false);
         }
         if matches!(self.mode, Mode::Workflow(_)) {
@@ -273,19 +282,8 @@ impl Screen {
                         KeyCode::Tab => session.next_match(false),
                         KeyCode::BackTab => session.next_match(true),
                         KeyCode::Enter if session.selection.active() => {
-                            if session.selection.count() == 0 {
-                                self.message = i18n::tr!(HistorySelectionRequired).into();
-                                self.mode = Mode::History(view);
-                            } else {
-                                session.selection.settle();
-                                self.mode = Mode::History(view);
-                                let selection = self.copy_selection();
-                                let path = self.scope_path();
-                                let kind = engine::operations::replay::Kind::CherryPick;
-                                let mut draft = self.mutation_draft(Action::Replay(kind), path);
-                                draft.return_to = crate::bar::ReturnTo::View;
-                                self.prepare_replay(kind, selection.commits(), draft);
-                            }
+                            self.mode = Mode::History(view);
+                            self.open_history_actions();
                             return Ok(false);
                         }
                         KeyCode::Enter | KeyCode::Right => {

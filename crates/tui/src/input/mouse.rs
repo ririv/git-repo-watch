@@ -80,6 +80,15 @@ impl Screen {
             return Ok(false);
         }
         self.view_revision += 1;
+        if wheel && self.history_actions().is_some() {
+            let code = match event.kind {
+                MouseEventKind::ScrollUp => KeyCode::Up,
+                MouseEventKind::ScrollDown => KeyCode::Down,
+                _ => return Ok(false),
+            };
+            self.history_actions_key(KeyEvent::new(code, KeyModifiers::NONE));
+            return Ok(true);
+        }
         let precise = self.config.mouse.precise_click;
         if self.bar.is_plain()
             && let Mode::CommitMessage {
@@ -259,7 +268,7 @@ impl Screen {
                 },
                 _ => None,
             };
-            if !self.pointer_focus(event) {
+            if self.history_actions().is_none() && !self.pointer_focus(event) {
                 self.clicks.reset();
                 return Ok(false);
             }

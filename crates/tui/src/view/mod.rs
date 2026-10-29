@@ -204,6 +204,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
         render_body(frame, screen, body);
     }
     commands::render(frame, screen, body);
+    history::menu::render(frame, screen, body);
 }
 fn truncate(text: &str, width: usize) -> String {
     if width == 0 {

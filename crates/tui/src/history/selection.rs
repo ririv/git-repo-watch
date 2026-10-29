@@ -8,6 +8,7 @@ pub(crate) enum Selection {
     #[default]
     Browsing,
     Selecting(BTreeSet<Oid>),
+    Actions(Box<super::menu::Menu>),
     Range {
         anchor: usize,
         tip: usize,
@@ -24,6 +25,7 @@ impl Selection {
         match self {
             Self::Browsing => 0,
             Self::Selecting(marked) => marked.len(),
+            Self::Actions(menu) => menu.count(),
             Self::Range { base, range, .. } => base.union(range).count(),
         }
     }
@@ -31,12 +33,14 @@ impl Selection {
         match self {
             Self::Browsing => false,
             Self::Selecting(marked) => marked.contains(oid),
+            Self::Actions(menu) => menu.contains(oid),
             Self::Range { base, range, .. } => base.contains(oid) || range.contains(oid),
         }
     }
     pub fn begin(&mut self) -> &mut BTreeSet<Oid> {
         *self = match std::mem::take(self) {
             Self::Browsing => Self::Selecting(BTreeSet::new()),
+            Self::Actions(menu) => Self::Selecting(menu.commits().into_iter().collect()),
             Self::Range {
                 mut base, range, ..
             } => {
@@ -47,7 +51,7 @@ impl Selection {
         };
         match self {
             Self::Selecting(marked) => marked,
-            Self::Browsing | Self::Range { .. } => unreachable!(),
+            Self::Browsing | Self::Range { .. } | Self::Actions(_) => unreachable!(),
         }
     }
     pub fn settle(&mut self) {
@@ -57,7 +61,7 @@ impl Selection {
     }
     pub fn extend(&mut self, from: usize, tip: usize, oid: impl Fn(usize) -> Oid) -> Result<()> {
         let (anchor, base) = match self {
-            Self::Browsing => return Ok(()),
+            Self::Browsing | Self::Actions(_) => return Ok(()),
             Self::Selecting(marked) => (from, marked.clone()),
             Self::Range {
                 anchor, tip, base, ..
@@ -85,6 +89,30 @@ impl Selection {
     }
     pub fn finish(&mut self) {
         *self = Self::Browsing;
+    }
+    pub fn open_actions(&mut self, commits: Vec<Oid>, replay_allowed: bool) -> bool {
+        let Some(menu) = super::menu::Menu::new(commits, replay_allowed) else {
+            return false;
+        };
+        *self = Self::Actions(Box::new(menu));
+        true
+    }
+    pub fn menu(&self) -> Option<&super::menu::Menu> {
+        match self {
+            Self::Actions(menu) => Some(menu),
+            _ => None,
+        }
+    }
+    pub fn menu_mut(&mut self) -> Option<&mut super::menu::Menu> {
+        match self {
+            Self::Actions(menu) => Some(menu),
+            _ => None,
+        }
+    }
+    pub fn close_actions(&mut self) {
+        if matches!(self, Self::Actions(_)) {
+            self.begin();
+        }
     }
 }
 

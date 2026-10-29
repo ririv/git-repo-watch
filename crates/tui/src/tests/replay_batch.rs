@@ -255,6 +255,9 @@ fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selec
     .unwrap();
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
     key(&mut s, KeyCode::Enter);
+    assert!(s.history_actions().is_some());
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(
         batch(&s)

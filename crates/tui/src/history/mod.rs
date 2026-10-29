@@ -1,5 +1,7 @@
 //! Commit-graph sessions and read-only workflows, separate from terminal drawing.
 mod actions;
+pub(crate) mod menu;
+mod menu_actions;
 pub(crate) mod review;
 mod selection;
 mod session;

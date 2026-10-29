@@ -1,5 +1,6 @@
 //! Responsive commit graph, metadata preview and per-parent historical file views.
 pub(crate) mod detail;
+pub(super) mod menu;
 mod pixels;
 use super::*;
 use crate::history::{Session, View};

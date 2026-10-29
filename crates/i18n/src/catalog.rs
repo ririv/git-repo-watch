@@ -27,6 +27,12 @@ pub enum Message {
     HistorySelectionHint,
     HistorySelectionRequired,
     HistorySelectionBack,
+    HistoryActionCherryPick,
+    HistoryActionRevert,
+    HistoryActionCopy,
+    HistoryActionsTitle,
+    HistoryActionsCount,
+    HistoryActionsHint,
 
     ReplayCherryPick,
     ReplayRevert,
@@ -1147,15 +1153,33 @@ impl Message {
             (Self::HistorySelectDone, Language::English) => "Exit selection and clear marks",
             (Self::HistorySelectDone, Language::Chinese) => "退出选择并清空勾选",
             (Self::HistorySelectionHint, Language::English) => {
-                "↑↓ move · Space mark · Shift+↑↓ range · Enter preview · Esc exit"
+                "↑↓ move · Space mark · Shift+↑↓ range · Enter actions · Esc exit"
             }
             (Self::HistorySelectionHint, Language::Chinese) => {
-                "↑↓移动 · Space勾选 · Shift+↑↓范围 · Enter预览拣选 · Esc退出"
+                "↑↓移动 · Space勾选 · Shift+↑↓范围 · Enter操作 · Esc退出"
             }
-            (Self::HistorySelectionRequired, Language::English) => "Mark commits before previewing",
-            (Self::HistorySelectionRequired, Language::Chinese) => "请先勾选提交，再预览拣选",
+            (Self::HistorySelectionRequired, Language::English) => {
+                "Mark commits before choosing an action"
+            }
+            (Self::HistorySelectionRequired, Language::Chinese) => "请先勾选提交，再选择操作",
             (Self::HistorySelectionBack, Language::English) => "Back to selection",
             (Self::HistorySelectionBack, Language::Chinese) => "返回选择",
+            (Self::HistoryActionCherryPick, Language::English) => "Cherry-pick selected commits",
+            (Self::HistoryActionCherryPick, Language::Chinese) => "拣选所选提交",
+            (Self::HistoryActionRevert, Language::English) => "Revert the selected commit",
+            (Self::HistoryActionRevert, Language::Chinese) => "撤销所选提交",
+            (Self::HistoryActionCopy, Language::English) => "Copy selected commit hashes",
+            (Self::HistoryActionCopy, Language::Chinese) => "复制提交哈希",
+            (Self::HistoryActionsTitle, Language::English) => "Commit actions",
+            (Self::HistoryActionsTitle, Language::Chinese) => "提交操作",
+            (Self::HistoryActionsCount, Language::English) => "Selected commits: {count}",
+            (Self::HistoryActionsCount, Language::Chinese) => "已选 {count} 条提交",
+            (Self::HistoryActionsHint, Language::English) => {
+                "↑↓ / Tab choose · Enter confirm · Esc back"
+            }
+            (Self::HistoryActionsHint, Language::Chinese) => {
+                "↑↓ / Tab 选择 · Enter 确认 · Esc 返回"
+            }
             (Self::ReplayBatchAtLeastTwo, Language::English) => {
                 "Select at least two commits for a batch"
             }
@@ -4845,6 +4869,12 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("Synchronized: pulled {branch}\nCommit: {oid}" $(, $($args)*)?),
             $crate::Language::Chinese => format!("同步完成：已拉取 {branch}\n提交：{oid}" $(, $($args)*)?),
+        }
+    };
+    (HistoryActionsCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Selected commits: {count}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("已选 {count} 条提交" $(, $($args)*)?),
         }
     };
     (SyncPushed $(, $($args:tt)*)?) => {

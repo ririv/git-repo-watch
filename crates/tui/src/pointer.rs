@@ -22,6 +22,7 @@ pub(crate) enum Target {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScrollTarget {
+    HistoryActions,
     BrowserPreview(crate::browser::opening::TextMode),
     BrowserHorizontal(crate::browser::opening::TextMode),
     Text,
@@ -36,6 +37,7 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    HistoryMenu(crate::history::menu::PointerInput),
     RepositoryMenu(crate::repository_list::Menu),
     DragRows {
         target: Target,

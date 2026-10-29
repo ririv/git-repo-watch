@@ -8,6 +8,7 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::HistoryMenu(input) => return self.history_menu_pointer(input),
             Action::ToggleCommit(index) => {
                 let Mode::History(view) = &mut self.mode else {
                     return false;
@@ -270,6 +271,7 @@ impl Screen {
                         return false;
                     }
                 }
+                ScrollTarget::HistoryActions => return self.seek_history_action(offset),
                 ScrollTarget::Overview if self.page == Page::Detail => self.scroll = offset,
                 ScrollTarget::HistoryMessage => match &mut self.mode {
                     Mode::History(view) => match view.as_mut() {
