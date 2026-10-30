@@ -28,6 +28,11 @@ pub(crate) enum Identity {
     },
     Repository(PathBuf),
     Layout(crate::diff::Preference),
+    WorktreeDirectory {
+        repository: PathBuf,
+        group: crate::files::Group,
+        path: PathBuf,
+    },
     File {
         repository: PathBuf,
         change: engine::local::files::Change,
@@ -108,10 +113,20 @@ impl Screen {
             Target::Repositories => self.selected_path().map(Identity::Repository),
             Target::Files => {
                 let files = self.mode.file_session()?;
-                Some(Identity::File {
-                    repository: files.snapshot.path.clone(),
-                    change: files.current()?.clone(),
-                })
+                match &files.cursor {
+                    crate::files::Cursor::Directory { group, path } => {
+                        Some(Identity::WorktreeDirectory {
+                            repository: files.snapshot.path.clone(),
+                            group: *group,
+                            path: path.clone(),
+                        })
+                    }
+                    crate::files::Cursor::File(_) => Some(Identity::File {
+                        repository: files.snapshot.path.clone(),
+                        change: files.current()?.clone(),
+                    }),
+                    crate::files::Cursor::Empty => None,
+                }
             }
             Target::Branches => match &self.mode {
                 Mode::Branches(view) => match view.as_ref() {

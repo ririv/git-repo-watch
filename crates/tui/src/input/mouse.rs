@@ -323,11 +323,16 @@ impl Screen {
                         std::time::Instant::now(),
                     );
                     // 目录在首击时开合，忽略双击的第二下，避免立即反向切换。
-                    let activate = if matches!(
-                        (target, &self.mode),
-                        (crate::pointer::Target::Browser, Mode::Browser(session))
-                            if session.selected().is_some_and(|entry| entry.directory())
-                    ) {
+                    let directory = target == crate::pointer::Target::Files
+                        && self.mode.file_session().is_some_and(|files| {
+                            matches!(files.cursor, crate::files::Cursor::Directory { .. })
+                        });
+                    let activate = if directory
+                        || matches!(
+                            (target, &self.mode),
+                            (crate::pointer::Target::Browser, Mode::Browser(session))
+                                if session.selected().is_some_and(|entry| entry.directory())
+                        ) {
                         !paired
                     } else {
                         paired

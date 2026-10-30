@@ -264,8 +264,16 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         }
         Mode::CommitMessage { editor, .. } if editor.focused() => i18n::tr!(CommitEditingHint),
         Mode::CommitMessage { .. } => i18n::tr!(CommitActionsHint),
+        Mode::Files(files) if matches!(files.cursor, crate::files::Cursor::Directory { .. }) => {
+            i18n::tr!(DirectoryInputHint)
+        }
         Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
         Mode::Changes(session) => match session.focus {
+            crate::changes::Focus::Files
+                if matches!(session.files.cursor, crate::files::Cursor::Directory { .. }) =>
+            {
+                i18n::tr!(DirectoryInputHint)
+            }
             crate::changes::Focus::Files if screen.config.text_wrap => {
                 i18n::tr!(WrappedChangesInputHint)
             }

@@ -1,5 +1,7 @@
 //! Shared file selection with explicit staged and unstaged identities.
 mod cursor;
+mod folding;
+pub(crate) use folding::Expansion;
 pub(super) mod tree;
 use crate::{Area, Change, Files};
 pub(crate) use cursor::{CheckState, Cursor, Group};
@@ -33,6 +35,7 @@ pub(super) struct FileSession {
     pub selected: BTreeSet<usize>,
     pub query: String,
     pub search_mode: crate::search::Mode,
+    folding: Box<folding::Folding>,
 }
 impl FileSession {
     pub fn new(snapshot: Files) -> Self {
@@ -48,6 +51,7 @@ impl FileSession {
             selected: BTreeSet::new(),
             query: String::new(),
             search_mode: Default::default(),
+            folding: Default::default(),
         }
     }
     pub fn refreshed(&self, snapshot: Files) -> Self {
@@ -65,6 +69,8 @@ impl FileSession {
         let mut next = Self::new(snapshot);
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
+        next.folding = self.folding.clone();
+        next.folding.retain(&next.snapshot.changes);
         if next.rows().is_empty() {
             next.cursor = Cursor::Empty;
         }
@@ -98,13 +104,17 @@ impl FileSession {
                 }
                 _ => next.cursor.clone(),
             });
-        if let Cursor::Directory { .. } = &self.cursor {
-            let entries = next.entries(Layout::Tree);
-            if entries.iter().enumerate().any(|(group, rows)| {
-                rows.iter()
-                    .any(|row| row.cursor(Group::from_index(group)) == self.cursor)
-            }) {
-                next.cursor = self.cursor.clone();
+        if let Cursor::Directory { group, .. } = &self.cursor {
+            let previous = self.entries(Layout::Tree);
+            if let Some(tree::Row::Directory { head, .. }) = previous[group.index()]
+                .iter()
+                .find(|row| row.cursor(*group) == self.cursor)
+            {
+                next.cursor = Cursor::Directory {
+                    group: *group,
+                    path: head.clone(),
+                };
+                next.ensure_visible();
             }
         }
         next
@@ -139,6 +149,7 @@ impl FileSession {
             return;
         }
         self.query = query;
+        self.folding.reset_search();
         self.cursor = match self.search_mode {
             crate::search::Mode::Filter => {
                 if self.rows().is_empty() {

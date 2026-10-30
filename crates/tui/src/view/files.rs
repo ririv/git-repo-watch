@@ -141,11 +141,20 @@ pub(super) fn render(
                     label,
                 } = entry
                 else {
-                    let crate::files::tree::Row::Directory { prefix, label, .. } = entry else {
+                    let crate::files::tree::Row::Directory {
+                        prefix,
+                        label,
+                        expansion,
+                        ..
+                    } = entry
+                    else {
                         unreachable!()
                     };
                     spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
-                    spans.extend(options.icons.directory());
+                    spans.extend(options.icons.directory_slot(match expansion {
+                        crate::files::Expansion::Expanded => crate::file_icons::Folder::Expanded,
+                        crate::files::Expansion::Collapsed => crate::file_icons::Folder::Collapsed,
+                    }));
                     spans.extend(
                         highlight::line(
                             Line::styled(safe(label), Style::default().fg(ACCENT)),

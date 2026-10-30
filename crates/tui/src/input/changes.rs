@@ -42,6 +42,7 @@ impl Screen {
                 KeyCode::Home => files.edge(false, self.file_layout),
                 KeyCode::End => files.edge(true, self.file_layout),
                 KeyCode::Char(' ') | KeyCode::Insert => files.toggle_current(),
+                KeyCode::Enter if files.toggle_directory(self.file_layout) => {}
                 KeyCode::Enter | KeyCode::Right if files.current().is_some() => {
                     session.focus = Focus::Preview
                 }

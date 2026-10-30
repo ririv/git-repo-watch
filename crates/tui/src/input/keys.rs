@@ -449,6 +449,7 @@ impl Screen {
                     KeyCode::PageDown => session.move_cursor(10, self.file_layout),
                     KeyCode::PageUp => session.move_cursor(-10, self.file_layout),
                     KeyCode::Char(' ') | KeyCode::Insert => session.toggle_current(),
+                    KeyCode::Enter if session.toggle_directory(self.file_layout) => {}
                     KeyCode::Enter | KeyCode::Right if session.current().is_some() => {
                         self.mode = Mode::Files(session);
                         self.show_diff();

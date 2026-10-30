@@ -138,13 +138,13 @@ impl Screen {
             }
             Mode::Files(files) => {
                 if let Some(index) = files.matches().step(files.cursor.index(), backwards) {
-                    files.cursor = crate::files::Cursor::File(index);
+                    files.locate(index);
                 }
             }
             Mode::Changes(session) => {
                 let files = &mut session.files;
                 if let Some(index) = files.matches().step(files.cursor.index(), backwards) {
-                    files.cursor = crate::files::Cursor::File(index);
+                    files.locate(index);
                 }
                 session.focus = crate::changes::Focus::Files;
             }

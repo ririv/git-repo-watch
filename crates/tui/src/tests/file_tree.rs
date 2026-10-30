@@ -3,7 +3,7 @@ use crate::files::{CheckState, Cursor, Group};
 use crate::{files::Layout, pointer::Hit};
 use ratatui::layout::Position;
 
-fn directory_fixture() -> support::Fixture {
+pub(super) fn directory_fixture() -> support::Fixture {
     let f = support::Fixture::create();
     std::fs::create_dir_all(f.repo.join("src/中文 目录")).unwrap();
     std::fs::create_dir_all(f.repo.join("outside")).unwrap();
@@ -27,7 +27,7 @@ fn directory_fixture() -> support::Fixture {
     f
 }
 
-fn directory_id(s: &Screen, group: Group) -> usize {
+pub(super) fn directory_id(s: &Screen, group: Group) -> usize {
     let mut index = 0;
     for (section, entries) in s
         .mode
@@ -52,7 +52,7 @@ fn directory_id(s: &Screen, group: Group) -> usize {
     panic!("directory row is visible")
 }
 
-fn checkbox_point(s: &Screen, index: usize) -> Position {
+pub(super) fn checkbox_point(s: &Screen, index: usize) -> Position {
     (0..40).find_map(|y| (0..45).find_map(|x| {
         let point = Position::new(x, y);
         matches!(s.pointer.hit(point), Some(Hit::FileCheckbox(candidate)) if candidate == index).then_some(point)
@@ -84,6 +84,7 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         assert!(
             matches!(&s.mode, Mode::Changes(session) if matches!(session.preview, crate::changes::Preview::Directory { count: 2, .. }))
         );
+        key(&mut s, KeyCode::Enter);
         key(&mut s, KeyCode::Insert);
         assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
         key(&mut s, KeyCode::Down);
@@ -302,7 +303,7 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
     }
 }
 
-fn click(s: &mut Screen, point: Position) {
+pub(super) fn click(s: &mut Screen, point: Position) {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     s.mouse(
         MouseEvent {

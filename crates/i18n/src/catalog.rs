@@ -436,6 +436,7 @@ pub enum Message {
     ChangesSelectionRequired,
     ChangesWrongArea,
     ChangesInputHint,
+    DirectoryInputHint,
 
     InvalidToml,
     ConfigurationMigrationRequired,
@@ -2497,6 +2498,12 @@ impl Message {
             }
             (Self::ChangesWrongArea, Language::Chinese) => {
                 "暂存只能选择未暂存文件，取消暂存只能选择已暂存文件；请核对勾选区域"
+            }
+            (Self::DirectoryInputHint, Language::English) => {
+                "Enter fold/unfold · Space/Ins mark · Tab focus · Esc back"
+            }
+            (Self::DirectoryInputHint, Language::Chinese) => {
+                "Enter 展开/收起 · Space/Ins 勾选 · Tab 切换 · Esc 返回"
             }
             (Self::ChangesInputHint, Language::English) => {
                 "↑↓ navigate · ←→ pan preview · Tab focus · //zoom maximize · Esc back"

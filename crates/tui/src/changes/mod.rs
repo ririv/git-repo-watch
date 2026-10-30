@@ -89,6 +89,8 @@ impl Session {
             let count = self.files.focused_changes().len();
             let changed = !matches!(&self.preview, Preview::Directory { path: current, count: current_count } if current == path && *current_count == count);
             self.loader.clear();
+            // 目录预览不发起读取，但仍须回收已取消的文件读取任务。
+            let _ = self.loader.poll(service);
             self.feedback.finish();
             if changed {
                 self.preview = Preview::Directory {
@@ -158,7 +160,10 @@ impl Session {
 impl Screen {
     pub(super) fn poll_changes(&mut self) -> bool {
         match &mut self.mode {
-            Mode::Changes(session) => session.poll(&self.service),
+            Mode::Changes(session) => {
+                session.files.set_layout(self.file_layout);
+                session.poll(&self.service)
+            }
             _ => false,
         }
     }

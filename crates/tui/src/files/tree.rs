@@ -1,5 +1,5 @@
 //! File-list projection preserves selectable directories and their descendant identities.
-use super::Layout;
+use super::{Layout, folding::Expansion};
 use crate::Change;
 use std::{
     collections::BTreeMap,
@@ -10,7 +10,9 @@ use std::{
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum Row {
     Directory {
+        head: PathBuf,
         path: PathBuf,
+        expansion: Expansion,
         indices: Vec<usize>,
         prefix: String,
         label: String,
@@ -38,7 +40,11 @@ impl Node<'_> {
         }
     }
 }
-pub(crate) fn project(changes: &[(usize, &Change)], layout: Layout) -> Vec<Row> {
+pub(crate) fn project(
+    changes: &[(usize, &Change)],
+    layout: Layout,
+    expansion: &impl Fn(&Path, &Path) -> Expansion,
+) -> Vec<Row> {
     if layout == Layout::Flat {
         return changes
             .iter()
@@ -73,13 +79,14 @@ pub(crate) fn project(changes: &[(usize, &Change)], layout: Layout) -> Vec<Row> 
         );
     }
     let mut rows = Vec::new();
-    emit(&roots, Path::new(""), "", &mut rows);
+    emit(&roots, Path::new(""), "", expansion, &mut rows);
     rows
 }
 fn emit(
     children: &BTreeMap<(OsString, Kind), Node<'_>>,
     parent: &Path,
     prefix: &str,
+    expansion: &impl Fn(&Path, &Path) -> Expansion,
     rows: &mut Vec<Row>,
 ) {
     for ((name, _), node) in children {
@@ -87,7 +94,8 @@ fn emit(
             Node::Directory(nested) => {
                 let mut nested = nested;
                 let mut label = name.to_string_lossy().into_owned();
-                let mut path = parent.join(name);
+                let head = parent.join(name);
+                let mut path = head.clone();
                 // 只压缩单一子目录链；遇到文件或分叉就保留层级。
                 while nested.len() == 1 {
                     let ((child_name, _), child) = nested.first_key_value().expect("single child");
@@ -99,13 +107,18 @@ fn emit(
                     path.push(child_name);
                     nested = children;
                 }
+                let state = expansion(&head, &path);
                 rows.push(Row::Directory {
+                    head,
                     path: path.clone(),
+                    expansion: state,
                     indices: node.indices(),
                     prefix: prefix.to_owned(),
                     label: format!("{label}/"),
                 });
-                emit(nested, &path, &format!("{prefix}  "), rows);
+                if state == Expansion::Expanded {
+                    emit(nested, &path, &format!("{prefix}  "), expansion, rows);
+                }
             }
             Node::File(index, change) => {
                 // 重命名保留两端路径，避免同名文件隐藏来源信息。
@@ -142,12 +155,14 @@ mod tests {
             change("z.txt"),
         ];
         let changes = files.iter().enumerate().collect::<Vec<_>>();
-        let tree = project(&changes, Layout::Tree);
+        let tree = project(&changes, Layout::Tree, &|_, _| Expansion::Expanded);
         assert_eq!(
             tree,
             vec![
                 Row::Directory {
+                    head: "src".into(),
                     path: "src/中文 目录".into(),
+                    expansion: Expansion::Expanded,
                     indices: vec![0, 1],
                     prefix: String::new(),
                     label: "src/中文 目录/".into()
@@ -169,8 +184,11 @@ mod tests {
                 },
             ]
         );
-        assert_eq!(project(&changes, Layout::Flat).len(), 3);
-        let filtered = project(&[(1, &files[1])], Layout::Tree);
+        assert_eq!(
+            project(&changes, Layout::Flat, &|_, _| Expansion::Expanded).len(),
+            3
+        );
+        let filtered = project(&[(1, &files[1])], Layout::Tree, &|_, _| Expansion::Expanded);
         assert_eq!(filtered.len(), 2);
         assert!(
             matches!(&filtered[0], Row::Directory{indices, label, ..} if indices == &[1] && label == "src/中文 目录/")
@@ -190,13 +208,17 @@ mod tests {
                 after: "src/a.rs".into(),
             },
         };
-        let rows = project(&[(0, &deleted), (1, &nested), (2, &renamed)], Layout::Tree);
+        let rows = project(
+            &[(0, &deleted), (1, &nested), (2, &renamed)],
+            Layout::Tree,
+            &|_, _| Expansion::Expanded,
+        );
         assert_eq!(rows.len(), 4);
         assert!(matches!(&rows[0], Row::File { index: 0, .. }));
         assert!(
             matches!(&rows[2], Row::File {index:2,label,..} if label.contains("old/a.rs") && label.contains("src/a.rs"))
         );
-        assert!(project(&[], Layout::Tree).is_empty());
+        assert!(project(&[], Layout::Tree, &|_, _| Expansion::Expanded).is_empty());
     }
     #[test]
     fn compact_chains_stop_at_files_and_forks() {
@@ -207,7 +229,7 @@ mod tests {
             change("src/nested/deep/main.rs"),
         ];
         let changes = files.iter().enumerate().collect::<Vec<_>>();
-        let rows = project(&changes, Layout::Tree);
+        let rows = project(&changes, Layout::Tree, &|_, _| Expansion::Expanded);
         let labels = rows
             .iter()
             .filter_map(|row| match row {
@@ -233,7 +255,7 @@ mod tests {
             })
             .collect::<Vec<_>>();
         assert_eq!(indices, [0, 1, 2, 3]);
-        let flat = project(&changes, Layout::Flat);
+        let flat = project(&changes, Layout::Flat, &|_, _| Expansion::Expanded);
         assert_eq!(flat.len(), files.len());
         assert!(
             matches!(&flat[0], Row::File {index: 0, label, ..} if label.contains("output/imagegen/cache/a.png"))

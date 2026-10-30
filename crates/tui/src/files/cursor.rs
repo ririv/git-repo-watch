@@ -89,7 +89,9 @@ impl FileSession {
                 .enumerate()
                 .filter(|(_, change)| Group::of(change.area) == group)
                 .collect::<Vec<_>>();
-            super::tree::project(&changes, layout)
+            super::tree::project(&changes, layout, &|head, tip| {
+                self.folding.expansion(group, head, tip, &self.query)
+            })
         })
     }
     fn cursors(&self, layout: Layout) -> Vec<Cursor> {
@@ -192,6 +194,9 @@ impl FileSession {
         }
     }
     pub fn set_layout(&mut self, layout: Layout) {
+        if layout == Layout::Tree {
+            self.ensure_visible();
+        }
         if layout == Layout::Flat && matches!(self.cursor, Cursor::Directory { .. }) {
             self.cursor = self
                 .focused_changes()

@@ -46,7 +46,7 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
             + 2;
         assert_eq!(enabled.content[name].symbol(), "中");
         assert_eq!(enabled.content[name - 2].symbol(), glyph.content.as_ref());
-        let folder = Display::Enabled.directory().remove(0);
+        let folder = Display::Enabled.directory_slot(Folder::Collapsed).remove(0);
         let folder_index = enabled
             .content
             .iter()

@@ -54,6 +54,7 @@ mod text_selection;
 mod workflows;
 mod workspace;
 mod workspace_navigation;
+mod worktree_folding;
 mod wrapping;
 use super::*;
 use crate::repository_list::{Filter, Order};
@@ -760,14 +761,9 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     assert_eq!(empty.message, "Select a repository first");
     let f = support::Fixture::create();
     let (_temp, mut s) = fixture(vec![f.repo.clone()]);
-    let origin = Mode::Files(FileSession {
-        snapshot: s.service.files(&f.repo, &Cancel::default()).unwrap(),
-        cursor: crate::files::Cursor::File(0),
-        selected: BTreeSet::new(),
-        query: "filter".into(),
-        search_mode: Default::default(),
-        offsets: [0; 2],
-    });
+    let mut files = FileSession::new(s.service.files(&f.repo, &Cancel::default()).unwrap());
+    files.search("filter".into());
+    let origin = Mode::Files(files);
     s.finish(
         Outcome::TerminalOpened(f.repo.clone()),
         origin,

@@ -52,12 +52,6 @@ impl Display {
             Self::Disabled => Vec::new(),
         }
     }
-    pub fn directory(self) -> Vec<Span<'static>> {
-        match self {
-            Self::Enabled => Folder::Collapsed.glyph().spans(),
-            Self::Disabled => Vec::new(),
-        }
-    }
     pub fn directory_slot(self, folder: Folder) -> Vec<Span<'static>> {
         match self {
             Self::Enabled => folder.glyph().spans(),
