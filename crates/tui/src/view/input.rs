@@ -405,6 +405,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             editor: bar.editor(),
                             placeholder: if command {
                                 i18n::tr!(ContextCommandPlaceholder)
+                            } else if matches!(mode, Mode::Browser(session) if session.focus == crate::browser::Focus::Preview)
+                            {
+                                i18n::tr!(ContentSearchPlaceholder)
                             } else if matches!(mode, Mode::Browser(_)) {
                                 i18n::tr!(BrowserPlaceholder)
                             } else if matches!(mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))

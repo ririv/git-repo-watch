@@ -13,6 +13,7 @@ impl Screen {
             Mode::Browser(session) if session.focus == crate::browser::Focus::Tree => {
                 Support::Filter
             }
+            Mode::Browser(session) if session.content_searchable() => Support::Locate,
             Mode::Files(files) => Support::Both(files.search_mode),
             Mode::Changes(session) if session.focus == crate::changes::Focus::Files => {
                 Support::Both(session.files.search_mode)
@@ -124,6 +125,9 @@ impl Screen {
         }
         let backwards = key.code == KeyCode::Up;
         match &mut self.mode {
+            Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
+                session.next_content_match(backwards)
+            }
             Mode::Browsing => {
                 if let Some(index) = self
                     .repository_matches()
@@ -177,6 +181,9 @@ impl Screen {
             return i18n::tr!(CommandsAlt).into();
         };
         let target = match &self.mode {
+            Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
+                i18n::tr!(SearchTargetContent)
+            }
             Mode::Browsing => i18n::tr!(SearchTargetRepositories),
             Mode::Browser(_) | Mode::Files(_) | Mode::Changes(_) => i18n::tr!(SearchTargetFiles),
             Mode::Branches(_) => i18n::tr!(SearchTargetBranches),
@@ -189,6 +196,10 @@ impl Screen {
         };
         let mut title = i18n::tf!(SearchInputTitle, mode = mode.label(), target = target);
         if mode == SearchMode::Locate && !self.bar.editor().text.is_empty() {
+            if let Mode::Browser(session) = &self.mode {
+                title.push_str(&format!(" · {}", session.content_match_label()));
+                return title;
+            }
             let (matches, current) = match &self.mode {
                 Mode::Browsing => (
                     self.repository_matches(),

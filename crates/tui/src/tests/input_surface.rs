@@ -167,7 +167,7 @@ fn static_pages_and_read_only_details_use_the_same_command_entry() {
 }
 
 #[test]
-fn preview_focus_uses_command_entry_and_keeps_the_list_query_for_keyboard_and_pointer() {
+fn preview_focus_uses_supported_input_and_keeps_list_queries_for_keyboard_and_pointer() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     let f = support::Fixture::create();
     f.commit("tracked.txt", "initial\n");
@@ -224,10 +224,36 @@ fn preview_focus_uses_command_entry_and_keeps_the_list_query_for_keyboard_and_po
     s.paste("tracked");
     super::browser::ready(&mut s);
     key(&mut s, KeyCode::Enter);
-    commands_only(&mut s);
+    assert_eq!(s.search_support(), Support::Locate);
+    assert!(s.bar.text().is_empty());
+    s.paste("changed");
+    assert!(s.search_title().contains("1/1"));
+    assert_eq!(super::browser::session(&mut s).query, "tracked");
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), "tracked");
     assert_eq!(super::browser::session(&mut s).query, "tracked");
+    render(&mut s, 160, 32);
+    let area = s.body_area.unwrap();
+    let preview = view::browser::areas(area, super::browser::session(&mut s))
+        .into_iter()
+        .find(|(_, focus)| *focus == crate::browser::Focus::Preview)
+        .unwrap()
+        .0;
+    s.mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: preview.x + 3,
+            row: preview.y + 3,
+            modifiers: KeyModifiers::NONE,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert_eq!(s.search_support(), Support::Locate);
+    assert!(s.bar.text().is_empty());
+    s.paste("changed");
+    assert!(s.search_title().contains("1/1"));
     s.shutdown();
 }
 

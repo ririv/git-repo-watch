@@ -2,6 +2,7 @@
 mod screen;
 #[cfg(test)]
 mod tests;
+pub(crate) mod text;
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Mode {

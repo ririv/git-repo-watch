@@ -1,26 +1,39 @@
 //! Cached visual rows retain logical anchors across wrapping and width changes.
 use crate::links::{Line, Text};
+use std::ops::Range;
 use std::sync::Arc;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Wrapping {
+    Off,
+    Cells,
+    Words,
+}
 #[derive(Debug, Clone, Default)]
 pub(crate) struct Cache(Option<Arc<Layout>>);
 #[derive(Debug)]
 pub(crate) struct Row {
     pub line: Line,
-    source: usize,
+    pub source: usize,
+    pub columns: Range<usize>,
 }
 #[derive(Debug)]
 pub(crate) struct Layout {
     width: usize,
-    wrap: bool,
+    wrap: Wrapping,
     pub rows: Vec<Row>,
 }
 impl Cache {
+    pub fn is_current(&self, width: usize, wrap: Wrapping) -> bool {
+        self.0
+            .as_ref()
+            .is_some_and(|layout| layout.width == width && layout.wrap == wrap)
+    }
     pub fn arrange(
         &mut self,
         text: &Text,
         width: usize,
         fixed: usize,
-        wrap: bool,
+        wrap: Wrapping,
         scroll: &mut usize,
     ) -> &Layout {
         if self
@@ -38,12 +51,56 @@ impl Cache {
                 .iter()
                 .enumerate()
                 .flat_map(|(source, line)| {
-                    let lines = if wrap {
-                        line.wrap_pinned(width, fixed)
-                    } else {
-                        vec![line.clone()]
+                    let lines = match wrap {
+                        Wrapping::Off => vec![line.clone()],
+                        Wrapping::Cells => line.wrap_pinned(width, fixed),
+                        Wrapping::Words if width == 0 => line.wrap_pinned(0, 0),
+                        Wrapping::Words => line.wrap(width, true),
                     };
-                    lines.into_iter().map(move |line| Row { source, line })
+                    let mut column = fixed;
+                    let available = width.saturating_sub(fixed);
+                    let mut glyphs = line
+                        .text
+                        .styled_graphemes(ratatui::style::Style::default())
+                        .scan(0, |column, glyph| {
+                            use unicode_width::UnicodeWidthStr;
+                            let start = *column;
+                            let size = glyph.symbol.width();
+                            *column += size;
+                            Some((start, size))
+                        })
+                        .filter(|(start, _)| *start >= fixed)
+                        .map(|(_, size)| size)
+                        .peekable();
+                    lines
+                        .into_iter()
+                        .map(|line| {
+                            let cells = line.width().saturating_sub(fixed.min(width));
+                            let consume = if wrap != Wrapping::Off
+                                && cells > 0
+                                && available > 0
+                                && glyphs.peek().is_some_and(|size| *size > available)
+                            {
+                                *glyphs.peek().expect("oversized grapheme")
+                            } else {
+                                cells
+                            };
+                            let mut consumed = 0;
+                            while consumed < consume {
+                                let Some(size) = glyphs.next() else {
+                                    break;
+                                };
+                                consumed += size;
+                            }
+                            let columns = column..column + consumed;
+                            column += consumed;
+                            Row {
+                                source,
+                                line,
+                                columns,
+                            }
+                        })
+                        .collect::<Vec<_>>()
                 })
                 .collect::<Vec<_>>();
             if let Some(anchor) = anchor {
@@ -55,6 +112,13 @@ impl Cache {
             self.0 = Some(Arc::new(Layout { width, wrap, rows }));
         }
         self.0.as_ref().expect("text layout prepared")
+    }
+}
+impl Layout {
+    pub fn row_at(&self, line: usize, column: usize) -> Option<usize> {
+        self.rows
+            .iter()
+            .position(|row| row.source == line && row.columns.contains(&column))
     }
 }
 
@@ -127,15 +191,15 @@ mod tests {
         );
         let mut cache = Cache::default();
         let mut scroll = 1;
-        cache.arrange(&text, 20, 0, false, &mut scroll);
+        cache.arrange(&text, 20, 0, Wrapping::Off, &mut scroll);
         let original = cache.0.clone().unwrap();
-        cache.arrange(&text, 20, 0, false, &mut scroll);
+        cache.arrange(&text, 20, 0, Wrapping::Off, &mut scroll);
         assert!(Arc::ptr_eq(&original, cache.0.as_ref().unwrap()));
         for width in [20, 9, 31, 20] {
-            let layout = cache.arrange(&text, width, 0, true, &mut scroll);
+            let layout = cache.arrange(&text, width, 0, Wrapping::Cells, &mut scroll);
             assert_eq!(layout.rows[scroll].source, 1);
         }
-        cache.arrange(&text, 20, 0, false, &mut scroll);
+        cache.arrange(&text, 20, 0, Wrapping::Off, &mut scroll);
         assert_eq!(scroll, 1);
     }
 }

@@ -54,8 +54,8 @@
 - Global `/search` lists the modes supported by the current view and marks the current value. `/search filter` shows matching rows; `/search locate` retains the full list. Use `//search` from a view with a context prefix.
 - Repository, worktree, branch, stash and historical file lists support both, defaulting to filtering. Switching preserves the query and any still-visible selection. Each list remembers its mode for this session.
 - Locate emphasizes matches. With a query, `↑` / `↓` wrap through previous/next matches; the input title shows the current match and total. No matches shows `0/0` and keeps the selection. Clearing the query restores ordinary row navigation.
-- The commit graph supports locating loaded commits only, preserving topology; load more to search older commits. The file browser supports background path filtering only.
-- Settings, overview, help, read-only details and file/diff content previews offer command input only. They do not search hidden lists or offer search-mode commands. Returning to a list restores its query; keyboard, clicks and wheel focus changes behave consistently. Search, status filters, sorting and file checkboxes remain independent.
+- The commit graph supports locating loaded commits only, preserving topology; load more to search older commits. The file tree supports background path filtering; focused text contents support locating only. Images and binary notices do not offer locating.
+- Settings, overview, help, read-only details and diff content previews offer command input only. They do not search hidden lists or offer search-mode commands. Returning to a list restores its query; keyboard, clicks and wheel focus changes behave consistently. Search, status filters, sorting and file checkboxes remain independent.
 
 ## Context prefixes
 - `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings, schedule and help also restore their origin on return.
@@ -116,6 +116,8 @@
 - `/repo files toggle` switches source and preview; `/repo files split` opens or closes the split. `preview` and `source` open the corresponding content directly. The menu shows the current mode; in a split, `toggle` or `source` returns to a single source pane. Each file retains its presentation and separate source/preview scroll positions for the current session.
 - In a split, `Tab`, `Shift+Tab` or `/focus` cycle through the tree, source and preview. Pointer focus and scrolling respect the pointer settings. Narrow windows stack the panes; the smallest windows show the focused pane while retaining the split for later resizing.
 - SVG uses resvg in the background at the viewport size and supports embedded resources; external image references report an error. Markdown reuses the help page renderer; images retain their descriptions and addresses.
+
+- Type in focused file contents to locate text; ↑↓ cycles every occurrence and the title shows the current match/total. Matching ignores case, supports Unicode and excludes line numbers. Highlighting keeps syntax colors and links; long lines, wrapping and resizing reveal the current match. Esc clears the query before returning to the tree. Tree filtering, source locating and Markdown-preview locating retain independent drafts; split views search the focused side.
 
 ## Files, commits and pushes
 - `/repo diff` opens one changes workspace: unstaged and staged file groups plus a live text or image preview. Choosing a file loads its exact comparison in the background.

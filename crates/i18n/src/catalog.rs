@@ -136,6 +136,8 @@ pub enum Message {
     SearchUnavailable,
     SearchTargetRepositories,
     SearchTargetFiles,
+    SearchTargetContent,
+    ContentSearchPlaceholder,
     SearchTargetBranches,
     SearchTargetStashes,
     SearchTargetCommits,
@@ -1132,6 +1134,14 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::SearchTargetContent, Language::English) => "content",
+            (Self::SearchTargetContent, Language::Chinese) => "内容",
+            (Self::ContentSearchPlaceholder, Language::English) => {
+                "Find text in this file, or / for commands"
+            }
+            (Self::ContentSearchPlaceholder, Language::Chinese) => {
+                "输入文字定位文件内容，或输入 / 查看命令"
+            }
             (Self::PushConfirmationNeeded, Language::English) => {
                 "Push has not run: confirmation required. Run /repo push again to review."
             }
@@ -1533,9 +1543,9 @@ impl Message {
             (Self::SearchFilterCommand, Language::English) => "Filter the current list by input",
             (Self::SearchFilterCommand, Language::Chinese) => "输入时只显示列表中的匹配项",
             (Self::SearchLocateCommand, Language::English) => {
-                "Keep the full list; ↑/↓ move between matches"
+                "Keep all content; ↑/↓ move between matches"
             }
-            (Self::SearchLocateCommand, Language::Chinese) => "保留完整列表，↑/↓切换匹配项",
+            (Self::SearchLocateCommand, Language::Chinese) => "保留完整内容，↑/↓切换匹配项",
             (Self::SearchFilter, Language::English) => "Filter",
             (Self::SearchFilter, Language::Chinese) => "过滤",
             (Self::SearchLocate, Language::English) => "Locate",

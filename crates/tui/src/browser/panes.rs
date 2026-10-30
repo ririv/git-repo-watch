@@ -6,6 +6,7 @@ pub(crate) struct Pane {
     pub position: Position,
     pub layout: crate::flow::Cache,
     pub width: u16,
+    pub find: crate::search::text::Index,
     reader: Worker<Key, preview::Document>,
     revision: u64,
 }
@@ -16,6 +17,7 @@ impl Default for Pane {
             position: Position::default(),
             layout: Default::default(),
             width: 80,
+            find: Default::default(),
             reader: Worker::default(),
             revision: 0,
         }
@@ -27,6 +29,7 @@ impl Pane {
         self.preview = Preview::Empty;
         self.position = Position::default();
         self.layout = Default::default();
+        self.find = Default::default();
         self.reader.clear();
         changed
     }
@@ -47,6 +50,7 @@ impl Pane {
         }
         self.position = position;
         self.layout = Default::default();
+        self.find = Default::default();
         self.revision += 1;
         self.preview = Preview::Loading(Key {
             revision: self.revision,
@@ -55,6 +59,21 @@ impl Pane {
             layout,
         });
         true
+    }
+    pub fn search(&mut self, query: String) {
+        if self.position.find.set_query(query) {
+            self.reindex();
+        }
+    }
+    pub fn reindex(&mut self) {
+        if let Preview::Ready { document, .. } = &self.preview
+            && let preview::Document::Text { text, gutter, .. } = document.as_ref()
+        {
+            self.find.rebuild(text, *gutter, &mut self.position.find);
+        }
+    }
+    pub fn searchable(&self) -> bool {
+        matches!(&self.preview, Preview::Ready { document, .. } if matches!(document.as_ref(), preview::Document::Text { .. }))
     }
     fn pending(&self) -> bool {
         self.reader.pending() || matches!(self.preview, Preview::Loading(_))
@@ -93,6 +112,7 @@ impl Pane {
                 },
                 Err(error) => Preview::Failed { key, error },
             };
+            self.reindex();
             changed = true;
         }
         changed
@@ -117,6 +137,7 @@ pub(crate) struct View {
     pub preview: Preview,
     pub position: Position,
     pub layout: crate::flow::Cache,
+    pub find: crate::search::text::Index,
 }
 #[derive(Debug)]
 pub(crate) struct Snapshot {
@@ -142,6 +163,7 @@ impl Panes {
             preview: pane.preview.clone(),
             position: pane.position.clone(),
             layout: pane.layout.clone(),
+            find: pane.find.clone(),
         };
         Some(Snapshot {
             target: self.target.clone()?,

@@ -8,6 +8,7 @@ mod commit_message;
 mod completion;
 mod composition;
 mod concurrency;
+mod content_locate;
 mod contexts;
 mod copy;
 mod daily_operations;

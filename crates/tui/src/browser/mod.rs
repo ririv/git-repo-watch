@@ -4,6 +4,7 @@ mod load;
 pub(crate) mod opening;
 pub(super) mod panes;
 pub(super) mod preview;
+mod search;
 mod tree;
 mod worker;
 use crate::{Service, horizontal, spinner, workspace::Arrangement};
@@ -20,11 +21,15 @@ use worker::Worker;
 
 impl crate::Screen {
     pub(super) fn poll_browser(&mut self) -> bool {
-        if let crate::Mode::Browser(session) = &mut self.mode {
+        let changed = if let crate::Mode::Browser(session) = &mut self.mode {
             session.poll(&self.service) | session.animate()
         } else {
             false
+        };
+        if matches!(self.mode, crate::Mode::Browser(_)) {
+            self.sync_plain_bar();
         }
+        changed
     }
     pub(super) fn open_browser_diff(&mut self) {
         let crate::Mode::Browser(session) = &self.mode else {

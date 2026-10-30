@@ -16,6 +16,7 @@ pub(crate) enum Document {
         gutter: usize,
     },
     Image(Box<crate::preview::View>),
+    Notice(crate::links::Text),
 }
 fn document(text: crate::links::Text, gutter: usize) -> Document {
     let width = text.width();
@@ -35,13 +36,14 @@ fn plain(text: &str) -> String {
         .collect()
 }
 fn plain_source(text: &str, cancel: &Cancel) -> anyhow::Result<Vec<Line<'static>>> {
+    let digits = text.lines().count().to_string().len().max(4);
     text.lines()
         .enumerate()
         .map(|(i, line)| {
             cancel.check()?;
             Ok(Line::from(vec![
                 Span::styled(
-                    format!("{:>4}  ", i + 1),
+                    format!("{:>digits$}  ", i + 1),
                     Style::default().fg(Color::DarkGray),
                 ),
                 Span::raw(plain(line)),
@@ -56,7 +58,7 @@ pub(super) fn prepare(
     root: &std::path::Path,
     cancel: &Cancel,
 ) -> anyhow::Result<Document> {
-    let mut gutter = 0;
+    let gutter: usize;
     let text = match content {
         Content::Text { path, text } => {
             if let Opening::Text {
@@ -91,7 +93,7 @@ pub(super) fn prepare(
                         .map(|(index, line)| {
                             let end = line.text.trim_end_matches(['\n', '\r']).len();
                             let mut spans = vec![Span::styled(
-                                format!("{:>4}  ", index + 1),
+                                format!("{:>digits$}  ", index + 1, digits = gutter - 2),
                                 Style::default().fg(Color::DarkGray),
                             )];
                             for token in line.tokens {
@@ -139,16 +141,34 @@ pub(super) fn prepare(
                 image, cancel,
             )?)));
         }
-        Content::Symlink(target) => Text::from(format!(
-            "{} → {}",
-            i18n::tr!(BrowserSymlink),
-            crate::view::safe(&target.to_string_lossy())
-        )),
-        Content::Missing => Text::from(i18n::tr!(BrowserMissing)),
-        Content::Binary => Text::from(i18n::tr!(BrowserBinary)),
-        Content::TooLarge => Text::from(i18n::tr!(BrowserTooLarge)),
-        Content::Special => Text::from(i18n::tr!(BrowserSpecialFile)),
-        Content::Directory => Text::from(i18n::tr!(BrowserDirectory)),
+        Content::Symlink(target) => {
+            return Ok(Document::Notice(crate::links::Text::new(
+                Text::from(format!(
+                    "{} → {}",
+                    i18n::tr!(BrowserSymlink),
+                    crate::view::safe(&target.to_string_lossy())
+                )),
+                &[],
+            )));
+        }
+        Content::Missing
+        | Content::Binary
+        | Content::TooLarge
+        | Content::Special
+        | Content::Directory => {
+            let message = match content {
+                Content::Missing => i18n::tr!(BrowserMissing),
+                Content::Binary => i18n::tr!(BrowserBinary),
+                Content::TooLarge => i18n::tr!(BrowserTooLarge),
+                Content::Special => i18n::tr!(BrowserSpecialFile),
+                Content::Directory => i18n::tr!(BrowserDirectory),
+                _ => unreachable!(),
+            };
+            return Ok(Document::Notice(crate::links::Text::new(
+                Text::from(message),
+                &[],
+            )));
+        }
     };
     Ok(document(crate::links::Text::new(text, &[]), gutter))
 }

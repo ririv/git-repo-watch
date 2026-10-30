@@ -195,6 +195,7 @@ fn preview(
                     preview: &view.preview,
                     position: &mut view.position,
                     layout: &mut view.layout,
+                    find: &view.find,
                 }
             }
             None => {
@@ -203,6 +204,7 @@ fn preview(
                     preview: &view.preview,
                     position: &mut view.position,
                     layout: &mut view.layout,
+                    find: &view.find,
                 }
             }
         };

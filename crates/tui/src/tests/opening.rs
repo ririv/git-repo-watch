@@ -73,18 +73,12 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
         for (width, height) in [(150, 32), (48, 12), (24, 8), (1, 1), (150, 32)] {
             render(&mut s, width, height);
             ready(&mut s);
-            let visible = s.body_area.is_some_and(|area| !area.is_empty());
             let Some(Document::Text { text, .. }) = session(&mut s).pane().preview.document()
             else {
                 panic!("Markdown layout")
             };
-            if visible {
-                assert!(
-                    text.lines
-                        .iter()
-                        .all(|line| line.width() <= usize::from(width.max(1)))
-                );
-            }
+            // 缩放只重排视觉行，文档仍保留完整的逻辑文本供定位与复制。
+            assert!(text.to_string().contains("文档 Title"));
         }
         s.shutdown();
     }

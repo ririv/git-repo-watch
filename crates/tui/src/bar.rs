@@ -112,7 +112,8 @@ impl Screen {
         if matches!(
             (&self.bar, searchable),
             (InputBar::CommandsOnly, true) | (InputBar::Search(_), false)
-        ) {
+        ) || matches!((&self.mode, &self.bar), (Mode::Browser(session), InputBar::Search(editor)) if searchable && editor.text != session.input_query())
+        {
             self.sync_bar();
         }
     }
@@ -123,7 +124,7 @@ impl Screen {
         }
         let query = match &self.mode {
             Mode::Browsing => self.query.clone(),
-            Mode::Browser(session) => session.query.clone(),
+            Mode::Browser(session) => session.input_query().to_owned(),
             Mode::History(view) => view.query().to_owned(),
             Mode::Stashes(view) => view.session().query.clone(),
             Mode::Branches(view) => view.session().query.clone(),
@@ -150,7 +151,7 @@ impl Screen {
         {
             let query = editor.text.clone();
             match &mut self.mode {
-                Mode::Browser(session) => session.search(query),
+                Mode::Browser(session) => session.search_input(query),
                 Mode::Stashes(view) => view.search(query),
                 Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
@@ -567,7 +568,7 @@ impl Screen {
         let path = self.selected_path();
         self.bar = InputBar::default();
         match &mut self.mode {
-            Mode::Browser(session) => session.search(String::new()),
+            Mode::Browser(session) => session.search_input(String::new()),
             Mode::Panel(_) => {}
             Mode::Stashes(view) => view.search(String::new()),
             Mode::Branches(view) => view.search(String::new()),

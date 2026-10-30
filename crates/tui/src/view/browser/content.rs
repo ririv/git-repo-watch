@@ -8,6 +8,7 @@ pub(super) struct View<'a> {
     pub preview: &'a Preview,
     pub position: &'a mut crate::browser::opening::Position,
     pub layout: &'a mut crate::flow::Cache,
+    pub find: &'a crate::search::text::Index,
 }
 pub(super) struct Options<'a> {
     pub spinner: &'a str,
@@ -27,6 +28,7 @@ pub(super) fn render(
         preview,
         position,
         layout: text_layout,
+        find,
     } = view;
     let area = layout.frame;
     let inner = layout.content;
@@ -44,7 +46,18 @@ pub(super) fn render(
                 width,
                 gutter,
             } => {
-                position.horizontal.constrain(if wrap {
+                let rendered = mode == crate::browser::opening::TextMode::Preview;
+                let wrapping = if rendered {
+                    crate::flow::Wrapping::Words
+                } else if wrap {
+                    crate::flow::Wrapping::Cells
+                } else {
+                    crate::flow::Wrapping::Off
+                };
+                if !text_layout.is_current(usize::from(inner.width), wrapping) {
+                    position.find.reveal();
+                }
+                position.horizontal.constrain(if wrap || rendered {
                     0
                 } else {
                     width.saturating_sub(inner.width as usize)
@@ -53,9 +66,30 @@ pub(super) fn render(
                     text,
                     inner.width as usize,
                     *gutter,
-                    wrap,
+                    wrapping,
                     &mut position.scroll,
                 );
+                if let Some(hit) = find.take_reveal(&mut position.find)
+                    && let Some(row) = layout.row_at(hit.line, hit.columns.start)
+                {
+                    if row < position.scroll || row >= position.scroll + usize::from(inner.height) {
+                        position.scroll = row.saturating_sub(usize::from(inner.height) / 2);
+                    }
+                    let columns = &layout.rows[row].columns;
+                    let start = hit.columns.start.saturating_sub(columns.start);
+                    let end = hit
+                        .columns
+                        .end
+                        .min(columns.end)
+                        .saturating_sub(columns.start);
+                    let available = usize::from(inner.width).saturating_sub(*gutter);
+                    let offset = position.horizontal.offset();
+                    if start < offset || end.saturating_sub(start) > available {
+                        position.horizontal.seek(start);
+                    } else if end > offset + available {
+                        position.horizontal.seek(end.saturating_sub(available));
+                    }
+                }
                 position.scroll = position
                     .scroll
                     .min(layout.rows.len().saturating_sub(inner.height as usize));
@@ -72,6 +106,15 @@ pub(super) fn render(
                         &row.line,
                         (*gutter).min(inner.width as usize),
                         position.horizontal.offset(),
+                    );
+                    crate::search::text::paint(
+                        frame,
+                        Rect::new(inner.x, inner.y + index as u16, inner.width, 1),
+                        row,
+                        *gutter,
+                        position.horizontal.offset(),
+                        find,
+                        &position.find,
                     );
                 }
                 crate::scrollbar::vertical(frame, area, inner, layout.rows.len(), position.scroll);
@@ -100,6 +143,7 @@ pub(super) fn render(
                     graphics,
                 );
             }
+            Document::Notice(text) => hits.links.paragraph(frame, inner, text, 0),
         },
         Preview::Loading(_) if loading_visible => frame.render_widget(
             Paragraph::new(format!("{} {}", spinner, i18n::tr!(BrowserReading)))

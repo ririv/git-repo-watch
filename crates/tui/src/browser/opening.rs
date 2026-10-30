@@ -106,6 +106,7 @@ impl OpenTarget {
 pub(crate) struct Position {
     pub scroll: usize,
     pub horizontal: horizontal::Viewport,
+    pub find: crate::search::text::Draft,
 }
 #[derive(Debug)]
 pub(super) struct Memory {

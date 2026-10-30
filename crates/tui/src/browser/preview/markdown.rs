@@ -12,7 +12,7 @@ pub(super) fn prepare(
     let mut lines = Vec::new();
     for line in text.lines {
         cancel.check()?;
-        lines.extend(line.wrap(usize::from(width.max(1)), true));
+        lines.push(line);
     }
     Ok(crate::links::Text { lines })
 }
