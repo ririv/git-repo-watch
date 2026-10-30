@@ -6,6 +6,7 @@ mod input;
 pub(crate) mod options;
 pub(crate) mod path;
 mod prefix;
+pub(crate) mod scan;
 mod summary;
 #[cfg(test)]
 mod tests;
@@ -78,10 +79,7 @@ pub enum Action {
     RepositoryRefresh,
     Add,
     Remove,
-    Exclude,
-    Unexclude,
     Scan,
-    Import,
     Interval,
     Anchor,
     Autopush,
@@ -473,24 +471,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::UnregisterRepositoryKeepFilesOnDisk,
     },
     Command {
-        name: "repos exclude",
-        action: Exclude,
-        description: i18n::Message::ExcludeDirectoryAndUnregisterRepositoriesWithinIt,
-    },
-    Command {
-        name: "repos unexclude",
-        action: Unexclude,
-        description: i18n::Message::RemoveDirectoryExclusionWithoutImporting,
-    },
-    Command {
         name: "repos scan",
         action: Scan,
         description: i18n::Message::PreviewScanUsingGitIgnoreRules,
-    },
-    Command {
-        name: "repos import",
-        action: Import,
-        description: i18n::Message::ScanAndImportRepositoryList,
     },
     Command {
         name: "schedule interval",
@@ -696,7 +679,7 @@ impl Configuration {
                 Workflow(engine::workflow::Trigger::Startup),
                 WrapMenu,
             ],
-            Self::Repositories => &[Add, Remove, Exclude, Unexclude, Scan, Import],
+            Self::Repositories => &[Add, Remove, Scan],
             Self::Schedule => match registration {
                 engine::scheduler::Registration::Loaded => &[
                     DisableSchedule,

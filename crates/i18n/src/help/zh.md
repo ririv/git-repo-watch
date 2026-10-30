@@ -160,8 +160,9 @@
 - `/repo check` 检查当前仓库，`/repos check` 检查全部注册仓库；直接开始，无需确认，也不推送。
 - 检查在后台进行，可继续浏览、搜索和查看文件；旋转标记指示正在检查的仓库，未完成的保留上轮状态。
 - `/cancel` 优先取消当前仓库任务，无当前任务时取消整轮检查；独立仓库并行，共享 Git 存储的操作串行。配置读改写使用短事务。
-- `/repo` 打开选中仓库的概览，所有仓库视图和操作归入其下；`/repos` 返回仓库列表，`/repos manage` 查看注册和排除配置；也可直接使用：`/repos add <path>`、`/repos remove`、`/repos exclude <path>`、`/repos unexclude <path>`。
-- `/repos scan <path>` 预览发现结果，`/repos import <path>` 注册发现的仓库；扫描遵守 Git 忽略规则。
+- `/repo` 打开选中仓库，`/repos` 返回列表；`/repos manage` 管理已添加的仓库。`/repos add <path>` 添加单个仓库，`/repos remove` 移除当前注册项。
+- `/repos scan <path> [--exclude <path>…]` 扫描后勾选要添加的仓库，确认“添加选中”后保存。已添加项单独标明；读取失败项不能添加，可查看原因。`Space`／`Insert` 勾选，`Ctrl+A` 全选匹配的新仓库，`Tab` 切换列表与操作，`Enter` 执行，`Esc` 返回。
+- 一个 `--exclude` 可跟多个目录，如 `/repos scan ~/Proj --exclude backups archive "归档 项目"`。相对路径以扫描起点为基准，路径逐个支持 Tab 补全。排除和取消勾选均仅本次生效，不保存长期规则。
 - `/settings concurrency <count>` 设置有界并发数，范围为 1 至 32。
 - 流程编辑页勾选步骤即可加入，取消勾选即可移除；`↑↓` 选择步骤与底部保存、取消，`Enter`／空格操作当前项，`←→` 选择独立“操作”面板中的上移、下移。点击步骤也可直接勾选，保存后生效。
 - `/settings startup` 编辑启动任务的执行流程；`/settings startup enabled [true|false]` 控制是否启动时执行，默认 true。

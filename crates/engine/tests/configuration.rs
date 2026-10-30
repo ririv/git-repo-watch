@@ -153,6 +153,7 @@ chinese_command_trigger = true # 中文输入
     assert_eq!(
         next,
         text.replace("check_on_startup = true", "check_on_startup = false")
+            .replace("excluded_roots = []\n", "")
     );
     assert_eq!(store.config().unwrap(), config);
     config
@@ -477,4 +478,31 @@ fn file_icons_default_on_and_only_explicit_changes_extend_older_configuration() 
     );
     service.configure(ConfigEdit::FileIcons(true)).unwrap();
     assert!(store.config().unwrap().file_icons);
+}
+
+#[test]
+fn retiring_exclusions_preserves_registered_paths_comments_and_other_preferences() {
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let mut config = store.config().unwrap();
+    config.repositories = vec!["/example/keep".into()];
+    config.check_on_startup = false;
+    store.save_config(&config).unwrap();
+    let current = fs::read_to_string(store.config_path()).unwrap();
+    let legacy = format!("# 用户备注\nexcluded_roots = [\"/example/old\"]\n{current}");
+    fs::write(store.config_path(), &legacy).unwrap();
+    assert_eq!(store.config().unwrap(), config);
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
+    assert!(matches!(
+        store.migrate_configuration(&Cancel::default()).unwrap(),
+        ConfigurationMigration::Converted
+    ));
+    let migrated = fs::read_to_string(store.config_path()).unwrap();
+    assert!(!migrated.contains("excluded_roots"));
+    assert!(migrated.contains("# 用户备注"));
+    assert_eq!(store.config().unwrap(), config);
+    assert!(matches!(
+        store.migrate_configuration(&Cancel::default()).unwrap(),
+        ConfigurationMigration::Ready
+    ));
 }

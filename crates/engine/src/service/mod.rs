@@ -66,7 +66,6 @@ pub struct Snapshot {
     pub startup_actions: crate::workflow::Plan,
     pub scheduled_actions: crate::workflow::Plan,
     pub repository_count: usize,
-    pub excluded_roots: Vec<PathBuf>,
     pub schedule: Schedule,
     pub report: CachedReport,
     pub max_concurrency: usize,
@@ -101,16 +100,9 @@ impl Service {
         self.session_repository.as_deref()
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum ScanMode {
-    Preview,
-    Import,
-}
 #[derive(Debug, Clone)]
 pub enum ConfigEdit {
     Remove(PathBuf),
-    Exclude(PathBuf),
-    Unexclude(PathBuf),
     Interval(u64),
     Anchor(crate::scheduler::timing::Anchor),
     Policy(PushPolicy),

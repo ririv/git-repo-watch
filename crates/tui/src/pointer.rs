@@ -4,6 +4,7 @@ use ratatui::layout::{Position, Rect};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Target {
+    Management,
     CompositionCommits,
     CompositionUnits,
     Browser,
@@ -38,6 +39,8 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    Management(crate::management::Action),
+    ManagementToggle(usize),
     BrowserDirectory(usize),
     PushRemote(usize),
     HistoryMenu(crate::history::menu::PointerInput),

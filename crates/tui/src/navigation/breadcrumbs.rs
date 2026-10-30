@@ -74,6 +74,12 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
             },
         ),
         Page::Configuration(_) if matches!(mode, Mode::Workflow(_)) => {}
+        Page::Configuration(_) if matches!(mode, Mode::Management(_)) => {
+            let Mode::Management(session) = mode else {
+                unreachable!()
+            };
+            push(session.title().into(), Level::Page);
+        }
         Page::Configuration(section) => push(section.title().into(), Level::Page),
         Page::Help => push(i18n::tr!(Help).into(), Level::Page),
     }

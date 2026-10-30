@@ -1,11 +1,6 @@
 //! Explicit command workflows over application services.
 use super::super::*;
-use engine::{
-    local::files::IndexAction,
-    service::{ConfigEdit, ScanMode},
-    state,
-};
-use std::path::Path;
+use engine::{local::files::IndexAction, service::ConfigEdit, state};
 impl Screen {
     pub(crate) fn activate(
         &mut self,
@@ -146,8 +141,7 @@ impl Screen {
             }
             Action::Repositories => self.open_repository_list(path),
             Action::RepositorySettings => {
-                self.focus(path);
-                self.open_configuration(Configuration::Repositories);
+                self.open_management();
             }
             Action::Settings => self.open_configuration(Configuration::General),
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
@@ -308,8 +302,9 @@ impl Screen {
             }
             Action::Remove => {
                 if let Some(path) = path {
+                    let origin = Box::new(self.take_mode());
                     self.mode = Mode::Confirm {
-                        operation: Confirmation::Remove(path),
+                        operation: Confirmation::Remove { path, origin },
                         choice: Default::default(),
                     }
                 } else {
@@ -515,16 +510,19 @@ impl Screen {
                     ))
                 },
             ),
-            Confirmation::Remove(path) => self.start(
-                i18n::tr!(UnregisterRepository),
-                Effect::Configuration,
-                move |s, _, _| {
-                    s.configure(ConfigEdit::Remove(path))?;
-                    Ok(Outcome::Text(
-                        i18n::tr!(RepositoryUnregisteredFilesRetained).into(),
-                    ))
-                },
-            ),
+            Confirmation::Remove { path, origin } => {
+                self.mode = *origin;
+                self.start(
+                    i18n::tr!(UnregisterRepository),
+                    Effect::Configuration,
+                    move |s, _, _| {
+                        s.configure(ConfigEdit::Remove(path))?;
+                        Ok(Outcome::Text(
+                            i18n::tr!(RepositoryUnregisteredFilesRetained).into(),
+                        ))
+                    },
+                );
+            }
             Confirmation::Configure {
                 command,
                 value,
@@ -547,20 +545,6 @@ impl Screen {
                             Parameter::Add => {
                                 i18n::tf!(AddedRepositories, s.add(&[PathBuf::from(value)])?)
                             }
-                            Parameter::Scan | Parameter::Import => {
-                                let report = s.scan(
-                                    Path::new(&value),
-                                    if command == Parameter::Scan {
-                                        ScanMode::Preview
-                                    } else {
-                                        ScanMode::Import
-                                    },
-                                    &c,
-                                )?;
-                                i18n::tf!(FoundRepositoriesScanSaved, report.repositories.len())
-                            }
-                            Parameter::Exclude => save(ConfigEdit::Exclude(value.into()))?,
-                            Parameter::Unexclude => save(ConfigEdit::Unexclude(value.into()))?,
                             Parameter::Interval => {
                                 save(ConfigEdit::Interval(state::interval(&value)?))?
                             }

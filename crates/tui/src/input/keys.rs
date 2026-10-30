@@ -41,7 +41,8 @@ impl Screen {
                 }
             }
             Mode::CommitMessage { .. } => {}
-            Mode::Browsing
+            Mode::Management(_)
+            | Mode::Browsing
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
@@ -155,6 +156,7 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::Management(session) => self.management_key(session, key),
             Mode::PushTarget(session) => self.push_target_key(session, key),
             Mode::CompositionWaiting(waiting) => self.composition_waiting_key(waiting, key),
             Mode::Composition(session) => self.compose_key(session, key, root),
@@ -418,7 +420,8 @@ impl Screen {
                             self.message.clear();
                             return Ok(false);
                         }
-                        Confirmation::Schedule(_) | Confirmation::Remove(_) => Mode::Browsing,
+                        Confirmation::Remove { origin, .. } => *origin,
+                        Confirmation::Schedule(_) => Mode::Browsing,
                     };
                     self.message.clear();
                     if matches!(self.page, Page::View(_)) && matches!(self.mode, Mode::Browsing) {

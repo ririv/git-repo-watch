@@ -136,6 +136,9 @@ impl Screen {
             self.scroll = 0;
         }
         self.merge_mutation_view(latest);
+        if let Mode::Management(session) = &mut self.mode {
+            session.refresh(&self.config.repositories);
+        }
         if self.page == Page::Detail
             && let Mode::Panel(section) = self.mode
         {

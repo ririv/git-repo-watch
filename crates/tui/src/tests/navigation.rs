@@ -200,7 +200,11 @@ fn application_pages_restore_the_full_view_and_pane_search() {
     for name in ["settings", "schedule", "repos manage", "help"] {
         s.paste(&format!("//{name}"));
         key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(if name == "repos manage" {
+            matches!(s.mode, Mode::Management(_))
+        } else {
+            matches!(s.mode, Mode::Browsing)
+        });
         key(&mut s, KeyCode::Esc);
         if !matches!(s.mode, Mode::Changes(_)) {
             key(&mut s, KeyCode::Esc);

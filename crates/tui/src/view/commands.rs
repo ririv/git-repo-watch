@@ -148,7 +148,8 @@ fn render_menu(
     };
     if !matches!(
         screen.mode,
-        Mode::Browsing
+        Mode::Management(_)
+            | Mode::Browsing
             | Mode::Composition(_)
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)

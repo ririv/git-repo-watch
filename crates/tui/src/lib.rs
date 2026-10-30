@@ -1,4 +1,5 @@
 //! Terminal adapter over UI-independent services and typed interaction states.
+mod management;
 mod startup;
 pub use startup::Start;
 mod bar;
@@ -91,6 +92,7 @@ enum Page {
 }
 #[derive(Debug)]
 enum Mode {
+    Management(Box<management::Session>),
     Workflow(Box<workflow::Session>),
     PromptEditor(Box<prompt_editor::Session>),
     Composition(Box<composition::Session>),
@@ -151,7 +153,10 @@ enum Confirmation {
         draft: bar::CommandDraft,
     },
     Schedule(engine::scheduler::Control),
-    Remove(PathBuf),
+    Remove {
+        path: PathBuf,
+        origin: Box<Mode>,
+    },
     Configure {
         command: command::ConfigArgument,
         value: String,
@@ -194,6 +199,8 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    Scanned(Box<engine::discovery::Report>),
+    RegistrationsAdded(usize),
     Opened(Box<navigation::Content>),
     BrowserDiff {
         files: FileSession,
@@ -374,6 +381,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::Management(session) = &self.mode {
+            return session.registered_path().map(std::path::Path::to_owned);
+        }
         if let Mode::CompositionWaiting(waiting) = &self.mode {
             return Some(waiting.path.clone());
         }

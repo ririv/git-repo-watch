@@ -391,6 +391,10 @@ pub(crate) fn outcome(
 ) -> engine::tasks::Outcome {
     let outcome = engine::tasks::Outcome::capture(result, cancel, |value| match value {
         Outcome::Text(text) => text.clone(),
+        Outcome::Scanned(report) => {
+            format!("{} · {}", i18n::tr!(ScanResults), report.repositories.len())
+        }
+        Outcome::RegistrationsAdded(count) => i18n::tf!(AddedRepositories, count),
         Outcome::Committed(value) => format!("{value:#?}"),
         Outcome::Composed(prepared) => format!(
             "{}: {}\n{}: {}",

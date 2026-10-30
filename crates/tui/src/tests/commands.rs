@@ -224,7 +224,7 @@ fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope()
     )
     .unwrap();
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == &PathBuf::from("/example/alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from("/example/alpha"))
     );
     key(&mut s, KeyCode::Esc);
     assert_eq!(

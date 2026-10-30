@@ -94,13 +94,6 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         row += height;
         lines.push(line);
     }
-    if section == Configuration::Repositories {
-        lines.push(Line::from(""));
-        lines.push(Line::from(i18n::tr!(ExcludedDirectories)));
-        for path in &screen.config.excluded_roots {
-            lines.push(Line::from(safe(&path.to_string_lossy())))
-        }
-    }
     let (selected_row, selected_height) = item_rows
         .iter()
         .find(|(index, _, _)| *index == screen.setting_selected)

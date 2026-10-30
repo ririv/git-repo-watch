@@ -8,6 +8,16 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::Management(action) => {
+                self.management_action(action);
+            }
+            Action::ManagementToggle(index) => {
+                let Mode::Management(session) = &mut self.mode else {
+                    return false;
+                };
+                session.state.select(Some(index));
+                session.toggle(index);
+            }
             Action::BrowserDirectory(depth) => {
                 let Mode::Browser(session) = &mut self.mode else {
                     return false;
@@ -62,6 +72,13 @@ impl Screen {
                     return false;
                 }
                 match target {
+                    Target::Management => {
+                        if let Mode::Management(session) = &mut self.mode {
+                            *session.state.offset_mut() = offset;
+                        } else {
+                            return false;
+                        }
+                    }
                     Target::CompositionCommits | Target::CompositionUnits => {
                         if let Mode::Composition(session) = &mut self.mode {
                             match target {
@@ -144,6 +161,17 @@ impl Screen {
             }
 
             Action::Select(target, index) => match target {
+                Target::Management => {
+                    let Mode::Management(session) = &mut self.mode else {
+                        return false;
+                    };
+                    if index >= session.rows().len() {
+                        return false;
+                    }
+                    session.state.select(Some(index));
+                    session.focus = crate::management::Focus::List;
+                }
+
                 Target::ReplayParent => {
                     let Mode::Confirm {
                         operation:

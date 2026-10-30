@@ -274,8 +274,8 @@ fn bare_tilde_and_ambiguous_components_complete_from_home_without_losing_the_suf
         let Menu::Directories(menu) = super::complete(&mut input, temp.path()).unwrap() else {
             panic!("ambiguous home children")
         };
-        assert_eq!(input.text, "/repos scan ~/仓库 ");
-        assert!(menu.choose().text.starts_with("/repos scan ~/仓库 "));
+        assert_eq!(input.text, "/repos scan \"~/仓库 \"");
+        assert!(menu.choose().text.starts_with("/repos scan \"~/仓库 "));
     }
     let mut input = Editor::new("/repos scan \"~/仓wrong/保留 后缀\"".into());
     input.cursor = input.text.find("wrong").unwrap();
@@ -292,7 +292,7 @@ fn bare_tilde_and_ambiguous_components_complete_from_home_without_losing_the_suf
 fn tilde_errors_preserve_the_draft_instead_of_using_another_directory() {
     let temp = directories(&[]);
     for typed in ["~someone/Proj", "~someone", "~/missing/", "~/unknown"] {
-        let mut input = Editor::new(format!("/repos import {typed}"));
+        let mut input = Editor::new(format!("/repos scan {typed}"));
         let before = input.text.clone();
         assert!(super::complete(&mut input, temp.path()).is_err());
         assert_eq!(input.text, before);
@@ -310,4 +310,77 @@ fn tab_before_the_home_separator_does_not_replace_the_home_marker_or_the_suffix(
         Menu::Commands
     ));
     assert_eq!(input.text, before);
+}
+
+#[test]
+fn scan_completion_updates_only_the_active_relative_exclusion_and_preserves_other_arguments() {
+    let temp = directories(&["backup", "中文 归档", "archive"]);
+    let raw = format!(
+        "/repos scan \"{}\" --exclude ba archive",
+        temp.path().display()
+    );
+    let mut input = Editor::new(raw.clone());
+    input.cursor = raw.find("--exclude ba").unwrap() + "--exclude ba".len();
+    assert!(matches!(complete(&mut input).unwrap(), Menu::Commands));
+    assert_eq!(
+        input.text,
+        format!(
+            "/repos scan \"{}\" --exclude backup/ archive",
+            temp.path().display()
+        )
+    );
+    assert_eq!(&input.text[input.cursor..], " archive");
+    input.text = format!(
+        "/repos scan \"{}\" --exclude backup/ 中",
+        temp.path().display()
+    );
+    input.cursor = input.text.len();
+    complete(&mut input).unwrap();
+    assert!(input.text.ends_with("--exclude backup/ \"中文 归档/\""));
+    let (_, raw) = super::super::argument_input(input.text.strip_prefix('/').unwrap()).unwrap();
+    let request = super::super::scan::request(raw, Path::new("/example/user-home")).unwrap();
+    assert_eq!(
+        request.excluded,
+        [PathBuf::from("backup/"), PathBuf::from("中文 归档/")]
+    );
+}
+
+#[test]
+fn scan_flag_and_home_completion_support_multiple_paths_without_expanding_shell_syntax() {
+    let temp = directories(&["Proj", "中文 仓库"]);
+    fs::create_dir(temp.path().join("Proj/backup")).unwrap();
+    let mut input = Editor::new("/repos scan ~/Proj --ex".into());
+    super::complete(&mut input, temp.path()).unwrap();
+    assert_eq!(input.text, "/repos scan ~/Proj --exclude ");
+    super::complete(&mut input, temp.path()).unwrap();
+    assert_eq!(input.text, "/repos scan ~/Proj --exclude backup/");
+    input.text.push_str(" ~/中文");
+    input.cursor = input.text.len();
+    super::complete(&mut input, temp.path()).unwrap();
+    assert_eq!(
+        input.text,
+        "/repos scan ~/Proj --exclude backup/ \"~/中文 仓库/\""
+    );
+    let request = super::super::scan::request(
+        input.text.strip_prefix("/repos scan ").unwrap(),
+        temp.path(),
+    )
+    .unwrap();
+    assert_eq!(request.root, temp.path().join("Proj"));
+    assert_eq!(request.excluded[1], temp.path().join("中文 仓库"));
+    let request = super::super::scan::request(
+        "'/tmp/$(literal)' --exclude '$HOME' \"中文 目录\"",
+        temp.path(),
+    )
+    .unwrap();
+    assert_eq!(request.root, Path::new("/tmp/$(literal)"));
+    assert_eq!(request.excluded[0], Path::new("$HOME"));
+    for input in [
+        "/tmp --exclude",
+        "'/tmp",
+        "/tmp --exclude 'open",
+        "/tmp --unknown dir",
+    ] {
+        assert!(super::super::scan::request(input, temp.path()).is_err());
+    }
 }

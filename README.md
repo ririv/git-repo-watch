@@ -76,27 +76,23 @@ interval_seconds = 21600
 repositories = [
     "/absolute/path/to/repository",
 ]
-excluded_roots = []
 push_policy = "disabled"
 max_concurrency = 4
 check_on_startup = true
 chinese_command_trigger = true
 ```
 
-仓库与排除目录以规范绝对路径保存，路径参数可使用 `~` 或 `~/…` 表示当前用户主目录。仓库列表显式维护，检查不会重新扫描发现目录。已排除目录下的仓库不能注册。
+仓库以规范绝对路径保存，路径参数可使用 `~` 或 `~/…` 表示当前用户主目录。仓库列表显式维护，检查不会重新扫描发现目录。扫描排除仅对本次请求生效，不保存为配置，也不限制手动添加仓库。旧配置中的 `excluded_roots` 会在配置迁移时移除，已注册仓库保持不变。
 
 - `interval_seconds`：检查间隔，内部保存为秒，范围为 60 至 2147483647 秒。命令支持 `s`、`m`、`h`、`d`、`w`（秒、分、小时、天、周），以及 `90秒`、`30分钟`、`6小时` 等中文写法；界面使用 `6h`、`1d`、`1w` 等紧凑值。修改后运行 `gw schedule apply` 应用系统调度。
 - `schedule_anchor`：可选的时间基准表，包含 `source`（`automatic` 或 `explicit`）和 `at`（本地日期时间，例如 `2026-10-23T00:00:00`）。缺省时首次启用会自动生成并保存；修改间隔、重启、重复安装、停用后再启用都会沿用已有基准。
 - `repositories`：仓库根目录列表，包括通过 `.git` 文件关联的工作区与子模块。
-- `excluded_roots`：排除目录；其下的注册项会在排除操作时移除。
 - `push_policy`：定时任务的自动推送策略；`disabled` 只检查，`fast_forward` 允许受控自动推送。
 - `max_concurrency`：并发检查上限，1 至 32。旧配置缺少该字段时保持兼容，默认 4。
 
 ```sh
 gw add /absolute/path/to/repository
 gw remove /absolute/path/to/repository
-gw exclude /absolute/path/to/excluded
-gw unexclude /absolute/path/to/excluded
 gw interval 6h
 gw concurrency 4
 gw autopush fast_forward
@@ -245,7 +241,8 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 
 带参数的命令直接在常驻输入栏填写，不打开独立表单：
 
-- `/repos add <path>`、`/repos exclude <path>`、`/repos unexclude <path>`、`/repos scan <path>`、`/repos import <path>`。
+- `/repos add <path>` 添加单个仓库；`/repos scan <path> [--exclude <path>…]` 扫描后展示可勾选的仓库列表，确认“添加选中”后写入注册列表。已添加项单独标明，读取失败项显示原因。取消勾选只影响本次添加。
+- `/repos manage` 列出已注册仓库，支持搜索和添加、扫描、移除；不再维护永久排除目录。
 - `/schedule interval <duration>`，例如 `/schedule interval 6h`、`/schedule interval 1w`。
 - `/schedule anchor [<datetime>|auto]`，例如 `/schedule anchor 00:00`（今天零点）、`/schedule anchor 2026-10-23 00:00:00`；`auto` 清除基准，下一次启用时重新生成。CLI 对应 `gw anchor "2026-10-23 00:00:00"`。
 - `/schedule autopush [disabled|fast_forward]`，取值 `disabled` 或 `fast_forward`。
@@ -254,7 +251,7 @@ Linux 的 `/repo terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladi
 
 通用设置包含独立的“鼠标与触控板”分组，精确点击、滚轮滚动、选择子视图默认均开启，可分别关闭，保存后立即生效。精确点击按实际显示的行选择仓库、文件、分支、stash 和提交，点击横纵滚动条可定位。同一条目双击等同于选中后按 Enter，沿用现有导航和确认流程；标题、空白与滚动条不触发 Enter。关闭精确点击也会关闭双击。关闭“选择子视图”后，指针只操作已聚焦面板，不会因点击或滚动切换面板；键盘操作始终保留。配置保存在 TOML 的 `[mouse]` 表中，对应 `precise_click`、`scroll`、`select_pane`。
 
-候选中的参数占位符使用亮青色斜体，与命令名称区分。选中命令按 Enter 或 Tab，只补全名称并追加空格；继续输入参数，Enter 校验并预览确认。参数缺失或错误时保留原输入。确认返回时保留整条命令和光标位置；管理页中的编辑操作也会在原页面下方填入完整命令及当前值。路径使用命令之后的整段文本，可包含空格；可整段使用匹配的单引号或双引号包裹，不执行 Shell、变量展开、通配展开或反斜线转义。`/repos remove` 仍作用于当前选中仓库，不需要路径参数。
+候选中的参数占位符使用亮青色斜体，与命令名称区分。选中命令按 Enter 或 Tab，只补全名称并追加空格；继续输入参数，Enter 校验并预览确认。参数缺失或错误时保留原输入。确认返回时保留整条命令和光标位置；管理页中的编辑操作也会在原页面下方填入完整命令及当前值。单路径参数使用命令之后的整段文本，可包含空格；可整段使用匹配的单引号或双引号包裹，不执行 Shell、变量展开、通配展开或反斜线转义。扫描命令使用空格分隔参数，含空格的路径需加引号，支持引号和反斜线的字面转义；不会执行 Shell、变量或通配符。`/repos remove` 仍作用于当前选中仓库，不需要路径参数。
 
 TUI 和原生命令行的路径参数（包括 `--home`）均显式支持 `~` 和 `~/…`，使用当前进程 `HOME` 对应的用户主目录，与应用数据目录 `--home` 无关。例如 `/repos add ~/Proj`、`/repos scan "~/中文 目录"`。TUI 中单双引号包裹也会展开；输入栏补全后仍保留 `~/…`，确认预览与实际操作使用展开后的绝对路径，配置中不保存 `~`。仅展开开头独立的 `~`，路径中间的 `~`、`$HOME` 等仍为字面文本；不支持 `~user`。主目录缺失或无效时明确报错，不改用其他目录。
 
@@ -389,16 +386,18 @@ Git 命令默认超时 120 秒，SSH 禁止交互提示并限制连接等待。l
 
 ## 扫描模块
 
-`gw scan` 与 `gw import-tree` 使用独立扫描模块，不执行检查和推送。扫描范围外显式排除的目录不会进入；不沿目录符号链接递归。
+`gw scan` 与 `gw import-tree` 使用独立扫描模块，不执行检查和推送。本次 `--exclude` 指定的目录不会进入；不沿目录符号链接递归。
 
 未进入仓库前按目录寻找 `.git`。进入仓库后，由 libgit2 判断 `.gitignore`、`.git/info/exclude` 和全局排除规则，在进入被忽略目录前停止遍历。已跟踪路径和子模块 Git link 保留可达性；已跟踪目录下额外出现的忽略仓库不会因此暴露。
 
 支持嵌套仓库、空嵌套仓库、子模块和关联工作区，进入嵌套仓库后使用其自身规则。扫描普通子目录时继承所属仓库规则；显式以仓库根目录为起点时使用该仓库自身规则。无效 `.git` 文件单独报告，损坏关联工作区记录为失败并停止向内盲目遍历。
 
 ```sh
-gw scan /absolute/path/to/projects
-gw import-tree /absolute/path/to/projects
+gw scan ~/Proj --exclude backups archive "归档 项目"
+gw import-tree ~/Proj --exclude backups archive "归档 项目"
 ```
+
+排除目录由一个 `--exclude` 后的多个路径组成；相对路径以扫描起点为基准，也支持绝对路径和 `~/…`。路径必须指向扫描范围内的目录。TUI 的每个路径都支持 Tab 补全，编辑其中一个参数时保留其他参数。扫描本身不保存排除规则或扫描报告；CLI 的 `scan` 输出结果，`import-tree` 添加读取成功的仓库。
 
 ## 查询与数据
 

@@ -264,6 +264,15 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         }
         Mode::CommitMessage { editor, .. } if editor.focused() => i18n::tr!(CommitEditingHint),
         Mode::CommitMessage { .. } => i18n::tr!(CommitActionsHint),
+        Mode::Management(session)
+            if matches!(session.focus, crate::management::Focus::Actions(_)) =>
+        {
+            i18n::tr!(ScanActionsHint)
+        }
+        Mode::Management(session) => match session.source {
+            crate::management::Source::Managed => i18n::tr!(ManageHint),
+            crate::management::Source::Scan { .. } => i18n::tr!(ScanHint),
+        },
         Mode::Files(files) if matches!(files.cursor, crate::files::Cursor::Directory { .. }) => {
             i18n::tr!(DirectoryInputHint)
         }
@@ -353,7 +362,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         }
     } else {
         match mode {
-            Mode::Browsing
+            Mode::Management(_)
+            | Mode::Browsing
             | Mode::Composition(_)
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
@@ -468,13 +478,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         Confirmation::ReplayParents { .. } => {
                             unreachable!("parent chooser has its own footer")
                         }
-                        Confirmation::Remove(_) => i18n::tr!(ActionUnregister),
+                        Confirmation::Remove { path: _, .. } => i18n::tr!(ActionUnregister),
                         Confirmation::Configure { command, .. } => match command {
                             command::ConfigArgument::Add => i18n::tr!(ActionAdd),
-                            command::ConfigArgument::Exclude => i18n::tr!(ActionExclude),
-                            command::ConfigArgument::Unexclude => i18n::tr!(ActionUnexclude),
-                            command::ConfigArgument::Scan => i18n::tr!(ActionScan),
-                            command::ConfigArgument::Import => i18n::tr!(ActionImport),
                             _ => i18n::tr!(ActionSave),
                         },
                     },

@@ -136,7 +136,7 @@ fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove(path),..} if path==std::path::Path::new("/example/alpha"))
+        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path, .. },..} if path==std::path::Path::new("/example/alpha"))
     );
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.selected_path(), Some("/example/beta".into()));

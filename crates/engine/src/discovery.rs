@@ -1,6 +1,8 @@
 //! Git-ignore-aware discovery without walking ignored directory trees.
+mod request;
 use crate::{cancel::Cancel, local, state};
 use anyhow::{Context, Result, ensure};
+pub use request::Request;
 use serde::{Deserialize, Serialize};
 use std::{
     collections::BTreeMap,
@@ -109,10 +111,23 @@ fn marker(dir: &Path) -> Result<Marker> {
 pub fn discover(root: &Path, excluded: &[PathBuf], cancel: &Cancel) -> Result<Report> {
     let root = fs::canonicalize(root)?;
     ensure!(root.is_dir(), i18n::tr!(ScanRootIsNotADirectory));
+    let excluded = excluded
+        .iter()
+        .map(|path| {
+            let path = fs::canonicalize(if path.is_absolute() {
+                path.clone()
+            } else {
+                root.join(path)
+            })?;
+            ensure!(path.is_dir(), i18n::tr!(ScanRootIsNotADirectory));
+            ensure!(path.starts_with(&root), i18n::tr!(ScanExclusionOutsideRoot));
+            Ok(path)
+        })
+        .collect::<Result<Vec<_>>>()?;
     let mut report = Report {
         root: root.clone(),
         scanned_at: state::now(),
-        excluded_roots: excluded.to_vec(),
+        excluded_roots: excluded.clone(),
         repositories: Vec::new(),
         non_repository_markers: Vec::new(),
     };

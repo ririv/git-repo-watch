@@ -9,6 +9,7 @@ impl Screen {
             return Support::Unavailable;
         }
         match &self.mode {
+            Mode::Management(_) => Support::Filter,
             Mode::Browsing if self.page == Page::Repositories => Support::Both(self.search_mode),
             Mode::Browser(session) if session.focus == crate::browser::Focus::Tree => {
                 Support::Filter
@@ -184,7 +185,7 @@ impl Screen {
             Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
                 i18n::tr!(SearchTargetContent)
             }
-            Mode::Browsing => i18n::tr!(SearchTargetRepositories),
+            Mode::Browsing | Mode::Management(_) => i18n::tr!(SearchTargetRepositories),
             Mode::Browser(_) | Mode::Files(_) | Mode::Changes(_) => i18n::tr!(SearchTargetFiles),
             Mode::Branches(_) => i18n::tr!(SearchTargetBranches),
             Mode::Stashes(_) => i18n::tr!(SearchTargetStashes),

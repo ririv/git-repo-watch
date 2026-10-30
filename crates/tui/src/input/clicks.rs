@@ -85,6 +85,7 @@ impl Clicks {
 impl Screen {
     pub(super) fn clicked_identity(&self, target: Target) -> Option<Identity> {
         match target {
+            Target::Management => None,
             Target::ScheduleButton
             | Target::WorkflowSteps
             | Target::WorkflowToggle

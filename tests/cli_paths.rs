@@ -35,7 +35,6 @@ impl Fixture {
                 interval_seconds: 21600,
                 schedule_anchor: Default::default(),
                 repositories: vec![],
-                excluded_roots: vec![],
                 startup_actions: Default::default(),
                 scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
                 max_concurrency: 4,
@@ -86,14 +85,8 @@ fn literal_tilde_paths_expand_for_cli_config_discovery_and_single_checks() {
         f.store.config().unwrap().repositories.as_slice(),
         std::slice::from_ref(&canonical)
     );
-    f.success(&["exclude", "~/Proj"]);
-    let config = f.store.config().unwrap();
-    assert!(config.repositories.is_empty());
-    assert_eq!(
-        config.excluded_roots,
-        [fs::canonicalize(f.user_home.join("Proj")).unwrap()]
-    );
-    f.success(&["unexclude", "~/Proj"]);
+    f.success(&["remove", "~/Proj/仓库 空格"]);
+    f.success(&["scan", "~/Proj", "--exclude", "仓库 空格"]);
     f.success(&["scan", "~/Proj"]);
     assert!(f.store.config().unwrap().repositories.is_empty());
     f.success(&["import-tree", "~/Proj"]);
@@ -135,15 +128,7 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    for command in [
-        "add",
-        "remove",
-        "exclude",
-        "unexclude",
-        "scan",
-        "import-tree",
-        "check",
-    ] {
+    for command in ["add", "remove", "scan", "import-tree", "check"] {
         let output = f.run(&[command, "~someone/Proj"]);
         assert_eq!(output.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&output.stderr).contains("~user"));

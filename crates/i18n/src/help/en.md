@@ -160,8 +160,9 @@
 - `/repo check` checks the selected repository; `/repos check` checks every registered repository. Both start directly without pushing.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
 - `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
-- `/repo` opens the selected repository overview. All repository views and operations live under it. `/repos` returns to the repository list; `/repos manage` opens registration and exclusion settings. Direct commands: `/repos add <path>`, `/repos remove`, `/repos exclude <path>`, `/repos unexclude <path>`.
-- `/repos scan <path>` previews discovery; `/repos import <path>` registers discovered repositories. Scanning follows Git ignore rules.
+- `/repo` opens the selected repository; `/repos` returns to the list. `/repos manage` manages registrations; `/repos add <path>` adds one repository and `/repos remove` unregisters the selection.
+- `/repos scan <path> [--exclude <path>…]` scans and opens a selection review. Add selected registers checked repositories. Already added repositories are marked; unreadable entries show their error. Space/Insert toggles, Ctrl+A selects matching new repositories, Tab switches list/actions, Enter activates and Esc returns.
+- One `--exclude` accepts multiple directories: `/repos scan ~/Proj --exclude backups archive "old projects"`. Relative exclusions resolve against the scan root, and each path supports Tab completion. Exclusions and unchecked entries affect only this scan.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
 - In a workflow editor, check a step to include it or uncheck it to remove it. `↑↓` selects steps and the Save/Cancel buttons; `Enter`/Space activates the selection. `←→` selects reordering controls in the separate Actions panel. Clicking a step also toggles it. Save applies the draft.
 - `/settings startup` edits startup actions; `/settings startup enabled [true|false]` controls whether they run at startup (default true).

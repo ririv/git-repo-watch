@@ -473,7 +473,8 @@ impl Screen {
         };
         if !matches!(
             self.mode,
-            Mode::Browsing
+            Mode::Management(_)
+                | Mode::Browsing
                 | Mode::Browser(_)
                 | Mode::Panel(_)
                 | Mode::Stashes(_)
@@ -524,6 +525,9 @@ impl Screen {
     }
     fn pointer_focus(&mut self, event: MouseEvent) -> bool {
         let point = Position::new(event.column, event.row);
+        if matches!(self.mode, Mode::Management(_)) {
+            return self.body_area.is_some_and(|area| area.contains(point));
+        }
         if let Mode::History(view) = &mut self.mode
             && let crate::history::View::Commit(commit) = view.as_mut()
         {

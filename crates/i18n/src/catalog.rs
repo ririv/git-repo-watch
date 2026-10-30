@@ -2,6 +2,21 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ManageRemove,
+    ManageBack,
+    ScanUsage,
+    ScanExclusionOutsideRoot,
+    ScanResults,
+    ScanNew,
+    ScanRegistered,
+    ScanFailed,
+    ScanAddSelected,
+    ScanEmptySelection,
+    ScanHint,
+    ManageHint,
+    ScanActionsHint,
+    ScanTemporaryExclusions,
+
     PushConfirmationNeeded,
     PushTargetNeeded,
     PushRemoteRequired,
@@ -1145,6 +1160,44 @@ impl Message {
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
             }
+            (Self::ManageRemove, Language::English) => "Remove",
+            (Self::ManageRemove, Language::Chinese) => "移除",
+            (Self::ManageBack, Language::English) => "Back",
+            (Self::ManageBack, Language::Chinese) => "返回",
+            (Self::ScanUsage, Language::English) => "Usage: <path> [--exclude <path>…]",
+            (Self::ScanUsage, Language::Chinese) => "用法：<path> [--exclude <path>…]",
+            (Self::ScanExclusionOutsideRoot, Language::English) => {
+                "Excluded directories must be inside the scan root"
+            }
+            (Self::ScanExclusionOutsideRoot, Language::Chinese) => "排除目录必须位于扫描起点之下",
+            (Self::ScanResults, Language::English) => "Scan results",
+            (Self::ScanResults, Language::Chinese) => "扫描结果",
+            (Self::ScanNew, Language::English) => "Not added",
+            (Self::ScanNew, Language::Chinese) => "未添加",
+            (Self::ScanRegistered, Language::English) => "Added",
+            (Self::ScanRegistered, Language::Chinese) => "已添加",
+            (Self::ScanFailed, Language::English) => "Unreadable",
+            (Self::ScanFailed, Language::Chinese) => "读取失败",
+            (Self::ScanAddSelected, Language::English) => "Add selected",
+            (Self::ScanAddSelected, Language::Chinese) => "添加选中",
+            (Self::ScanEmptySelection, Language::English) => "Select repositories to add",
+            (Self::ScanEmptySelection, Language::Chinese) => "请勾选要添加的仓库",
+            (Self::ScanHint, Language::English) => {
+                "Space/Ins mark · Ctrl+A all · Tab actions · Enter select · Esc back"
+            }
+            (Self::ScanHint, Language::Chinese) => {
+                "Space/Ins 勾选 · Ctrl+A 全选 · Tab 操作 · Enter 确认 · Esc 返回"
+            }
+            (Self::ManageHint, Language::English) => "↑↓ select · / commands · Esc back",
+            (Self::ManageHint, Language::Chinese) => "↑↓选择 · / 命令 · Esc 返回",
+            (Self::ScanActionsHint, Language::English) => {
+                "←→ actions · Enter run · Tab list · Esc back"
+            }
+            (Self::ScanActionsHint, Language::Chinese) => {
+                "←→选择操作 · Enter 执行 · Tab 返回列表 · Esc 返回"
+            }
+            (Self::ScanTemporaryExclusions, Language::English) => "Skipped for this scan",
+            (Self::ScanTemporaryExclusions, Language::Chinese) => "本次跳过",
             (Self::PushConfirmationNeeded, Language::English) => {
                 "Push has not run: confirmation required. Run /repo push again to review."
             }
@@ -3098,7 +3151,7 @@ impl Message {
                     identity::command!(),
                     " [--home ABSOLUTE_PATH] [COMMAND]\nWithout a command, opens the current Git repository, or the repository list outside Git. Use ",
                     identity::command!(),
-                    " status for status queries.\n\n  tui                              Open the current repository, or the repository list\n  repos                            Always open the repository list\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  exclusions                       List excluded directories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  exclude PATH                     Exclude directory and unregister its repositories\n  unexclude PATH                   Remove exclusion\n  scan PATH                        Scan using Git ignore rules; save report\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Enable startup workflow (default true)\n  startup-actions STEPS...          Save startup action order\n  scheduled-actions STEPS...        Save scheduled action order\n  check [PATH]                     Check all, or one registered repository\n  scheduled-check                  Run the saved scheduled workflow\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries.\n\n  tui                              Open the current repository, or the repository list\n  repos                            Always open the repository list\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  scan PATH                        Scan repositories using Git ignore rules\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-check true|false          Enable startup workflow (default true)\n  startup-actions STEPS...          Save startup action order\n  scheduled-actions STEPS...        Save scheduled action order\n  check [PATH]                     Check all, or one registered repository\n  scheduled-check                  Run the saved scheduled workflow\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate [config|--from PATH]      Convert legacy JSON, or import a custom home into selected storage\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -3108,7 +3161,7 @@ impl Message {
                     identity::command!(),
                     " [--home 绝对路径] [命令]\n不传命令时打开当前 Git 仓库；非仓库目录进入仓库列表。状态查询使用 ",
                     identity::command!(),
-                    " status。\n\n  tui                              打开当前仓库，非仓库目录进入仓库列表\n  repos                            直接打开仓库列表首页\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  exclusions                        查看排除目录\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  exclude 路径                      排除目录并移除其下注册项\n  unexclude 路径                    取消排除\n  scan 路径                         按 Git 忽略规则扫描，写报告\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           启用启动流程（默认 true）\n  startup-actions STEPS...           保存启动步骤顺序\n  scheduled-actions STEPS...         保存定时步骤顺序\n  check [路径]                      检查全部或单个注册仓库\n  scheduled-check                   执行已保存的定时流程\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
+                    " status。\n\n  tui                              打开当前仓库，非仓库目录进入仓库列表\n  repos                            直接打开仓库列表首页\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  scan 路径                         按 Git 忽略规则扫描仓库\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置检查并发上限（1 至 32）\n  startup-check true|false           启用启动流程（默认 true）\n  startup-actions STEPS...           保存启动步骤顺序\n  scheduled-actions STEPS...         保存定时步骤顺序\n  check [路径]                      检查全部或单个注册仓库\n  scheduled-check                   执行已保存的定时流程\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate [config|--from 路径]        转换旧 JSON，或从自定义目录导入当前存储\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -3172,10 +3225,10 @@ impl Message {
                 )
             }
             (Self::FoundRepositoriesFailedCouldNotBeRead, Language::English) => {
-                "Found {} repositories; {failed} could not be read. scan result saved"
+                "Found {} repositories; {failed} could not be read"
             }
             (Self::FoundRepositoriesFailedCouldNotBeRead, Language::Chinese) => {
-                "发现 {} 个仓库，其中 {failed} 个无法读取；扫描结果已保存"
+                "发现 {} 个仓库，其中 {failed} 个无法读取"
             }
             (Self::Checking, Language::English) => "Checking: {}",
             (Self::Checking, Language::Chinese) => "正在检查：{}",
@@ -3970,9 +4023,9 @@ impl Message {
             }
             (Self::RemoveDirectoryExclusionWithoutImporting, Language::Chinese) => "取消目录排除",
             (Self::PreviewScanUsingGitIgnoreRules, Language::English) => {
-                "Preview scan using Git ignore rules"
+                "Scan and select repositories"
             }
-            (Self::PreviewScanUsingGitIgnoreRules, Language::Chinese) => "按 Git 忽略规则扫描预览",
+            (Self::PreviewScanUsingGitIgnoreRules, Language::Chinese) => "扫描并选择仓库",
             (Self::ScanAndImportRepositoryList, Language::English) => {
                 "Scan and import repository list"
             }
@@ -4151,12 +4204,8 @@ impl Message {
             (Self::RepositoryUnregisteredFilesRetained, Language::Chinese) => "已移除仓库注册项",
             (Self::AddedRepositories, Language::English) => "Added {} repositories",
             (Self::AddedRepositories, Language::Chinese) => "已添加 {} 个仓库",
-            (Self::FoundRepositoriesScanSaved, Language::English) => {
-                "Found {} repositories; scan result saved"
-            }
-            (Self::FoundRepositoriesScanSaved, Language::Chinese) => {
-                "发现 {} 个仓库；扫描结果已保存"
-            }
+            (Self::FoundRepositoriesScanSaved, Language::English) => "Found {} repositories",
+            (Self::FoundRepositoriesScanSaved, Language::Chinese) => "发现 {} 个仓库",
             (Self::ConfigurationSavedApplyScheduleAfterChangingThe, Language::English) => {
                 "Configuration saved; apply schedule after changing the interval"
             }
@@ -4777,7 +4826,7 @@ impl Message {
             (Self::RepositoryManagementSettings, Language::English) => {
                 "Manage repository registration and exclusions"
             }
-            (Self::RepositoryManagementSettings, Language::Chinese) => "查看仓库注册与排除配置",
+            (Self::RepositoryManagementSettings, Language::Chinese) => "管理已添加的仓库",
             (Self::RefreshRepositoryReport, Language::English) => {
                 "Reload the saved repository report"
             }
@@ -5108,8 +5157,8 @@ macro_rules! tf {
     };
     (FoundRepositoriesFailedCouldNotBeRead $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Found {} repositories; {failed} could not be read. scan result saved" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("发现 {} 个仓库，其中 {failed} 个无法读取；扫描结果已保存" $(, $($args)*)?),
+            $crate::Language::English => format!("Found {} repositories; {failed} could not be read" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("发现 {} 个仓库，其中 {failed} 个无法读取" $(, $($args)*)?),
         }
     };
     (Checking $(, $($args:tt)*)?) => {
@@ -5438,8 +5487,8 @@ macro_rules! tf {
     };
     (FoundRepositoriesScanSaved $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Found {} repositories; scan result saved" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("发现 {} 个仓库；扫描结果已保存" $(, $($args)*)?),
+            $crate::Language::English => format!("Found {} repositories" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("发现 {} 个仓库" $(, $($args)*)?),
         }
     };
     (RepositoryBranchScopeStagedContentsOnlyStaged $(, $($args:tt)*)?) => {

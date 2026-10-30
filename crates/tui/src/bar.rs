@@ -124,6 +124,7 @@ impl Screen {
         }
         let query = match &self.mode {
             Mode::Browsing => self.query.clone(),
+            Mode::Management(session) => session.query.clone(),
             Mode::Browser(session) => session.input_query().to_owned(),
             Mode::History(view) => view.query().to_owned(),
             Mode::Stashes(view) => view.session().query.clone(),
@@ -152,6 +153,7 @@ impl Screen {
             let query = editor.text.clone();
             match &mut self.mode {
                 Mode::Browser(session) => session.search_input(query),
+                Mode::Management(session) => session.search(query),
                 Mode::Stashes(view) => view.search(query),
                 Mode::Branches(view) => view.search(query),
                 Mode::History(view) => view.search(query),
@@ -222,7 +224,8 @@ impl Screen {
         }
         if !matches!(
             self.mode,
-            Mode::Browsing
+            Mode::Management(_)
+                | Mode::Browsing
                 | Mode::Composition(_)
                 | Mode::CompositionWaiting(_)
                 | Mode::Browser(_)
@@ -363,6 +366,11 @@ impl Screen {
                             )?;
                             return Ok(BarEvent::Handled);
                         }
+                        if argument == command::ArgumentAction::Scan {
+                            let value = value.to_owned();
+                            self.scan_command(&value);
+                            return Ok(BarEvent::Handled);
+                        }
                         match argument.parse(value, self.service.scheduler.user_home()) {
                             Ok(value) if argument == command::ArgumentAction::AiAgent => {
                                 self.select_agent(value.parse()?);
@@ -441,6 +449,12 @@ impl Screen {
                     )?;
                     return Ok(BarEvent::Handled);
                 }
+                KeyCode::Char('a') if matches!(self.mode, Mode::Management(_)) => {
+                    if let Mode::Management(session) = &mut self.mode {
+                        session.toggle_all();
+                    }
+                    return Ok(BarEvent::Handled);
+                }
                 KeyCode::Char('a') if matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) => {
                     let files = match &mut self.mode {
                         Mode::Files(files) => Some(files),
@@ -468,8 +482,10 @@ impl Screen {
         }
         if key.code == KeyCode::Char(' ')
             && self.bar.editor().text.is_empty()
-            && (matches!(self.mode, Mode::Files(_) | Mode::Changes(_))
-                || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
+            && (matches!(
+                self.mode,
+                Mode::Management(_) | Mode::Files(_) | Mode::Changes(_)
+            ) || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
         {
             return Ok(BarEvent::Pass);
         }
@@ -477,7 +493,8 @@ impl Screen {
         if self.bar.editor().text.is_empty()
             && (matches!(
                 self.mode,
-                Mode::History(_)
+                Mode::Management(_)
+                    | Mode::History(_)
                     | Mode::Browser(_)
                     | Mode::Panel(crate::workspace::Section::Overview)
                     | Mode::Stashes(_)

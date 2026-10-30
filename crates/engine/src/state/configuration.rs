@@ -11,6 +11,7 @@ use std::{
 };
 use toml_edit::{Array, DocumentMut, Item, Value};
 mod ai;
+mod retired;
 mod workflows;
 
 impl Default for Config {
@@ -19,7 +20,6 @@ impl Default for Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: vec![],
-            excluded_roots: vec![],
             startup_actions: crate::workflow::Plan::fetch(),
             scheduled_actions: crate::workflow::Plan::fetch(),
             max_concurrency: 4,
@@ -43,7 +43,6 @@ pub struct Config {
     )]
     pub schedule_anchor: crate::scheduler::timing::Anchor,
     pub repositories: Vec<PathBuf>,
-    pub excluded_roots: Vec<PathBuf>,
     #[serde(default)]
     pub startup_actions: crate::workflow::Plan,
     #[serde(default)]
@@ -133,35 +132,26 @@ impl Config {
             (1..=32).contains(&self.max_concurrency),
             i18n::tr!(ConcurrencyMustBeBetween1And32)
         );
-        for paths in [&self.repositories, &self.excluded_roots] {
-            let mut seen = std::collections::HashSet::new();
-            for p in paths {
-                ensure!(
-                    p.is_absolute()
-                        && p.components().all(|c| !matches!(
-                            c,
-                            std::path::Component::ParentDir | std::path::Component::CurDir
-                        )),
-                    i18n::tf!(PathMustBeANormalizedAbsolutePath, p.display())
-                );
-                ensure!(seen.insert(p), i18n::tf!(DuplicatePath, p.display()));
-            }
-        }
+        let mut seen = std::collections::HashSet::new();
         for p in &self.repositories {
             ensure!(
-                !self.excluded_roots.iter().any(|x| p.starts_with(x)),
-                i18n::tf!(RepositoryIsUnderAnExcludedDirectory, p.display())
-            )
+                p.is_absolute()
+                    && p.components().all(|c| !matches!(
+                        c,
+                        std::path::Component::ParentDir | std::path::Component::CurDir
+                    )),
+                i18n::tf!(PathMustBeANormalizedAbsolutePath, p.display())
+            );
+            ensure!(seen.insert(p), i18n::tf!(DuplicatePath, p.display()));
         }
         Ok(())
     }
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 12] = [
+const FIELDS: [&str; 11] = [
     "interval_seconds",
     "repositories",
-    "excluded_roots",
     "startup_actions",
     "scheduled_actions",
     "max_concurrency",
@@ -183,6 +173,7 @@ pub(super) fn parse(text: &str) -> Result<Config> {
     let mut document: DocumentMut = text.parse().context(i18n::tr!(InvalidToml))?;
     ai::migrate(&mut document)?;
     workflows::migrate(&mut document)?;
+    retired::exclusions(&mut document)?;
     let config: Config =
         toml_edit::de::from_str(&document.to_string()).context(i18n::tr!(InvalidToml))?;
     config.validate()?;
@@ -197,6 +188,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         .context(i18n::tr!(InvalidToml))?;
     ai::migrate(&mut document)?;
     workflows::migrate(&mut document)?;
+    retired::exclusions(&mut document)?;
     // 旧版将 AI 选项保存在提交专用表；下次显式保存配置时整体更名，保留表内注释。
     if let Some(legacy) = document.remove("commit_message") {
         document.insert("ai", legacy);
@@ -250,14 +242,13 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             .clone();
         if let Some(current) = document.get(key).and_then(Item::as_value) {
             if let (Some(old), Some(new)) = (current.as_array(), replacement.as_array())
-                && (matches!(key, "repositories" | "excluded_roots")
-                    || old.to_string().contains(['\n', '#']))
+                && (key == "repositories" || old.to_string().contains(['\n', '#']))
             {
                 replacement = Value::Array(paths_array(old, new));
             }
             *replacement.decor_mut() = current.decor().clone();
         } else if let Some(array) = replacement.as_array()
-            && matches!(key, "repositories" | "excluded_roots")
+            && key == "repositories"
         {
             replacement = Value::Array(paths_array(&Array::new(), array));
         }
@@ -404,7 +395,7 @@ impl Store {
                 let text = fs::read_to_string(self.config_path())?;
                 let config = parse(&text)?;
                 let document: DocumentMut = text.parse()?;
-                if document.contains_key("push_policy") {
+                if document.contains_key("push_policy") || document.contains_key("excluded_roots") {
                     atomic(
                         &self.config_path(),
                         encode(&config, Some(&text))?.as_bytes(),
@@ -419,6 +410,7 @@ impl Store {
         let mut value: serde_json::Value =
             serde_json::from_slice(&bytes).context(i18n::tr!(InvalidJson))?;
         workflows::migrate_json(&mut value)?;
+        retired::json_exclusions(&mut value)?;
         let config: Config = serde_json::from_value(value).context(i18n::tr!(InvalidJson))?;
         config.validate()?;
         if self.config_path().try_exists()? {
@@ -428,7 +420,7 @@ impl Store {
             );
             let text = fs::read_to_string(self.config_path())?;
             let document: DocumentMut = text.parse()?;
-            if document.contains_key("push_policy") {
+            if document.contains_key("push_policy") || document.contains_key("excluded_roots") {
                 atomic(
                     &self.config_path(),
                     encode(&config, Some(&text))?.as_bytes(),

@@ -10,7 +10,7 @@ use super::completion::Menu;
 
 #[derive(Debug)]
 pub(crate) struct Directories {
-    input: PathInput,
+    input: Box<PathInput>,
     names: Vec<String>,
     selected: usize,
 }
@@ -34,6 +34,11 @@ impl Directories {
 }
 
 #[derive(Debug)]
+enum Format {
+    Literal,
+    Token,
+}
+#[derive(Debug)]
 struct PathInput {
     command: String,
     quote: Option<char>,
@@ -41,6 +46,8 @@ struct PathInput {
     directory: PathBuf,
     prefix: String,
     suffix: String,
+    trailing: String,
+    format: Format,
 }
 impl PathInput {
     fn at(editor: &Editor, user_home: &Path) -> Result<Option<Self>> {
@@ -49,6 +56,9 @@ impl PathInput {
         else {
             return Ok(None);
         };
+        if argument == super::ArgumentAction::Scan {
+            return Self::scan(editor, user_home, raw);
+        }
         if !argument.is_path() {
             return Ok(None);
         }
@@ -98,6 +108,85 @@ impl PathInput {
             directory: engine::paths::expand_home(&content[..component_start], user_home)?,
             prefix: content[component_start..position].into(),
             suffix: content[component_end..].into(),
+            trailing: String::new(),
+            format: Format::Literal,
+        }))
+    }
+    fn scan(editor: &Editor, home: &Path, raw: &str) -> Result<Option<Self>> {
+        let start = editor.text.len() - raw.len();
+        if editor.cursor < start {
+            return Ok(None);
+        }
+        let position = editor.cursor - start;
+        let tokens = super::scan::tokens(raw);
+        let active = tokens
+            .iter()
+            .position(|token| token.range.start <= position && position <= token.range.end);
+        let index = active.unwrap_or(
+            tokens
+                .iter()
+                .take_while(|token| token.range.end < position)
+                .count(),
+        );
+        if index == 1 || (index > 1 && tokens.get(1).is_none_or(|token| token.value != "--exclude"))
+        {
+            return Ok(None);
+        }
+        let (range, content, position, quote) = if let Some(index) = active {
+            let token = &tokens[index];
+            let prefix = super::scan::tokens(&raw[token.range.start..position]);
+            (
+                token.range.clone(),
+                token.value.clone(),
+                prefix.last().map_or(0, |token| token.value.len()),
+                raw[token.range.clone()]
+                    .chars()
+                    .next()
+                    .filter(|ch| matches!(ch, '\'' | '"')),
+            )
+        } else {
+            (position..position, String::new(), 0, None)
+        };
+        let root = if index == 0 {
+            PathBuf::from("/")
+        } else {
+            let root = engine::paths::expand_home(&tokens[0].value, home)?;
+            ensure!(root.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
+            root
+        };
+        let (content, position) = if content.is_empty() && index == 0 {
+            ("/".to_owned(), 1)
+        } else if content == "~" && position == 1 {
+            ("~/".to_owned(), 2)
+        } else {
+            (content, position)
+        };
+        if index == 0 {
+            ensure!(
+                engine::paths::expand_home(&content, home)?.is_absolute(),
+                i18n::tr!(EnterAnAbsolutePath)
+            );
+        }
+        let component_start = content[..position].rfind('/').map_or(0, |i| i + 1);
+        let component_end = content[position..]
+            .find('/')
+            .map_or(content.len(), |i| position + i);
+        let parent = &content[..component_start];
+        let expanded = engine::paths::expand_home(parent, home)?;
+        let directory = if expanded.is_absolute() {
+            expanded
+        } else {
+            root.join(expanded)
+        };
+        Ok(Some(Self {
+            command: editor.text[..start + range.start].into(),
+            quote,
+            parent: parent.into(),
+            directory,
+            prefix: content[component_start..position].into(),
+            suffix: content[component_end..].into(),
+            trailing: editor.text[start + range.end..].into(),
+            format: Format::Token,
         }))
     }
     fn replace(&self, name: &str, directory: bool) -> Editor {
@@ -110,6 +199,13 @@ impl PathInput {
             position += 1;
         }
         value.push_str(&self.suffix);
+        if matches!(self.format, Format::Token) {
+            let (value, position) = super::scan::encode(&value, position, self.quote);
+            return Editor {
+                cursor: self.command.len() + position,
+                text: format!("{}{}{}", self.command, value, self.trailing),
+            };
+        }
         let quote = self.quote.map(String::from).unwrap_or_default();
         Editor {
             cursor: self.command.len() + quote.len() + position,
@@ -120,6 +216,9 @@ impl PathInput {
 
 /// Completes a single directory component and returns a menu only for ambiguous paths.
 pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
+    if complete_scan_flag(editor) {
+        return Ok(Menu::Commands);
+    }
     let Some(input) = PathInput::at(editor, user_home)? else {
         return Ok(Menu::Commands);
     };
@@ -183,7 +282,7 @@ pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
         .collect::<String>();
     *editor = input.replace(&common, false);
     Ok(Menu::Directories(Directories {
-        input,
+        input: Box::new(input),
         names,
         selected: 0,
     }))
@@ -191,3 +290,39 @@ pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
 
 #[cfg(test)]
 mod tests;
+
+fn complete_scan_flag(editor: &mut Editor) -> bool {
+    let Some((super::ArgumentAction::Scan, raw)) =
+        super::argument_input(editor.text.strip_prefix('/').expect("command slash"))
+    else {
+        return false;
+    };
+    let start = editor.text.len() - raw.len();
+    if editor.cursor < start {
+        return false;
+    }
+    let position = editor.cursor - start;
+    let tokens = super::scan::tokens(raw);
+    if tokens.is_empty() || position <= tokens[0].range.end {
+        return false;
+    }
+    let token = tokens.get(1);
+    let (range, value) = match token {
+        Some(token) if token.range.start <= position && position <= token.range.end => {
+            (token.range.clone(), &token.value[..])
+        }
+        None => (position..position, ""),
+        _ => return false,
+    };
+    if !"--exclude".starts_with(value) {
+        return false;
+    }
+    let command = format!(
+        "{}--exclude {}",
+        &editor.text[..start + range.start],
+        &editor.text[start + range.end..]
+    );
+    editor.cursor = start + range.start + "--exclude ".len();
+    editor.text = command;
+    true
+}

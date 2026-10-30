@@ -249,7 +249,7 @@ fn changing_command_namespace_keeps_the_original_repository_scope() {
     s.paste("repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm { operation: Confirmation::Remove(path),.. } if path==&f.repo)
+        matches!(&s.mode,Mode::Confirm { operation: Confirmation::Remove { path, .. },.. } if path==&f.repo)
     );
     key(&mut s, KeyCode::Esc);
 }

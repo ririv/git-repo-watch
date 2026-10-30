@@ -42,7 +42,6 @@ impl Service {
             startup_actions: c.startup_actions,
             scheduled_actions: c.scheduled_actions,
             repository_count: c.repositories.len(),
-            excluded_roots: c.excluded_roots,
             schedule,
             report,
             max_concurrency: c.max_concurrency,

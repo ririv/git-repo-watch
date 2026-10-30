@@ -140,6 +140,23 @@ impl Screen {
             self.scroll = 0;
         }
         match outcome {
+            Outcome::Scanned(report) => {
+                self.enter_management(
+                    crate::management::Session::scanned(*report, &self.config.repositories),
+                    origin,
+                );
+            }
+            Outcome::RegistrationsAdded(count) => {
+                self.mode = origin;
+                if let Err(error) = self.reload(root) {
+                    self.message = format!("{error:#}");
+                } else {
+                    self.message = i18n::tf!(AddedRepositories, count);
+                }
+                if let Mode::Management(session) = &mut self.mode {
+                    session.refresh(&self.config.repositories);
+                }
+            }
             Outcome::Opened(content) => self.enter_view(*content, origin),
             Outcome::BrowserDiff { files } => {
                 self.enter_view(navigation::Content::Diff(files), origin);
@@ -292,11 +309,18 @@ impl Screen {
                 self.message = i18n::tr!(PreferenceSaved).into();
             }
             Outcome::Text(message) => {
-                self.workspace.save(origin);
-                self.mode = Mode::Browsing;
+                if matches!(origin, Mode::Management(_)) {
+                    self.mode = origin;
+                } else {
+                    self.workspace.save(origin);
+                    self.mode = Mode::Browsing;
+                }
                 self.message = message;
                 if let Err(e) = self.reload(root) {
                     self.message.push_str(&i18n::tf!(RefreshFailedE, e = e))
+                }
+                if let Mode::Management(session) = &mut self.mode {
+                    session.refresh(&self.config.repositories);
                 }
             }
         }

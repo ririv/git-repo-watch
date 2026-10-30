@@ -20,7 +20,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
     assert!(s.bar.text().ends_with("/仓库 \""));
     assert_eq!(s.bar.editor().cursor, s.bar.editor().text.len() - 1);
     assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
-    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(matches!(s.mode, Mode::Management(_)));
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Tab);
@@ -33,7 +33,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
         }
     ));
     assert!(s.bar.text().ends_with("/仓库 甲/\""));
-    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(matches!(s.mode, Mode::Management(_)));
     assert!(s.service.store.config().unwrap().repositories.is_empty());
     key(&mut s, KeyCode::Enter);
     assert!(matches!(&s.mode, Mode::Confirm {
@@ -52,13 +52,7 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
         std::fs::create_dir(temp.path().join(name)).unwrap();
     }
     let (_home, mut s) = fixture(vec![]);
-    for input in [
-        "repos add",
-        "repos exclude",
-        "repos unexclude",
-        "repos scan",
-        "repos import",
-    ] {
+    for input in ["repos add", "repos scan"] {
         s.paste(&format!("/{input} {}/o", temp.path().display()));
         key(&mut s, KeyCode::Tab);
         let draft = s.bar.editor().text.clone();
@@ -136,21 +130,20 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
 }
 
 #[test]
-fn all_path_commands_expand_tilde_in_review_and_return_to_the_original_draft() {
+fn repository_add_expands_tilde_in_review_and_returns_to_the_original_draft() {
     let (home, mut s) = fixture(vec![]);
-    for name in ["add", "exclude", "unexclude", "scan", "import"] {
-        for quote in ["", "'", "\""] {
-            let draft = format!("repos {name} {quote}~/中文 空格/{quote}");
-            command(&mut s, &draft);
-            assert!(matches!(&s.mode, Mode::Confirm {
+    let name = "add";
+    for quote in ["", "'", "\""] {
+        let draft = format!("repos {name} {quote}~/中文 空格/{quote}");
+        command(&mut s, &draft);
+        assert!(matches!(&s.mode, Mode::Confirm {
                 operation: Confirmation::Configure { value, .. }, ..
             } if std::path::Path::new(value) == home.path().join("中文 空格")));
-            key(&mut s, KeyCode::Esc);
-            assert_eq!(s.bar.text(), format!("/{draft}"));
-            assert!(s.service.store.config().unwrap().repositories.is_empty());
-        }
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.text(), format!("/{draft}"));
+        assert!(s.service.store.config().unwrap().repositories.is_empty());
     }
-    command(&mut s, "repos exclude ~");
+    command(&mut s, "repos add ~");
     assert!(matches!(&s.mode, Mode::Confirm {
         operation: Confirmation::Configure { value, .. }, ..
     } if std::path::Path::new(value) == home.path()));

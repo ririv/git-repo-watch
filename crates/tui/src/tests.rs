@@ -42,6 +42,7 @@ mod replay;
 mod replay_batch;
 mod repository_list;
 mod responsive;
+mod scan_management;
 mod schedule;
 mod scrollbars;
 mod search;
@@ -83,7 +84,6 @@ fn screen(service: Service) -> Screen {
             startup_actions: config.startup_actions.clone(),
             scheduled_actions: config.scheduled_actions.clone(),
             repository_count: config.repositories.len(),
-            excluded_roots: config.excluded_roots.clone(),
             schedule: Schedule::Saved {
                 interval_seconds: 21600,
             },
@@ -147,7 +147,6 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: paths,
-            excluded_roots: vec![],
             startup_actions: Default::default(),
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
@@ -317,7 +316,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove(p),..}if p.as_path()==std::path::Path::new("/path/to/a"))
+        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path: p, .. },..}if p.as_path()==std::path::Path::new("/path/to/a"))
     );
 }
 #[test]
@@ -1428,7 +1427,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         ["repos check"]
     );
-    assert_eq!(command::matches("repos ").len(), 11);
+    assert_eq!(command::matches("repos ").len(), 8);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
         command::matches("repo check")
@@ -1449,7 +1448,6 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
-        s.config.excluded_roots = vec!["/example/excluded".into()];
         command(&mut s, "schedule");
         assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
@@ -1479,7 +1477,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         command(&mut s, "repos manage");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         let text = render(&mut s, 100, 28);
-        assert!(text.contains("/example/excluded"));
+        assert!(text.contains("/example/alpha"));
         assert!(!text.contains(command::description(Action::Interval)));
     }
 }
@@ -1497,7 +1495,7 @@ fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == &PathBuf::from("/example/alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from("/example/alpha"))
     );
     key(&mut s, KeyCode::Esc);
     s.paste("//schedule ");
@@ -1542,7 +1540,11 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
             key(&mut s, code);
             assert_eq!(s.page, page);
             assert_eq!(s.history.len(), depth);
-            assert!(matches!(s.mode, Mode::Browsing));
+            assert!(if name == "repos manage" {
+                matches!(s.mode, Mode::Management(_))
+            } else {
+                matches!(s.mode, Mode::Browsing)
+            });
         }
     }
     assert_eq!(
@@ -1656,15 +1658,16 @@ fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page
         command(&mut s, "repos manage");
         s.paste("//repos a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
-            assert!(render(&mut s, width, height).contains("/repos add <path>"));
+            let text = render(&mut s, width, height);
+            assert!(text.contains("/repos add <path>"), "{text}");
         }
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.bar.text(), "/repos add ");
-        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(matches!(s.mode, Mode::Management(_)));
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Enter);
         assert!(!s.message.is_empty());
-        assert!(matches!(s.mode, Mode::Browsing));
+        assert!(matches!(s.mode, Mode::Management(_)));
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         assert!(s.bar.editor().text.is_empty());
@@ -1686,7 +1689,7 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     );
     assert!(s.config.repositories.is_empty());
     key(&mut s, KeyCode::Esc);
-    assert!(matches!(s.mode, Mode::Browsing));
+    assert!(matches!(s.mode, Mode::Management(_)));
     assert_eq!(s.bar.text(), format!("/{input}"));
     assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
     key(&mut s, KeyCode::Enter);

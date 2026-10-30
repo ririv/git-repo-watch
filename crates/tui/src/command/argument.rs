@@ -25,10 +25,7 @@ pub enum ArgumentAction {
     StashApply,
     StashPop,
     StashDrop,
-    Exclude,
-    Unexclude,
     Scan,
-    Import,
     Interval,
     Anchor,
     Autopush,
@@ -51,10 +48,7 @@ impl ArgumentAction {
         }
     }
     pub fn is_path(self) -> bool {
-        matches!(
-            self,
-            Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import
-        )
+        matches!(self, Self::Add | Self::Scan)
     }
     pub fn action(self) -> Action {
         match self {
@@ -67,10 +61,7 @@ impl ArgumentAction {
             Self::StashPop => Action::StashPop,
             Self::StashDrop => Action::StashDrop,
 
-            Self::Exclude => Action::Exclude,
-            Self::Unexclude => Action::Unexclude,
             Self::Scan => Action::Scan,
-            Self::Import => Action::Import,
             Self::Interval => Action::Interval,
             Self::Anchor => Action::Anchor,
             Self::Autopush => Action::Autopush,
@@ -93,7 +84,8 @@ impl ArgumentAction {
     }
     pub fn syntax(self) -> ArgumentSyntax {
         let open = match self {
-            Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => "<path>",
+            Self::Add => "<path>",
+            Self::Scan => "<path> [--exclude <path>…]",
             Self::Interval => "<duration>",
             Self::Anchor => "[<datetime>|auto]",
             Self::Concurrency => "<count>",
@@ -116,9 +108,7 @@ impl ArgumentAction {
     }
     pub fn hint(self) -> &'static str {
         match self {
-            Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => {
-                i18n::tr!(PathArgumentHint)
-            }
+            Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::StashSave | Self::StashSaveAll => i18n::tr!(StashMessageHint),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
@@ -148,7 +138,11 @@ impl ArgumentAction {
                     .token
                     .into())
             }
-            Self::Add | Self::Exclude | Self::Unexclude | Self::Scan | Self::Import => {
+            Self::Scan => {
+                super::scan::request(value, user_home)?;
+                Ok(value.into())
+            }
+            Self::Add => {
                 let value = match value.chars().next() {
                     Some(quote @ ('\'' | '"')) => {
                         ensure!(
@@ -249,10 +243,7 @@ impl Action {
             Self::StashPop => Some(ArgumentAction::StashPop),
             Self::StashDrop => Some(ArgumentAction::StashDrop),
 
-            Self::Exclude => Some(ArgumentAction::Exclude),
-            Self::Unexclude => Some(ArgumentAction::Unexclude),
             Self::Scan => Some(ArgumentAction::Scan),
-            Self::Import => Some(ArgumentAction::Import),
             Self::Interval => Some(ArgumentAction::Interval),
             Self::Anchor => Some(ArgumentAction::Anchor),
             Self::Autopush => Some(ArgumentAction::Autopush),
@@ -321,10 +312,6 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigArgument {
     Add,
-    Exclude,
-    Unexclude,
-    Scan,
-    Import,
     Interval,
     Anchor,
     Autopush,
@@ -343,10 +330,6 @@ impl ConfigArgument {
     fn argument(self) -> ArgumentAction {
         match self {
             Self::Add => ArgumentAction::Add,
-            Self::Exclude => ArgumentAction::Exclude,
-            Self::Unexclude => ArgumentAction::Unexclude,
-            Self::Scan => ArgumentAction::Scan,
-            Self::Import => ArgumentAction::Import,
             Self::Interval => ArgumentAction::Interval,
             Self::Anchor => ArgumentAction::Anchor,
             Self::Autopush => ArgumentAction::Autopush,
@@ -361,10 +344,6 @@ impl ArgumentAction {
     pub fn configuration(self) -> Option<ConfigArgument> {
         match self {
             Self::Add => Some(ConfigArgument::Add),
-            Self::Exclude => Some(ConfigArgument::Exclude),
-            Self::Unexclude => Some(ConfigArgument::Unexclude),
-            Self::Scan => Some(ConfigArgument::Scan),
-            Self::Import => Some(ConfigArgument::Import),
             Self::Interval => Some(ConfigArgument::Interval),
             Self::Anchor => Some(ConfigArgument::Anchor),
             Self::Autopush => Some(ConfigArgument::Autopush),

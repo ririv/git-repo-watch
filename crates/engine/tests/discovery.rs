@@ -140,3 +140,72 @@ fn nested_negation_global_exclusion_and_nested_repository_rules() {
         [Record::Failed { .. }]
     ));
 }
+
+#[test]
+fn scan_request_accepts_many_exclusions_after_one_flag_and_expands_only_home() {
+    let args = ["~/Proj", "--exclude", "backup", "归档 目录", "~/Proj/other"].map(str::to_owned);
+    let request =
+        discovery::Request::from_args(&args, std::path::Path::new("/users/test")).unwrap();
+    assert_eq!(request.root, std::path::Path::new("/users/test/Proj"));
+    assert_eq!(
+        request.excluded,
+        [
+            std::path::PathBuf::from("backup"),
+            "归档 目录".into(),
+            "/users/test/Proj/other".into()
+        ]
+    );
+    for args in [
+        vec![],
+        vec!["/tmp".into(), "--exclude".into()],
+        vec!["/tmp".into(), "--unknown".into(), "a".into()],
+    ] {
+        assert!(discovery::Request::from_args(&args, std::path::Path::new("/users/test")).is_err());
+    }
+}
+
+#[test]
+fn service_scan_exclusions_are_temporary_and_do_not_save_reports_or_restrict_registration() {
+    use engine::{scheduler::Manager, service::Service, state::Store};
+    let temp = tempfile::tempdir().unwrap();
+    let root = fs::canonicalize(temp.path()).unwrap();
+    let projects = root.join("项目 目录");
+    for path in ["keep", "backup/old", "中文 归档/old"] {
+        init(&projects.join(path));
+    }
+    let store = Store::custom(root.join("state"));
+    store.initialize().unwrap();
+    let service = Service::new(
+        store.clone(),
+        Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap(),
+    );
+    let before = fs::read(store.config_path()).unwrap();
+    let request = discovery::Request {
+        root: projects.clone(),
+        excluded: vec!["backup".into(), projects.join("中文 归档")],
+    };
+    let report = service.scan(&request, &Cancel::default()).unwrap();
+    assert_eq!(report.repositories.len(), 1);
+    assert_eq!(report.repositories[0].path(), projects.join("keep"));
+    assert_eq!(fs::read(store.config_path()).unwrap(), before);
+    assert!(store.scan_report().unwrap().is_none());
+    let unfiltered = service
+        .scan(
+            &discovery::Request {
+                root: projects.clone(),
+                excluded: vec![],
+            },
+            &Cancel::default(),
+        )
+        .unwrap();
+    assert_eq!(unfiltered.repositories.len(), 3);
+    assert_eq!(service.add(&[projects.join("backup/old")]).unwrap(), 1);
+    assert_eq!(
+        store.config().unwrap().repositories,
+        [projects.join("backup/old")]
+    );
+    let cancelled = Cancel::default();
+    cancelled.cancel();
+    assert!(service.scan(&request, &cancelled).is_err());
+    assert!(discovery::discover(&projects, &[root.join("state")], &Cancel::default()).is_err());
+}

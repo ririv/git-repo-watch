@@ -150,7 +150,7 @@ fn static_pages_and_read_only_details_use_the_same_command_entry() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        for entry in ["settings", "schedule", "repos manage", "help"] {
+        for entry in ["settings", "schedule", "help"] {
             command(&mut s, entry);
             commands_only(&mut s);
         }

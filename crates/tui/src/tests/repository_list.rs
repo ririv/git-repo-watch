@@ -252,7 +252,7 @@ fn list_commands_combine_with_search_and_keep_repo_scope_after_reordering() {
     assert_eq!(paths(&s), [PathBuf::from("/a/中文 alpha")]);
     command(&mut s, "repos remove");
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove(path), .. } if path == Path::new("/a/中文 alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == Path::new("/a/中文 alpha"))
     );
 }
 

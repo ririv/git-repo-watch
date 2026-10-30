@@ -6,7 +6,7 @@ use engine::{
     domain::*,
     paths,
     scheduler::{Manager, Registration, Schedule},
-    service::{Activity, CachedReport, ConfigEdit, Event, ScanMode, Scope, Service, Snapshot},
+    service::{Activity, CachedReport, ConfigEdit, Event, Scope, Service, Snapshot},
     state,
 };
 use std::ffi::OsString;
@@ -129,7 +129,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             )?;
             Ok(0)
         }
-        "config" | "list" | "exclusions" => {
+        "config" | "list" => {
             none(&args)?;
             let c = service.store.config()?;
             match command.as_str() {
@@ -139,11 +139,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                         println!("{}", p.display())
                     }
                 }
-                _ => {
-                    for p in c.excluded_roots {
-                        println!("{}", p.display())
-                    }
-                }
+                _ => unreachable!(),
             }
             Ok(0)
         }
@@ -174,18 +170,11 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}\n{details}", i18n::tr!(WorkflowSaved));
             Ok(0)
         }
-        "remove" | "exclude" | "unexclude" | "interval" | "autopush" | "concurrency"
-        | "startup-check" | "anchor" => {
+        "remove" | "interval" | "autopush" | "concurrency" | "startup-check" | "anchor" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
                 "remove" => {
                     ConfigEdit::Remove(paths::expand_home(value, service.scheduler.user_home())?)
-                }
-                "exclude" => {
-                    ConfigEdit::Exclude(paths::expand_home(value, service.scheduler.user_home())?)
-                }
-                "unexclude" => {
-                    ConfigEdit::Unexclude(paths::expand_home(value, service.scheduler.user_home())?)
                 }
                 "interval" => ConfigEdit::Interval(state::interval(value)?),
                 "anchor" => ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(
@@ -215,16 +204,27 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             Ok(0)
         }
         "scan" | "import-tree" => {
-            let root = paths::expand_home(one(&args)?, service.scheduler.user_home())?;
-            let report = service.scan(
-                &root,
-                if command == "scan" {
-                    ScanMode::Preview
-                } else {
-                    ScanMode::Import
-                },
-                cancel,
-            )?;
+            let request = discovery::Request::from_args(&args, service.scheduler.user_home())?;
+            let report = service.scan(&request, cancel)?;
+            if command == "import-tree" {
+                let paths = report
+                    .repositories
+                    .iter()
+                    .filter_map(|record| match record {
+                        discovery::Record::Scanned { path } => Some(path.clone()),
+                        discovery::Record::Failed { .. } => None,
+                    })
+                    .collect::<Vec<_>>();
+                service.add(&paths)?;
+            }
+            for record in &report.repositories {
+                match record {
+                    discovery::Record::Scanned { path } => println!("{}", path.display()),
+                    discovery::Record::Failed { path, error } => {
+                        println!("{}: {error}", path.display())
+                    }
+                }
+            }
             let failed = report
                 .repositories
                 .iter()
@@ -452,9 +452,6 @@ pub fn render_status(s: &Snapshot) -> String {
                 text.push_str(i18n::tr!(IntervalNotAppliedApplySchedule));
             }
         }
-    }
-    for excluded in &s.excluded_roots {
-        text.push_str(&i18n::tf!(ExcludedDirectory, excluded.display()))
     }
     match &s.report {
         CachedReport::Missing => text.push_str(i18n::tr!(LatestReportNoCompleteReportYet)),

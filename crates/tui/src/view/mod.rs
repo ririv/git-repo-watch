@@ -5,6 +5,7 @@ mod breadcrumbs;
 pub(super) mod browser;
 mod candidates;
 mod checkbox;
+mod management;
 pub(crate) use candidates::Viewport as CandidateViewport;
 pub(super) mod changes;
 mod commands;
@@ -161,11 +162,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
             ),
     );
     screen.pointer.links.paths = screen.config.repositories.clone();
-    screen
-        .pointer
-        .links
-        .paths
-        .extend(screen.config.excluded_roots.clone());
     screen.pointer.links.paths.extend([
         screen.service.store.config_dir(),
         screen.service.store.state_dir(),

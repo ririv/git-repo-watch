@@ -8,13 +8,6 @@ impl Service {
         for path in paths {
             let canonical = std::fs::canonicalize(path)?;
             local::open(&canonical)?;
-            ensure!(
-                !config
-                    .excluded_roots
-                    .iter()
-                    .any(|x| canonical.starts_with(x)),
-                i18n::tf!(RepositoryIsUnderAnExcludedDirectoryAlt, canonical.display())
-            );
             if !config.repositories.contains(&canonical) {
                 config.repositories.push(canonical);
                 added += 1
@@ -37,21 +30,6 @@ impl Service {
                     i18n::tf!(NotInTheRepositoryList, path.display())
                 );
                 config.repositories.retain(|p| p != &path);
-            }
-            ConfigEdit::Exclude(path) => {
-                let path = state::canonical(&path)?;
-                config.repositories.retain(|p| !p.starts_with(&path));
-                if !config.excluded_roots.contains(&path) {
-                    config.excluded_roots.push(path)
-                }
-            }
-            ConfigEdit::Unexclude(path) => {
-                let path = state::canonical(&path)?;
-                ensure!(
-                    config.excluded_roots.contains(&path),
-                    i18n::tr!(DirectoryIsNotInTheExclusionList)
-                );
-                config.excluded_roots.retain(|p| p != &path)
             }
             ConfigEdit::Interval(value) => config.interval_seconds = value,
             ConfigEdit::Anchor(value) => config.schedule_anchor = value,
@@ -82,30 +60,7 @@ impl Service {
         }
         self.store.save_config(&config)
     }
-    pub fn scan(&self, root: &Path, mode: ScanMode, cancel: &Cancel) -> Result<discovery::Report> {
-        let initial = self.store.config()?;
-        let report = discovery::discover(root, &initial.excluded_roots, cancel)?;
-        let _lock = self.store.transaction(cancel)?;
-        let mut config = self.store.config()?;
-        self.store.save_scan_report(&report, cancel)?;
-        ensure!(
-            !report.repositories.is_empty(),
-            i18n::tr!(NoGitRepositoriesFoundUnderThisDirectory)
-        );
-        if mode == ScanMode::Import {
-            for record in &report.repositories {
-                let path = record.path().to_owned();
-                if !config.repositories.contains(&path)
-                    && !config
-                        .excluded_roots
-                        .iter()
-                        .any(|root| path.starts_with(root))
-                {
-                    config.repositories.push(path)
-                }
-            }
-            self.store.save_config(&config)?;
-        }
-        Ok(report)
+    pub fn scan(&self, request: &discovery::Request, cancel: &Cancel) -> Result<discovery::Report> {
+        discovery::discover(&request.root, &request.excluded, cancel)
     }
 }

@@ -8,6 +8,13 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         return;
     }
     match &mut screen.mode {
+        Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::Management(_)) => {
+            let Mode::Management(session) = pending.origin.as_mut() else {
+                unreachable!()
+            };
+            management::render(frame, area, session, &mut screen.pointer);
+        }
+        Mode::Management(session) => management::render(frame, area, session, &mut screen.pointer),
         Mode::Workflow(session) => workflow::render(frame, area, session, &mut screen.pointer),
         Mode::CompositionWaiting(waiting) => {
             composition::waiting(frame, area, waiting, &mut screen.pointer)
@@ -136,7 +143,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     engine::scheduler::Control::Apply => i18n::tr!(ScheduleApplyConfirmation),
                 }
                 .into(),
-                Confirmation::Remove(path) => i18n::tf!(
+                Confirmation::Remove { path, .. } => i18n::tf!(
                     UnregisterRepositoryFilesOnDiskAreRetained,
                     safe(&path.to_string_lossy())
                 ),

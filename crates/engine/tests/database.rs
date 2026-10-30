@@ -218,9 +218,9 @@ fn legacy_batch_latest_rows_operations_and_scan_are_imported_once_and_original_b
         &store,
         "import-report.json",
         &engine::discovery::Report {
+            excluded_roots: vec![],
             root: PathBuf::from("/example"),
             scanned_at: AT.into(),
-            excluded_roots: vec![],
             repositories: vec![engine::discovery::Record::Scanned {
                 path: path.to_owned(),
             }],

@@ -125,6 +125,7 @@ impl Context {
 impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
         match &self.mode {
+            Mode::Management(_) => Some(Context::Repositories),
             Mode::Workflow(session) => Some(match session.trigger {
                 engine::workflow::Trigger::Startup => Context::Startup,
                 engine::workflow::Trigger::Scheduled => Context::Schedule,
