@@ -184,9 +184,17 @@ mod tests {
                 },
             ]
         );
+        let flat = project(&changes, Layout::Flat, &|_, _| Expansion::Expanded);
+        let labels = flat
+            .iter()
+            .map(|row| match row {
+                Row::File { label, .. } => label.as_str(),
+                _ => unreachable!(),
+            })
+            .collect::<Vec<_>>();
         assert_eq!(
-            project(&changes, Layout::Flat, &|_, _| Expansion::Expanded).len(),
-            3
+            labels,
+            ["src/中文 目录/a.ts", "src/中文 目录/b.ts", "z.txt"]
         );
         let filtered = project(&[(1, &files[1])], Layout::Tree, &|_, _| Expansion::Expanded);
         assert_eq!(filtered.len(), 2);
@@ -215,9 +223,7 @@ mod tests {
         );
         assert_eq!(rows.len(), 4);
         assert!(matches!(&rows[0], Row::File { index: 0, .. }));
-        assert!(
-            matches!(&rows[2], Row::File {index:2,label,..} if label.contains("old/a.rs") && label.contains("src/a.rs"))
-        );
+        assert!(matches!(&rows[2], Row::File {index:2,label,..} if label == "old/a.rs → src/a.rs"));
         assert!(project(&[], Layout::Tree, &|_, _| Expansion::Expanded).is_empty());
     }
     #[test]

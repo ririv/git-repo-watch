@@ -130,7 +130,11 @@ pub(crate) fn require_supported_filters(repo: &Repository, path: &Path) -> Resul
         };
         ensure!(
             !configured && !required,
-            i18n::tf!(FilePathUsesExternalFilterNameSuch, name = name, path = path)
+            i18n::tf!(
+                FilePathUsesExternalFilterNameSuch,
+                name = name,
+                path = path.display()
+            )
         );
     }
     ensure!(
@@ -142,7 +146,7 @@ pub(crate) fn require_supported_filters(repo: &Repository, path: &Path) -> Resul
             )?),
             git2::AttrValue::Unspecified | git2::AttrValue::False
         ),
-        i18n::tf!(FilePathUsesWorkingTreeEncodingWhich, path = path)
+        i18n::tf!(FilePathUsesWorkingTreeEncodingWhich, path = path.display())
     );
     Ok(())
 }

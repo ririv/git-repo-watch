@@ -537,6 +537,8 @@ fn commit_review_stays_above_the_message_and_actions_follow_the_editor_at_every_
         for (width, height) in [(60, 24), (100, 28), (160, 32)] {
             let text = render(&mut s, width, height);
             assert!(text.contains("Ctrl+S") && text.contains("Ctrl+R"), "{text}");
+            assert!(text.contains("• staged.txt"), "{text}");
+            assert!(!text.contains("• \"staged.txt\""), "{text}");
             let (message, review) = view::commit::areas(s.body_area.unwrap());
             assert_eq!(message.y, review.bottom());
             assert_eq!(message.x, review.x);

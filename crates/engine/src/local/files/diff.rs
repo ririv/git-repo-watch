@@ -36,8 +36,8 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
         if meta.file_type().is_symlink() {
             return Ok(Document::Notice(i18n::tf!(
                 NewSymlink,
-                change.location.name(),
-                fs::read_link(path)?
+                change.location.name().display(),
+                fs::read_link(path)?.display()
             )));
         }
         if !meta.is_file() {

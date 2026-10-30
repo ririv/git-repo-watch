@@ -43,9 +43,9 @@ impl Location {
     }
     pub fn display(&self) -> String {
         match self {
-            Self::Path(p) => format!("{:?}", p),
+            Self::Path(p) => p.display().to_string(),
             Self::Rename { before, after } | Self::Copy { before, after } => {
-                format!("{before:?} → {after:?}")
+                format!("{} → {}", before.display(), after.display())
             }
         }
     }

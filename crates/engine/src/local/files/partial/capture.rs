@@ -296,7 +296,7 @@ fn require_supported_filters(repo: &git2::Repository, path: &Path) -> Result<()>
             Ok(_) => anyhow::bail!(i18n::tf!(
                 FilePathUsesExternalFilterNameSuch,
                 name = name,
-                path = path
+                path = path.display()
             )),
             Err(error) if error.code() == git2::ErrorCode::NotFound => {}
             Err(error) => return Err(error.into()),

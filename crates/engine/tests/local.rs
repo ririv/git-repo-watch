@@ -3,7 +3,7 @@ use engine::{
     domain::Publication,
     local::{
         self,
-        files::{self, Area, Change, Files, IndexAction},
+        files::{self, Area, Change, Files, IndexAction, Location},
         review,
     },
     operations::{commit, push},
@@ -22,6 +22,29 @@ fn change(snapshot: &Files, name: &str, area: Area) -> Change {
         .find(|c| c.location.name() == Path::new(name) && c.area == area)
         .unwrap_or_else(|| panic!("没有文件 {name:?}/{area:?}: {:?}", snapshot.changes))
         .clone()
+}
+#[test]
+fn path_labels_preserve_unicode_spaces_and_literal_quotes_without_debug_wrappers() {
+    let before = "旧目录/文件 空格.txt";
+    let after = "新目录/文件\"引号\".txt";
+    for path in [before, after, "\"真实引号\".txt"] {
+        let location = Location::Path(path.into());
+        assert_eq!(location.display(), path);
+        assert_eq!(location.name(), Path::new(path));
+    }
+    for location in [
+        Location::Rename {
+            before: before.into(),
+            after: after.into(),
+        },
+        Location::Copy {
+            before: before.into(),
+            after: after.into(),
+        },
+    ] {
+        assert_eq!(location.display(), format!("{before} → {after}"));
+        assert_eq!(location.name(), Path::new(after));
+    }
 }
 #[test]
 fn staged_and_worktree_diff_stay_separate() {
@@ -113,6 +136,7 @@ fn untracked_symlink_does_not_read_target() {
     let s = files::read(&f.repo).unwrap();
     let text = files::diff(&s, &change(&s, "link", Area::Untracked)).unwrap();
     assert!(text.contains("新符号链接"));
+    assert_eq!(text, format!("新符号链接 link → {}", target.display()));
     assert!(!text.contains("private target content"));
 }
 #[test]

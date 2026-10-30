@@ -3958,16 +3958,16 @@ impl Message {
                 "暂存操作已执行，但刷新失败"
             }
             (Self::FilePathUsesExternalFilterNameSuch, Language::English) => {
-                "File {path:?} uses external filter {name:?} (such as Git LFS), which is not registered in this libgit2 index backend; staging refused. Handle it explicitly with Git"
+                "File {path} uses external filter {name:?} (such as Git LFS), which is not registered in this libgit2 index backend; staging refused. Handle it explicitly with Git"
             }
             (Self::FilePathUsesExternalFilterNameSuch, Language::Chinese) => {
-                "文件 {path:?} 使用外部 filter {name:?}（例如 Git LFS），当前 libgit2 索引后端未注册该过滤器，已拒绝暂存；请使用 Git 显式处理"
+                "文件 {path} 使用外部 filter {name:?}（例如 Git LFS），当前 libgit2 索引后端未注册该过滤器，已拒绝暂存；请使用 Git 显式处理"
             }
             (Self::FilePathUsesWorkingTreeEncodingWhich, Language::English) => {
-                "File {path:?} uses working-tree-encoding, which this backend does not support; staging refused"
+                "File {path} uses working-tree-encoding, which this backend does not support; staging refused"
             }
             (Self::FilePathUsesWorkingTreeEncodingWhich, Language::Chinese) => {
-                "文件 {path:?} 使用 working-tree-encoding，当前后端不支持该转换，已拒绝暂存"
+                "文件 {path} 使用 working-tree-encoding，当前后端不支持该转换，已拒绝暂存"
             }
             (Self::ChangeHasNoPath, Language::English) => "Change has no path",
             (Self::ChangeHasNoPath, Language::Chinese) => "变更缺少路径",
@@ -3997,8 +3997,8 @@ impl Message {
                 "File does not belong to this snapshot"
             }
             (Self::FileDoesNotBelongToThisSnapshot, Language::Chinese) => "文件不属于该快照",
-            (Self::NewSymlink, Language::English) => "New symlink {:?} → {:?}",
-            (Self::NewSymlink, Language::Chinese) => "新符号链接 {:?} → {:?}",
+            (Self::NewSymlink, Language::English) => "New symlink {} → {}",
+            (Self::NewSymlink, Language::Chinese) => "新符号链接 {} → {}",
             (Self::DirectoryOrSpecialFileTextDiffIs, Language::English) => {
                 "Directory or special file; text diff is unavailable"
             }
@@ -5470,20 +5470,20 @@ macro_rules! tf {
     };
     (FilePathUsesExternalFilterNameSuch $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("File {path:?} uses external filter {name:?} (such as Git LFS), which is not registered in this libgit2 index backend; staging refused. Handle it explicitly with Git" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("文件 {path:?} 使用外部 filter {name:?}（例如 Git LFS），当前 libgit2 索引后端未注册该过滤器，已拒绝暂存；请使用 Git 显式处理" $(, $($args)*)?),
+            $crate::Language::English => format!("File {path} uses external filter {name:?} (such as Git LFS), which is not registered in this libgit2 index backend; staging refused. Handle it explicitly with Git" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("文件 {path} 使用外部 filter {name:?}（例如 Git LFS），当前 libgit2 索引后端未注册该过滤器，已拒绝暂存；请使用 Git 显式处理" $(, $($args)*)?),
         }
     };
     (FilePathUsesWorkingTreeEncodingWhich $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("File {path:?} uses working-tree-encoding, which this backend does not support; staging refused" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("文件 {path:?} 使用 working-tree-encoding，当前后端不支持该转换，已拒绝暂存" $(, $($args)*)?),
+            $crate::Language::English => format!("File {path} uses working-tree-encoding, which this backend does not support; staging refused" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("文件 {path} 使用 working-tree-encoding，当前后端不支持该转换，已拒绝暂存" $(, $($args)*)?),
         }
     };
     (NewSymlink $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("New symlink {:?} → {:?}" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("新符号链接 {:?} → {:?}" $(, $($args)*)?),
+            $crate::Language::English => format!("New symlink {} → {}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("新符号链接 {} → {}" $(, $($args)*)?),
         }
     };
     (LargeUntrackedFileBytesViewWithAn $(, $($args:tt)*)?) => {

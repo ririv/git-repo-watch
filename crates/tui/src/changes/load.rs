@@ -73,7 +73,7 @@ impl Loader {
                             &task_cancel,
                         ));
                     let mut content = document::prepare_change(
-                        &document::title(&change.location),
+                        &change.location.display(),
                         document,
                         change,
                         &task_cancel,

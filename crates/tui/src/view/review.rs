@@ -6,7 +6,7 @@ pub(super) fn commit_review(plan: &CommitPlan) -> String {
         safe(plan.branch())
     );
     for file in &plan.files {
-        text.push_str(&format!("• {file:?}\n"))
+        text.push_str(&format!("• {}\n", safe(&file.display().to_string())))
     }
     text.push_str(&format!("\n{}", plan.stat));
     text
