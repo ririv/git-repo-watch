@@ -98,9 +98,9 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 let mut label = format!(
                     "{}{path}/",
                     if session.expanded(row.head) {
-                        "▼  "
+                        "▼ "
                     } else {
-                        "▶  "
+                        "▶ "
                     }
                 );
                 let indicator = if session.directory_loading(&entry.path) {
@@ -116,7 +116,7 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 }
                 label
             } else {
-                format!("   {path}")
+                format!("  {path}")
             };
             let label = Line::styled(
                 format!("{}{}", "  ".repeat(row.depth), safe(&label)),
