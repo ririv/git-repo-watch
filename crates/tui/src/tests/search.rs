@@ -7,6 +7,33 @@ fn change_mode(s: &mut Screen, name: &str) {
     key(s, KeyCode::Enter);
 }
 
+fn assert_matches_survive_row_selection(s: &mut Screen) {
+    let mut terminal = Terminal::new(TestBackend::new(80, 26)).unwrap();
+    terminal.draw(|frame| view::render(frame, s)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let matches = buffer
+        .content
+        .iter()
+        .filter(|cell| cell.symbol() == "中")
+        .collect::<Vec<_>>();
+    assert!(
+        matches
+            .iter()
+            .any(|cell| cell.bg == ratatui::style::Color::Rgb(124, 83, 24))
+    );
+    assert!(
+        matches
+            .iter()
+            .any(|cell| cell.bg == ratatui::style::Color::Rgb(81, 65, 37))
+    );
+    assert!(
+        buffer
+            .content
+            .iter()
+            .any(|cell| cell.bg == ratatui::style::Color::Rgb(25, 65, 95))
+    );
+}
+
 #[test]
 fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
@@ -18,6 +45,7 @@ fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows(
         assert_eq!(s.search_support(), Support::Both(SearchMode::Filter));
         s.paste("中文");
         assert_eq!(s.rows().len(), 2);
+        assert_matches_survive_row_selection(&mut s);
         key(&mut s, KeyCode::Down);
         assert_eq!(s.selected_path(), Some(c.clone()));
         change_mode(&mut s, "locate");
@@ -96,6 +124,7 @@ fn worktree_locates_both_stages_keeps_checked_identities_and_survives_readback()
     open_files(&mut s);
     s.paste("中文");
     assert_eq!(s.mode.file_session().unwrap().rows().len(), 2);
+    assert_matches_survive_row_selection(&mut s);
     change_mode(&mut s, "locate");
     let files = s.mode.file_session().unwrap();
     let count = files.rows().len();

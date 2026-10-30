@@ -96,6 +96,20 @@ pub(super) fn name(path: &std::path::Path) -> String {
             .to_string_lossy(),
     )
 }
+// 列表控件会在绘制时收紧越界选择，片段着色必须使用同一个有效位置。
+fn row_selection(selected: Option<usize>, count: usize) -> Option<usize> {
+    selected
+        .zip(count.checked_sub(1))
+        .map(|(index, last)| index.min(last))
+}
+// 行背景先绘制，匹配片段随后叠加，避免整行选中样式覆盖匹配底色。
+fn row_style(selected: bool) -> Style {
+    if selected {
+        selected_style()
+    } else {
+        Style::default()
+    }
+}
 fn selected_style() -> Style {
     Style::default().bg(Color::Rgb(25, 65, 95))
 }

@@ -1,4 +1,6 @@
 //! Search semantics and match navigation are independent of list rendering.
+pub(crate) mod highlight;
+mod literal;
 mod screen;
 #[cfg(test)]
 mod tests;

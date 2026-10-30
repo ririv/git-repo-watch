@@ -4,6 +4,7 @@ pub(super) mod menu;
 mod pixels;
 use super::*;
 use crate::history::{Session, View};
+use crate::search::highlight::{self, Emphasis};
 use engine::local::history::{Continuation, Entry, Head, Label, References};
 
 pub(super) fn render(
@@ -228,11 +229,15 @@ fn graph(
         hits,
         crate::pointer::ScrollTarget::HistoryHorizontal,
     );
+    let selection = row_selection(session.state.selected(), session.records.len());
     let items: Vec<_> = session
         .records
         .iter()
         .zip(lines)
-        .map(|(record, line)| {
+        .enumerate()
+        .map(|(index, (record, line))| {
+            let selected = selection == Some(index);
+            let emphasis = Emphasis::at(index, selection);
             let mut spans = if session.selection.active() {
                 super::checkbox::spans(if session.selection.contains(&record.entry.oid) {
                     crate::files::CheckState::Checked
@@ -245,17 +250,25 @@ fn graph(
             spans.extend([
                 Span::raw(" ".repeat(usize::from(graph_inset))),
                 Span::raw(" ".repeat(usize::from(graph_width))),
-                Span::styled(
-                    format!("  {} ", &record.entry.oid.to_string()[..8]),
-                    Style::default().fg(WARN),
-                ),
             ]);
+            spans.extend(
+                highlight::line(
+                    Line::styled(
+                        format!("  {} ", &record.entry.oid.to_string()[..8]),
+                        Style::default().fg(WARN),
+                    ),
+                    &session.query,
+                    emphasis,
+                )
+                .spans,
+            );
+            let line = highlight::line(line, &session.query, emphasis);
             spans.extend(crate::horizontal::clip(&line, text_offset, text_width).spans);
             ListItem::new(Line::from(spans)).style(
                 if !session.query.is_empty() && session.matches_entry(&record.entry) {
-                    Style::default().bold()
+                    row_style(selected).bold()
                 } else {
-                    Style::default()
+                    row_style(selected)
                 },
             )
         })
@@ -266,11 +279,7 @@ fn graph(
             body[1],
         );
     } else {
-        frame.render_stateful_widget(
-            List::new(items).highlight_style(selected_style()),
-            content_area,
-            &mut session.state,
-        );
+        frame.render_stateful_widget(List::new(items), content_area, &mut session.state);
         crate::scrollbar::vertical(
             frame,
             parts[0],

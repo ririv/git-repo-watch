@@ -1,6 +1,7 @@
 //! Local/remote branch list and explicit branch metadata share one snapshot.
 use super::*;
 use crate::branches::{Session, View};
+use crate::search::highlight::{self, Emphasis};
 use engine::local::branches::{
     catalog::{Head, Kind},
     upstream::{Comparison, Tracking},
@@ -84,6 +85,7 @@ pub(super) fn list(
         Head::Unborn(name) => format!(" · {} · {}", safe(name), i18n::tr!(OverviewUnborn)),
     };
     let rows = session.rows();
+    let selection = row_selection(session.state.selected(), rows.len());
     frame.render_widget(
         Paragraph::new(format!("{} · {}{head}", session.filter.title(), rows.len()))
             .style(Style::default().fg(MUTED)),
@@ -91,33 +93,33 @@ pub(super) fn list(
     );
     let items = rows
         .iter()
-        .map(|entry| {
+        .enumerate()
+        .map(|(index, entry)| {
             let current = session.snapshot.current(entry);
             let (kind, color, suffix) = match &entry.kind {
                 Kind::Local(tracking) => (i18n::tr!(BranchLocal), GOOD, compact(tracking)),
                 Kind::Remote => (i18n::tr!(BranchRemote), ACCENT, String::new()),
             };
-            ListItem::new(Line::from(vec![
-                Span::styled(
-                    format!("{} ", if current { "*" } else { " " }),
-                    Style::default().fg(GOOD).bold(),
-                ),
-                Span::styled(
-                    format!("{} ", safe(&entry.name)),
-                    if session.search_mode == crate::search::Mode::Locate
-                        && !session.query.is_empty()
-                        && entry
-                            .name
-                            .to_lowercase()
-                            .contains(&session.query.to_lowercase())
-                    {
-                        Style::default().fg(color).bold()
-                    } else {
-                        Style::default().fg(color)
-                    },
-                ),
-                Span::styled(format!("{kind}{suffix}"), Style::default().fg(MUTED)),
-            ]))
+            let mut spans = vec![Span::styled(
+                format!("{} ", if current { "*" } else { " " }),
+                Style::default().fg(GOOD).bold(),
+            )];
+            spans.extend(
+                highlight::line(
+                    Line::styled(
+                        format!("{} ", safe(&entry.name)),
+                        Style::default().fg(color),
+                    ),
+                    &session.query,
+                    Emphasis::at(index, selection),
+                )
+                .spans,
+            );
+            spans.push(Span::styled(
+                format!("{kind}{suffix}"),
+                Style::default().fg(MUTED),
+            ));
+            ListItem::new(Line::from(spans)).style(row_style(selection == Some(index)))
         })
         .collect::<Vec<_>>();
     let count = items.len();
@@ -126,11 +128,7 @@ pub(super) fn list(
     } else {
         items
     };
-    frame.render_stateful_widget(
-        List::new(items).highlight_style(selected_style()),
-        parts[1],
-        &mut session.state,
-    );
+    frame.render_stateful_widget(List::new(items), parts[1], &mut session.state);
     crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
     hits.list(
         area,

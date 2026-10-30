@@ -53,7 +53,7 @@
 ## Filter and locate
 - Global `/search` lists the modes supported by the current view and marks the current value. `/search filter` shows matching rows; `/search locate` retains the full list. Use `//search` from a view with a context prefix.
 - Repository, worktree, branch, stash and historical file lists support both, defaulting to filtering. Switching preserves the query and any still-visible selection. Each list remembers its mode for this session.
-- Locate emphasizes matches. With a query, `↑` / `↓` wrap through previous/next matches; the input title shows the current match and total. No matches shows `0/0` and keeps the selection. Clearing the query restores ordinary row navigation.
+- Locate retains the full list. Matching text has an amber background and underline; the current match uses a stronger background, bold text, and a brighter underline. Syntax and status colors are preserved. With a query, `↑` / `↓` wrap through previous/next matches; the input title shows the current match and total. No matches shows `0/0` and keeps the selection. Clearing the query restores ordinary row navigation.
 - The commit graph supports locating loaded commits only, preserving topology; load more to search older commits. The file tree supports background path filtering; focused text contents support locating only. Images and binary notices do not offer locating.
 - Settings, overview, help, read-only details and diff content previews offer command input only. They do not search hidden lists or offer search-mode commands. Returning to a list restores its query; keyboard, clicks and wheel focus changes behave consistently. Search, status filters, sorting and file checkboxes remain independent.
 

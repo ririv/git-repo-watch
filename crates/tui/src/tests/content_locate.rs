@@ -56,11 +56,35 @@ fn content_locates_each_occurrence_cycles_and_highlights_without_mutating_source
         let pane = session(&mut s).pane();
         assert!(pane.position.scroll > 0);
         assert_eq!(pane.find.current(&pane.position.find).unwrap().line, 30);
-        assert!(buffer.content.iter().any(|cell| cell.symbol() == "N"
-            && cell.bg == ratatui::style::Color::Rgb(40, 88, 120)
-            && matches!(cell.fg, ratatui::style::Color::Rgb(..))));
+        let current = buffer
+            .content
+            .iter()
+            .position(|cell| {
+                cell.symbol() == "N" && cell.bg == ratatui::style::Color::Rgb(124, 83, 24)
+            })
+            .unwrap();
+        let other = current + "Needle ".len();
+        assert_eq!(buffer.content[other].symbol(), "n");
+        assert_eq!(
+            buffer.content[other].bg,
+            ratatui::style::Color::Rgb(81, 65, 37)
+        );
+        assert_eq!(buffer.content[current].fg, buffer.content[other].fg);
+        assert!(matches!(
+            buffer.content[current].fg,
+            ratatui::style::Color::Rgb(..)
+        ));
         key(&mut s, KeyCode::Down);
         assert!(s.search_title().contains("2/3"));
+        let buffer = frame(&mut s, 100, 24);
+        assert_eq!(
+            buffer.content[current].bg,
+            ratatui::style::Color::Rgb(81, 65, 37)
+        );
+        assert_eq!(
+            buffer.content[other].bg,
+            ratatui::style::Color::Rgb(124, 83, 24)
+        );
         let pane = session(&mut s).pane();
         assert_eq!(pane.find.current(&pane.position.find).unwrap().line, 30);
         key(&mut s, KeyCode::Down);

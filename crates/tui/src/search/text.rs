@@ -1,9 +1,7 @@
 //! Literal text matches retain terminal-cell ranges independently from visual wrapping.
+use super::{highlight::Emphasis, literal::ranges};
 use crate::links::Text;
-use ratatui::style::Style;
 use std::{ops::Range, sync::Arc};
-use unicode_segmentation::UnicodeSegmentation;
-use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) struct Hit {
@@ -135,35 +133,6 @@ impl Index {
     }
 }
 
-fn ranges(body: &str, needle: &str) -> Vec<Range<usize>> {
-    if body.is_ascii() {
-        return body
-            .to_ascii_lowercase()
-            .match_indices(needle)
-            .map(|(start, value)| start..start + value.len())
-            .collect();
-    }
-    let mut folded = String::new();
-    let mut map = Vec::new();
-    let mut column = 0;
-    for grapheme in body.graphemes(true) {
-        folded.push_str(&grapheme.to_lowercase());
-        let next = column + grapheme.width();
-        map.push((folded.len(), column..next));
-        column = next;
-    }
-    let mut result = Vec::new();
-    for (start, value) in folded.match_indices(needle) {
-        let first = map.partition_point(|(end, _)| *end <= start);
-        let last = map.partition_point(|(end, _)| *end < start + value.len());
-        let columns = map[first].1.start..map[last].1.end;
-        if result.last() != Some(&columns) {
-            result.push(columns);
-        }
-    }
-    result
-}
-
 pub(crate) fn paint(
     frame: &mut ratatui::Frame,
     area: ratatui::layout::Rect,
@@ -190,27 +159,13 @@ pub(crate) fn paint(
         let to = hit.columns.end.min(end);
         let current = index.current(draft) == Some(hit);
         let style = if current {
-            Style::default()
-                .bg(ratatui::style::Color::Rgb(40, 88, 120))
-                .add_modifier(ratatui::style::Modifier::BOLD | ratatui::style::Modifier::UNDERLINED)
+            Emphasis::Current
         } else {
-            Style::default()
-                .bg(ratatui::style::Color::Rgb(55, 50, 85))
-                .add_modifier(ratatui::style::Modifier::UNDERLINED)
-        };
+            Emphasis::Other
+        }
+        .style();
         for column in from..to {
             frame.buffer_mut()[(area.x + (fixed + column - start) as u16, area.y)].set_style(style);
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn unicode_case_expansion_and_combining_graphemes_keep_real_cell_coordinates() {
-        assert_eq!(ranges("中İ e\u{301}👩‍💻 中İ", "i"), vec![2..3, 10..11]);
-        assert_eq!(ranges("e\u{301}e\u{301}", "\u{301}"), vec![0..1, 1..2]);
-        assert_eq!(ranges("Foo FOO foo", "foo"), vec![0..3, 4..7, 8..11]);
     }
 }

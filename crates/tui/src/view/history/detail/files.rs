@@ -1,5 +1,6 @@
 //! Changed files retain the shared trailing status markers and precise hit regions.
 use super::*;
+use crate::search::highlight::{self, Emphasis};
 use engine::local::{files::Location, history::Kind};
 pub(super) fn render(
     frame: &mut Frame,
@@ -9,6 +10,7 @@ pub(super) fn render(
 ) {
     let rows = commit.rows();
     let count = rows.len();
+    let selection = row_selection(commit.files.selected(), count);
     let title = format!("{} · {}", i18n::tr!(HistoryChanges), rows.len());
     let border = block(title);
     let inner = border.inner(area);
@@ -27,7 +29,8 @@ pub(super) fn render(
     } else {
         let items: Vec<_> = rows
             .iter()
-            .map(|change| {
+            .enumerate()
+            .map(|(index, change)| {
                 let path = match &change.location {
                     Location::Path(path) => path.display().to_string(),
                     Location::Rename { before, after } | Location::Copy { before, after } => {
@@ -40,34 +43,21 @@ pub(super) fn render(
                     Kind::Modified | Kind::Typechange => WARN,
                     Kind::Renamed | Kind::Copied => ACCENT,
                 };
+                let path = highlight::line(
+                    Line::raw(safe(&path)),
+                    &commit.query,
+                    Emphasis::at(index, selection),
+                );
                 ListItem::new(crate::view::files::marked_line(
-                    &Line::raw(safe(&path)),
+                    &path,
                     change.kind.symbol(),
                     color,
                     inner.width as usize,
                 ))
-                .style(
-                    if commit.search_mode == crate::search::Mode::Locate
-                        && !commit.query.is_empty()
-                        && change
-                            .location
-                            .name()
-                            .to_string_lossy()
-                            .to_lowercase()
-                            .contains(&commit.query.to_lowercase())
-                    {
-                        Style::default().bold()
-                    } else {
-                        Style::default()
-                    },
-                )
+                .style(row_style(selection == Some(index)))
             })
             .collect();
-        frame.render_stateful_widget(
-            List::new(items).highlight_style(selected_style()),
-            inner,
-            &mut commit.files,
-        );
+        frame.render_stateful_widget(List::new(items), inner, &mut commit.files);
         crate::scrollbar::vertical(frame, area, inner, count, commit.files.offset());
         hits.list(
             area,

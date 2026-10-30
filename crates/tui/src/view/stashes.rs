@@ -1,5 +1,6 @@
 //! Responsive stash selection and complete immutable entry details.
 use super::*;
+use crate::search::highlight::{self, Emphasis};
 use crate::stashes::{Session, View};
 fn details(session: &Session, entry: &engine::local::stash::Entry) -> String {
     format!(
@@ -49,28 +50,31 @@ pub(super) fn render(
                 vec![area]
             };
             let rows = session.rows();
+            let selection = row_selection(session.state.selected(), rows.len());
             let items = rows
                 .iter()
-                .map(|entry| {
+                .enumerate()
+                .map(|(row, entry)| {
                     let index = entry.index;
-                    ListItem::new(Line::from(vec![
-                        Span::styled(format!("stash@{{{index}}} "), Style::default().fg(ACCENT)),
-                        Span::styled(
-                            format!("{} ", &entry.oid.to_string()[..8]),
-                            Style::default().fg(WARN),
-                        ),
-                        Span::styled(
-                            safe(&entry.message),
-                            if session.search_mode == crate::search::Mode::Locate
-                                && !session.query.is_empty()
-                                && session.matches_entry(entry)
-                            {
-                                Style::default().bold()
-                            } else {
-                                Style::default()
-                            },
-                        ),
-                    ]))
+                    let mut spans = vec![Span::styled(
+                        format!("stash@{{{index}}} "),
+                        Style::default().fg(ACCENT),
+                    )];
+                    spans.extend(
+                        highlight::line(
+                            Line::from(vec![
+                                Span::styled(
+                                    format!("{} ", &entry.oid.to_string()[..8]),
+                                    Style::default().fg(WARN),
+                                ),
+                                Span::raw(safe(&entry.message)),
+                            ]),
+                            &session.query,
+                            Emphasis::at(row, selection),
+                        )
+                        .spans,
+                    );
+                    ListItem::new(Line::from(spans)).style(row_style(selection == Some(row)))
                 })
                 .collect::<Vec<_>>();
             let count = items.len();
@@ -81,9 +85,7 @@ pub(super) fn render(
             };
             let preview = session.selected().map(|entry| details(session, entry));
             frame.render_stateful_widget(
-                List::new(items)
-                    .block(block(i18n::tr!(StashTitle)))
-                    .highlight_style(selected_style()),
+                List::new(items).block(block(i18n::tr!(StashTitle))),
                 areas[0],
                 &mut session.state,
             );

@@ -1,6 +1,7 @@
 //! Staged and unstaged trees share selectable rows and tri-state directory checkboxes.
 use super::*;
 use crate::files::Group;
+use crate::search::highlight::{self, Emphasis};
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -125,6 +126,13 @@ pub(super) fn render(
         let items = entries
             .iter()
             .map(|entry| {
+                let selected =
+                    entry.cursor(Group::from_index(usize::from(staged))) == session.cursor;
+                let emphasis = if selected {
+                    Emphasis::Current
+                } else {
+                    Emphasis::Other
+                };
                 let mut spans = super::checkbox::spans(session.check_state(entry, &rows));
                 spans.push(Span::raw(" "));
                 let crate::files::tree::Row::File {
@@ -136,24 +144,21 @@ pub(super) fn render(
                     let crate::files::tree::Row::Directory { label, .. } = entry else {
                         unreachable!()
                     };
-                    spans.push(Span::styled(safe(label), Style::default().fg(ACCENT)));
-                    return ListItem::new(Line::from(spans));
+                    spans.extend(
+                        highlight::line(
+                            Line::styled(safe(label), Style::default().fg(ACCENT)),
+                            &session.query,
+                            emphasis,
+                        )
+                        .spans,
+                    );
+                    return ListItem::new(Line::from(spans)).style(row_style(selected));
                 };
                 let change = rows[*index];
-                spans.extend([
-                    Span::styled(prefix.clone(), Style::default().fg(MUTED)),
-                    Span::styled(
-                        safe(label),
-                        if session.search_mode == crate::search::Mode::Locate
-                            && !session.query.is_empty()
-                            && session.matches_change(change)
-                        {
-                            Style::default().bold()
-                        } else {
-                            Style::default()
-                        },
-                    ),
-                ]);
+                spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
+                spans.extend(
+                    highlight::line(Line::raw(safe(label)), &session.query, emphasis).spans,
+                );
                 let line = Line::from(spans);
                 ListItem::new(marked_line(
                     &line,
@@ -167,6 +172,7 @@ pub(super) fn render(
                     },
                     parts[1].width as usize,
                 ))
+                .style(row_style(selected))
             })
             .collect::<Vec<_>>();
         let mut state = ListState::default()
@@ -174,11 +180,7 @@ pub(super) fn render(
             .with_selected(entries.iter().position(|entry| {
                 entry.cursor(Group::from_index(usize::from(staged))) == session.cursor
             }));
-        frame.render_stateful_widget(
-            List::new(items).highlight_style(selected_style()),
-            parts[1],
-            &mut state,
-        );
+        frame.render_stateful_widget(List::new(items), parts[1], &mut state);
         offsets[usize::from(staged)] = state.offset();
         crate::scrollbar::vertical(frame, area, parts[1], entries.len(), state.offset());
         hits.list(

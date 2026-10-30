@@ -2,6 +2,7 @@ mod heading;
 mod status;
 use super::*;
 use crate::repository_list::Status;
+use crate::search::highlight::{self, Emphasis};
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Scope {
     CurrentBranch,
@@ -46,6 +47,7 @@ fn failure_kind(error: &str) -> FailureKind {
 }
 fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let rows = screen.rows();
+    let selection = row_selection(screen.repository_viewport.selected(), rows.len());
     let content = heading::render(
         frame,
         format!("{} · {}", i18n::tr!(Repositories), rows.len()),
@@ -66,7 +68,8 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let column_count = columns.len();
     let data = rows
         .iter()
-        .map(|row| {
+        .enumerate()
+        .map(|(index, row)| {
             let execution = screen.repository_status(&row.path);
             let running = screen
                 .check_task
@@ -83,23 +86,32 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             let (sync, sync_color) = status::synchronization(row.result.as_ref());
             let mut data = TableRow::new(
                 [
-                    Cell::from(Line::from(vec![
-                        Span::styled(
+                    Cell::from(Line::from(
+                        std::iter::once(Span::styled(
                             format!("{} ", running.unwrap_or(execution.symbol())),
                             Style::default().fg(if running.is_some() {
                                 ACCENT
                             } else {
                                 status::color(execution)
                             }),
-                        ),
-                        Span::raw(name(&row.path)),
-                    ])),
+                        ))
+                        .chain(
+                            highlight::line(
+                                Line::raw(name(&row.path)),
+                                &screen.query,
+                                Emphasis::at(index, selection),
+                            )
+                            .spans,
+                        )
+                        .collect::<Vec<_>>(),
+                    )),
                     Cell::from(workspace).style(Style::default().fg(workspace_color)),
                     Cell::from(sync).style(Style::default().fg(sync_color)),
                 ]
                 .into_iter()
                 .take(column_count),
-            );
+            )
+            .style(row_style(selection == Some(index)));
             if screen.search_mode == crate::search::Mode::Locate
                 && !screen.query.is_empty()
                 && row
@@ -108,7 +120,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     .to_lowercase()
                     .contains(&screen.query.to_lowercase())
             {
-                data = data.style(Style::default().bold());
+                data = data.style(row_style(selection == Some(index)).bold());
             }
             data
         })
@@ -119,9 +131,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         i18n::tr!(SyncColumn),
     ];
     let heading = u16::from(content.height > 1);
-    let mut table = Table::new(data, columns)
-        .row_highlight_style(selected_style())
-        .column_spacing(1);
+    let mut table = Table::new(data, columns).column_spacing(1);
     if heading > 0 {
         table = table.header(
             TableRow::new(headings.into_iter().take(column_count))

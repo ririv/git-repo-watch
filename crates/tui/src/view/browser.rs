@@ -3,6 +3,7 @@ mod content;
 mod layout;
 mod path;
 use super::*;
+use crate::search::highlight::{self, Emphasis};
 use crate::{
     browser::{Focus, Session},
     pointer::Target,
@@ -70,11 +71,13 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
         );
     }
     let rows = session.rows();
+    let selection = row_selection(session.state.selected(), rows.len());
     let width = parts[1].width as usize;
     let name_width = if width >= 3 { width - 3 } else { width };
     let labels = rows
         .iter()
-        .map(|row| {
+        .enumerate()
+        .map(|(index, row)| {
             let entry = row.entry;
             let status = entry.status();
             let color = if status.is_some_and(|status| status.changed()) {
@@ -119,6 +122,7 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 format!("{}{}", "  ".repeat(row.depth), safe(&label)),
                 Style::default().fg(if entry.directory() { ACCENT } else { color }),
             );
+            let label = highlight::line(label, &session.query, Emphasis::at(index, selection));
             (label, status.map(|status| status.label()), color)
         })
         .collect::<Vec<_>>();
@@ -134,7 +138,8 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
     );
     let items = labels
         .into_iter()
-        .map(|(label, status, color)| {
+        .enumerate()
+        .map(|(index, (label, status, color))| {
             let mut line = crate::horizontal::clip(&label, session.horizontal.offset(), name_width);
             if width >= 3 {
                 line.spans
@@ -144,14 +149,10 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                     Style::default().fg(color),
                 ));
             }
-            ListItem::new(line)
+            ListItem::new(line).style(row_style(selection == Some(index)))
         })
         .collect::<Vec<_>>();
-    frame.render_stateful_widget(
-        List::new(items).highlight_style(selected_style()),
-        parts[1],
-        &mut session.state,
-    );
+    frame.render_stateful_widget(List::new(items), parts[1], &mut session.state);
     if count == 0 && session.notice().is_none() {
         frame.render_widget(
             Paragraph::new(i18n::tr!(BrowserEmpty)).style(Style::default().fg(MUTED)),
