@@ -1,10 +1,12 @@
 //! Breadcrumbs describe actual return destinations, including nested content views.
+mod follow;
 use super::*;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Level {
     Page,
+    PageRoot,
     Repository,
     Pane(crate::workspace::Section),
     History,
@@ -70,7 +72,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
                 View::History => Level::History,
                 View::Branches => Level::Branches,
                 View::Stashes => Level::Stashes,
-                View::Diff | View::Files => Level::Page,
+                View::Diff | View::Files => Level::PageRoot,
             },
         ),
         Page::Configuration(_) if matches!(mode, Mode::Workflow(_)) => {}
@@ -78,10 +80,10 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
             let Mode::Management(session) = mode else {
                 unreachable!()
             };
-            push(session.title().into(), Level::Page);
+            push(session.title().into(), Level::PageRoot);
         }
-        Page::Configuration(section) => push(section.title().into(), Level::Page),
-        Page::Help => push(i18n::tr!(Help).into(), Level::Page),
+        Page::Configuration(section) => push(section.title().into(), Level::PageRoot),
+        Page::Help => push(i18n::tr!(Help).into(), Level::PageRoot),
     }
     if page == Page::Detail
         && let Some(section) = crate::workspace::Section::focused(mode)
@@ -132,6 +134,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         Mode::PushConfirm { .. } | Mode::PushTarget(_) => {
             push(i18n::tr!(PushCurrentBranch).into(), Level::Page)
         }
+        Mode::Confirm { .. } => push(i18n::tr!(ConfirmOperation).into(), Level::Page),
         _ => {}
     }
     entries
@@ -194,75 +197,11 @@ impl Screen {
         if let Some(last) = trail.last_mut() {
             last.destination = None;
         }
+        if matches!(self.mode, Mode::Busy(_)) {
+            for crumb in &mut trail {
+                crumb.destination = None;
+            }
+        }
         trail
-    }
-    pub(crate) fn follow_breadcrumb(&mut self, destination: Destination) {
-        if !matches!(
-            self.mode,
-            Mode::Browsing
-                | Mode::Panel(_)
-                | Mode::Files(_)
-                | Mode::Changes(_)
-                | Mode::History(_)
-                | Mode::Browser(_)
-                | Mode::Branches(_)
-                | Mode::Stashes(_)
-        ) {
-            return;
-        }
-        let level = match destination {
-            Destination::Home => {
-                while !self.history.is_empty() {
-                    self.return_to_view();
-                }
-                if self.page != Page::Repositories {
-                    self.open_repository_list(self.scope_path());
-                }
-                self.sync_bar();
-                return;
-            }
-            Destination::Saved { index, level } => {
-                if index >= self.history.len() {
-                    return;
-                }
-                while self.history.len() > index {
-                    self.return_to_view();
-                }
-                level
-            }
-            Destination::Current(level) => level,
-        };
-        match level {
-            Level::Page => {}
-            Level::Repository => self.leave_repository_section(),
-            Level::Pane(section) => self.switch_repository_section(section),
-            Level::History => {
-                if let Mode::History(view) = &self.mode {
-                    self.mode =
-                        Mode::History(Box::new(history::View::Graph(view.session().clone())));
-                }
-            }
-            Level::Commit => {
-                if let Mode::History(view) = &self.mode
-                    && let history::View::Diff { commit, .. } = view.as_ref()
-                {
-                    self.mode = Mode::History(Box::new(history::View::Commit((**commit).clone())));
-                }
-            }
-            Level::Branches => {
-                if let Mode::Branches(view) = &self.mode {
-                    self.mode =
-                        Mode::Branches(Box::new(branches::View::List(view.session().clone())));
-                }
-            }
-            Level::Stashes => {
-                if let Mode::Stashes(view) = &self.mode {
-                    self.mode =
-                        Mode::Stashes(Box::new(stashes::View::List(view.session().clone())));
-                }
-            }
-        }
-        self.message.clear();
-        self.sync_bar();
     }
 }

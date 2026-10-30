@@ -4,13 +4,13 @@ use crate::{
     workspace::Section,
 };
 
-fn labels(s: &Screen) -> Vec<String> {
+pub(super) fn labels(s: &Screen) -> Vec<String> {
     s.breadcrumbs()
         .into_iter()
         .map(|crumb| crumb.label)
         .collect()
 }
-fn click_crumb(s: &mut Screen, destination: Destination) {
+pub(super) fn click_crumb(s: &mut Screen, destination: Destination) {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     render(s, 180, 36);
     let area = s
