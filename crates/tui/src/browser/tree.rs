@@ -152,23 +152,4 @@ impl Session {
         }
         self.probe_visible();
     }
-    pub fn parent(&mut self) -> bool {
-        let Some(row) = self.selected_row() else {
-            return false;
-        };
-        if row.entry.directory() && self.expanded(row.head) {
-            self.toggle();
-            return true;
-        }
-        let depth = row.depth;
-        let selected = self.state.selected().expect("selected browser row");
-        let parent = self.rows()[..selected]
-            .iter()
-            .rposition(|row| row.depth < depth);
-        if let Some(index) = parent {
-            self.select(index);
-            return true;
-        }
-        false
-    }
 }

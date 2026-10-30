@@ -15,9 +15,17 @@ impl Screen {
             KeyCode::Right => 4,
             _ => return false,
         };
+        self.horizontal_scroll(delta)
+    }
+    pub(super) fn horizontal_scroll(&mut self, delta: isize) -> bool {
         let content = match &mut self.mode {
-            Mode::Browser(session) if session.focus == crate::browser::Focus::Preview => {
-                session.pane().position.horizontal.advance(delta);
+            Mode::Browser(session) => {
+                match session.focus {
+                    crate::browser::Focus::Tree => session.horizontal.advance(delta),
+                    crate::browser::Focus::Preview => {
+                        session.pane().position.horizontal.advance(delta)
+                    }
+                }
                 return true;
             }
             Mode::Changes(session) if session.focus == changes::Focus::Preview => {

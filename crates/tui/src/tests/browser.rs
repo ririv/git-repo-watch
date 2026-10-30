@@ -320,6 +320,12 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
     assert!(render(&mut s, 150, 32).contains("nested/deep/"));
     select(&mut s, "mixed/nested/deep");
     key(&mut s, KeyCode::Left);
+    assert_eq!(
+        session(&mut s).selected().unwrap().path,
+        Path::new("mixed/nested/deep")
+    );
+    assert!(session(&mut s).visit_directory(1));
+    ready(&mut s);
     assert_eq!(session(&mut s).selected().unwrap().path, Path::new("mixed"));
     select(&mut s, "output/中文 目录");
     key(&mut s, KeyCode::Enter);
@@ -346,7 +352,7 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
         session(&mut s).selected().unwrap().path,
         Path::new("output/中文 目录")
     );
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
     assert!(
         !session(&mut s)
             .rows()
@@ -360,7 +366,7 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
             Path::new("output/中文 目录")
         );
     }
-    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::Repositories);
     s.shutdown();
 }

@@ -450,7 +450,6 @@ impl Screen {
         };
         if let Some(code) = horizontal {
             if !self.bar.is_plain()
-                || !self.bar.editor().text.is_empty()
                 || !self
                     .body_area
                     .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
@@ -460,7 +459,7 @@ impl Screen {
             if !self.pointer_focus(event) {
                 return Ok(false);
             }
-            return Ok(self.horizontal_key(KeyEvent::new(code, KeyModifiers::NONE)));
+            return Ok(self.horizontal_scroll(if code == KeyCode::Left { -4 } else { 4 }));
         }
         let code = match event.kind {
             MouseEventKind::ScrollUp => KeyCode::Up,

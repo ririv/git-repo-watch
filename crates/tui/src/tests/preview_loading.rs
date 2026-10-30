@@ -26,9 +26,15 @@ fn poll_browser_at(s: &mut Screen, now: Instant) {
     let root = browser.root.clone();
     browser.panes.poll_at(&service, &root, now);
 }
+fn displayed_path<'a>(s: &Screen, text: &'a str) -> &'a str {
+    text.lines()
+        .nth(s.body_area.expect("rendered browser").y as usize)
+        .expect("visible path row")
+        .trim_end()
+}
 
 #[test]
-fn browser_keeps_the_old_title_and_content_without_loading_flash_and_only_publishes_latest() {
+fn browser_keeps_the_old_path_and_content_without_loading_flash_and_only_publishes_latest() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
@@ -53,7 +59,7 @@ fn browser_keeps_the_old_title_and_content_without_loading_flash_and_only_publis
         let now = since(&session(&mut s).panes.feedback) + Duration::from_millis(50);
         let retained = render(&mut s, 150, 32);
         assert!(
-            retained.contains("┌a.txt") && retained.contains("ALPHA_TOKEN"),
+            displayed_path(&s, &retained).ends_with("› a.txt") && retained.contains("ALPHA_TOKEN"),
             "{retained}"
         );
         assert!(!retained.contains(i18n::tr!(BrowserReading)));
@@ -67,7 +73,7 @@ fn browser_keeps_the_old_title_and_content_without_loading_flash_and_only_publis
             assert!(!text.contains("BETA_TOKEN"), "{text}");
             if !session(&mut s).panes.pending() {
                 assert!(
-                    text.contains("┌c.txt") && text.contains("GAMMA_TOKEN"),
+                    displayed_path(&s, &text).ends_with("› c.txt") && text.contains("GAMMA_TOKEN"),
                     "{text}"
                 );
                 assert!(!text.contains("ALPHA_TOKEN"));
@@ -107,7 +113,7 @@ fn browser_shows_loading_only_after_the_deadline_and_errors_are_not_delayed() {
     assert!(session(&mut s).panes.feedback.tick(start + FEEDBACK_DELAY));
     let text = render(&mut s, 150, 32);
     assert!(
-        text.contains(i18n::tr!(BrowserReading)) && text.contains("┌b.svg"),
+        text.contains(i18n::tr!(BrowserReading)) && displayed_path(&s, &text).ends_with("› b.svg"),
         "{text}"
     );
     assert!(!text.contains("ALPHA_TOKEN"));
@@ -152,13 +158,15 @@ fn source_and_rendered_panes_switch_as_a_complete_pair() {
         let text = render(&mut s, 180, 36);
         if quiet {
             assert!(
-                text.contains("┌a.md") && text.matches("ALPHA_TOKEN").count() == 2,
+                displayed_path(&s, &text).ends_with("› a.md")
+                    && text.matches("ALPHA_TOKEN").count() == 2,
                 "{text}"
             );
             assert!(!text.contains("BETA_TOKEN"));
         } else {
             assert!(
-                text.contains("┌b.md") && text.matches("BETA_TOKEN").count() == 2,
+                displayed_path(&s, &text).ends_with("› b.md")
+                    && text.matches("BETA_TOKEN").count() == 2,
                 "{text}"
             );
             assert!(!text.contains("ALPHA_TOKEN"));

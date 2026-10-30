@@ -72,7 +72,7 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
     let rows = session.rows();
     let width = parts[1].width as usize;
     let name_width = if width >= 3 { width - 3 } else { width };
-    let items = rows
+    let labels = rows
         .iter()
         .map(|row| {
             let entry = row.entry;
@@ -92,21 +92,26 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 entry.path.to_string_lossy()
             };
             let label = if entry.directory() {
-                format!(
-                    "{}{path}/ {}",
+                let mut label = format!(
+                    "{}{path}/",
                     if session.expanded(row.head) {
                         "▼  "
                     } else {
                         "▶  "
-                    },
-                    if session.directory_loading(&entry.path) {
-                        session.spinner()
-                    } else if session.directory_notice(&entry.path).is_some() {
-                        "!"
-                    } else {
-                        ""
                     }
-                )
+                );
+                let indicator = if session.directory_loading(&entry.path) {
+                    Some(session.spinner())
+                } else if session.directory_notice(&entry.path).is_some() {
+                    Some("!")
+                } else {
+                    None
+                };
+                if let Some(indicator) = indicator {
+                    label.push(' ');
+                    label.push_str(indicator);
+                }
+                label
             } else {
                 format!("   {path}")
             };
@@ -114,22 +119,34 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 format!("{}{}", "  ".repeat(row.depth), safe(&label)),
                 Style::default().fg(if entry.directory() { ACCENT } else { color }),
             );
-            let mut line = crate::horizontal::clip(&label, 0, name_width);
+            (label, status.map(|status| status.label()), color)
+        })
+        .collect::<Vec<_>>();
+    let count = rows.len();
+    drop(rows);
+    session.horizontal.constrain(
+        labels
+            .iter()
+            .map(|(label, _, _)| label.width())
+            .max()
+            .unwrap_or(0)
+            .saturating_sub(name_width),
+    );
+    let items = labels
+        .into_iter()
+        .map(|(label, status, color)| {
+            let mut line = crate::horizontal::clip(&label, session.horizontal.offset(), name_width);
             if width >= 3 {
                 line.spans
                     .push(Span::raw(" ".repeat(width - 2 - line.width())));
                 line.spans.push(Span::styled(
-                    status
-                        .map(|status| status.label())
-                        .unwrap_or_else(|| "  ".into()),
+                    status.unwrap_or_else(|| "  ".into()),
                     Style::default().fg(color),
                 ));
             }
             ListItem::new(line)
         })
         .collect::<Vec<_>>();
-    let count = rows.len();
-    drop(rows);
     frame.render_stateful_widget(
         List::new(items).highlight_style(selected_style()),
         parts[1],
@@ -148,6 +165,13 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
         &(0..count).collect::<Vec<_>>(),
         session.state.offset(),
         Target::Browser,
+    );
+    session.horizontal.render_on_border(
+        frame,
+        area,
+        parts[1].x..parts[1].x + name_width as u16,
+        hits,
+        crate::pointer::ScrollTarget::BrowserTreeHorizontal,
     );
 }
 fn preview(

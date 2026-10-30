@@ -271,6 +271,12 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
+                ScrollTarget::BrowserTreeHorizontal => {
+                    let Mode::Browser(session) = &mut self.mode else {
+                        return false;
+                    };
+                    session.horizontal.seek(offset);
+                }
                 ScrollTarget::BrowserPreview(mode) | ScrollTarget::BrowserHorizontal(mode) => {
                     if let Mode::Browser(session) = &mut self.mode {
                         match target {

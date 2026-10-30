@@ -4481,10 +4481,10 @@ impl Message {
             }
             (Self::BrowserPlaceholder, Language::Chinese) => "搜索仓库文件路径，或输入 / 查看命令",
             (Self::BrowserHint, Language::English) => {
-                "↑↓ select · ← collapse · →/Enter open · Tab pane · //zoom maximize · Esc back"
+                "↑↓ select · ←→ pan · Enter open/toggle · Tab panes · //zoom maximize · Esc back"
             }
             (Self::BrowserHint, Language::Chinese) => {
-                "↑↓选择 · ←折叠 · →/Enter 打开 · Tab 面板 · /zoom 放大 · Esc 返回"
+                "↑↓选择 · ←→横移 · Enter 打开/折叠 · Tab 面板 · /zoom 放大 · Esc 返回"
             }
             (Self::BrowserLoading, Language::English) => "Loading directory…",
             (Self::BrowserLoading, Language::Chinese) => "正在读取目录…",

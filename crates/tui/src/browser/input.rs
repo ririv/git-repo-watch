@@ -22,15 +22,7 @@ impl Screen {
             KeyCode::PageDown if session.focus == Focus::Tree => session.advance(10),
             KeyCode::Home if session.focus == Focus::Tree => session.select(0),
             KeyCode::End if session.focus == Focus::Tree => session.select(usize::MAX),
-            KeyCode::Enter | KeyCode::Right if session.focus == Focus::Tree => session.toggle(),
-            KeyCode::Left if session.focus == Focus::Tree => {
-                let within_tree = session.parent();
-                if !within_tree {
-                    self.mode = Mode::Browser(session);
-                    self.return_to_view();
-                    return;
-                }
-            }
+            KeyCode::Enter if session.focus == Focus::Tree => session.toggle(),
             KeyCode::Up => {
                 session.pane().position.scroll = session.pane().position.scroll.saturating_sub(1)
             }

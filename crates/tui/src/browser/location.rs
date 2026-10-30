@@ -76,6 +76,7 @@ impl Session {
         self.search_reader.clear();
         self.panes.clear();
         self.focus = Focus::Tree;
+        self.horizontal.seek(0);
         self.state.select(None);
         for ancestor in path.ancestors() {
             self.expanded.insert(ancestor.to_owned());

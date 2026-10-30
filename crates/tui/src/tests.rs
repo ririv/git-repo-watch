@@ -1,6 +1,7 @@
 mod branches;
 mod breadcrumbs;
 mod browser;
+mod browser_horizontal;
 mod changes;
 mod command_trigger;
 mod commands;

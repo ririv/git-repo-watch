@@ -104,10 +104,11 @@
 - External opens run in the background and report failures. Missing files do not redirect to another location.
 
 ## Repository file browser
+- Long tree names and paths scroll horizontally. The bottom border shows a scrollbar only for overflow; Git status columns stay fixed. Use a horizontal wheel, Shift + vertical wheel, or click and drag the scrollbar, including while filtering paths. With empty input, left/right arrows scroll horizontally; with text they move the cursor.
 - A path breadcrumb appears above the browser; the current file name uses bold white text at the end of the path, without a duplicate content panel title. Click an ancestor to return to its directory in the tree, or the repository name to return to the root. This clears the path filter while retaining expanded directories and per-file content searches and viewports. Narrow windows omit middle components; very short windows prioritize content.
 - `/repo files` browses tracked files and untracked files allowed by Git ignore rules. Directories load one level at a time in the background; `.git` is excluded.
 - Directory chains with a single child directory and no other visible entries share one `parent/child/` row. Files and forks stop compaction.
-- `↑↓` selects; `Enter` / `→` toggles a directory or focuses a selected file's preview. `←` collapses a directory, selects its parent, or returns from the root.
+- `↑↓` selects; `Enter` toggles a directory or focuses a selected file's preview. Left/right arrows scroll horizontally, Tab/Shift+Tab switch panes, and Esc returns.
 - Single-click a directory row to expand or collapse it; a double-click toggles it only once. Single-click files to select them; double-click to focus their preview. Precise-click preferences apply; scrollbar clicks only seek.
 - `Tab` or `/focus` switches between tree and preview; `/zoom` maximizes the focused pane. Narrow windows display the focused pane. Previews support syntax highlighting, images and both scroll axes.
 - Typing searches paths throughout the repository in the background, with an explicit 1,000-match limit. `Esc` clears search before returning to the tree or previous view.
