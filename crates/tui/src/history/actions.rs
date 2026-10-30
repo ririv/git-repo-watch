@@ -164,7 +164,7 @@ impl Screen {
             move |service, cancel, _| {
                 let document = service.history_diff(&commit.detail, &change, &cancel)?;
                 let content = crate::document::prepare_history(
-                    &change.location.display(),
+                    &crate::document::title(&change.location),
                     document,
                     commit.detail.base,
                     commit.detail.oid,

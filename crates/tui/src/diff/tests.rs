@@ -6,8 +6,11 @@ use test_support::*;
 
 fn styled(title: &str, document: Document, cancel: &Cancel) -> Result<Text<'static>> {
     let view = prepare(title, document, Area::Unstaged, cancel)?;
+    Ok(styled_rows(&view))
+}
+fn styled_rows(view: &View) -> Text<'static> {
     let cache = layout::arrange(&view.rows, view.digits, 200, Layout::Unified, false, &[]);
-    Ok(Text::from(
+    Text::from(
         cache
             .rows
             .into_iter()
@@ -16,7 +19,7 @@ fn styled(title: &str, document: Document, cancel: &Cancel) -> Result<Text<'stat
                 VisualRow::Columns { .. } => unreachable!(),
             })
             .collect::<Vec<_>>(),
-    ))
+    )
 }
 
 fn document(f: &Fixture, name: &str, area: Area) -> Document {
@@ -109,22 +112,51 @@ fn unknown_and_bounded_syntax_modes_are_localized_and_keep_diff_styles() {
     );
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let text = styled(
+        let view = prepare(
             "unknown",
             document(&f, "file.unknown_extension", Area::Untracked),
+            Area::Untracked,
             &Cancel::default(),
         )
         .unwrap();
-        assert!(text.to_string().contains(i18n::tr!(SyntaxUnknown)));
-        assert_eq!(find(&text, "unknown content").style.bg, Some(ADDED));
-        let text = styled(
+        assert_eq!(
+            view.information.as_ref().unwrap().syntax,
+            [i18n::tr!(SyntaxUnknown)]
+        );
+        assert_eq!(
+            find(&styled_rows(&view), "unknown content").style.bg,
+            Some(ADDED)
+        );
+        let view = prepare(
             "long",
             document(&f, "long.rs", Area::Untracked),
+            Area::Untracked,
             &Cancel::default(),
         )
         .unwrap();
-        assert!(text.to_string().contains(i18n::tr!(SyntaxLineLimit)));
+        assert_eq!(
+            view.information.as_ref().unwrap().syntax,
+            [i18n::tr!(SyntaxLineLimit)]
+        );
     }
+}
+
+#[test]
+fn file_information_is_separate_from_patch_rows_and_the_complete_export() {
+    let f = Fixture::create();
+    f.commit("中文 文件.rs", "fn before() {}\n");
+    write(f.repo.join("中文 文件.rs"), "fn after() {}\n");
+    let patch = document(&f, "中文 文件.rs", Area::Unstaged);
+    let raw = patch.text();
+    let view = prepare("中文 文件.rs", patch, Area::Unstaged, &Cancel::default()).unwrap();
+    let information = view.information.as_ref().unwrap();
+    assert_eq!(information.title, "中文 文件.rs");
+    assert_eq!(information.syntax, ["Rust"]);
+    let rows = styled_rows(&view);
+    assert!(rows.lines[0].to_string().starts_with("diff --git "));
+    assert!(!rows.to_string().contains(i18n::tr!(SyntaxLabel)));
+    assert!(rows.to_string().contains("@@"));
+    assert!(matches!(&view.export, Export::Complete(export) if export.as_ref() == raw));
 }
 
 #[test]

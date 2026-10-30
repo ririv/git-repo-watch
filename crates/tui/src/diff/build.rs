@@ -6,18 +6,21 @@ pub(super) enum Heading<'a> {
     Inline,
 }
 
-pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Vec<Row>> {
+pub(super) struct Prepared {
+    pub rows: Vec<Row>,
+    pub information: Option<Information>,
+}
+
+pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Prepared> {
     cancel.check()?;
-    let mut rows = match heading {
-        Heading::Full(title) => vec![
-            Row::Metadata(Line::styled(
-                safe(title),
-                Style::default().fg(Color::LightBlue).bold(),
-            )),
-            Row::Metadata(Line::default()),
-        ],
-        Heading::Inline => Vec::new(),
+    let mut information = match heading {
+        Heading::Full(title) => Some(Information {
+            title: safe(title),
+            syntax: Vec::new(),
+        }),
+        Heading::Inline => None,
     };
+    let mut rows = Vec::new();
     match document {
         Document::Notice(text) => metadata(&mut rows, &text, Style::default()),
         Document::Patch { files, extent } => {
@@ -60,11 +63,18 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                     }
                 }
                 if !labels.is_empty() {
-                    metadata(
-                        &mut rows,
-                        &format!("{}: {}", i18n::tr!(SyntaxLabel), labels.join(" → ")),
-                        Style::default().fg(MUTED),
-                    );
+                    let syntax = labels.join(" → ");
+                    if let Some(information) = &mut information {
+                        if !information.syntax.contains(&syntax) {
+                            information.syntax.push(syntax);
+                        }
+                    } else {
+                        metadata(
+                            &mut rows,
+                            &format!("{}: {syntax}", i18n::tr!(SyntaxLabel)),
+                            Style::default().fg(MUTED),
+                        );
+                    }
                 }
                 let code = |number, text: &str, paint: &source::Paint| Code {
                     number,
@@ -126,7 +136,7 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
         }
     }
     cancel.check()?;
-    Ok(rows)
+    Ok(Prepared { rows, information })
 }
 fn metadata(rows: &mut Vec<Row>, text: &str, style: Style) {
     rows.extend(

@@ -115,6 +115,7 @@ fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() 
     let mut view = View {
         interaction: Interaction::ReadOnly,
         export: Export::Unavailable,
+        information: None,
         rows: vec![
             Row::Metadata(Line::raw("header")),
             Row::Removed(code(1, "old")),

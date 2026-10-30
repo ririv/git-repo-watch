@@ -6,11 +6,15 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
-        f.commit("中文 source.rs", "fn old() { let s = \"旧内容\"; }\n");
+        std::fs::create_dir(f.repo.join(".claude")).unwrap();
+        f.commit(
+            ".claude/中文 source.rs",
+            "fn old() { let s = \"旧内容\"; }\n",
+        );
         let mut source = "fn changed() { let s = \"新内容\"; }\n".to_owned();
         source.push_str(&"// many lines\n".repeat(80));
         source.push_str("fn last_line() {}\n");
-        support::write(f.repo.join("中文 source.rs"), &source);
+        support::write(f.repo.join(".claude/中文 source.rs"), &source);
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         open_files(&mut s);
         wait(&mut s);
@@ -32,8 +36,51 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
             let text = render(&mut s, width, height);
             assert!(text.contains(i18n::tr!(FileDiff)), "{text}");
             assert!(text.contains("+fn changed()"), "{text}");
+            let lines = text.lines().collect::<Vec<_>>();
+            let header = lines
+                .iter()
+                .position(|line| line.contains(i18n::tr!(FileDiff)))
+                .unwrap();
+            let information = &lines[header + 1..header + 4];
+            assert_eq!(
+                information[0].trim_matches('│').trim(),
+                ".claude/中文 source.rs",
+                "{text}"
+            );
+            assert!(information[1].contains("Rust"), "{text}");
+            assert!(information[2].starts_with('├'), "{text}");
+            assert!(information[2].contains(i18n::tr!(Index)), "{text}");
+            assert!(information[2].contains(i18n::tr!(Worktree)), "{text}");
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            let buffer = terminal.backend().buffer();
+            let path_y = header as u16 + 1;
+            let directory = &buffer[(1, path_y)];
+            assert_eq!(directory.fg, Color::White);
+            assert!(!directory.modifier.contains(ratatui::style::Modifier::BOLD));
+            let filename = &buffer[(1 + ".claude/".len() as u16, path_y)];
+            assert_eq!(filename.fg, Color::White);
+            assert!(!filename.modifier.contains(ratatui::style::Modifier::BOLD));
+            let syntax_x = 3 + unicode_width::UnicodeWidthStr::width(i18n::tr!(SyntaxLabel)) as u16;
+            assert_eq!(buffer[(syntax_x, path_y + 1)].fg, Color::Reset);
+            let divider_y = header as u16 + 3;
+            let horizontal = (1..width - 1)
+                .map(|x| &buffer[(x, divider_y)])
+                .filter(|cell| matches!(cell.symbol(), "─" | "┬"))
+                .collect::<Vec<_>>();
+            assert!(!horizontal.is_empty());
+            for cell in horizontal {
+                assert_eq!(cell.fg, Color::DarkGray, "标签颜色不应扩散到横线");
+                assert!(!cell.modifier.contains(ratatui::style::Modifier::BOLD));
+            }
+            if let Some(x) = (1..width - 1).find(|x| buffer[(*x, divider_y)].symbol() == "┬") {
+                let vertical = (divider_y + 1..height)
+                    .map(|y| &buffer[(x, y)])
+                    .find(|cell| cell.symbol() == "│")
+                    .expect("双栏正文应存在中间竖线");
+                assert_eq!(vertical.fg, buffer[(x, divider_y)].fg);
+                assert!(!vertical.modifier.contains(ratatui::style::Modifier::BOLD));
+            }
             let cells = &terminal.backend().buffer().content;
             assert!(cells.iter().any(|cell| cell.bg == view::SELECTION));
             let source_colors = cells
@@ -49,7 +96,13 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
                 unreachable!()
             };
             *scroll = usize::MAX;
-            assert!(render(&mut s, width, height).contains("last_line"));
+            let bottom = render(&mut s, width, height);
+            assert!(bottom.contains("last_line"));
+            assert_eq!(
+                &bottom.lines().collect::<Vec<_>>()[header + 1..header + 4],
+                information,
+                "滚动补丁时上方信息区应保持固定"
+            );
             key(&mut s, KeyCode::PageUp);
             assert!(!render(&mut s, width, height).contains("last_line"));
         }
@@ -78,12 +131,9 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         wait(&mut s);
         maximize_preview(&mut s);
         let text = render(&mut s, 160, 32);
+        assert!(text.contains(&format!("├ {} ", i18n::tr!(Index))), "{text}");
         assert!(
-            text.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))),
-            "{text}"
-        );
-        assert!(
-            text.contains(&i18n::tf!(DiffAfter, i18n::tr!(Worktree))),
+            text.contains(&format!("┬ {} ", i18n::tr!(Worktree))),
             "{text}"
         );
         assert!(text.contains(&format!(
@@ -106,7 +156,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         let narrow = render(&mut s, 80, 28);
         assert!(narrow.contains("cached_new"), "{narrow}");
         assert!(!narrow.contains("changed_after_snapshot"));
-        assert!(narrow.contains(&i18n::tf!(DiffBefore, i18n::tr!(Index))));
+        assert!(narrow.contains(&format!("├ {} ", i18n::tr!(Index))));
         command(&mut s, "repo diff layout unified");
         assert!(matches!(s.mode, Mode::Changes(_)));
         let wide = render(&mut s, 160, 32);
@@ -159,8 +209,8 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only(
     wait(&mut s);
     maximize_preview(&mut s);
     let text = render(&mut s, 160, 32);
-    assert!(text.contains(&i18n::tf!(DiffBefore, "HEAD")));
-    assert!(text.contains(&i18n::tf!(DiffAfter, i18n::tr!(Index))));
+    assert!(text.contains("├ HEAD "));
+    assert!(text.contains(&format!("┬ {} ", i18n::tr!(Index))));
     assert!(text.contains("fn head") && text.contains("fn index"));
     assert!(!text.contains("fn worktree"));
     assert_eq!(

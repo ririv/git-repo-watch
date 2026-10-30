@@ -1,6 +1,11 @@
 //! Draw a shared scroll viewport with fixed version labels and cached aligned rows.
+mod information;
 use super::*;
 use crate::diff::{Layout as DiffLayout, Preference, VisualRow};
+
+fn separator_style() -> Style {
+    Style::default().fg(MUTED).remove_modifier(Modifier::BOLD)
+}
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -33,42 +38,9 @@ pub(super) fn render(
         );
         return;
     }
-    let (before, after) = content.labels();
-    let header = Rect::new(inner.x, inner.y, inner.width, inner.height.min(1));
-    let body = Rect::new(
-        inner.x,
-        inner.y + header.height,
-        inner.width,
-        inner.height - header.height,
-    );
+    let body = information::render(frame, inner, content, mode, hits);
     let left_width = inner.width.saturating_sub(1) / 2;
     let right_width = inner.width.saturating_sub(1) - left_width;
-    let header_style = Style::default().fg(Color::LightBlue).bold();
-    match mode {
-        DiffLayout::Unified => frame.render_widget(
-            Line::styled(format!("{before} → {after}"), header_style),
-            header,
-        ),
-        DiffLayout::Split => {
-            frame.render_widget(
-                Line::styled(i18n::tf!(DiffBefore, before), header_style),
-                Rect::new(header.x, header.y, left_width, header.height),
-            );
-            frame.render_widget(
-                Line::styled(i18n::tf!(DiffAfter, after), header_style),
-                Rect::new(
-                    header.x + left_width + 1,
-                    header.y,
-                    right_width,
-                    header.height,
-                ),
-            );
-            frame.render_widget(
-                Line::styled("│", Style::default().fg(MUTED)),
-                Rect::new(header.x + left_width, header.y, 1, header.height),
-            );
-        }
-    }
     content.arrange(
         inner.width,
         preference,
@@ -184,7 +156,7 @@ pub(super) fn render(
                     offset,
                 );
                 frame.render_widget(
-                    Line::styled("│", Style::default().fg(MUTED)),
+                    Line::styled("│", separator_style()),
                     Rect::new(body.x + left_width, y, 1, 1),
                 );
                 hits.links.line(

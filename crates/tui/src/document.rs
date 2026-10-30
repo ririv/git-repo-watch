@@ -5,12 +5,21 @@ use engine::{
     cancel::Cancel,
     local::{
         files::{
-            Area,
+            Area, Location,
             patch::{Document, Source},
         },
         history::Base,
     },
 };
+
+pub(super) fn title(location: &Location) -> String {
+    match location {
+        Location::Path(path) => path.display().to_string(),
+        Location::Rename { before, after } | Location::Copy { before, after } => {
+            format!("{} → {}", before.display(), after.display())
+        }
+    }
+}
 
 #[derive(Debug)]
 pub(super) enum View {

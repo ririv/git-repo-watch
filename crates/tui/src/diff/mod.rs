@@ -149,11 +149,17 @@ impl Row {
 pub(super) struct View {
     pub interaction: Interaction,
     pub(crate) export: Export,
+    pub information: Option<Information>,
     rows: Vec<Row>,
     digits: u16,
     comparison: Comparison,
     cache: Option<Cache>,
     pub horizontal: crate::horizontal::Viewport,
+}
+#[derive(Debug)]
+pub(super) struct Information {
+    pub title: String,
+    pub syntax: Vec<String>,
 }
 #[derive(Debug)]
 pub(crate) enum Interaction {
@@ -342,7 +348,7 @@ fn prepare_rows(
         } => Export::Truncated,
         Document::Patch { .. } => Export::Complete(document.text().into()),
     };
-    let rows = build::rows(heading, document, cancel)?;
+    let build::Prepared { rows, information } = build::rows(heading, document, cancel)?;
     let digits = rows
         .iter()
         .map(Row::max_number)
@@ -353,6 +359,7 @@ fn prepare_rows(
     Ok(Box::new(View {
         interaction: Interaction::ReadOnly,
         export,
+        information,
         rows,
         digits,
         comparison,

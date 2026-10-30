@@ -498,10 +498,23 @@ fn diff_tracks_seek_both_axes_and_respect_the_click_toggle() {
         assert!(*scroll > 0);
         let text = render(&mut s, 100, 24);
         assert!(text.contains("TAIL"), "{text}");
+        assert!(
+            s.pointer
+                .hit(Position::new(area.right() - 1, area.y + 2))
+                .is_none()
+        );
+        let track_start = (area.y..area.bottom())
+            .find(|y| {
+                s.pointer.hit(Position::new(area.right() - 1, *y))
+                    == Some(crate::pointer::Hit::Scrollbar(
+                        crate::pointer::Action::Scroll(crate::pointer::ScrollTarget::Diff, 0),
+                    ))
+            })
+            .expect("滚动条应从补丁正文起始行开始");
         s.config.mouse.precise_click = false;
-        assert!(!click(&mut s, area.right() - 1, area.y + 2));
+        assert!(!click(&mut s, area.right() - 1, track_start));
         s.config.mouse.precise_click = true;
-        click(&mut s, area.right() - 1, area.y + 2);
+        click(&mut s, area.right() - 1, track_start);
         let Mode::Changes(session) = &s.mode else {
             panic!("changes");
         };
