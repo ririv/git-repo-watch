@@ -12,7 +12,7 @@ pub(super) fn render(
     if let Some(information) = &content.information {
         details.push(Line::from(Span::styled(
             information.title.clone(),
-            Style::default().fg(Color::White),
+            Style::default().fg(ACCENT),
         )));
         for syntax in &information.syntax {
             details.push(Line::from(vec![
@@ -20,7 +20,7 @@ pub(super) fn render(
                     format!("{}: ", i18n::tr!(SyntaxLabel)),
                     Style::default().fg(MUTED),
                 ),
-                Span::raw(syntax.clone()),
+                Span::styled(syntax.clone(), Style::default().fg(ACCENT)),
             ]));
         }
     }

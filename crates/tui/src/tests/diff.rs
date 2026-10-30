@@ -55,14 +55,15 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let buffer = terminal.backend().buffer();
             let path_y = header as u16 + 1;
+            let accent = buffer[(0, path_y)].fg;
             let directory = &buffer[(1, path_y)];
-            assert_eq!(directory.fg, Color::White);
+            assert_eq!(directory.fg, accent);
             assert!(!directory.modifier.contains(ratatui::style::Modifier::BOLD));
             let filename = &buffer[(1 + ".claude/".len() as u16, path_y)];
-            assert_eq!(filename.fg, Color::White);
+            assert_eq!(filename.fg, accent);
             assert!(!filename.modifier.contains(ratatui::style::Modifier::BOLD));
             let syntax_x = 3 + unicode_width::UnicodeWidthStr::width(i18n::tr!(SyntaxLabel)) as u16;
-            assert_eq!(buffer[(syntax_x, path_y + 1)].fg, Color::Reset);
+            assert_eq!(buffer[(syntax_x, path_y + 1)].fg, accent);
             let divider_y = header as u16 + 3;
             let horizontal = (1..width - 1)
                 .map(|x| &buffer[(x, divider_y)])
