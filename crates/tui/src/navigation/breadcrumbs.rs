@@ -198,6 +198,7 @@ impl Screen {
                 | Mode::Files(_)
                 | Mode::Changes(_)
                 | Mode::History(_)
+                | Mode::Browser(_)
                 | Mode::Branches(_)
                 | Mode::Stashes(_)
         ) {

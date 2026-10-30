@@ -14,6 +14,7 @@ mod copy;
 mod daily_operations;
 mod diff;
 mod double_click;
+mod file_path;
 mod file_tree;
 mod focus;
 mod help;

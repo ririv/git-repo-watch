@@ -37,6 +37,7 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    BrowserDirectory(usize),
     PushRemote(usize),
     HistoryMenu(crate::history::menu::PointerInput),
     RepositoryMenu(crate::repository_list::Menu),

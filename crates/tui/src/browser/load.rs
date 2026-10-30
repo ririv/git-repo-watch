@@ -2,6 +2,7 @@
 use super::*;
 impl Session {
     pub fn refresh(&mut self) {
+        let navigation = self.navigation.path().map(Path::to_owned);
         self.save_position();
         self.directory_reader.clear();
         self.queued.clear();
@@ -34,9 +35,13 @@ impl Session {
             self.search = Search::Loading(self.query.clone());
         }
         self.sync_preview();
+        if let Some(path) = navigation {
+            self.navigation = location::Navigation::Pending(path);
+        }
     }
     pub fn pending(&self) -> bool {
-        !self.queued.is_empty()
+        matches!(self.navigation, location::Navigation::Pending(_))
+            || !self.queued.is_empty()
             || self.directory_reader.pending()
             || self.panes.pending()
             || self.search_reader.pending()
@@ -49,6 +54,9 @@ impl Session {
         self.animation.symbol()
     }
     pub fn notice(&self) -> Option<&str> {
+        if let location::Navigation::Failed { error, .. } = &self.navigation {
+            return Some(error);
+        }
         match &self.search {
             Search::Loading(_) => Some(i18n::tr!(BrowserSearching)),
             Search::Failed(error) => Some(error),
@@ -134,7 +142,7 @@ impl Session {
             });
             changed = true;
         }
-        if changed {
+        if changed && matches!(self.navigation, location::Navigation::Idle) {
             let rows = self.rows();
             let index = selected
                 .and_then(|path| {
@@ -147,6 +155,7 @@ impl Session {
                 .unwrap_or(self.state.selected().unwrap_or(0));
             self.select(index);
         }
+        changed |= self.settle_navigation();
         changed |= self.panes.poll(service, &self.root);
         changed
     }

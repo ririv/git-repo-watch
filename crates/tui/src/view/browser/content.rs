@@ -141,6 +141,7 @@ pub(super) fn render(
                     image.source,
                     0,
                     graphics,
+                    super::super::document::Metadata::Properties,
                 );
             }
             Document::Notice(text) => hits.links.paragraph(frame, inner, text, 0),

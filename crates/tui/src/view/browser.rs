@@ -1,6 +1,7 @@
 //! Lazy file trees and immutable source previews share the repository viewport.
 mod content;
 mod layout;
+mod path;
 use super::*;
 use crate::{
     browser::{Focus, Session},
@@ -9,6 +10,7 @@ use crate::{
 };
 
 pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
+    let (_, area) = path::areas(area);
     if area.width < 75 || area.height < 8 || session.arrangement == Arrangement::Maximized {
         return vec![(area, session.focus)];
     }
@@ -40,6 +42,7 @@ pub(super) fn render(
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
+    path::render(frame, path::areas(area).0, session, hits);
     for (area, focus) in areas(area, session) {
         match focus {
             Focus::Tree => tree(frame, area, session, hits),
@@ -160,13 +163,6 @@ fn preview(
         session.preview_width(pane.mode, pane.content.width);
     }
     let retained = session.panes.feedback.previous();
-    let title = match retained {
-        Some(snapshot) => safe(&snapshot.target.path.to_string_lossy()),
-        None => session
-            .selected()
-            .map(|entry| safe(&entry.path.to_string_lossy()))
-            .unwrap_or_else(|| i18n::tr!(BrowserSelectFile).into()),
-    };
     let active = retained.map_or_else(
         || session.presentation().active(),
         |snapshot| snapshot.target.presentation.active(),
@@ -174,7 +170,7 @@ fn preview(
     let panes = retained.map_or(current, |snapshot| layout::retained(area, snapshot));
     let frozen = retained.is_some();
     let loading_visible = frozen || session.panes.feedback.visible();
-    let panel = block(truncate(&title, area.width.saturating_sub(2) as usize));
+    let panel = block("");
     frame.render_widget(panel, area);
     let spinner = session.spinner().to_owned();
     let notice = session

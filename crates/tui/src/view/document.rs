@@ -2,6 +2,19 @@
 mod surface;
 use super::*;
 use crate::{document::View, graphics::Display, preview::Side};
+
+pub(super) enum Metadata {
+    Properties,
+    WithPath,
+}
+impl Metadata {
+    fn label(&self, properties: String, path: &std::path::Path) -> String {
+        match self {
+            Self::Properties => properties,
+            Self::WithPath => format!("{properties} · {}", safe(&path.to_string_lossy())),
+        }
+    }
+}
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -70,7 +83,15 @@ fn side(
     let border = block(label);
     let inner = border.inner(area);
     frame.render_widget(border, area);
-    content(frame, inner, side, source, index, graphics);
+    content(
+        frame,
+        inner,
+        side,
+        source,
+        index,
+        graphics,
+        Metadata::WithPath,
+    );
 }
 
 /// Draw image content inside a panel already owned by the caller.
@@ -81,6 +102,7 @@ pub(super) fn content(
     source: u64,
     index: usize,
     graphics: &mut Display,
+    metadata: Metadata,
 ) {
     let text = match side {
         Side::Absent => Some(i18n::tr!(ImageAbsent).into()),
@@ -98,12 +120,14 @@ pub(super) fn content(
                 source,
                 index,
                 graphics,
-                format!(
-                    "{} · {}×{} · {}",
-                    format.label(),
-                    pixels.width(),
-                    pixels.height(),
-                    safe(&path.to_string_lossy())
+                metadata.label(
+                    format!(
+                        "{} · {}×{}",
+                        format.label(),
+                        pixels.width(),
+                        pixels.height()
+                    ),
+                    path,
                 ),
                 move |width, height| crate::preview::fit(&pixels, width, height),
             );
@@ -118,12 +142,7 @@ pub(super) fn content(
                 source,
                 index,
                 graphics,
-                format!(
-                    "SVG · {}×{} · {}",
-                    size.width(),
-                    size.height(),
-                    safe(&path.to_string_lossy())
-                ),
+                metadata.label(format!("SVG · {}×{}", size.width(), size.height()), path),
                 move |width, height| crate::preview::svg::raster(&tree, width, height),
             );
             None

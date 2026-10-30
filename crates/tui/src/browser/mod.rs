@@ -1,6 +1,7 @@
 //! Repository file browsing composes a lazy tree and independent latest-only previews.
 mod input;
 mod load;
+pub(crate) mod location;
 pub(crate) mod opening;
 pub(super) mod panes;
 pub(super) mod preview;
@@ -152,6 +153,7 @@ pub(super) struct Session {
     directory_reader: Worker<PathBuf, Directory>,
     search_reader: Worker<String, engine::local::browser::Search>,
     search: Search,
+    navigation: location::Navigation,
     pub query: String,
     pub state: ListState,
     pub focus: Focus,
@@ -170,6 +172,7 @@ impl Session {
             directory_reader: Default::default(),
             search_reader: Default::default(),
             search: Search::Idle,
+            navigation: Default::default(),
             query: String::new(),
             state: ListState::default(),
             focus: Focus::Tree,
@@ -205,6 +208,7 @@ impl Session {
             return;
         }
         self.save_position();
+        self.navigation = Default::default();
         self.query = query.clone();
         self.search_reader.clear();
         self.search = if query.is_empty() {

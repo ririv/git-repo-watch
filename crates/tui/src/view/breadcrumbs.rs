@@ -3,7 +3,7 @@ use super::*;
 use crate::navigation::breadcrumbs::Crumb;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
-fn shorten(text: &str, width: usize) -> String {
+pub(super) fn shorten(text: &str, width: usize) -> String {
     if width == 0 {
         return String::new();
     }

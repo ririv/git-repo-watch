@@ -24,6 +24,9 @@ impl Session {
                 let mut entry = head;
                 // 与 diff 树相同：只合并单一子目录链，文件、分叉和叶节点保留层级。
                 while entry.directory() {
+                    if session.navigation.path() == Some(entry.path.as_path()) {
+                        break;
+                    }
                     let Some(children) = session
                         .directories
                         .get(&entry.path)
@@ -62,16 +65,29 @@ impl Session {
         self.selected_row().map(|row| row.entry.clone())
     }
     pub fn select(&mut self, index: usize) {
+        let row = self.rows();
+        let selected = row
+            .get(index.min(row.len().saturating_sub(1)))
+            .map(|row| row.entry.path.clone());
+        self.navigation = Default::default();
+        let rows = self.rows();
+        let index = selected
+            .and_then(|path| {
+                rows.iter().position(|row| {
+                    row.entry.path == path
+                        || (path.starts_with(row.head) && row.entry.path.starts_with(&path))
+                })
+            })
+            .unwrap_or(index);
         self.state
-            .select(self.rows().len().checked_sub(1).map(|last| index.min(last)));
+            .select(rows.len().checked_sub(1).map(|last| index.min(last)));
         self.sync_preview();
     }
     pub fn advance(&mut self, delta: isize) {
         self.select(
             self.state
                 .selected()
-                .unwrap_or(0)
-                .saturating_add_signed(delta),
+                .map_or(0, |selected| selected.saturating_add_signed(delta)),
         );
     }
     pub(super) fn load(&mut self, path: PathBuf) {

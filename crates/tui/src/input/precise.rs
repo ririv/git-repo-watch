@@ -8,6 +8,15 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::BrowserDirectory(depth) => {
+                let Mode::Browser(session) = &mut self.mode else {
+                    return false;
+                };
+                if !session.visit_directory(depth) {
+                    return false;
+                }
+                self.poll_browser();
+            }
             Action::PushRemote(index) => {
                 let Mode::PushTarget(session) = &mut self.mode else {
                     return false;

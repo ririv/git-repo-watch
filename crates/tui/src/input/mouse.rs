@@ -252,6 +252,13 @@ impl Screen {
             let hit = precise
                 .then(|| self.pointer.hit(Position::new(event.column, event.row)))
                 .flatten();
+            if let Some(crate::pointer::Hit::Button(
+                action @ crate::pointer::Action::BrowserDirectory(_),
+            )) = hit
+            {
+                self.clicks.reset();
+                return Ok(self.precise_action(action));
+            }
             let before = crate::workspace::Section::focused(&self.mode);
             let browser_focus_before = match &self.mode {
                 Mode::Browser(session) => Some((session.focus, session.presentation().active())),
