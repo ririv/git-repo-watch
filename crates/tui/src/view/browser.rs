@@ -102,14 +102,7 @@ fn tree(
                 entry.path.to_string_lossy()
             };
             let label = if entry.directory() {
-                let mut label = format!(
-                    "{}{path}/",
-                    if session.expanded(row.head) {
-                        "▼ "
-                    } else {
-                        "▶ "
-                    }
-                );
+                let mut label = format!("{path}/");
                 let indicator = if session.directory_loading(&entry.path) {
                     Some(session.spinner())
                 } else if session.directory_notice(&entry.path).is_some() {
@@ -126,7 +119,19 @@ fn tree(
                 path.to_string()
             };
             let mut spans = vec![Span::raw("  ".repeat(row.depth))];
-            if !entry.directory() {
+            if entry.directory() {
+                spans.push(Span::styled(
+                    if session.expanded(row.head) {
+                        "▼ "
+                    } else {
+                        "▶ "
+                    },
+                    Style::default().fg(ACCENT),
+                ));
+                spans.extend(icons.directory_slot());
+            } else {
+                // 文件预留箭头列，与同层目录的图标及名称分别对齐。
+                spans.push(Span::raw("  "));
                 spans.extend(icons.slot(&entry.path));
             }
             spans.extend(

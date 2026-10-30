@@ -23,6 +23,8 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
         f.commit("中文.ts", "export const value = 1;\n");
+        std::fs::create_dir(f.repo.join("目录")).unwrap();
+        f.commit("目录/child.txt", "child\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         assert!(s.config.file_icons);
         command(&mut s, "repo files");
@@ -41,6 +43,16 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
             + 2;
         assert_eq!(enabled.content[name].symbol(), "中");
         assert_eq!(enabled.content[name - 2].symbol(), glyph.content.as_ref());
+        assert_eq!(enabled.content[name - 4].symbol(), " ");
+        let folder = Display::Enabled.directory().remove(0);
+        let folder_index = enabled
+            .content
+            .iter()
+            .position(|cell| cell.symbol() == folder.content.as_ref())
+            .unwrap();
+        assert_eq!(enabled.content[folder_index - 2].symbol(), "▶");
+        assert_eq!(folder_index % 120, (name - 2) % 120);
+        assert_eq!(enabled.content[folder_index + 2].symbol(), "目");
         command(&mut s, "settings");
         let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
         s.setting_selected = items
@@ -65,6 +77,19 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
         assert!(!has_icon(&disabled, &glyph));
         assert_eq!(disabled.content[name].symbol(), "中");
         assert_eq!(disabled.content[name - 2].symbol(), " ");
+        assert!(!has_icon(&disabled, &folder));
+        assert_eq!(disabled.content[folder_index - 2].symbol(), "▶");
+        assert_eq!(disabled.content[folder_index + 2].symbol(), "目");
+        browser::select(&mut s, "目录");
+        key(&mut s, KeyCode::Enter);
+        browser::ready(&mut s);
+        assert!(browser::session(&mut s).expanded(Path::new("目录")));
+        assert!(
+            frame(&mut s)
+                .content
+                .iter()
+                .any(|cell| cell.symbol() == "▼")
+        );
         s.shutdown();
     }
 }

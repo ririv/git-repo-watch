@@ -33,6 +33,12 @@ impl Display {
             Self::Disabled => Vec::new(),
         }
     }
+    pub fn directory_slot(self) -> Vec<Span<'static>> {
+        match self {
+            Self::Enabled => self.directory(),
+            Self::Disabled => vec![Span::raw("  ")],
+        }
+    }
     pub fn slot(self, path: &Path) -> Vec<Span<'static>> {
         match self {
             Self::Enabled => self.file(path),
