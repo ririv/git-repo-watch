@@ -6,6 +6,8 @@
 - `/repos`, `/settings`, and `/schedule` open repositories, general settings, and the scheduled task; `Tab` does not switch these pages.
 - `F1` / `/help` opens this page; `/quit` exits immediately. `Ctrl+C` clears nonempty command/search input, including a command prefix. When input is already empty, it immediately shows an exit prompt; the next press quits. Other keys, paste, clicks or scrolling dismiss the prompt. Separate commit-message and prompt editors retain their contents.
 
+- Display → File icons controls type icons in the browser, worktree, and commit file lists. It is enabled by default and saved as `file_icons`. Nerd Font glyph support is required; disabling icons preserves tree indentation and browser name alignment.
+
 ## Mouse & Trackpad
 - `Ctrl+G` toggles Interactive / Text selection; global `/settings interaction` opens choices (`//settings interaction` from a context). `/settings interaction interactive` and `/settings interaction text` switch directly. The preference persists across restarts and is also in Settings. Text selection releases pointer input to the terminal for selection, Copy and context menus; application clicks, scrolling and dragging are disabled without changing pointer preferences. Keyboard navigation, typing, paste and commands remain active; Esc goes back, Ctrl+C uses the input-clearing and exit-confirmation rules above. Display updates and background tasks continue.
 - General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.

@@ -25,6 +25,7 @@ impl Default for Config {
             max_concurrency: 4,
             check_on_startup: true,
             text_wrap: false,
+            file_icons: true,
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             mouse: MouseConfig::default(),
@@ -56,6 +57,8 @@ pub struct Config {
     pub check_on_startup: bool,
     #[serde(default)]
     pub text_wrap: bool,
+    #[serde(default = "default_file_icons")]
+    pub file_icons: bool,
     #[serde(default = "default_chinese_command_trigger")]
     pub chinese_command_trigger: bool,
     #[serde(default)]
@@ -103,6 +106,9 @@ impl MouseConfig {
             MouseSetting::SelectPane => self.select_pane = enabled,
         }
     }
+}
+fn default_file_icons() -> bool {
+    true
 }
 fn default_chinese_command_trigger() -> bool {
     true
@@ -152,7 +158,7 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 11] = [
+const FIELDS: [&str; 12] = [
     "interval_seconds",
     "repositories",
     "excluded_roots",
@@ -161,6 +167,7 @@ const FIELDS: [&str; 11] = [
     "max_concurrency",
     "check_on_startup",
     "text_wrap",
+    "file_icons",
     "chinese_command_trigger",
     "schedule_anchor",
     "interaction_mode",
@@ -202,7 +209,11 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         // 旧配置缺少显示或交互偏好时沿用默认值，不因无关配置更新而补写字段。
         if matches!(
             key,
-            "interaction_mode" | "text_wrap" | "startup_actions" | "scheduled_actions"
+            "interaction_mode"
+                | "text_wrap"
+                | "file_icons"
+                | "startup_actions"
+                | "scheduled_actions"
         ) && before
             .as_ref()
             .is_some_and(|before| before.get(key) == after.get(key))

@@ -27,6 +27,7 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
             check_on_startup: false,
             chinese_command_trigger: true,
             text_wrap: false,
+            file_icons: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),

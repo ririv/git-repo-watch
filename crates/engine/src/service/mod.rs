@@ -121,6 +121,7 @@ pub enum ConfigEdit {
         plan: crate::workflow::Plan,
     },
     TextWrap(bool),
+    FileIcons(bool),
     ChineseCommandTrigger(bool),
     Mouse(state::MouseSetting, bool),
     Interaction(state::InteractionMode),

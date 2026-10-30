@@ -12,6 +12,7 @@ pub(crate) enum Row {
     Directory {
         path: PathBuf,
         indices: Vec<usize>,
+        prefix: String,
         label: String,
     },
     File {
@@ -101,7 +102,8 @@ fn emit(
                 rows.push(Row::Directory {
                     path: path.clone(),
                     indices: node.indices(),
-                    label: format!("{prefix}{label}/"),
+                    prefix: prefix.to_owned(),
+                    label: format!("{label}/"),
                 });
                 emit(nested, &path, &format!("{prefix}  "), rows);
             }
@@ -147,6 +149,7 @@ mod tests {
                 Row::Directory {
                     path: "src/中文 目录".into(),
                     indices: vec![0, 1],
+                    prefix: String::new(),
                     label: "src/中文 目录/".into()
                 },
                 Row::File {
@@ -208,7 +211,7 @@ mod tests {
         let labels = rows
             .iter()
             .filter_map(|row| match row {
-                Row::Directory { label, .. } => Some(label.as_str()),
+                Row::Directory { prefix, label, .. } => Some(format!("{prefix}{label}")),
                 Row::File { .. } => None,
             })
             .collect::<Vec<_>>();

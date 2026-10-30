@@ -29,7 +29,7 @@ pub(super) fn render(
     area: Rect,
     session: &mut Session,
     preference: crate::diff::Options,
-    file_layout: crate::files::Layout,
+    files_options: crate::files::Options,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -39,7 +39,7 @@ pub(super) fn render(
         match focus {
             Focus::Files => {
                 let title = name(&session.files.snapshot.path);
-                files::render(frame, area, &mut session.files, &title, file_layout, hits);
+                files::render(frame, area, &mut session.files, &title, files_options, hits);
             }
             Focus::Preview => {
                 let mut retained_hits = crate::pointer::Map::default();

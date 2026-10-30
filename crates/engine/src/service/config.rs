@@ -70,6 +70,7 @@ impl Service {
                 crate::workflow::Trigger::Startup => config.startup_actions = plan,
                 crate::workflow::Trigger::Scheduled => config.scheduled_actions = plan,
             },
+            ConfigEdit::FileIcons(value) => config.file_icons = value,
             ConfigEdit::TextWrap(value) => config.text_wrap = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),

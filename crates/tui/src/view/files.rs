@@ -7,10 +7,10 @@ pub(super) fn render(
     area: Rect,
     session: &mut FileSession,
     title: &str,
-    layout: crate::files::Layout,
+    options: crate::files::Options,
     hits: &mut crate::pointer::Map,
 ) {
-    session.set_layout(layout);
+    session.set_layout(options.layout);
     let border = block(title.to_owned());
     let mut inner = border.inner(area);
     frame.render_widget(border, area);
@@ -82,7 +82,7 @@ pub(super) fn render(
     }
     let mut offsets = session.offsets;
     let rows = session.rows();
-    let projected = session.entries(layout);
+    let projected = session.entries(options.layout);
     let unstaged = rows
         .iter()
         .filter(|change| change.area != Area::Staged)
@@ -141,9 +141,11 @@ pub(super) fn render(
                     label,
                 } = entry
                 else {
-                    let crate::files::tree::Row::Directory { label, .. } = entry else {
+                    let crate::files::tree::Row::Directory { prefix, label, .. } = entry else {
                         unreachable!()
                     };
+                    spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
+                    spans.extend(options.icons.directory());
                     spans.extend(
                         highlight::line(
                             Line::styled(safe(label), Style::default().fg(ACCENT)),
@@ -156,6 +158,7 @@ pub(super) fn render(
                 };
                 let change = rows[*index];
                 spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
+                spans.extend(options.icons.file(change.location.name()));
                 spans.extend(
                     highlight::line(Line::raw(safe(label)), &session.query, emphasis).spans,
                 );

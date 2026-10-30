@@ -24,6 +24,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             check_on_startup: true,
             chinese_command_trigger: true,
             text_wrap: false,
+            file_icons: true,
             interaction_mode: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),

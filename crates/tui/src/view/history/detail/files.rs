@@ -6,6 +6,7 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     commit: &mut Commit,
+    icons: crate::file_icons::Display,
     hits: &mut crate::pointer::Map,
 ) {
     let rows = commit.rows();
@@ -48,6 +49,9 @@ pub(super) fn render(
                     &commit.query,
                     Emphasis::at(index, selection),
                 );
+                let mut spans = icons.file(change.location.name());
+                spans.extend(path.spans);
+                let path = Line::from(spans);
                 ListItem::new(crate::view::files::marked_line(
                     &path,
                     change.kind.symbol(),

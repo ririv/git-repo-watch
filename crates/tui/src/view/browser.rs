@@ -40,13 +40,14 @@ pub(super) fn render(
     area: Rect,
     session: &mut Session,
     wrap: bool,
+    icons: crate::file_icons::Display,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
     path::render(frame, path::areas(area).0, session, hits);
     for (area, focus) in areas(area, session) {
         match focus {
-            Focus::Tree => tree(frame, area, session, hits),
+            Focus::Tree => tree(frame, area, session, icons, hits),
             Focus::Preview => preview(frame, area, session, wrap, graphics, hits),
         }
         if focus == session.focus {
@@ -54,7 +55,13 @@ pub(super) fn render(
         }
     }
 }
-fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::pointer::Map) {
+fn tree(
+    frame: &mut Frame,
+    area: Rect,
+    session: &mut Session,
+    icons: crate::file_icons::Display,
+    hits: &mut crate::pointer::Map,
+) {
     let panel = block(i18n::tr!(BrowserTitle));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
@@ -116,13 +123,24 @@ fn tree(frame: &mut Frame, area: Rect, session: &mut Session, hits: &mut crate::
                 }
                 label
             } else {
-                format!("  {path}")
+                path.to_string()
             };
-            let label = Line::styled(
-                format!("{}{}", "  ".repeat(row.depth), safe(&label)),
-                Style::default().fg(if entry.directory() { ACCENT } else { color }),
+            let mut spans = vec![Span::raw("  ".repeat(row.depth))];
+            if !entry.directory() {
+                spans.extend(icons.slot(&entry.path));
+            }
+            spans.extend(
+                highlight::line(
+                    Line::styled(
+                        safe(&label),
+                        Style::default().fg(if entry.directory() { ACCENT } else { color }),
+                    ),
+                    &session.query,
+                    Emphasis::at(index, selection),
+                )
+                .spans,
             );
-            let label = highlight::line(label, &session.query, Emphasis::at(index, selection));
+            let label = Line::from(spans);
             (label, status.map(|status| status.label()), color)
         })
         .collect::<Vec<_>>();

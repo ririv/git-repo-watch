@@ -611,6 +611,8 @@ pub enum Message {
     WrappedChangesInputHint,
     TextWrap,
     TextWrapHint,
+    FileIcons,
+    FileIconsHint,
     TextWrapEnabled,
     TextWrapDisabled,
     SettingsDisplay,
@@ -4346,6 +4348,12 @@ impl Message {
             (Self::WrappedDiffPreviewHint, Language::Chinese) => {
                 "↑↓滚动 · Tab文件 · Esc返回 · /命令"
             }
+            (Self::FileIcons, Language::English) => "File icons",
+            (Self::FileIcons, Language::Chinese) => "文件图标",
+            (Self::FileIconsHint, Language::English) => {
+                "Show file-type icons using Nerd Font glyphs"
+            }
+            (Self::FileIconsHint, Language::Chinese) => "按文件类型显示图标，需 Nerd Font 字形支持",
             (Self::TextWrap, Language::English) => "Text wrapping",
             (Self::TextWrap, Language::Chinese) => "自动换行",
             (Self::TextWrapHint, Language::English) => {

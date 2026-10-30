@@ -2,6 +2,34 @@
 
 扩展语法资源来自 [two-face](https://codeberg.org/CosmicHarper/two-face) 0.5.2+bat-0.26.1，由 [bat](https://github.com/sharkdp/bat) 项目维护。下文保留上游要求附带的语法资源许可原文，涵盖该版本完整语法包；当前使用与语法定义兼容的 Oniguruma 正则后端。本项目自身代码继续使用 MIT 许可。
 
+## nvim-web-devicons
+
+文件类型图标映射来自 [nvim-web-devicons](https://github.com/nvim-tree/nvim-web-devicons)，固定版本为 `ec309a0eaff6ea967e58c275996155ab5c16938d`。仅内置图标字符与配色数据，不包含 Neovim、Lua 运行时或字体文件；使用方式及更新脚本见 `crates/tui/src/file_icons/README.md`。
+
+````text
+MIT License
+
+Copyright (c) 2023 nvim-tree
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+````
+
 ## pulldown-cmark
 
 Markdown 解析使用 [pulldown-cmark](https://github.com/pulldown-cmark/pulldown-cmark) 0.13.5，关闭默认特性，不引入 HTML 输出或命令行工具。

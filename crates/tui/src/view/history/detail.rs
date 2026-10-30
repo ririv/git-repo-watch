@@ -37,6 +37,7 @@ pub(super) fn render(
     area: Rect,
     commit: &mut Commit,
     wrap: bool,
+    icons: crate::file_icons::Display,
     hits: &mut crate::pointer::Map,
 ) {
     let parts = areas(area, commit);
@@ -46,7 +47,7 @@ pub(super) fn render(
     for (panel, focus) in parts {
         match focus {
             Focus::Message => message::render(frame, panel, commit, hits),
-            Focus::Files => files::render(frame, panel, commit, hits),
+            Focus::Files => files::render(frame, panel, commit, icons, hits),
             Focus::Preview => preview::render(frame, panel, commit, wrap, hits),
         }
         if focus == commit.focus {

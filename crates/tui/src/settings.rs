@@ -7,6 +7,7 @@ use engine::{cancel::Cancel, scheduler::Registration, service::ConfigEdit};
 pub(crate) enum Item {
     Command(Action),
     ChineseCommandTrigger,
+    FileIcons,
     Interaction,
     AiEnabled,
     Mouse(engine::state::MouseSetting),
@@ -29,6 +30,7 @@ impl Item {
             Self::Command(action) => command::description(action),
             Self::Interaction => i18n::tr!(InteractionSetting),
             Self::AiEnabled => i18n::tr!(AiEnabled),
+            Self::FileIcons => i18n::tr!(FileIcons),
             Self::ChineseCommandTrigger => i18n::tr!(ChineseCommandTrigger),
             Self::Mouse(setting) => match setting {
                 engine::state::MouseSetting::PreciseClick => i18n::tr!(MousePreciseClick),
@@ -46,6 +48,9 @@ impl Configuration {
             .copied()
             .map(Item::Command)
             .collect::<Vec<_>>();
+        if self == Self::General {
+            items.push(Item::FileIcons);
+        }
         if self == Self::General && i18n::language() == i18n::Language::Chinese {
             items.push(Item::ChineseCommandTrigger);
         }
@@ -72,6 +77,18 @@ impl Screen {
                 crate::clipboard::Selection::None,
                 root,
             ),
+            Item::FileIcons => {
+                let enabled = !self.config.file_icons;
+                self.start(
+                    item.description(),
+                    Effect::Configuration,
+                    move |service, cancel, _| {
+                        service.configure_with_cancel(ConfigEdit::FileIcons(enabled), &cancel)?;
+                        Ok(Outcome::Text(i18n::tr!(PreferenceSaved).into()))
+                    },
+                );
+                Ok(false)
+            }
             Item::AiEnabled => {
                 let enabled = !self.config.ai.enabled;
                 self.start(

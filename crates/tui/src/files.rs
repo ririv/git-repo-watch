@@ -10,6 +10,11 @@ pub(crate) enum Layout {
     Tree,
     Flat,
 }
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct Options {
+    pub layout: Layout,
+    pub icons: crate::file_icons::Display,
+}
 impl Layout {
     pub fn label(self) -> &'static str {
         match self {

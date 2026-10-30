@@ -25,6 +25,9 @@ check_on_startup = true
 # 文件文本预览和 diff 自动换行；关闭时使用横向滚动。
 text_wrap = false
 
+# 文件列表显示类型图标，需要终端支持 Nerd Font 字形。
+file_icons = true
+
 # 中文界面中输入 、 打开命令菜单；英文界面不启用。
 chinese_command_trigger = true
 

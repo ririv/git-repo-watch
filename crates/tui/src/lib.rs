@@ -16,6 +16,7 @@ mod confirmation;
 mod diff;
 mod document;
 mod editor;
+mod file_icons;
 mod files;
 mod flow;
 mod focus;

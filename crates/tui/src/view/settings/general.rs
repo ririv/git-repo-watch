@@ -63,6 +63,12 @@ impl Entry {
                 i18n::tr!(TextWrapHint),
                 Value::Toggle(screen.config.text_wrap),
             ),
+            Item::FileIcons => (
+                Group::Display,
+                i18n::tr!(FileIcons),
+                i18n::tr!(FileIconsHint),
+                Value::Toggle(screen.config.file_icons),
+            ),
             Item::ChineseCommandTrigger => (
                 Group::Input,
                 i18n::tr!(SettingsChineseTrigger),

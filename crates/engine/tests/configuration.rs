@@ -215,6 +215,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         check_on_startup: false,
         chinese_command_trigger: true,
         text_wrap: false,
+        file_icons: true,
         mouse: Default::default(),
         ai: Default::default(),
         ..Config::default()
@@ -443,4 +444,37 @@ fn text_wrap_defaults_off_and_updates_only_its_preference_with_comments_retained
     );
     service.configure(ConfigEdit::TextWrap(false)).unwrap();
     assert_eq!(store.config().unwrap(), original);
+}
+
+#[test]
+fn file_icons_default_on_and_only_explicit_changes_extend_older_configuration() {
+    use engine::{
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+    };
+    let (_temp, store) = fixture();
+    store.initialize().unwrap();
+    let original = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("file_icons = true\n", "");
+    fs::write(store.config_path(), &original).unwrap();
+    assert!(store.config().unwrap().file_icons);
+    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let service = Service::new(store.clone(), manager);
+    service.configure(ConfigEdit::Concurrency(7)).unwrap();
+    assert!(
+        !fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("file_icons =")
+    );
+    service.configure(ConfigEdit::FileIcons(false)).unwrap();
+    assert!(!store.config().unwrap().file_icons);
+    assert_eq!(store.config().unwrap().max_concurrency, 7);
+    assert!(
+        fs::read_to_string(store.config_path())
+            .unwrap()
+            .contains("file_icons = false")
+    );
+    service.configure(ConfigEdit::FileIcons(true)).unwrap();
+    assert!(store.config().unwrap().file_icons);
 }
