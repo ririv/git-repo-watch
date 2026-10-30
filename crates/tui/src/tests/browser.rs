@@ -313,7 +313,7 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
     }
     let screen = render(&mut s, 150, 32);
     let folder = crate::file_icons::Display::Enabled.directory().remove(0);
-    assert!(screen.contains(&format!("▶ {} output/中文 目录/", folder.content)));
+    assert!(screen.contains(&format!("{} output/中文 目录/", folder.content)));
     assert!(!screen.contains("ignored.skip"));
     select(&mut s, "mixed");
     key(&mut s, KeyCode::Enter);

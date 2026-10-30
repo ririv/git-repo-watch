@@ -11,6 +11,31 @@ pub(crate) enum Display {
     Enabled,
     Disabled,
 }
+/// Expansion is independent of icon visibility.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Folder {
+    Collapsed,
+    Expanded,
+}
+impl Folder {
+    fn glyph(self) -> Glyph {
+        Glyph::new(
+            match self {
+                Self::Collapsed => '\u{f07b}',
+                Self::Expanded => '\u{f07c}',
+            },
+            137,
+            180,
+            250,
+        )
+    }
+    fn arrow(self) -> &'static str {
+        match self {
+            Self::Collapsed => "▶ ",
+            Self::Expanded => "▼ ",
+        }
+    }
+}
 impl From<bool> for Display {
     fn from(enabled: bool) -> Self {
         if enabled {
@@ -29,14 +54,17 @@ impl Display {
     }
     pub fn directory(self) -> Vec<Span<'static>> {
         match self {
-            Self::Enabled => Glyph::new('\u{f07b}', 137, 180, 250).spans(),
+            Self::Enabled => Folder::Collapsed.glyph().spans(),
             Self::Disabled => Vec::new(),
         }
     }
-    pub fn directory_slot(self) -> Vec<Span<'static>> {
+    pub fn directory_slot(self, folder: Folder) -> Vec<Span<'static>> {
         match self {
-            Self::Enabled => self.directory(),
-            Self::Disabled => vec![Span::raw("  ")],
+            Self::Enabled => folder.glyph().spans(),
+            Self::Disabled => vec![Span::styled(
+                folder.arrow(),
+                Style::default().fg(Color::LightBlue),
+            )],
         }
     }
     pub fn slot(self, path: &Path) -> Vec<Span<'static>> {

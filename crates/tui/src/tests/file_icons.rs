@@ -1,5 +1,8 @@
 use super::*;
-use crate::{file_icons::Display, settings::Item};
+use crate::{
+    file_icons::{Display, Folder},
+    settings::Item,
+};
 use std::path::Path;
 
 fn icon(path: &str) -> ratatui::text::Span<'static> {
@@ -43,16 +46,37 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
             + 2;
         assert_eq!(enabled.content[name].symbol(), "中");
         assert_eq!(enabled.content[name - 2].symbol(), glyph.content.as_ref());
-        assert_eq!(enabled.content[name - 4].symbol(), " ");
         let folder = Display::Enabled.directory().remove(0);
         let folder_index = enabled
             .content
             .iter()
             .position(|cell| cell.symbol() == folder.content.as_ref())
             .unwrap();
-        assert_eq!(enabled.content[folder_index - 2].symbol(), "▶");
+        assert!(
+            !enabled
+                .content
+                .iter()
+                .any(|cell| matches!(cell.symbol(), "▶" | "▼"))
+        );
         assert_eq!(folder_index % 120, (name - 2) % 120);
         assert_eq!(enabled.content[folder_index + 2].symbol(), "目");
+        browser::select(&mut s, "目录");
+        key(&mut s, KeyCode::Enter);
+        browser::ready(&mut s);
+        let expanded = frame(&mut s);
+        let open_folder = Display::Enabled.directory_slot(Folder::Expanded).remove(0);
+        assert!(has_icon(&expanded, &open_folder));
+        assert!(!has_icon(&expanded, &folder));
+        assert!(
+            !expanded
+                .content
+                .iter()
+                .any(|cell| matches!(cell.symbol(), "▶" | "▼"))
+        );
+        key(&mut s, KeyCode::Enter);
+        browser::ready(&mut s);
+        assert!(has_icon(&frame(&mut s), &folder));
+        browser::select(&mut s, "中文.ts");
         command(&mut s, "settings");
         let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
         s.setting_selected = items
@@ -78,7 +102,7 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
         assert_eq!(disabled.content[name].symbol(), "中");
         assert_eq!(disabled.content[name - 2].symbol(), " ");
         assert!(!has_icon(&disabled, &folder));
-        assert_eq!(disabled.content[folder_index - 2].symbol(), "▶");
+        assert_eq!(disabled.content[folder_index].symbol(), "▶");
         assert_eq!(disabled.content[folder_index + 2].symbol(), "目");
         browser::select(&mut s, "目录");
         key(&mut s, KeyCode::Enter);

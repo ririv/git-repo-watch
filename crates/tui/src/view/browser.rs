@@ -120,18 +120,13 @@ fn tree(
             };
             let mut spans = vec![Span::raw("  ".repeat(row.depth))];
             if entry.directory() {
-                spans.push(Span::styled(
-                    if session.expanded(row.head) {
-                        "▼ "
-                    } else {
-                        "▶ "
-                    },
-                    Style::default().fg(ACCENT),
-                ));
-                spans.extend(icons.directory_slot());
+                let folder = if session.expanded(row.head) {
+                    crate::file_icons::Folder::Expanded
+                } else {
+                    crate::file_icons::Folder::Collapsed
+                };
+                spans.extend(icons.directory_slot(folder));
             } else {
-                // 文件预留箭头列，与同层目录的图标及名称分别对齐。
-                spans.push(Span::raw("  "));
                 spans.extend(icons.slot(&entry.path));
             }
             spans.extend(
