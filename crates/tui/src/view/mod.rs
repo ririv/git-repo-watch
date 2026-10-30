@@ -62,6 +62,7 @@ const BORDER: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;
 const BAD: Color = Color::LightRed;
 const WARN: Color = Color::Yellow;
+pub(crate) const SELECTION: Color = Color::Rgb(25, 65, 95);
 const FOOTER_INSET: u16 = 2;
 fn footer_text_area(area: Rect) -> Rect {
     Rect::new(
@@ -112,7 +113,7 @@ fn row_style(selected: bool) -> Style {
     }
 }
 fn selected_style() -> Style {
-    Style::default().bg(Color::Rgb(25, 65, 95))
+    Style::default().bg(SELECTION)
 }
 fn block(title: impl Into<String>) -> Block<'static> {
     Block::default()

@@ -77,6 +77,9 @@ impl Context {
                     command.action,
                     Action::Stage
                         | Action::Unstage
+                        | Action::PartialSelectMenu
+                        | Action::PartialSelect(_)
+                        | Action::Discard
                         | Action::Refresh
                         | Action::FileLayoutMenu
                         | Action::FileLayout(_)

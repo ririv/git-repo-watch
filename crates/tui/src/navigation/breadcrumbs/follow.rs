@@ -98,7 +98,8 @@ impl Screen {
                 Mode::Error { origin, .. } => *origin,
                 Mode::CompositionWaiting(waiting) => *waiting.origin,
                 Mode::Confirm { operation, .. } => match operation {
-                    crate::Confirmation::Remove { origin, .. }
+                    crate::Confirmation::Partial { origin, .. }
+                    | crate::Confirmation::Remove { origin, .. }
                     | crate::Confirmation::Configure { origin, .. }
                     | crate::Confirmation::Mutation { origin, .. }
                     | crate::Confirmation::ReplayParents { origin, .. } => *origin,

@@ -4,6 +4,7 @@ pub mod browser;
 pub mod files;
 pub mod guard;
 pub mod history;
+pub(crate) mod index_lock;
 pub mod overview;
 pub mod review;
 pub mod stash;

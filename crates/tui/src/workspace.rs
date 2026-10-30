@@ -142,7 +142,8 @@ impl Workspace {
             }
             Mode::Confirm {
                 operation:
-                    crate::Confirmation::Configure { origin, .. }
+                    crate::Confirmation::Partial { origin, .. }
+                    | crate::Confirmation::Configure { origin, .. }
                     | crate::Confirmation::Mutation { origin, .. }
                     | crate::Confirmation::ReplayParents { origin, .. },
                 ..

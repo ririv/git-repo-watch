@@ -146,6 +146,18 @@ impl Service {
         };
         self.refresh_after_write(&snapshot.path, result, vec![], operation)
     }
+    pub fn edit_partial(&self, plan: &files::partial::Plan, cancel: &Cancel) -> Result<Files> {
+        let path = &plan.snapshot().files().path;
+        let _lock = self.repository_lock(path, cancel)?;
+        let result = files::partial::execute(plan, cancel);
+        let completion = state::Completion::capture(&result, cancel, |_| ());
+        let operation = match plan.action() {
+            files::partial::Action::Stage => state::Operation::Stage { completion },
+            files::partial::Action::Unstage => state::Operation::Unstage { completion },
+            files::partial::Action::Discard => state::Operation::Discard { completion },
+        };
+        self.refresh_after_write(path, result, vec![], operation)
+    }
     pub fn prepare_commit(&self, path: &Path, cancel: &Cancel) -> Result<CommitPlan> {
         let _lock = self.repository_lock(path, cancel)?;
         local::review::prepare(path)
@@ -239,7 +251,8 @@ fn operation_error(operation: &state::Operation) -> Option<&str> {
         }
     }
     match operation {
-        state::Operation::Stage { completion }
+        state::Operation::Discard { completion }
+        | state::Operation::Stage { completion }
         | state::Operation::Unstage { completion }
         | state::Operation::PullFetch { completion } => failed(completion),
         state::Operation::Commit { completion, .. } => failed(completion),

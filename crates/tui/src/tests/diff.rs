@@ -26,21 +26,16 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
                 unreachable!()
             };
             *scroll = 0;
-            let mut text = render(&mut s, width, height);
-            assert!(text.contains("Rust"), "{text}");
-            for _ in 0..12 {
-                if text.contains("+fn changed()") {
-                    break;
-                }
-                key(&mut s, KeyCode::Down);
-                text = render(&mut s, width, height);
-            }
+            command(&mut s, "repo diff select line");
+            key(&mut s, KeyCode::Home);
+            key(&mut s, KeyCode::Down);
+            let text = render(&mut s, width, height);
+            assert!(text.contains(i18n::tr!(FileDiff)), "{text}");
             assert!(text.contains("+fn changed()"), "{text}");
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
             let cells = &terminal.backend().buffer().content;
-            assert!(cells.iter().any(|cell| cell.bg == crate::diff::ADDED));
-            assert!(cells.iter().any(|cell| cell.bg == crate::diff::REMOVED));
+            assert!(cells.iter().any(|cell| cell.bg == view::SELECTION));
             let source_colors = cells
                 .iter()
                 .filter(|cell| cell.bg == crate::diff::ADDED && matches!(cell.fg, Color::Rgb(..)))

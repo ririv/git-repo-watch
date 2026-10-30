@@ -247,6 +247,9 @@ impl Screen {
                     IndexAction::Unstage
                 });
             }
+            Action::PartialSelectMenu => self.partial_menu(),
+            Action::PartialSelect(mode) => self.select_partial(mode),
+            Action::Discard => self.edit_partial(engine::local::files::partial::Action::Discard),
             Action::Diff => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Diff, path);
@@ -444,6 +447,14 @@ impl Screen {
         self.sync_bar();
     }
     pub(crate) fn edit_files(&mut self, action: IndexAction) {
+        if matches!(&self.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview)
+        {
+            self.edit_partial(match action {
+                IndexAction::Stage => engine::local::files::partial::Action::Stage,
+                IndexAction::Unstage => engine::local::files::partial::Action::Unstage,
+            });
+            return;
+        }
         let Some(session) = self.mode.file_session().cloned() else {
             self.message = i18n::tr!(ChangesSelectionRequired).into();
             return;
@@ -480,6 +491,10 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
+            Confirmation::Partial { plan, origin, .. } => {
+                self.mode = *origin;
+                self.execute_partial(*plan);
+            }
             Confirmation::ReplayParents {
                 candidate,
                 selected,

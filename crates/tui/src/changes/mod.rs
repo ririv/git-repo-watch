@@ -1,5 +1,7 @@
 //! One changes workspace composes file selection and a versioned background preview.
+pub(crate) mod edit;
 mod load;
+mod partial;
 use crate::{FileSession, Mode, Screen, Service, document, spinner, workspace::Arrangement};
 use engine::local::files::{Change, Files};
 use std::{sync::Arc, time::Instant};
@@ -21,6 +23,7 @@ pub(super) enum Preview {
         key: Key,
         content: Box<document::View>,
         scroll: usize,
+        editing: edit::State,
     },
     Failed {
         key: Key,
@@ -56,6 +59,7 @@ pub(super) struct Session {
     loader: load::Loader,
     animation: spinner::Spinner,
     pub feedback: crate::loading::Feedback<Box<Preview>>,
+    bookmark: Option<edit::Bookmark>,
 }
 impl Session {
     pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
@@ -69,9 +73,17 @@ impl Session {
             loader: Default::default(),
             animation: spinner::Spinner::new(Instant::now()),
             feedback: Default::default(),
+            bookmark: None,
         }
     }
     pub fn refreshed(&mut self, snapshot: Files) {
+        self.bookmark = match &self.preview {
+            Preview::Ready {
+                editing: edit::State::Ready(editing),
+                ..
+            } => Some(editing.bookmark()),
+            _ => None,
+        };
         self.files = self.files.refreshed(snapshot);
         self.revision += 1;
     }
@@ -131,11 +143,19 @@ impl Session {
             && self.preview.key() == Some(&key)
         {
             self.preview = match result {
-                Ok(content) => Preview::Ready {
-                    key,
-                    content,
-                    scroll: 0,
-                },
+                Ok(mut review) => {
+                    if let Some(bookmark) = self.bookmark.take()
+                        && let edit::State::Ready(editing) = &mut review.editing
+                    {
+                        editing.restore(&bookmark);
+                    }
+                    Preview::Ready {
+                        key,
+                        content: review.content,
+                        editing: review.editing,
+                        scroll: 0,
+                    }
+                }
                 Err(error) => Preview::Failed { key, error },
             };
             self.feedback.finish();

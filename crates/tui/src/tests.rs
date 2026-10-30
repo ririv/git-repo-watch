@@ -35,6 +35,7 @@ mod navigation;
 mod opening;
 mod options;
 mod overview;
+mod partial;
 mod prefix_segments;
 mod prefix_selection;
 mod preview_loading;

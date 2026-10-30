@@ -4,7 +4,7 @@ use crate::{
     changes::{Focus, Preview},
     workspace::Arrangement,
 };
-use crossterm::event::{KeyCode, KeyEvent};
+use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl Screen {
     pub(super) fn changes_key(&mut self, mut session: Box<crate::changes::Session>, key: KeyEvent) {
@@ -48,11 +48,33 @@ impl Screen {
                 }
                 _ => {}
             }
-        } else if let Preview::Ready { scroll, .. } = &mut session.preview {
-            if key.code == KeyCode::End {
-                *scroll = usize::MAX;
-            } else {
-                super::scroll_key(scroll, key);
+        } else if key.code == KeyCode::Char(' ') && empty {
+            self.mode = Mode::Changes(session);
+            self.toggle_partial();
+            return;
+        } else if let Preview::Ready {
+            scroll, editing, ..
+        } = &mut session.preview
+        {
+            match (editing, key.code) {
+                (crate::changes::edit::State::Ready(editing), KeyCode::Up | KeyCode::Down) => {
+                    editing.advance(
+                        if key.code == KeyCode::Up { -1 } else { 1 },
+                        key.modifiers.contains(KeyModifiers::SHIFT),
+                    );
+                }
+                (crate::changes::edit::State::Ready(editing), KeyCode::Home | KeyCode::End) => {
+                    editing.advance(
+                        if key.code == KeyCode::Home {
+                            isize::MIN
+                        } else {
+                            isize::MAX
+                        },
+                        key.modifiers.contains(KeyModifiers::SHIFT),
+                    )
+                }
+                (_, KeyCode::End) => *scroll = usize::MAX,
+                _ => super::scroll_key(scroll, key),
             }
         }
         self.mode = Mode::Changes(session);

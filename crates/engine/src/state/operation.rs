@@ -32,6 +32,9 @@ impl<T> Completion<T> {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Operation {
+    Discard {
+        completion: Completion<()>,
+    },
     Stage {
         completion: Completion<()>,
     },
@@ -56,6 +59,7 @@ pub enum Operation {
 impl Operation {
     pub(super) fn kind(&self) -> &'static str {
         match self {
+            Self::Discard { .. } => "discard",
             Self::Stage { .. } => "stage",
             Self::Unstage { .. } => "unstage",
             Self::Commit { .. } => "commit",

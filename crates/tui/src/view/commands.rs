@@ -183,6 +183,8 @@ fn render_menu(
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
             let description = match command.action {
+                Action::Stage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialStage),
+                Action::Unstage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialUnstage),
                 Action::Copy(_) => selection
                     .annotation(command.action)
                     .expect("copy target label"),
@@ -192,6 +194,7 @@ fn render_menu(
                 .or_else(|| layout_picker::annotation(command.action, screen, body))
                 .or_else(|| settings::annotation(command.action, screen))
                 .or_else(|| match command.action {
+                    Action::PartialSelectMenu => screen.partial_mode().map(|mode| mode.label().to_owned()),
                     Action::BrowserToggle | Action::BrowserSplit => {
                         selection.annotation(command.action).map(str::to_owned)
                     }

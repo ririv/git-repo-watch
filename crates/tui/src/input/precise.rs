@@ -8,6 +8,23 @@ use crate::{
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
         match action {
+            Action::DiffLine(id) => {
+                let Mode::Changes(session) = &mut self.mode else {
+                    return false;
+                };
+                if session.focus != changes::Focus::Preview && !self.config.mouse.select_pane {
+                    return false;
+                }
+                let changes::Preview::Ready {
+                    editing: changes::edit::State::Ready(editing),
+                    ..
+                } = &mut session.preview
+                else {
+                    return false;
+                };
+                editing.choose(id);
+                session.focus = changes::Focus::Preview;
+            }
             Action::Management(action) => {
                 self.management_action(action);
             }

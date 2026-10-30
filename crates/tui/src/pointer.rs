@@ -39,6 +39,7 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    DiffLine(engine::local::files::partial::LineId),
     Management(crate::management::Action),
     ManagementToggle(usize),
     BrowserDirectory(usize),

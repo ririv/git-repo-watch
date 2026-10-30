@@ -2,6 +2,7 @@
 mod diff;
 pub(crate) mod index;
 pub mod media;
+pub mod partial;
 pub mod patch;
 mod source;
 mod stamp;

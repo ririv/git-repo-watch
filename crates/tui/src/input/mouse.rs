@@ -518,6 +518,18 @@ impl Screen {
         if self.bar.is_plain() && !self.pointer_focus(event) {
             return Ok(false);
         }
+        if self.bar.is_plain()
+            && let Mode::Changes(session) = &mut self.mode
+            && session.focus == crate::changes::Focus::Preview
+            && let crate::changes::Preview::Ready { scroll, .. } = &mut session.preview
+        {
+            *scroll = if code == KeyCode::Up {
+                scroll.saturating_sub(3)
+            } else {
+                scroll.saturating_add(3)
+            };
+            return Ok(true);
+        }
         for _ in 0..3 {
             self.dispatch_key(KeyEvent::new(code, KeyModifiers::NONE), root)?;
         }

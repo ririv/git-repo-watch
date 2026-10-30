@@ -49,8 +49,22 @@ pub(super) fn render(
                 };
                 match preview {
                     Preview::Ready {
-                        content, scroll, ..
-                    } => document::render(frame, area, content, scroll, preference, graphics, hits),
+                        content,
+                        scroll,
+                        editing,
+                        ..
+                    } => {
+                        if let crate::document::View::Text(view) = content.as_mut() {
+                            let selection = match (session.focus, editing) {
+                                (Focus::Preview, crate::changes::edit::State::Ready(editing)) => {
+                                    Some((editing.selected(), editing.cursor(), editing.label()))
+                                }
+                                _ => None,
+                            };
+                            view.select(selection);
+                        }
+                        document::render(frame, area, content, scroll, preference, graphics, hits)
+                    }
                     state => {
                         let text = match state {
                             Preview::Empty => i18n::tr!(ChangesSelectFile).to_owned(),

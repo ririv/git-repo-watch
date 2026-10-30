@@ -141,6 +141,11 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
+    Partial {
+        plan: Box<engine::local::files::partial::Plan>,
+        review: String,
+        origin: Box<Mode>,
+    },
     ReplayParents {
         candidate: Box<engine::operations::replay::Candidate>,
         selected: usize,

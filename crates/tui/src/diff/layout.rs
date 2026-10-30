@@ -18,7 +18,7 @@ impl Anchors {
             Self::One(anchor) | Self::Pair(anchor, _) => anchor,
         }
     }
-    fn contains(self, target: Anchor) -> bool {
+    pub(crate) fn contains(self, target: Anchor) -> bool {
         match self {
             Self::One(anchor) => anchor == target,
             Self::Pair(old, new) => old == target || new == target,

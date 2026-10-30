@@ -11,6 +11,8 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff stage",
         "repo diff unstage",
         "repo diff layout",
+        "repo diff select",
+        "repo diff discard",
         "repo diff refresh",
         "repo diff copy",
         "repo diff view",

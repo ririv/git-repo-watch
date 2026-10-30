@@ -287,6 +287,12 @@ fn browsing_hint(screen: &Screen) -> &'static str {
                 i18n::tr!(WrappedChangesInputHint)
             }
             crate::changes::Focus::Files => i18n::tr!(ChangesInputHint),
+            crate::changes::Focus::Preview if screen.partial_mode().is_some() => {
+                match screen.partial_mode().expect("editable preview") {
+                    crate::changes::edit::Granularity::Hunk => i18n::tr!(PartialHunkHint),
+                    crate::changes::edit::Granularity::Line => i18n::tr!(PartialLineHint),
+                }
+            }
             crate::changes::Focus::Preview if screen.config.text_wrap => {
                 i18n::tr!(WrappedDiffPreviewHint)
             }
@@ -469,6 +475,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 Content::Choices {
                     choice: *choice,
                     execute: match operation {
+                        Confirmation::Partial { .. } => i18n::tr!(PartialDiscard),
                         Confirmation::Schedule(operation) => match operation {
                             engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
                             engine::scheduler::Control::Disable => i18n::tr!(DisableScheduledTask),

@@ -2,6 +2,8 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    PartialSelect,
+    PartialDiscard,
     Compose,
     ComposeNext,
     ComposeRegenerate,
@@ -197,6 +199,10 @@ impl CommandSummary {
             (Self::LogMore, Language::Chinese) => "加载更多提交",
             (Self::FileLayoutMenu, Language::English) => "Choose file view",
             (Self::FileLayoutMenu, Language::Chinese) => "文件显示方式",
+            (Self::PartialSelect, Language::English) => "Choose hunk or line selection",
+            (Self::PartialSelect, Language::Chinese) => "选择变更粒度",
+            (Self::PartialDiscard, Language::English) => "Discard selected changes",
+            (Self::PartialDiscard, Language::Chinese) => "丢弃所选变更",
             (Self::DiffLayoutMenu, Language::English) => "Choose diff layout",
             (Self::DiffLayoutMenu, Language::Chinese) => "选择差异布局",
             (Self::FilterMenu, Language::English) => "Filter repos",

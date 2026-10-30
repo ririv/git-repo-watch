@@ -104,6 +104,7 @@ pub(crate) enum Selection {
         opener: Option<crate::browser::opening::OpenTarget>,
     },
     Diff(Content),
+    HistoricalDiff(Content),
     Log(CommitSelection),
     Branch(Content),
     Stash(Content),
@@ -115,6 +116,7 @@ impl Selection {
             (Self::Browser { content, .. }, Scope::Browser) => Some(content),
             (Self::Log(selection), Scope::Log) => Some(selection.content()),
             (Self::Diff(content), Scope::Diff)
+            | (Self::HistoricalDiff(content), Scope::Diff)
             | (Self::Branch(content), Scope::Branch)
             | (Self::Stash(content), Scope::Stash)
             | (Self::Error(content), Scope::Error) => Some(content),
@@ -162,6 +164,9 @@ impl Selection {
             );
         }
         match action {
+            Action::PartialSelectMenu | Action::PartialSelect(_) | Action::Discard => {
+                matches!(self, Self::Diff(_))
+            }
             Action::LogSelect | Action::LogSelection(_) => {
                 matches!(self, Self::Log(CommitSelection::Graph { .. }))
             }
@@ -259,7 +264,9 @@ impl Screen {
                             .map(|change| change.location.name().to_owned()),
                     ),
                 }),
-                history::View::Diff { content, .. } => Selection::Diff(Content::document(content)),
+                history::View::Diff { content, .. } => {
+                    Selection::HistoricalDiff(Content::document(content))
+                }
             },
             Mode::Stashes(view) => Selection::Stash(match view.selected() {
                 Some(entry) => Content::text(Target::Stash, entry.oid.to_string()),

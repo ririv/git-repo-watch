@@ -63,6 +63,8 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff stage",
                 "repo diff unstage",
                 "repo diff layout",
+                "repo diff select",
+                "repo diff discard",
                 "repo diff refresh",
                 "repo diff copy",
                 "repo diff view",

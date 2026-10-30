@@ -224,6 +224,9 @@ impl ArgumentAction {
 impl Action {
     pub fn argument(self) -> Option<ArgumentAction> {
         match self {
+            Self::PartialSelectMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::DiffSelection))
+            }
             Self::LogSelect => Some(ArgumentAction::Option(super::options::Kind::LogSelection)),
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),

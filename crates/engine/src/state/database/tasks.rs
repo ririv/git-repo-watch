@@ -212,7 +212,8 @@ pub(super) fn import_operations(tx: &Transaction<'_>) -> Result<()> {
         let operation: OperationRecord = serde_json::from_str(&json)?;
         let detail = serde_json::to_string_pretty(&operation.operation)?;
         let outcome = match &operation.operation {
-            Operation::Stage { completion: value }
+            Operation::Discard { completion: value }
+            | Operation::Stage { completion: value }
             | Operation::Unstage { completion: value }
             | Operation::PullFetch { completion: value } => completion(value, detail),
             Operation::Commit {

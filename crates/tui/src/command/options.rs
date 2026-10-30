@@ -10,6 +10,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    DiffSelection,
     LogSelection,
     Filter,
     Sort,
@@ -24,6 +25,7 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    DiffSelection(crate::changes::edit::Granularity),
     LogSelection(crate::history::SelectionAction),
     Filter(Filter),
     Sort(Order),
@@ -44,6 +46,16 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::DiffSelection(crate::changes::edit::Granularity::Hunk),
+        token: "hunk",
+        description: M::PartialHunk,
+    },
+    Option {
+        value: Value::DiffSelection(crate::changes::edit::Granularity::Line),
+        token: "line",
+        description: M::PartialLine,
+    },
     Option {
         value: Value::LogSelection(crate::history::SelectionAction::Start),
         token: "start",
@@ -213,6 +225,7 @@ const OPTIONS: &[Option] = &[
 impl Value {
     pub fn action(self) -> Action {
         match self {
+            Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
             Self::Filter(value) => Action::Filter(value),
             Self::Sort(value) => Action::Sort(value),
@@ -228,6 +241,7 @@ impl Value {
     }
     fn kind(self) -> Kind {
         match self {
+            Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
             Self::Filter(_) => Kind::Filter,
             Self::Sort(_) => Kind::Sort,
@@ -245,6 +259,7 @@ impl Value {
 impl Kind {
     pub fn action(self) -> Action {
         match self {
+            Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
             Self::Filter => Action::FilterMenu,
             Self::Sort => Action::SortMenu,
@@ -266,6 +281,7 @@ impl Kind {
     }
     pub fn current(self, screen: &Screen) -> std::option::Option<Value> {
         Some(match self {
+            Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
             Self::LogSelection => return None,
             Self::Filter => Value::Filter(screen.filter),
             Self::Sort => Value::Sort(screen.order),

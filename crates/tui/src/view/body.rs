@@ -137,6 +137,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             ..
         } => {
             let text = match confirmation {
+                Confirmation::Partial { review, .. } => review.clone(),
                 Confirmation::Schedule(operation) => match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnableConfirmation),
                     engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisableConfirmation),

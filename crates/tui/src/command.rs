@@ -35,6 +35,9 @@ pub enum Action {
     StashDrop,
     Stage,
     Unstage,
+    PartialSelectMenu,
+    PartialSelect(crate::changes::edit::Granularity),
+    Discard,
     Diff,
     BrowseFiles,
     BrowserDiff,
@@ -209,6 +212,16 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff layout",
         action: DiffLayoutMenu,
         description: i18n::Message::ChangesLayout,
+    },
+    Command {
+        name: "repo diff select",
+        action: PartialSelectMenu,
+        description: i18n::Message::PartialSelectMode,
+    },
+    Command {
+        name: "repo diff discard",
+        action: Discard,
+        description: i18n::Message::PartialDiscard,
     },
     Command {
         name: "repo diff refresh",

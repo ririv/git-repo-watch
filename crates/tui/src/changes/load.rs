@@ -1,5 +1,10 @@
 //! A single cancellable reader coalesces selection changes to the latest request.
 use super::Key;
+#[derive(Debug)]
+pub(super) struct Review {
+    pub content: Box<document::View>,
+    pub editing: super::edit::State,
+}
 use crate::{Service, document};
 use engine::{cancel::Cancel, local::files::Files};
 use std::{
@@ -16,7 +21,7 @@ struct Request {
 struct Reader {
     cancel: Cancel,
     handle: thread::JoinHandle<()>,
-    rx: mpsc::Receiver<Result<Box<document::View>, String>>,
+    rx: mpsc::Receiver<Result<Review, String>>,
     key: Key,
 }
 #[derive(Debug, Default)]
@@ -60,12 +65,30 @@ impl Loader {
             let result = service
                 .diff(&request.snapshot, change, &task_cancel)
                 .and_then(|document| {
-                    document::prepare_change(
+                    let editing =
+                        super::edit::State::new(engine::local::files::partial::Snapshot::capture(
+                            &request.snapshot,
+                            change,
+                            &document,
+                            &task_cancel,
+                        ));
+                    let mut content = document::prepare_change(
                         &change.location.display(),
                         document,
                         change,
                         &task_cancel,
-                    )
+                    )?;
+                    if let document::View::Text(view) = content.as_mut() {
+                        view.interaction = match &editing {
+                            super::edit::State::Ready(_) => {
+                                crate::diff::Interaction::Editable(None)
+                            }
+                            super::edit::State::Unavailable(_) => {
+                                crate::diff::Interaction::ReadOnly
+                            }
+                        };
+                    }
+                    Ok(Review { content, editing })
                 })
                 .map_err(|error| format!("{error:#}"));
             let _ = tx.send(result);
@@ -77,10 +100,7 @@ impl Loader {
             key,
         });
     }
-    pub fn poll(
-        &mut self,
-        service: &Arc<Service>,
-    ) -> Option<(Key, Result<Box<document::View>, String>)> {
+    pub fn poll(&mut self, service: &Arc<Service>) -> Option<(Key, Result<Review, String>)> {
         if !self
             .reader
             .as_ref()

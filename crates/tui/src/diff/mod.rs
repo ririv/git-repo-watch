@@ -16,7 +16,7 @@ use engine::{
         patch::{Document, Extent, Line as PatchLine, Metadata},
     },
 };
-pub(super) use layout::{Cache, VisualRow};
+pub(super) use layout::{Anchor, Anchors, Cache, VisualRow};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -126,6 +126,14 @@ enum Row {
     Removed(Code),
 }
 impl Row {
+    pub fn line_id(&self) -> Option<engine::local::files::partial::LineId> {
+        use engine::local::files::partial::LineId;
+        match self {
+            Self::Added(code) => Some(LineId::New(code.number)),
+            Self::Removed(code) => Some(LineId::Old(code.number)),
+            _ => None,
+        }
+    }
     fn is_edit(&self) -> bool {
         matches!(self, Self::Added(_) | Self::Removed(_))
     }
@@ -139,6 +147,7 @@ impl Row {
 }
 #[derive(Debug)]
 pub(super) struct View {
+    pub interaction: Interaction,
     pub(crate) export: Export,
     rows: Vec<Row>,
     digits: u16,
@@ -147,12 +156,57 @@ pub(super) struct View {
     pub horizontal: crate::horizontal::Viewport,
 }
 #[derive(Debug)]
+pub(crate) enum Interaction {
+    ReadOnly,
+    Editable(Option<Marking>),
+}
+#[derive(Debug, Clone)]
+pub(crate) struct Marking {
+    pub label: String,
+    pub lines: BTreeSet<engine::local::files::partial::LineId>,
+    pub cursor: engine::local::files::partial::LineId,
+    pub reveal: bool,
+}
+#[derive(Debug)]
 pub(crate) enum Export {
     Complete(std::sync::Arc<str>),
     Unavailable,
     Truncated,
 }
 impl View {
+    pub fn rows_len(&self) -> usize {
+        self.rows.len()
+    }
+    pub fn select(
+        &mut self,
+        selection: Option<(
+            BTreeSet<engine::local::files::partial::LineId>,
+            engine::local::files::partial::LineId,
+            String,
+        )>,
+    ) {
+        let Interaction::Editable(marking) = &mut self.interaction else {
+            return;
+        };
+        match selection {
+            None => *marking = None,
+            Some((lines, cursor, label)) => {
+                if !marking.as_ref().is_some_and(|current| {
+                    current.lines == lines && current.cursor == cursor && current.label == label
+                }) {
+                    *marking = Some(Marking {
+                        label,
+                        lines,
+                        cursor,
+                        reveal: true,
+                    });
+                }
+            }
+        }
+    }
+    pub fn line_id(&self, row: usize) -> Option<engine::local::files::partial::LineId> {
+        self.rows.get(row).and_then(Row::line_id)
+    }
     pub fn layout(
         &self,
         width: u16,
@@ -206,6 +260,9 @@ impl View {
                 cache.restore(anchor, *scroll);
             }
             self.cache = Some(cache);
+            if let Interaction::Editable(Some(marking)) = &mut self.interaction {
+                marking.reveal = true;
+            }
         }
         let cache = self.cache.as_mut().expect("diff layout prepared");
         self.horizontal.constrain(cache.horizontal_maximum());
@@ -294,6 +351,7 @@ fn prepare_rows(
         .to_string()
         .len() as u16;
     Ok(Box::new(View {
+        interaction: Interaction::ReadOnly,
         export,
         rows,
         digits,

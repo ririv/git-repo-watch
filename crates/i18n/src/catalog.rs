@@ -2,6 +2,19 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    PartialSelectRequired,
+    PartialChanged,
+    PartialSelectionConflict,
+    PartialUnsupported,
+    PartialSelectMode,
+    PartialHunk,
+    PartialLine,
+    PartialDiscard,
+    PartialDiscardConfirm,
+    PartialStage,
+    PartialUnstage,
+    PartialHunkHint,
+    PartialLineHint,
     ManageRemove,
     ManageBack,
     ScanUsage,
@@ -1159,6 +1172,48 @@ impl Message {
             }
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
+            }
+            (Self::PartialSelectRequired, Language::English) => {
+                "Select a hunk or lines in the diff preview first"
+            }
+            (Self::PartialSelectRequired, Language::Chinese) => "请先在差异预览中选择变更块或行",
+            (Self::PartialChanged, Language::English) => {
+                "File or index changed; refresh and select again"
+            }
+            (Self::PartialChanged, Language::Chinese) => "文件或索引已变化，请刷新后重新选择",
+            (Self::PartialSelectionConflict, Language::English) => {
+                "These lines cannot be applied independently; expand the selection"
+            }
+            (Self::PartialSelectionConflict, Language::Chinese) => "这些行无法独立应用，请扩大选区",
+            (Self::PartialUnsupported, Language::English) => {
+                "This diff does not support hunk or line operations"
+            }
+            (Self::PartialUnsupported, Language::Chinese) => "此差异不支持按块或按行操作",
+            (Self::PartialSelectMode, Language::English) => "Choose hunk or line selection",
+            (Self::PartialSelectMode, Language::Chinese) => "选择变更粒度",
+            (Self::PartialHunk, Language::English) => "Select hunks",
+            (Self::PartialHunk, Language::Chinese) => "按块选择",
+            (Self::PartialLine, Language::English) => "Select lines",
+            (Self::PartialLine, Language::Chinese) => "按行选择",
+            (Self::PartialDiscard, Language::English) => "Discard selected changes",
+            (Self::PartialDiscard, Language::Chinese) => "丢弃所选变更",
+            (Self::PartialDiscardConfirm, Language::English) => "Discard selected unstaged changes",
+            (Self::PartialDiscardConfirm, Language::Chinese) => "丢弃所选未暂存改动",
+            (Self::PartialStage, Language::English) => "Stage selected changes",
+            (Self::PartialStage, Language::Chinese) => "暂存所选变更",
+            (Self::PartialUnstage, Language::English) => "Unstage selected changes",
+            (Self::PartialUnstage, Language::Chinese) => "取消暂存所选变更",
+            (Self::PartialHunkHint, Language::English) => {
+                "↑↓ hunks · /select lines · Space stage/unstage · Tab files"
+            }
+            (Self::PartialHunkHint, Language::Chinese) => {
+                "↑↓选块 · /select 切换行 · Space 暂存/取消 · Tab 文件"
+            }
+            (Self::PartialLineHint, Language::English) => {
+                "↑↓ lines · Shift+↑↓ range · Space stage/unstage · Tab files"
+            }
+            (Self::PartialLineHint, Language::Chinese) => {
+                "↑↓选行 · Shift+↑↓扩选 · Space 暂存/取消 · Tab 文件"
             }
             (Self::ManageRemove, Language::English) => "Remove",
             (Self::ManageRemove, Language::Chinese) => "移除",
