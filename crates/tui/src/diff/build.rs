@@ -105,16 +105,12 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                                         .iter()
                                         .any(|prefix| line.starts_with(prefix))
                                 }) {
-                                    metadata(
-                                        &mut rows,
-                                        line,
-                                        Style::default().fg(Color::LightBlue).bold(),
-                                    );
+                                    metadata(&mut rows, line, Style::default().fg(MUTED));
                                 }
                                 continue;
                             }
                             let style = match kind {
-                                Metadata::File => Style::default().fg(Color::LightBlue).bold(),
+                                Metadata::File => Style::default().fg(MUTED),
                                 Metadata::Hunk => Style::default().fg(Color::Rgb(180, 142, 220)),
                                 Metadata::Notice => Style::default().fg(MUTED).italic(),
                             };
