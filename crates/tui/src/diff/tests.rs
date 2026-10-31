@@ -28,7 +28,7 @@ fn document(f: &Fixture, name: &str, area: Area) -> Document {
         .changes
         .iter()
         .find(|change| change.location.name() == Path::new(name) && change.area == area)
-        .unwrap();
+        .unwrap_or_else(|| panic!("找不到 {name:?} {area:?}: {:?}", snapshot.changes));
     files::document(&snapshot, change, &Cancel::default()).unwrap()
 }
 fn find<'a>(text: &'a Text<'_>, word: &str) -> &'a Line<'a> {
@@ -158,6 +158,61 @@ fn file_information_is_separate_from_patch_rows_and_the_complete_export() {
     assert!(!rows.to_string().contains(i18n::tr!(SyntaxLabel)));
     assert!(rows.to_string().contains("@@"));
     assert!(matches!(&view.export, Export::Complete(export) if export.as_ref() == raw));
+}
+
+#[test]
+fn binary_notices_use_readable_paths_and_keep_original_exports_for_each_change_kind() {
+    let f = Fixture::create();
+    std::fs::create_dir(f.repo.join("元信息")).unwrap();
+    let modified = r#"元信息/中文 空格 "引号" \345.dat"#;
+    let deleted = "元信息/删除.dat";
+    let added = "元信息/新增.dat";
+    f.commit(modified, "before\0bytes");
+    f.commit(deleted, "\0removed-one\n\0removed-two\n");
+    write(f.repo.join(modified), "after\0bytes");
+    std::fs::remove_file(f.repo.join(deleted)).unwrap();
+    write(f.repo.join(added), "\0new-alpha\n\0new-beta\n\0new-gamma\n");
+    git(&f.repo, &["add", "-A"]);
+    for (name, expected) in [
+        (
+            modified,
+            format!("Binary files a/{modified} and b/{modified} differ"),
+        ),
+        (
+            deleted,
+            format!("Binary files a/{deleted} and /dev/null differ"),
+        ),
+        (
+            added,
+            format!("Binary files /dev/null and b/{added} differ"),
+        ),
+    ] {
+        let patch = document(&f, name, Area::Staged);
+        let raw = patch.text();
+        assert!(raw.contains(r#"\345"#) || raw.contains(r#"\344"#));
+        let mut view = prepare(name, patch, Area::Staged, &Cancel::default()).unwrap();
+        assert!(styled_rows(&view).to_string().contains(&expected));
+        view.set_header(HeaderVisibility::Expanded, &mut 0);
+        assert!(styled_rows(&view).to_string().contains(&expected));
+        assert!(matches!(&view.export, Export::Complete(export) if export.as_ref() == raw));
+    }
+}
+
+#[test]
+fn binary_path_control_characters_cannot_create_extra_rows_or_terminal_commands() {
+    let f = Fixture::create();
+    let name = "中文\n\t\u{1b}[31m路径.dat";
+    f.commit(name, "before\0bytes");
+    write(f.repo.join(name), "after\0bytes");
+    let patch = document(&f, name, Area::Unstaged);
+    let view = prepare(name, patch, Area::Unstaged, &Cancel::default()).unwrap();
+    let rows = styled_rows(&view);
+    let notice = find(&rows, "Binary files");
+    assert_eq!(
+        notice.to_string(),
+        "Binary files a/中文 路径.dat and b/中文 路径.dat differ"
+    );
+    assert!(!notice.to_string().contains(['\n', '\t', '\u{1b}']));
 }
 
 #[test]

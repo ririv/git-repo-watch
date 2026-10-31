@@ -280,7 +280,7 @@ fn continuous_review_keeps_permission_rename_and_binary_metadata() {
         std::fs::Permissions::from_mode(0o755),
     )
     .unwrap();
-    std::fs::write(f.repo.join("binary.dat"), [0, 1, 2, 0, 4]).unwrap();
+    std::fs::write(f.repo.join("01-中文 二进制.dat"), [0, 1, 2, 0, 4]).unwrap();
     support::git(&f.repo, &["add", "."]);
     support::git(&f.repo, &["commit", "-m", "Rename and executable mode"]);
     let (_home, mut s) = open(&f);
@@ -302,5 +302,6 @@ fn continuous_review_keeps_permission_rename_and_binary_metadata() {
         text.contains("Binary files") || text.contains("Binary content"),
         "{text}"
     );
+    assert!(text.contains("b/01-中文 二进制.dat"), "{text}");
     s.shutdown();
 }

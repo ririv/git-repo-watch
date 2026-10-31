@@ -6,6 +6,7 @@ pub(crate) use header::summary as header_summary;
 mod layout;
 #[cfg(test)]
 mod layout_tests;
+mod notice;
 mod source;
 #[cfg(test)]
 mod tests;

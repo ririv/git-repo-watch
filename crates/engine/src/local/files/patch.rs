@@ -61,11 +61,21 @@ pub enum Line {
     },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Metadata {
     File,
     Hunk,
     Notice,
+    Binary {
+        before: BinaryPath,
+        after: BinaryPath,
+    },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BinaryPath {
+    Absent,
+    File(PathBuf),
 }
 
 impl Line {

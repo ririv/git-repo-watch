@@ -119,13 +119,16 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                             rows.push(Row::Removed(code(number, &text, &old)))
                         }
                         PatchLine::Metadata { kind, text } => {
-                            if kind == Metadata::File {
-                                continue;
-                            }
-                            let style = match kind {
-                                Metadata::File => Style::default().fg(MUTED),
-                                Metadata::Hunk => Style::default().fg(Color::Rgb(180, 142, 220)),
-                                Metadata::Notice => Style::default().fg(MUTED).italic(),
+                            let (text, style) = match kind {
+                                Metadata::File => continue,
+                                Metadata::Hunk => {
+                                    (text, Style::default().fg(Color::Rgb(180, 142, 220)))
+                                }
+                                Metadata::Notice => (text, Style::default().fg(MUTED).italic()),
+                                Metadata::Binary { before, after } => (
+                                    notice::binary(&before, &after),
+                                    Style::default().fg(MUTED).italic(),
+                                ),
                             };
                             metadata(&mut rows, &text, style);
                         }

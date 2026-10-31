@@ -184,7 +184,7 @@ pub(crate) fn collect(
                 });
             }
             let file = files.last_mut().context(i18n::tr!(InvalidDiffStructure))?;
-            file.lines.push(convert(line)?);
+            file.lines.push(convert(line, delta)?);
             Ok(())
         })();
         match converted {
@@ -234,7 +234,17 @@ fn info(file: DiffFile<'_>) -> Result<FileInfo> {
         exists: file.exists(),
     })
 }
-fn convert(line: DiffLine<'_>) -> Result<Line> {
+fn binary_path(file: DiffFile<'_>) -> Result<BinaryPath> {
+    // 与 libgit2 的二进制提示一致：零对象 ID 的一侧显示为 /dev/null。
+    if file.id().is_zero() {
+        return Ok(BinaryPath::Absent);
+    }
+    let path = file.path().context(i18n::tr!(ChangeHasNoPath))?;
+    utf8_path(path)?;
+    Ok(BinaryPath::File(path.to_owned()))
+}
+
+fn convert(line: DiffLine<'_>, delta: git2::DiffDelta<'_>) -> Result<Line> {
     let text =
         String::from_utf8(line.content().to_vec()).context(i18n::tr!(DiffIsNotUtf8ViewWith))?;
     let number = |value: Option<u32>| {
@@ -260,6 +270,10 @@ fn convert(line: DiffLine<'_>) -> Result<Line> {
             kind: match kind {
                 DiffLineType::FileHeader => Metadata::File,
                 DiffLineType::HunkHeader => Metadata::Hunk,
+                DiffLineType::Binary => Metadata::Binary {
+                    before: binary_path(delta.old_file())?,
+                    after: binary_path(delta.new_file())?,
+                },
                 _ => Metadata::Notice,
             },
             text,
