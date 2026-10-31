@@ -270,6 +270,9 @@ fn convert(line: DiffLine<'_>, delta: git2::DiffDelta<'_>) -> Result<Line> {
             kind: match kind {
                 DiffLineType::FileHeader => Metadata::File,
                 DiffLineType::HunkHeader => Metadata::Hunk,
+                DiffLineType::ContextEOFNL | DiffLineType::AddEOFNL | DiffLineType::DeleteEOFNL => {
+                    Metadata::NoNewline
+                }
                 DiffLineType::Binary => Metadata::Binary {
                     before: binary_path(delta.old_file())?,
                     after: binary_path(delta.new_file())?,

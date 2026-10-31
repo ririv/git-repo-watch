@@ -31,13 +31,21 @@ pub(crate) enum VisualRow {
         line: crate::links::Line,
         fixed: usize,
         anchor: Anchor,
+        kind: RowKind,
     },
     Columns {
         left: crate::links::Line,
         right: crate::links::Line,
         anchors: Anchors,
         fixed: usize,
+        kind: RowKind,
     },
+}
+/// Annotations share scroll anchors with source rows but never select source lines.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum RowKind {
+    Content,
+    Annotation,
 }
 impl VisualRow {
     pub fn anchors(&self) -> Anchors {
@@ -153,6 +161,7 @@ fn full(out: &mut Vec<VisualRow>, row: usize, line: &Line<'static>) {
         line: line.clone().into(),
         fixed: 0,
         anchor: Anchor { row },
+        kind: RowKind::Content,
     });
 }
 #[derive(Clone, Copy)]
@@ -197,12 +206,14 @@ fn wrapped(rows: Vec<VisualRow>, width: u16) -> Vec<VisualRow> {
                 line,
                 fixed,
                 anchor,
+                kind,
             } => wrap(line, width, fixed)
                 .into_iter()
                 .map(|line| VisualRow::Full {
                     line,
                     fixed,
                     anchor,
+                    kind,
                 })
                 .collect(),
             VisualRow::Columns {
@@ -210,6 +221,7 @@ fn wrapped(rows: Vec<VisualRow>, width: u16) -> Vec<VisualRow> {
                 right,
                 anchors,
                 fixed,
+                kind,
             } => {
                 let left_style = left.text.style;
                 let right_style = right.text.style;
@@ -227,6 +239,7 @@ fn wrapped(rows: Vec<VisualRow>, width: u16) -> Vec<VisualRow> {
                             .unwrap_or_else(|| Line::default().style(right_style).into()),
                         anchors,
                         fixed,
+                        kind,
                     })
                     .collect::<Vec<_>>()
             }

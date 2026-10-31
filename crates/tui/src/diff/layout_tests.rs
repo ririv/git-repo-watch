@@ -4,6 +4,7 @@ fn code(number: u32, text: &str) -> Code {
     Code {
         number: NonZeroU32::new(number).unwrap(),
         content: Line::raw(text.to_owned()),
+        ending: Ending::Newline,
     }
 }
 fn columns(cache: &Cache) -> Vec<(&Line<'_>, &Line<'_>)> {

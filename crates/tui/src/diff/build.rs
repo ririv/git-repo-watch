@@ -100,6 +100,11 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                 let code = |number, text: &str, paint: &source::Paint| Code {
                     number,
                     content: Line::from(source::spans(text, paint.line(number), Style::default())),
+                    ending: if text.ends_with('\n') {
+                        Ending::Newline
+                    } else {
+                        Ending::EndOfFile
+                    },
                 };
                 for line in file.lines {
                     cancel.check()?;
@@ -120,7 +125,7 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                         }
                         PatchLine::Metadata { kind, text } => {
                             let (text, style) = match kind {
-                                Metadata::File => continue,
+                                Metadata::File | Metadata::NoNewline => continue,
                                 Metadata::Hunk => {
                                     (text, Style::default().fg(Color::Rgb(180, 142, 220)))
                                 }

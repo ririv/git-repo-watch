@@ -6,6 +6,8 @@ pub(crate) use header::summary as header_summary;
 mod layout;
 #[cfg(test)]
 mod layout_tests;
+#[cfg(test)]
+mod newline_tests;
 mod notice;
 mod source;
 #[cfg(test)]
@@ -20,7 +22,7 @@ use engine::{
         patch::{Document, Extent, Line as PatchLine, Metadata},
     },
 };
-pub(super) use layout::{Anchor, Anchors, Cache, VisualRow};
+pub(super) use layout::{Anchor, Anchors, Cache, RowKind, VisualRow};
 use ratatui::{
     style::{Color, Modifier, Style},
     text::{Line, Span},
@@ -122,6 +124,12 @@ impl Comparison {
 struct Code {
     number: NonZeroU32,
     content: Line<'static>,
+    ending: Ending,
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Ending {
+    Newline,
+    EndOfFile,
 }
 #[derive(Debug, Clone)]
 enum Row {

@@ -66,6 +66,7 @@ pub enum Metadata {
     File,
     Hunk,
     Notice,
+    NoNewline,
     Binary {
         before: BinaryPath,
         after: BinaryPath,

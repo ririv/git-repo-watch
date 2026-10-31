@@ -184,6 +184,61 @@ fn partial_mouse_selection_uses_the_correct_column_in_both_layouts_and_when_wrap
 }
 
 #[test]
+fn newline_annotations_are_not_selectable_and_partial_staging_preserves_eof() {
+    use ratatui::layout::Position;
+    for layout in [
+        crate::diff::Preference::Unified,
+        crate::diff::Preference::Split,
+    ] {
+        let f = support::Fixture::create();
+        f.commit("eof.txt", "old");
+        support::write(f.repo.join("eof.txt"), "new");
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        command(&mut s, "repo diff");
+        wait(&mut s);
+        key(&mut s, KeyCode::Enter);
+        command(&mut s, "repo diff select hunk");
+        s.diff_preference = layout;
+        for wrap in [false, true] {
+            s.config.text_wrap = wrap;
+            let mut terminal = Terminal::new(TestBackend::new(180, 32)).unwrap();
+            terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+            let buffer = terminal.backend().buffer();
+            let mut marks = 0;
+            for y in 0..32 {
+                if (0..180).any(|x| buffer[(x, y)].symbol() == "⊖") {
+                    for x in 0..180 {
+                        assert!(!matches!(
+                            s.pointer.hit(Position::new(x, y)),
+                            Some(crate::pointer::Hit::Button(
+                                crate::pointer::Action::DiffLine(_)
+                            ))
+                        ));
+                        if buffer[(x, y)].symbol() == "⊖" {
+                            marks += 1;
+                            assert_eq!(buffer[(x, y)].fg, ratatui::style::Color::LightRed);
+                            assert_ne!(buffer[(x, y)].bg, view::SELECTION);
+                        }
+                    }
+                }
+            }
+            assert_eq!(marks, 2);
+        }
+        key(&mut s, KeyCode::Char(' '));
+        wait(&mut s);
+        let index = std::process::Command::new("git")
+            .args(["show", ":eof.txt"])
+            .current_dir(&f.repo)
+            .output()
+            .unwrap();
+        assert!(index.status.success());
+        assert_eq!(index.stdout, b"new");
+        assert_eq!(std::fs::read(f.repo.join("eof.txt")).unwrap(), b"new");
+        s.shutdown();
+    }
+}
+
+#[test]
 fn partial_operations_reject_a_file_modified_after_preview() {
     let (f, _home, mut s, before, _) = setup();
     support::write(f.repo.join("文件 空格.txt"), "external contents\n");

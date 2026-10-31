@@ -130,6 +130,7 @@ pub(super) fn render(
                 line,
                 fixed,
                 anchor,
+                kind,
             } => {
                 let area = Rect::new(body.x, y, body.width, 1);
                 hits.links.line(frame, area, line, *fixed, offset);
@@ -138,7 +139,10 @@ pub(super) fn render(
                     hits,
                     area,
                     *fixed,
-                    ids[anchor.row],
+                    match kind {
+                        crate::diff::RowKind::Content => ids[anchor.row],
+                        crate::diff::RowKind::Annotation => None,
+                    },
                     editable,
                     marking.as_ref(),
                 );
@@ -148,6 +152,7 @@ pub(super) fn render(
                 right,
                 fixed,
                 anchors,
+                kind,
             } => {
                 hits.links.line(
                     frame,
@@ -167,6 +172,9 @@ pub(super) fn render(
                     *fixed,
                     offset,
                 );
+                if *kind == crate::diff::RowKind::Annotation {
+                    continue;
+                }
                 let (old, new) = match anchors {
                     crate::diff::Anchors::Pair(old, new) => (ids[old.row], ids[new.row]),
                     crate::diff::Anchors::One(anchor) => match ids[anchor.row] {

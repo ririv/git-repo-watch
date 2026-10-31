@@ -24,7 +24,17 @@ pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
             anchor: Anchor { row: index },
             fixed: 2 * number_width + 4,
             line: decorate(code.content.clone(), gutter, mark),
+            kind: RowKind::Content,
         });
+        if code.ending == Ending::EndOfFile {
+            let line = notice::ending(2 * number_width + 4);
+            out.push(VisualRow::Full {
+                anchor: Anchor { row: index },
+                fixed: line.width(),
+                line,
+                kind: RowKind::Annotation,
+            });
+        }
     }
     out
 }

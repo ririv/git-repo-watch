@@ -66,6 +66,16 @@ fn column((row, code, mark): Entry<'_>, digits: u16) -> (crate::links::Line, Anc
     )
 }
 fn pair(out: &mut Vec<VisualRow>, entry: Pair<'_>, digits: u16) {
+    let gutter = usize::from(digits) + 3;
+    let ending = |entry: Entry<'_>| match entry.1.ending {
+        Ending::Newline => Line::default().into(),
+        Ending::EndOfFile => notice::ending(gutter),
+    };
+    let (left_ending, right_ending) = match &entry {
+        Pair::Both(old, new) => (ending(*old), ending(*new)),
+        Pair::Removed(old) => (ending(*old), Line::default().into()),
+        Pair::Added(new) => (Line::default().into(), ending(*new)),
+    };
     let (left, right, anchors) = match entry {
         Pair::Both(old, new) => {
             let (left, a) = column(old, digits);
@@ -85,6 +95,16 @@ fn pair(out: &mut Vec<VisualRow>, entry: Pair<'_>, digits: u16) {
         left,
         right,
         anchors,
-        fixed: usize::from(digits) + 3,
+        fixed: gutter,
+        kind: RowKind::Content,
     });
+    if left_ending.width() > 0 || right_ending.width() > 0 {
+        out.push(VisualRow::Columns {
+            fixed: left_ending.width().max(right_ending.width()),
+            left: left_ending,
+            right: right_ending,
+            anchors,
+            kind: RowKind::Annotation,
+        });
+    }
 }

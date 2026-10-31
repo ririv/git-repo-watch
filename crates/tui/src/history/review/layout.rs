@@ -82,9 +82,12 @@ impl Layout {
                     cache
                         .rows
                         .iter()
-                        .map(|row| match row {
-                            crate::diff::VisualRow::Full { fixed, .. }
-                            | crate::diff::VisualRow::Columns { fixed, .. } => *fixed,
+                        .filter_map(|row| match row {
+                            crate::diff::VisualRow::Full { fixed, kind, .. }
+                            | crate::diff::VisualRow::Columns { fixed, kind, .. } => match kind {
+                                crate::diff::RowKind::Content => Some(*fixed),
+                                crate::diff::RowKind::Annotation => None,
+                            },
                         })
                         .max()
                         .unwrap_or(0),
