@@ -54,6 +54,7 @@ mod sync_progress;
 mod task_center;
 mod task_feedback;
 mod text_selection;
+mod view_preferences;
 mod workflows;
 mod workspace;
 mod workspace_navigation;
@@ -73,6 +74,7 @@ use std::{collections::BTreeSet, time::Instant};
 use test_support as support;
 fn screen(service: Service) -> Screen {
     let config = service.store.config().unwrap();
+    let view_preferences = config.view;
     let repository_viewport = ratatui::widgets::TableState::default()
         .with_selected((!config.repositories.is_empty()).then_some(0));
     Screen {
@@ -100,8 +102,9 @@ fn screen(service: Service) -> Screen {
         mode: Mode::Browsing,
         focus_mode: Default::default(),
         interaction_save: Default::default(),
-        diff_preference: Default::default(),
-        file_layout: Default::default(),
+        view_save: Default::default(),
+        diff_preference: view_preferences.diff_layout.into(),
+        file_layout: view_preferences.file_layout.into(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
         exit_sequence: Default::default(),
@@ -123,7 +126,7 @@ fn screen(service: Service) -> Screen {
         filter: Filter::All,
         query: String::new(),
         search_mode: Default::default(),
-        order: Order::Priority,
+        order: view_preferences.repository_order.into(),
         setting_selected: 0,
         settings_focus: None,
         input_surface: Default::default(),
@@ -157,6 +160,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })
@@ -215,6 +219,7 @@ fn wait(s: &mut Screen) {
     s.poll_changes();
     let started = Instant::now();
     while s.interaction_save.pending()
+        || s.view_save.pending()
         || matches!(s.mode, Mode::Busy(_))
         || matches!(s.mode, Mode::Panel(section) if section != crate::workspace::Section::Overview)
         || !s.repository_tasks.is_empty()
@@ -226,6 +231,7 @@ fn wait(s: &mut Screen) {
         );
         s.poll(&Cancel::default());
         s.poll_interaction();
+        s.poll_view_preferences();
         s.poll_workspace();
         s.poll_changes();
         thread::sleep(Duration::from_millis(5));
@@ -1108,7 +1114,10 @@ fn poll_background_until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
     while !ready(s) {
         assert!(
             start.elapsed() < Duration::from_secs(8),
-            "background check did not reach the expected state"
+            "background check did not reach the expected state: {}; errors: {:?}; running: {:?}",
+            s.message,
+            s.repository_errors,
+            s.repository_tasks.keys().collect::<Vec<_>>()
         );
         s.poll_check();
         s.poll(&Cancel::default());

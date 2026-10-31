@@ -32,6 +32,15 @@ chinese_command_trigger = true
 # 两种模式都保留键盘操作；Ctrl+G 切换并保存，下次启动沿用。
 interaction_mode = "application"
 
+# 视图偏好：切换后保存，下次启动沿用。
+[view]
+# 文件列表：tree 为树形，flat 为平铺。
+file_layout = "tree"
+# diff 布局：auto、split 或 unified。
+diff_layout = "auto"
+# 仓库排序：priority、name、path 或 updated。
+repository_order = "priority"
+
 # 鼠标能力独立开关；键盘操作不受影响。
 [mouse]
 # 点击具体条目或滚动条定位，不自动执行仓库写操作。

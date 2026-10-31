@@ -59,6 +59,7 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Auto);
         assert!(s.repository_tasks.is_empty());
+        wait(&mut s);
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
             configuration

@@ -162,7 +162,7 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         let (_home, mut s) = fixture(vec!["/z/beta".into(), "/a/alpha".into()]);
         s.focus(Some("/z/beta".into()));
         let selected = s.selected_path();
-        let configuration = std::fs::read(s.service.store.config_path()).unwrap();
+        let mut configuration = s.service.store.config().unwrap();
         command(&mut s, "repos sort");
         assert_eq!(s.bar.text(), "/repos sort ");
         assert!(matches!(s.bar, bar::InputBar::Command { selected: 0, .. }));
@@ -204,10 +204,9 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.filter, Filter::All);
         assert_eq!(s.selected_path(), Some("/a/alpha".into()));
-        assert_eq!(
-            std::fs::read(s.service.store.config_path()).unwrap(),
-            configuration
-        );
+        wait(&mut s);
+        configuration.view.repository_order = engine::state::view::RepositoryOrder::Name;
+        assert_eq!(s.service.store.config().unwrap(), configuration);
         assert!(s.service.store.report().unwrap().is_none());
         assert!(s.repository_tasks.is_empty());
         assert!(s.check_task.is_none());

@@ -134,7 +134,7 @@ fn repository_filter_and_sort_labels_open_current_options_and_clicks_apply_only_
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/z/repo".into(), "/a/repo".into()]);
-        let original = std::fs::read(s.service.store.config_path()).unwrap();
+        let mut original = s.service.store.config().unwrap();
         s.paste("repo");
         for width in if language == i18n::Language::Chinese {
             [32, 60, 160]
@@ -233,14 +233,15 @@ fn repository_filter_and_sort_labels_open_current_options_and_clicks_apply_only_
                 assert_eq!(s.selected_path(), selected);
                 match chosen {
                     Value::Filter(value) => assert_eq!(s.filter, value),
-                    Value::Sort(value) => assert_eq!(s.order, value),
+                    Value::Sort(value) => {
+                        assert_eq!(s.order, value);
+                        original.view.repository_order = value.into();
+                    }
                     _ => unreachable!(),
                 }
                 assert!(s.check_task.is_none() && s.repository_tasks.is_empty());
-                assert_eq!(
-                    std::fs::read(s.service.store.config_path()).unwrap(),
-                    original
-                );
+                wait(&mut s);
+                assert_eq!(s.service.store.config().unwrap(), original);
             }
         }
         s.shutdown();

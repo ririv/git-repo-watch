@@ -217,6 +217,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,
+        view: Default::default(),
         mouse: Default::default(),
         ai: Default::default(),
         ..Config::default()

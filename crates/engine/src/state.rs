@@ -2,6 +2,7 @@
 mod configuration;
 mod database;
 mod interaction;
+pub mod view;
 pub use configuration::{Config, ConfigurationMigration, MouseConfig, MouseSetting};
 pub use interaction::InteractionMode;
 mod operation;

@@ -259,7 +259,7 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
-        let config = std::fs::read(s.service.store.config_path()).unwrap();
+        let mut config = s.service.store.config().unwrap();
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), None);
         assert_eq!(s.bar.text(), "/");
@@ -292,10 +292,9 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
         assert_eq!(s.page, Page::Repositories);
         assert!(s.history.is_empty());
         assert_eq!(s.order, Order::Name);
-        assert_eq!(
-            std::fs::read(s.service.store.config_path()).unwrap(),
-            config
-        );
+        wait(&mut s);
+        config.view.repository_order = engine::state::view::RepositoryOrder::Name;
+        assert_eq!(s.service.store.config().unwrap(), config);
         assert!(s.repository_tasks.is_empty() && s.check_task.is_none());
     }
 }
@@ -357,7 +356,7 @@ fn repository_entry_freezes_its_target_and_nested_views_keep_full_context_paths(
         let second = support::Fixture::create();
         support::write(first.repo.join("中文 file.ts"), "export const value = 1;\n");
         let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
-        let config = std::fs::read(s.service.store.config_path()).unwrap();
+        let mut config = s.service.store.config().unwrap();
         let index = std::fs::read(first.repo.join(".git/index")).unwrap();
         s.focus(Some(first.repo.clone()));
         key(&mut s, KeyCode::Char('/'));
@@ -392,10 +391,9 @@ fn repository_entry_freezes_its_target_and_nested_views_keep_full_context_paths(
         assert_eq!(s.page, Page::Repositories);
         assert_eq!(s.command_context(), None);
         assert_eq!(s.selected_path(), Some(first.repo.clone()));
-        assert_eq!(
-            std::fs::read(s.service.store.config_path()).unwrap(),
-            config
-        );
+        wait(&mut s);
+        config.view.diff_layout = engine::state::view::DiffLayout::Split;
+        assert_eq!(s.service.store.config().unwrap(), config);
         assert_eq!(std::fs::read(first.repo.join(".git/index")).unwrap(), index);
         s.shutdown();
     }

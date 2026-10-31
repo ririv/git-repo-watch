@@ -43,13 +43,13 @@
 - 全局菜单只展示顶层命令；输入 `/repo diff` 等前缀即显示所有匹配的子命令，不必先输入空格。父命令排在前面。
 - 带参数命令直接在输入栏填写，如 `/repos add <path>`、`/settings concurrency <count>`。
 - `[tree|flat]` 表示可选的固定选项，`<path>`、`<name>` 表示自行输入。选项按可用宽度完整显示，放不下时按完整选项以 `…` 简写，补全菜单始终展示完整范围；`[<model>|default]` 表示模型名或特殊值 `default`。
-- `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。单一子目录链合并显示（如 `output/imagegen/`）；文件夹也能定位和勾选，文件可预览差异。
+- `/repo diff view` 切换目录树／平铺列表，默认展开目录树；也可执行 `/repo diff view tree` 或 `/repo diff view flat`。选择保存为偏好，下次启动沿用。单一子目录链合并显示（如 `output/imagegen/`）；文件夹也能定位和勾选，文件可预览差异。
 - `Ctrl+U` 清空光标前文字，`Ctrl+A` / `Ctrl+E` 跳到开头／末尾。
 - 仓库首页可点击顶部“筛选”和“排序”的文字或当前值，展开对应选项；也可用 `/repos filter [all|problems|…]` 筛选、`/repos sort [priority|name|…]` 排序。菜单定位当前值，选择后才应用；按参数名或中英文说明筛选，`↑↓` 选择、Tab 补全、Enter 应用、Esc 收起，✓ 标记当前值。关闭精确点击或启用选字模式时使用命令操作。
 - 启动检查、自动推送策略和 AI 工具也使用同一参数菜单：空格或 Enter 展开，↑↓ 选择、Tab 只补全、Enter 提交所选值。配置确认沿用原有规则，取消不写入。
 - 筛选：all 全部、problems 问题、clean 正常、failed 检查失败、unchecked 未检查、no-upstream 无上游、pushes 有推送记录。
-- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`。
-- 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。只影响当前会话，不检查仓库或修改报告。
+- 排序：priority 状态优先、name 名称升序、path 路径升序、updated 最近更新（未检查排最后）；可直接执行，如 `/repos sort name`；排序保存为偏好，下次启动沿用。
+- 筛选与文字搜索同时生效；首页已有搜索时按 `/` 打开命令，应用或关闭后恢复搜索，保留仍可见的选中仓库。筛选与搜索只影响当前会话，不检查仓库或修改报告。
 - `Ctrl+R` 重新读取报告或刷新文件面板；仓库主列表中的滚轮每次移动三项。
 
 ## 过滤与定位
@@ -130,7 +130,7 @@
 - 差异默认在宽屏使用左右对比，窄屏使用统一视图；两侧同步滚动，长行保持一行，横向同步平移。
 - `/repo diff layout` 打开横向选择器并定位当前设置；`←→` / `Tab` / `Shift+Tab` 切换候选，`Enter` 应用，`Esc` 返回命令草稿。鼠标单击选项只移动候选，双击或按 Enter 应用。
 - 命令列表标记当前选项，自动模式还显示当前实际的统一／双栏视图，并随窗口大小更新；可点击候选行或按 `Enter` 进入。
-- `/repo diff layout auto`、`/repo diff layout split`、`/repo diff layout unified` 立即切换布局，本次 TUI 会话生效；这些值是布局参数；空格后自动显示候选，`Tab` 补全参数。
+- `/repo diff layout auto`、`/repo diff layout split`、`/repo diff layout unified` 立即切换布局，保存为偏好，下次启动沿用；这些值是布局参数；空格后自动显示候选，`Tab` 补全参数。
 - 目录单击或按 `Enter` 展开／收起，文件单击定位、双击进入；点击复选框勾选／取消；沿用设置中的精确点击开关。空输入时 `Space` 勾选，`Insert` 始终勾选，`Ctrl+A` 勾选全部可见文件；筛选隐藏文件时保留勾选。目录勾选作用于本区域内符合筛选的所有后代文件，包含折叠隐藏的文件，`✓` 表示全部勾选，`−` 表示部分勾选。
 - 文件焦点下，`/repo diff stage` 暂存全部勾选项，`/repo diff unstage` 取消暂存；未勾选时作用于光标文件或目录内符合筛选的文件。
 - 预览焦点下默认按块选择，`↑↓` 切换块；`/repo diff select [hunk|line]` 切换粒度。按行时 `Shift+↑↓` 扩选／缩选连续的变更行，单击变更行可定位。统一、双栏和自动换行使用同一选区；`PgUp/PgDn` 和滚轮只滚动预览。

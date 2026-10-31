@@ -53,6 +53,7 @@ impl Service {
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),
             ConfigEdit::Interaction(mode) => config.interaction_mode = mode,
+            ConfigEdit::View(edit) => edit.apply(&mut config.view),
             ConfigEdit::AiEnabled(enabled) => config.ai.enabled = enabled,
             ConfigEdit::AiAgent(agent) => config.ai.agent = agent,
             ConfigEdit::AiModel { agent, model } => config.ai.program_mut_for(agent).model = model,

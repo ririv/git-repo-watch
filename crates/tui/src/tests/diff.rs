@@ -125,7 +125,7 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         support::write(f.repo.join("one.rs"), "fn cached_new() {}\n");
         support::write(f.repo.join("two.rs"), "fn second() {}\n");
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        let before = std::fs::read(s.service.store.config_path()).unwrap();
+        let mut expected = s.service.store.config().unwrap();
         open_files(&mut s);
         wait(&mut s);
         key(&mut s, KeyCode::Enter);
@@ -184,17 +184,15 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
         let second = render(&mut s, 160, 32);
         assert!(second.contains("second"));
         assert_eq!(s.diff_preference, crate::diff::Preference::Unified);
-        assert_eq!(
-            std::fs::read(s.service.store.config_path()).unwrap(),
-            before
-        );
+        expected.view.diff_layout = engine::state::view::DiffLayout::Unified;
+        assert_eq!(s.service.store.config().unwrap(), expected);
         assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
         assert!(s.service.store.report().unwrap().is_none());
     }
 }
 
 #[test]
-fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only() {
+fn staged_comparison_labels_head_and_index_and_layout_selection_survives_restart() {
     let f = support::Fixture::create();
     f.commit("stage.rs", "fn head() {}\n");
     support::write(f.repo.join("stage.rs"), "fn index() {}\n");
@@ -220,7 +218,7 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_is_session_only(
             s.service.scheduler.clone()
         ))
         .diff_preference,
-        crate::diff::Preference::Auto
+        crate::diff::Preference::Split
     );
     let cached = support::git(&f.repo, &["diff", "--cached"]);
     assert!(cached.contains("+fn index"));

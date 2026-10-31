@@ -28,6 +28,7 @@ impl Default for Config {
             file_icons: true,
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: MouseConfig::default(),
             ai: Default::default(),
         }
@@ -62,6 +63,8 @@ pub struct Config {
     pub chinese_command_trigger: bool,
     #[serde(default)]
     pub interaction_mode: super::InteractionMode,
+    #[serde(default)]
+    pub view: super::view::Preferences,
     #[serde(default)]
     pub mouse: MouseConfig,
     #[serde(default, alias = "commit_message")]
@@ -272,6 +275,25 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             *value.decor_mut() = current.decor().clone();
         }
         document["mouse"][key] = Item::Value(value);
+    }
+    for key in ["file_layout", "diff_layout", "repository_order"] {
+        if before
+            .as_ref()
+            .is_some_and(|before| before["view"][key] == after["view"][key])
+        {
+            continue;
+        }
+        if !document.contains_key("view") {
+            document["view"] = Item::Table(toml_edit::Table::new());
+        }
+        let mut value = desired["view"][key]
+            .as_value()
+            .expect("view enum serialized as string")
+            .clone();
+        if let Some(current) = document["view"].get(key).and_then(Item::as_value) {
+            *value.decor_mut() = current.decor().clone();
+        }
+        document["view"][key] = Item::Value(value);
     }
     for path in [
         &["enabled"][..],

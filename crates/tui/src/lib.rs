@@ -49,6 +49,7 @@ mod stashes;
 mod task;
 mod task_center;
 mod view;
+mod view_preferences;
 mod workflow;
 mod workspace;
 use anyhow::{Context, Result};
@@ -244,6 +245,7 @@ struct Screen {
     mode: Mode,
     focus_mode: focus::State,
     interaction_save: interaction::Writer,
+    view_save: view_preferences::Writer,
     diff_preference: diff::Preference,
     file_layout: files::Layout,
     graphics: graphics::Display,
@@ -293,6 +295,7 @@ impl Screen {
     fn new(service: Service, cancel: &Cancel) -> Result<Self> {
         let snapshot = service.snapshot(cancel)?;
         let config = service.store.config()?;
+        let view_preferences = config.view;
         let repository_viewport = ratatui::widgets::TableState::default()
             .with_selected((!config.repositories.is_empty()).then_some(0));
         let mut screen = Self {
@@ -304,8 +307,9 @@ impl Screen {
             mode: Mode::Browsing,
             focus_mode: Default::default(),
             interaction_save: Default::default(),
-            diff_preference: Default::default(),
-            file_layout: Default::default(),
+            view_save: Default::default(),
+            diff_preference: view_preferences.diff_layout.into(),
+            file_layout: view_preferences.file_layout.into(),
             graphics: graphics::Display::new(graphics::Support::Unavailable(
                 i18n::tr!(GraphicsUnsupported).into(),
             )),
@@ -329,7 +333,7 @@ impl Screen {
             filter: Filter::All,
             query: String::new(),
             search_mode: Default::default(),
-            order: Order::Priority,
+            order: view_preferences.repository_order.into(),
             setting_selected: 0,
             settings_focus: None,
             input_surface: Default::default(),
@@ -530,6 +534,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.poll_clipboard()
                 | screen.poll_links()
                 | screen.poll_interaction()
+                | screen.poll_view_preferences()
                 | screen.poll_tasks()
                 | screen.workspace.animate()
                 | screen.animate_check()

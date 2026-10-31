@@ -643,6 +643,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,
+        view: Default::default(),
         mouse: Default::default(),
         ai: Default::default(),
         ..engine::state::Config::default()

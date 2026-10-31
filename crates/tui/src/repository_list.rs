@@ -1,4 +1,4 @@
-//! Session-local repository filters, ordering, and command menu transitions.
+//! Session-local filters and persisted repository ordering share command transitions.
 mod status;
 use crate::{Mode, Page, Row, Screen};
 use chrono::{DateTime, FixedOffset};
@@ -117,6 +117,7 @@ impl Screen {
         }
         let path = self.selected_path();
         self.order = order;
+        self.save_view_preference(engine::state::view::Edit::RepositoryOrder(order.into()));
         self.focus(path);
     }
     pub(crate) fn sort_rows(&self, rows: &mut [Row]) {

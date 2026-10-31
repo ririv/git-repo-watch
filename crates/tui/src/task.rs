@@ -371,5 +371,8 @@ impl Screen {
             pending.cancel.cancel();
             let _ = pending.handle.join();
         }
+        if let Err(error) = self.view_save.finish() {
+            eprintln!("{}: {error:#}", i18n::tr!(ViewPreferenceSaveFailed));
+        }
     }
 }

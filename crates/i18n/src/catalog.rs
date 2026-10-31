@@ -1017,6 +1017,7 @@ pub enum Message {
     InteractionSetting,
     InteractionHint,
     InteractionSaveFailed,
+    ViewPreferenceSaveFailed,
     Help,
     CheckingAlt,
     ScheduleNotLoaded,
@@ -3041,8 +3042,8 @@ impl Message {
             (Self::FilesFlat, Language::Chinese) => "平铺列表",
             (Self::DiffChooseUnified, Language::English) => "Show changes in a single unified diff",
             (Self::DiffChooseUnified, Language::Chinese) => "在统一视图中查看差异",
-            (Self::DiffLayoutSelected, Language::English) => "Diff layout: {} · This TUI session",
-            (Self::DiffLayoutSelected, Language::Chinese) => "差异布局：{} · 本次 TUI 会话生效",
+            (Self::DiffLayoutSelected, Language::English) => "Diff layout: {}",
+            (Self::DiffLayoutSelected, Language::Chinese) => "差异布局：{}",
             (Self::DiffBefore, Language::English) => "Before · {}",
             (Self::DiffBefore, Language::Chinese) => "旧版 · {}",
             (Self::DiffAfter, Language::English) => "After · {}",
@@ -4131,6 +4132,8 @@ impl Message {
             (Self::InteractionHint, Language::Chinese) => "由终端处理选字与右键菜单，Ctrl+G 切换。",
             (Self::InteractionSaveFailed, Language::English) => "Could not save interaction mode",
             (Self::InteractionSaveFailed, Language::Chinese) => "交互模式保存失败",
+            (Self::ViewPreferenceSaveFailed, Language::English) => "Could not save view preference",
+            (Self::ViewPreferenceSaveFailed, Language::Chinese) => "视图偏好保存失败",
             (Self::InteractiveTerminalRequired, Language::English) => {
                 concat!(
                     identity::command!(),
@@ -5117,8 +5120,8 @@ macro_rules! tf {
     };
 
     (DiffLayoutSelected $(, $($args:tt)*)?) => { match $crate::language() {
-        $crate::Language::English => format!("Diff layout: {} · This TUI session" $(, $($args)*)?),
-        $crate::Language::Chinese => format!("差异布局：{} · 本次 TUI 会话生效" $(, $($args)*)?),
+        $crate::Language::English => format!("Diff layout: {}" $(, $($args)*)?),
+        $crate::Language::Chinese => format!("差异布局：{}" $(, $($args)*)?),
     } };
     (DiffBefore $(, $($args:tt)*)?) => { match $crate::language() {
         $crate::Language::English => format!("Before · {}" $(, $($args)*)?),

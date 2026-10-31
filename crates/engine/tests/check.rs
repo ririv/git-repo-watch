@@ -140,6 +140,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })
@@ -244,6 +245,7 @@ fn independent_repositories_overlap_real_fetches() {
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })
@@ -279,6 +281,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })
@@ -377,6 +380,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })
@@ -429,6 +433,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
+            view: Default::default(),
             mouse: Default::default(),
             ai: Default::default(),
         })

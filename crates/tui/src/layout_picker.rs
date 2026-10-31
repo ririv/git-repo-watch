@@ -1,4 +1,4 @@
-//! A read-only layout choice preserves its command draft and underlying view.
+//! A persisted layout choice preserves its command draft and underlying view.
 use crate::{
     Screen,
     bar::{CommandDraft, InputBar},
@@ -23,7 +23,7 @@ impl Screen {
             KeyCode::Right | KeyCode::Tab => *selected = selected.advance(false),
             KeyCode::Enter => {
                 let preference = *selected;
-                self.diff_preference = preference;
+                self.set_diff_layout(preference);
                 self.sync_bar();
                 self.message = i18n::tf!(DiffLayoutSelected, preference.label());
             }
