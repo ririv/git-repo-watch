@@ -65,6 +65,14 @@ class PlaygroundTests(unittest.TestCase):
                         self.assertIn("docs/未跟踪 说明.md", module.run("ls-files", "--others", "--exclude-standard", "-z").split("\0"))
                         self.assertEqual(repo.run("config", "-f", ".gitmodules", "--get", "submodule.example-library.url"), "../submodule-remote.git")
                         self.assertEqual(Git(root / "submodule-remote.git", Clock()).run("config", "core.hooksPath"), os.devnull)
+                    elif case == Case.DIFF_METADATA:
+                        summary = repo.run("-c", "core.quotePath=false", "diff", "--cached", "--summary", "--find-copies")
+                        for text in ["100644 => 100755", "100644 => 120000", "delete mode", "rename", "copy", "create mode"]:
+                            self.assertIn(text, summary)
+                        self.assertEqual(repo.run("rev-parse", "HEAD"), manifest["refs"]["example/metadata-base"])
+                        self.assertNotEqual(manifest["refs"]["example/metadata-changes"], manifest["head"])
+                        self.assertTrue((repo.path / "元信息/03-文件类型.txt").is_symlink())
+                        self.assertEqual(repo.run("rev-list", "--left-right", "--count", "HEAD...@{upstream}"), "0\t0")
                     elif case == Case.CHERRY_PICK_BATCH:
                         self.assertEqual(repo.run("status", "--porcelain=v1"), "")
                         self.assertEqual(repo.run("rev-list", "--count", "example/base..feature/batch"), "3")
@@ -90,7 +98,7 @@ class PlaygroundTests(unittest.TestCase):
 
     def test_history_is_reproducible_across_output_directories(self):
         with tempfile.TemporaryDirectory() as temporary:
-            for case in [Case.CLEAN, Case.SUBMODULE]:
+            for case in [Case.CLEAN, Case.SUBMODULE, Case.DIFF_METADATA]:
                 with self.subTest(case=case):
                     roots = [generate(Path(temporary) / (case.value + name), case) for name in ["one", "two"]]
                     manifests = [json.loads((root / "manifest.json").read_text(encoding="utf-8")) for root in roots]

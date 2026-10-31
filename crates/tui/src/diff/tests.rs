@@ -153,7 +153,8 @@ fn file_information_is_separate_from_patch_rows_and_the_complete_export() {
     assert_eq!(information.title, "中文 文件.rs");
     assert_eq!(information.syntax, ["Rust"]);
     let rows = styled_rows(&view);
-    assert!(rows.lines[0].to_string().starts_with("diff --git "));
+    assert!(rows.lines[0].to_string().starts_with("@@"));
+    assert!(!rows.to_string().contains("diff --git "));
     assert!(!rows.to_string().contains(i18n::tr!(SyntaxLabel)));
     assert!(rows.to_string().contains("@@"));
     assert!(matches!(&view.export, Export::Complete(export) if export.as_ref() == raw));

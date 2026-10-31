@@ -50,6 +50,7 @@ impl Command {
             }
             Action::FileLayoutMenu => Summary::FileLayoutMenu,
             Action::DiffLayoutMenu => Summary::DiffLayoutMenu,
+            Action::DiffHeader => Summary::DiffHeader,
             Action::FilterMenu => Summary::FilterMenu,
             Action::SortMenu => Summary::SortMenu,
             Action::Compose(action) => match action {

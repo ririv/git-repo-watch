@@ -15,6 +15,7 @@ mod contexts;
 mod copy;
 mod daily_operations;
 mod diff;
+mod diff_header;
 mod double_click;
 mod file_icons;
 mod file_path;
@@ -104,6 +105,7 @@ fn screen(service: Service) -> Screen {
         interaction_save: Default::default(),
         view_save: Default::default(),
         diff_preference: view_preferences.diff_layout.into(),
+        diff_header: view_preferences.diff_header,
         file_layout: view_preferences.file_layout.into(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),

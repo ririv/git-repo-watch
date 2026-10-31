@@ -1,6 +1,6 @@
-//! File sections share styled diff layouts without copying prepared source rows.
+//! Cache shared styled layouts for continuous historical file sections.
 use super::{Anchor, load::Entry};
-use crate::diff::{Cache, Preference};
+use crate::diff::{Cache, HeaderVisibility, Options, Preference};
 use ratatui::layout::Rect;
 use std::{path::PathBuf, sync::Arc};
 
@@ -53,7 +53,12 @@ pub(crate) struct Layout {
     pub offset: usize,
     pub height: usize,
     page: usize,
-    caches: Vec<Option<Arc<Cache>>>,
+    caches: Vec<Option<Cached>>,
+}
+#[derive(Debug, Clone)]
+struct Cached {
+    header: HeaderVisibility,
+    layout: Arc<Cache>,
 }
 impl Layout {
     pub fn maximum(&self) -> usize {
@@ -94,10 +99,11 @@ impl Layout {
         entries: &[Entry],
         files: &[usize],
         area: Rect,
-        wrap: bool,
+        options: Options,
         paths: &[PathBuf],
         anchor: &mut Anchor,
     ) {
+        let wrap = options.wrap;
         self.caches.resize_with(entries.len(), || None);
         self.sections.clear();
         self.height = 0;
@@ -108,30 +114,59 @@ impl Layout {
                 Entry::Failed(error) => Rows::Failed(error.clone()),
                 Entry::Ready(view) => {
                     let cache = &mut self.caches[file];
+                    let header_changed = cache
+                        .as_ref()
+                        .is_some_and(|cache| cache.header != options.header);
                     if cache.as_ref().is_none_or(|cache| {
-                        cache.width != area.width
-                            || cache.wrap != wrap
-                            || !cache.matches_paths(paths)
+                        header_changed
+                            || cache.layout.width != area.width
+                            || cache.layout.wrap != wrap
+                            || !cache.layout.matches_paths(paths)
                     }) {
-                        let source_anchor = (file == anchor.file && anchor.row > 0)
+                        let mut source_anchor = (file == anchor.file && anchor.row > 0)
                             .then(|| {
                                 cache
                                     .as_ref()
-                                    .and_then(|cache| cache.rows.get(anchor.row - 1))
+                                    .and_then(|cache| cache.layout.rows.get(anchor.row - 1))
                                     .map(|row| row.anchors().preferred())
                             })
                             .flatten();
-                        let next =
-                            Arc::new(view.layout(area.width, Preference::Unified, wrap, paths));
+                        if header_changed && let Some(source) = &mut source_anchor {
+                            source.row = match options.header {
+                                HeaderVisibility::Expanded if source.row >= view.header_start() => {
+                                    source.row + view.header_rows()
+                                }
+                                HeaderVisibility::Collapsed
+                                    if source.row >= view.header_start() =>
+                                {
+                                    source
+                                        .row
+                                        .saturating_sub(view.header_rows())
+                                        .max(view.header_start())
+                                }
+                                _ => source.row,
+                            };
+                        }
+                        let next = Arc::new(view.layout(
+                            area.width,
+                            Preference::Unified,
+                            wrap,
+                            paths,
+                            options.header,
+                        ));
                         if let Some(source_anchor) = source_anchor {
                             anchor.row = next.locate(source_anchor) + 1;
                         }
-                        *cache = Some(next);
+                        *cache = Some(Cached {
+                            header: options.header,
+                            layout: next,
+                        });
                     }
                     Rows::Ready(
                         cache
                             .as_ref()
                             .expect("prepared history diff layout")
+                            .layout
                             .clone(),
                     )
                 }
@@ -202,10 +237,32 @@ mod tests {
         let mut entries = vec![Entry::Pending; 3];
         let mut anchor = Anchor { file: 2, row: 0 };
         let area = Rect::new(0, 0, 60, 20);
-        layout.arrange(&entries, &[0, 1, 2], area, false, &[], &mut anchor);
+        layout.arrange(
+            &entries,
+            &[0, 1, 2],
+            area,
+            Options {
+                layout: Preference::Unified,
+                wrap: false,
+                header: HeaderVisibility::Collapsed,
+            },
+            &[],
+            &mut anchor,
+        );
         assert_eq!(anchor.file, 2);
         entries[0] = ready(50);
-        layout.arrange(&entries, &[0, 1, 2], area, false, &[], &mut anchor);
+        layout.arrange(
+            &entries,
+            &[0, 1, 2],
+            area,
+            Options {
+                layout: Preference::Unified,
+                wrap: false,
+                header: HeaderVisibility::Collapsed,
+            },
+            &[],
+            &mut anchor,
+        );
         assert_eq!(anchor.file, 2);
         assert!(layout.offset > 0);
         entries[1] = ready(60);
@@ -214,7 +271,11 @@ mod tests {
                 &entries,
                 &[0, 1, 2],
                 Rect { width, ..area },
-                true,
+                Options {
+                    layout: Preference::Unified,
+                    wrap: true,
+                    header: HeaderVisibility::Collapsed,
+                },
                 &[],
                 &mut anchor,
             );

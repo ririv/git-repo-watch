@@ -38,6 +38,8 @@ interaction_mode = "application"
 file_layout = "tree"
 # diff 布局：auto、split 或 unified。
 diff_layout = "auto"
+# 原始 Git 文件头：collapsed 为收起，expanded 为展开；切换文件及重启后沿用。
+diff_header = "collapsed"
 # 仓库排序：priority、name、path 或 updated。
 repository_order = "priority"
 

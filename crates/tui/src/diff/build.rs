@@ -9,6 +9,7 @@ pub(super) enum Heading<'a> {
 pub(super) struct Prepared {
     pub rows: Vec<Row>,
     pub information: Option<Information>,
+    pub header: Vec<String>,
 }
 
 pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Prepared> {
@@ -17,14 +18,30 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
         Heading::Full(title) => Some(Information {
             title: safe(title),
             syntax: Vec::new(),
+            facts: Vec::new(),
         }),
         Heading::Inline => None,
     };
     let mut rows = Vec::new();
+    let mut header = Vec::new();
     match document {
         Document::Notice(text) => metadata(&mut rows, &text, Style::default()),
         Document::Patch { files, extent } => {
             for file in files {
+                let raw = file
+                    .lines
+                    .iter()
+                    .filter_map(|line| match line {
+                        PatchLine::Metadata {
+                            kind: Metadata::File,
+                            text,
+                        } => Some(text),
+                        _ => None,
+                    })
+                    .flat_map(|text| text.lines().map(str::to_owned))
+                    .collect::<Vec<_>>();
+                let facts = header::facts(&raw)?;
+                header.extend(raw);
                 let mut old_numbers = BTreeSet::new();
                 let mut new_numbers = BTreeSet::new();
                 for line in &file.lines {
@@ -69,12 +86,16 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                             information.syntax.push(syntax);
                         }
                     } else {
-                        metadata(
-                            &mut rows,
-                            &format!("{}: {syntax}", i18n::tr!(SyntaxLabel)),
-                            Style::default().fg(MUTED),
-                        );
+                        rows.push(Row::Information(header::summary(&[header::Fact::Field {
+                            label: i18n::tr!(SyntaxLabel),
+                            value: syntax,
+                        }])));
                     }
+                }
+                if let Some(information) = &mut information {
+                    information.facts.extend(facts);
+                } else if !facts.is_empty() {
+                    rows.push(Row::Information(header::summary(&facts)));
                 }
                 let code = |number, text: &str, paint: &source::Paint| Code {
                     number,
@@ -98,15 +119,7 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                             rows.push(Row::Removed(code(number, &text, &old)))
                         }
                         PatchLine::Metadata { kind, text } => {
-                            if matches!(heading, Heading::Inline) && kind == Metadata::File {
-                                // 连续视图已绘制路径标题；权限、重命名与二进制等元数据仍需显示。
-                                for line in text.lines().filter(|line| {
-                                    !["diff --git ", "index ", "--- ", "+++ "]
-                                        .iter()
-                                        .any(|prefix| line.starts_with(prefix))
-                                }) {
-                                    metadata(&mut rows, line, Style::default().fg(MUTED));
-                                }
+                            if kind == Metadata::File {
                                 continue;
                             }
                             let style = match kind {
@@ -132,7 +145,11 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
         }
     }
     cancel.check()?;
-    Ok(Prepared { rows, information })
+    Ok(Prepared {
+        rows,
+        information,
+        header,
+    })
 }
 fn metadata(rows: &mut Vec<Row>, text: &str, style: Style) {
     rows.extend(

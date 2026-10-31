@@ -13,7 +13,7 @@ pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
     let mut index = 0;
     while index < rows.len() {
         match &rows[index] {
-            Row::Metadata(line) => {
+            Row::Information(line) | Row::Metadata(line) => {
                 full(&mut out, index, line);
                 index += 1;
             }

@@ -3,7 +3,7 @@ use crate::{
     cancel::Cancel,
     local::{
         files::{self, Location, Storage, patch::Document},
-        open, utf8_path,
+        open,
     },
 };
 use anyhow::{Context, Result, ensure};
@@ -200,10 +200,8 @@ pub fn document(detail: &Detail, change: &Change, cancel: &Cancel) -> Result<Doc
     options
         .disable_pathspec_match(true)
         .include_typechange(true);
-    for path in change.location.paths() {
-        options.pathspec(utf8_path(path)?);
-    }
+    files::scope(&mut options, &change.location)?;
     let mut diff = repo.diff_tree_to_tree(before.as_ref(), Some(&after), Some(&mut options))?;
-    diff.find_similar(None)?;
-    files::collect(&repo, &diff, Storage::Object, cancel)
+    files::match_location(&mut diff, &change.location)?;
+    files::collect(&repo, &diff, Storage::Object, &change.location, cancel)
 }

@@ -25,7 +25,7 @@ pub(super) fn render(
             hits,
             name(&session.references.path),
         ),
-        View::Commit(commit) => detail::render(frame, area, commit, preference.wrap, icons, hits),
+        View::Commit(commit) => detail::render(frame, area, commit, preference, icons, hits),
         View::Diff {
             content, scroll, ..
         } => super::document::render(frame, area, content, scroll, preference, graphics, hits),

@@ -55,6 +55,7 @@ pub enum Action {
     FileLayoutMenu,
     FileLayout(crate::files::Layout),
     DiffLayoutMenu,
+    DiffHeader,
     DiffLayout(crate::diff::Preference),
     FilterMenu,
     Filter(crate::repository_list::Filter),
@@ -217,6 +218,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff select",
         action: PartialSelectMenu,
         description: i18n::Message::PartialSelectMode,
+    },
+    Command {
+        name: "repo diff header",
+        action: DiffHeader,
+        description: i18n::Message::DiffHeaderCommand,
     },
     Command {
         name: "repo diff discard",

@@ -36,7 +36,7 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     commit: &mut Commit,
-    wrap: bool,
+    options: crate::diff::Options,
     icons: crate::file_icons::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -48,7 +48,7 @@ pub(super) fn render(
         match focus {
             Focus::Message => message::render(frame, panel, commit, hits),
             Focus::Files => files::render(frame, panel, commit, icons, hits),
-            Focus::Preview => preview::render(frame, panel, commit, wrap, hits),
+            Focus::Preview => preview::render(frame, panel, commit, options, hits),
         }
         if focus == commit.focus {
             highlight_border(frame, panel);

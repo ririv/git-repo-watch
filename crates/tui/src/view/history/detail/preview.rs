@@ -7,7 +7,7 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     commit: &mut Commit,
-    wrap: bool,
+    options: crate::diff::Options,
     hits: &mut crate::pointer::Map,
 ) {
     let border = block(i18n::tr!(FileDiff));
@@ -20,7 +20,7 @@ pub(super) fn render(
     let selected = commit.selected_index();
     commit
         .review
-        .arrange(&indices, selected, inner, wrap, &hits.links.paths);
+        .arrange(&indices, selected, inner, options, &hits.links.paths);
     if indices.is_empty() {
         frame.render_widget(
             Paragraph::new(if commit.query.is_empty() {

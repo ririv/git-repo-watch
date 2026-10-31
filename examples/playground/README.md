@@ -54,11 +54,13 @@ python3 examples/playground/create.py --case clean
 python3 examples/playground/create.py --case cherry-pick-conflict
 python3 examples/playground/create.py --case submodule
 python3 examples/playground/create.py --case cherry-pick-batch
+python3 examples/playground/create.py --case diff-metadata
 ```
 
 | `--case` | 初始状态与用途 |
 | --- | --- |
 | `workspace` | 默认场景：同一文件既已暂存又有继续编辑，另有重命名、删除、中文及空格路径、未跟踪文件、忽略文件和 stash |
+| `diff-metadata` | 已暂存的普通修改、可执行权限、符号链接类型变化、增删、重命名、复制及二进制内容；同一份改动另存历史标签 |
 | `clean` | 干净且与上游同步，适合从历史中手动执行 cherry-pick、revert 和普通提交 |
 | `ahead` | 当前分支 ↑1 ↓0，适合推送和同步确认 |
 | `behind` | 当前分支 ↑0 ↓1，适合快进拉取和同步 |
@@ -81,6 +83,20 @@ python3 examples/playground/create.py --case cherry-pick-batch
 ## 批量拣选演练
 
 `cherry-pick-batch` 的 `feature/batch` 有三条提交，分别带 `example/batch-1`、`example/batch-2`、`example/batch-3` 标签，均未合入当前 `main`。在历史图执行 `/repo log select` 进入选择模式，用 `Space` 或 `Shift+↑↓` 勾选三条“批量演练”提交后按 `Enter` 打开操作菜单，选择“拣选所选提交”后预览，预览将按 1、2、3 排列；第二条修改第一条新增的文件，可验证提交依赖和实际执行顺序。
+
+## 文件头元信息演练
+
+`diff-metadata` 的变更均在暂存区：进入 `/repo diff` 后查看已暂存区域中 `元信息/` 下的文件。普通修改直接显示变更块，文件模式变化显示摘要；`/repo diff header` 展开原始对象 ID、模式和路径，重复执行收起并恢复阅读位置。复制差异保留完整 Git 补丁。
+
+- `01-普通修改.ts`：验证 `diff --git`、`index`、`---/+++` 默认隐藏。
+- `02-可执行权限.sh`：仅增加可执行标记，文件类型仍为普通文件，内容未改。
+- `03-文件类型.txt`：普通文件改为指向 `01-普通修改.ts` 的符号链接。
+- `04-待删除.md`、`07-新增文件.md`：删除和新增。
+- `05-重命名后.md`：重命名并修改标题，相似度低于 100%。
+- `06-复制目标.md`：复制原内容，来源文件同时继续编辑；工作区列表按 Git 状态展示，历史提交可查看复制关系。
+- `08-二进制.dat`：保留二进制差异提示。
+
+历史图中的 `example/metadata-changes` 标记同一份已提交改动；`example/metadata-base` 是比较基准。可检查连续预览和 Enter 打开的单文件预览是否一致。当前 `main` 停在基准，与本地远程同步，已暂存内容可用于继续手动演练。
 
 ## 子模块演练
 
@@ -106,7 +122,7 @@ python3 examples/playground/create.py --case clean --directory "$PWD/work/playgr
 python3 -m unittest discover -s examples/playground -p 'test_*.py' -v
 ```
 
-测试使用临时目录，验证十种真实 Git 状态、冲突恢复、可重建的历史、中文与空格路径、已有内容保护，以及 Git 环境隔离。子模块场景另验证本地远程可递归克隆并恢复干净基准。CI 在 macOS 和 Linux 上运行同一套检查。
+测试使用临时目录，验证十一种真实 Git 状态、冲突恢复、可重建的历史、中文与空格路径、已有内容保护，以及 Git 环境隔离。子模块场景另验证本地远程可递归克隆并恢复干净基准。CI 在 macOS 和 Linux 上运行同一套检查。
 
 ## 上传方式
 

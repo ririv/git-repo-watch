@@ -2,6 +2,7 @@
 from enum import Enum
 from seed import Seed
 from submodules import attach
+from metadata import prepare as metadata
 
 
 class Case(Enum):
@@ -15,6 +16,7 @@ class Case(Enum):
     NO_REMOTE = "no-remote"
     SUBMODULE = "submodule"
     CHERRY_PICK_BATCH = "cherry-pick-batch"
+    DIFF_METADATA = "diff-metadata"
 
     def __str__(self):
         return self.value
@@ -94,4 +96,5 @@ APPLY = {
     Case.REVERT_CONFLICT: revert_conflict, Case.NO_REMOTE: no_remote,
     Case.SUBMODULE: attach,
     Case.CHERRY_PICK_BATCH: cherry_pick_batch,
+    Case.DIFF_METADATA: metadata,
 }

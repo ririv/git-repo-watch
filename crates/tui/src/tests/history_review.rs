@@ -154,6 +154,37 @@ fn narrow_views_skip_preview_loading_and_resize_preserves_the_file_selection() {
 }
 
 #[test]
+fn header_preference_applies_to_continuous_and_full_file_previews() {
+    let f = files(3, "Header preference");
+    let (_home, mut s) = open(&f);
+    loaded(&mut s);
+    assert!(!render(&mut s, 160, 40).contains("diff --git"));
+    s.paste("file-00");
+    assert_eq!(detail(&s).review.layout.sections.len(), 3);
+    command(&mut s, "repo diff header");
+    let expanded = render(&mut s, 160, 40);
+    assert!(expanded.contains("diff --git a/file-00.ts"), "{expanded}");
+    assert_eq!(detail(&s).review.layout.sections.len(), 1);
+    key(&mut s, KeyCode::Esc);
+    render(&mut s, 160, 40);
+    assert_eq!(detail(&s).review.layout.sections.len(), 3);
+    key(&mut s, KeyCode::Down);
+    let expanded = render(&mut s, 160, 40);
+    assert!(expanded.contains("diff --git a/file-01.ts"), "{expanded}");
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    let expanded = render(&mut s, 160, 40);
+    assert!(expanded.contains("diff --git a/file-01.ts"), "{expanded}");
+    command(&mut s, "repo diff header");
+    assert!(!render(&mut s, 160, 40).contains("diff --git"));
+    key(&mut s, KeyCode::Esc);
+    let collapsed = render(&mut s, 160, 40);
+    assert!(!collapsed.contains("diff --git"));
+    assert!(collapsed.contains("unique_file_01_00"), "{collapsed}");
+    s.shutdown();
+}
+
+#[test]
 fn wheel_focus_zoom_and_full_file_navigation_are_scoped_to_their_panels() {
     let f = files(
         3,
@@ -256,13 +287,17 @@ fn continuous_review_keeps_permission_rename_and_binary_metadata() {
     loaded(&mut s);
     let text = render(&mut s, 160, 40);
     assert!(
-        text.contains("old mode 100644") && text.contains("new mode 100755"),
+        text.contains("File mode") && text.contains("100644") && text.contains("100755"),
         "{text}"
     );
     assert!(
-        text.contains("rename from file-00.ts") && text.contains("rename to renamed.ts"),
+        text.contains("file-00.ts")
+            && text.contains("renamed.ts")
+            && text.contains("Renamed")
+            && text.contains("Similarity"),
         "{text}"
     );
+    assert!(!text.contains("old mode") && !text.contains("diff --git"));
     assert!(
         text.contains("Binary files") || text.contains("Binary content"),
         "{text}"

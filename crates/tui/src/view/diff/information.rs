@@ -23,6 +23,9 @@ pub(super) fn render(
                 Span::styled(syntax.clone(), Style::default().fg(ACCENT)),
             ]));
         }
+        if !information.facts.is_empty() {
+            details.push(crate::diff::header_summary(&information.facts));
+        }
     }
     let details = hits.links.text(Text::from(details));
     let lines = details

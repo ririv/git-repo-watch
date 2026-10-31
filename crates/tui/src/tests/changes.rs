@@ -64,6 +64,7 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff unstage",
                 "repo diff layout",
                 "repo diff select",
+                "repo diff header",
                 "repo diff discard",
                 "repo diff refresh",
                 "repo diff copy",
@@ -108,7 +109,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         s.paste("//di");
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff");
-        assert_eq!(s.search_commands().unwrap().len(), 6);
+        assert_eq!(s.search_commands().unwrap().len(), 7);
         let text = render(&mut s, 180, 36);
         for command in s.search_commands().unwrap().into_iter().take(8) {
             assert!(text.contains(&format!("/{}", command.name)), "{text}");

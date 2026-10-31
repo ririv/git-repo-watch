@@ -15,6 +15,7 @@ pub(super) fn render(
     options: crate::diff::Options,
     hits: &mut crate::pointer::Map,
 ) {
+    content.set_header(options.header, scroll);
     let preference = options.layout;
     let width = area.width.saturating_sub(2);
     let mode = content.selected_layout(width, preference);

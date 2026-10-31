@@ -276,7 +276,12 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         }
         document["mouse"][key] = Item::Value(value);
     }
-    for key in ["file_layout", "diff_layout", "repository_order"] {
+    for key in [
+        "file_layout",
+        "diff_layout",
+        "diff_header",
+        "repository_order",
+    ] {
         if before
             .as_ref()
             .is_some_and(|before| before["view"][key] == after["view"][key])

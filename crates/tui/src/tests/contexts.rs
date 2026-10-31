@@ -185,6 +185,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     assert!(s.search_commands().unwrap().iter().all(|c| matches!(
         c.action,
         Action::DiffLayoutMenu
+            | Action::DiffHeader
             | Action::DiffLayout(_)
             | Action::Copy(crate::clipboard::Scope::Diff)
     )));

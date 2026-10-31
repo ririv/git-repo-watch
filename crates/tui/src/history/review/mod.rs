@@ -47,7 +47,7 @@ impl Review {
         files: &[usize],
         selected: Option<usize>,
         area: ratatui::layout::Rect,
-        wrap: bool,
+        options: crate::diff::Options,
         paths: &[std::path::PathBuf],
     ) {
         if self.followed != selected {
@@ -63,7 +63,7 @@ impl Review {
             .entries
             .clone();
         self.layout
-            .arrange(&entries, files, area, wrap, paths, &mut self.anchor);
+            .arrange(&entries, files, area, options, paths, &mut self.anchor);
         self.horizontal.constrain(self.layout.horizontal_maximum());
     }
     pub fn seek(&mut self, offset: usize) {

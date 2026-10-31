@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 pub struct Preferences {
     pub file_layout: FileLayout,
     pub diff_layout: DiffLayout,
+    pub diff_header: HeaderVisibility,
     pub repository_order: RepositoryOrder,
 }
 
@@ -28,6 +29,22 @@ pub enum DiffLayout {
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
+pub enum HeaderVisibility {
+    #[default]
+    Collapsed,
+    Expanded,
+}
+impl HeaderVisibility {
+    pub fn toggled(self) -> Self {
+        match self {
+            Self::Collapsed => Self::Expanded,
+            Self::Expanded => Self::Collapsed,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
 pub enum RepositoryOrder {
     #[default]
     Priority,
@@ -40,6 +57,7 @@ pub enum RepositoryOrder {
 pub enum Edit {
     FileLayout(FileLayout),
     DiffLayout(DiffLayout),
+    DiffHeader(HeaderVisibility),
     RepositoryOrder(RepositoryOrder),
 }
 impl Edit {
@@ -47,6 +65,7 @@ impl Edit {
         match self {
             Self::FileLayout(value) => preferences.file_layout = value,
             Self::DiffLayout(value) => preferences.diff_layout = value,
+            Self::DiffHeader(value) => preferences.diff_header = value,
             Self::RepositoryOrder(value) => preferences.repository_order = value,
         }
     }
@@ -55,6 +74,7 @@ impl Edit {
             (self, other),
             (Self::FileLayout(_), Self::FileLayout(_))
                 | (Self::DiffLayout(_), Self::DiffLayout(_))
+                | (Self::DiffHeader(_), Self::DiffHeader(_))
                 | (Self::RepositoryOrder(_), Self::RepositoryOrder(_))
         )
     }

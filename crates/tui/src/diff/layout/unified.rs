@@ -6,7 +6,7 @@ pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
     let number_width = usize::from(digits);
     for (index, row) in rows.iter().enumerate() {
         let (code, old, new, mark) = match row {
-            Row::Metadata(line) => {
+            Row::Information(line) | Row::Metadata(line) => {
                 full(&mut out, index, line);
                 continue;
             }

@@ -1,5 +1,8 @@
 //! Cached logical diff rows shared by responsive unified and side-by-side layouts.
 mod build;
+mod header;
+pub(crate) use engine::state::view::HeaderVisibility;
+pub(crate) use header::summary as header_summary;
 mod layout;
 #[cfg(test)]
 mod layout_tests;
@@ -40,6 +43,7 @@ pub(crate) enum Preference {
 pub(crate) struct Options {
     pub layout: Preference,
     pub wrap: bool,
+    pub header: HeaderVisibility,
 }
 impl Preference {
     pub const ALL: [Self; 3] = [Self::Auto, Self::Split, Self::Unified];
@@ -113,13 +117,14 @@ impl Comparison {
         }
     }
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Code {
     number: NonZeroU32,
     content: Line<'static>,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum Row {
+    Information(Line<'static>),
     Metadata(Line<'static>),
     Context { old: Code, new: Code },
     Added(Code),
@@ -141,7 +146,7 @@ impl Row {
         match self {
             Self::Context { old, new } => old.number.get().max(new.number.get()),
             Self::Added(code) | Self::Removed(code) => code.number.get(),
-            Self::Metadata(_) => 1,
+            Self::Information(_) | Self::Metadata(_) => 1,
         }
     }
 }
@@ -150,6 +155,7 @@ pub(super) struct View {
     pub interaction: Interaction,
     pub(crate) export: Export,
     pub information: Option<Information>,
+    pub header: header::Raw,
     rows: Vec<Row>,
     digits: u16,
     comparison: Comparison,
@@ -160,6 +166,7 @@ pub(super) struct View {
 pub(super) struct Information {
     pub title: String,
     pub syntax: Vec<String>,
+    pub facts: Vec<header::Fact>,
 }
 #[derive(Debug)]
 pub(crate) enum Interaction {
@@ -219,9 +226,36 @@ impl View {
         preference: Preference,
         wrap: bool,
         paths: &[std::path::PathBuf],
+        header: HeaderVisibility,
     ) -> Cache {
+        let current = self.header.expanded();
+        let wanted = header == HeaderVisibility::Expanded;
+        if current == wanted || self.header.lines().is_empty() {
+            return layout::arrange(
+                &self.rows,
+                self.digits,
+                width,
+                preference.resolve(width, self.digits),
+                wrap,
+                paths,
+            );
+        }
+        // 连续历史预览共享不可变的源快照，仅在生成布局缓存时组合文件头。
+        let mut rows = self.rows.clone();
+        let raw = self.header.lines();
+        let start = self.header_start();
+        if wanted {
+            rows.splice(
+                start..start,
+                raw.iter().map(|line| {
+                    Row::Metadata(Line::styled(safe(line), Style::default().fg(MUTED)))
+                }),
+            );
+        } else {
+            rows.drain(start..start + raw.len());
+        }
         layout::arrange(
-            &self.rows,
+            &rows,
             self.digits,
             width,
             preference.resolve(width, self.digits),
@@ -229,6 +263,16 @@ impl View {
             paths,
         )
     }
+    pub fn header_rows(&self) -> usize {
+        self.header.lines().len()
+    }
+    pub fn header_start(&self) -> usize {
+        self.rows
+            .iter()
+            .take_while(|row| matches!(row, Row::Information(_)))
+            .count()
+    }
+
     pub fn selected_layout(&self, width: u16, preference: Preference) -> Layout {
         preference.resolve(width, self.digits)
     }
@@ -266,7 +310,9 @@ impl View {
                 cache.restore(anchor, *scroll);
             }
             self.cache = Some(cache);
-            if let Interaction::Editable(Some(marking)) = &mut self.interaction {
+            if let Interaction::Editable(Some(marking)) = &mut self.interaction
+                && !self.header.expanded()
+            {
                 marking.reveal = true;
             }
         }
@@ -348,7 +394,11 @@ fn prepare_rows(
         } => Export::Truncated,
         Document::Patch { .. } => Export::Complete(document.text().into()),
     };
-    let build::Prepared { rows, information } = build::rows(heading, document, cancel)?;
+    let build::Prepared {
+        rows,
+        information,
+        header,
+    } = build::rows(heading, document, cancel)?;
     let digits = rows
         .iter()
         .map(Row::max_number)
@@ -360,6 +410,7 @@ fn prepare_rows(
         interaction: Interaction::ReadOnly,
         export,
         information,
+        header: header::Raw::new(header),
         rows,
         digits,
         comparison,

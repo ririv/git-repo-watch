@@ -73,20 +73,19 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
         .recurse_untracked_dirs(true)
         .show_untracked_content(true)
         .include_typechange(true);
-    for path in change.location.paths() {
-        options.pathspec(utf8_path(path)?);
-    }
+    scope(&mut options, &change.location)?;
     let tree = match snapshot.head {
         Head::Initial { .. } => None,
         Head::Existing { oid, .. } => Some(repo.find_commit(oid)?.tree()?),
     };
-    let diff = if change.kind == 'U' {
+    let mut diff = if change.kind == 'U' {
         repo.diff_tree_to_workdir(tree.as_ref(), Some(&mut options))?
     } else if change.area == Area::Staged {
         repo.diff_tree_to_index(tree.as_ref(), None, Some(&mut options))?
     } else {
         repo.diff_index_to_workdir(None, Some(&mut options))?
     };
+    match_location(&mut diff, &change.location)?;
     let document = collect(
         &repo,
         &diff,
@@ -95,6 +94,7 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
         } else {
             Storage::Worktree
         },
+        &change.location,
         cancel,
     )?;
     validate(&repo, snapshot)?;
@@ -102,10 +102,42 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
     Ok(document)
 }
 
+pub(crate) fn scope(options: &mut DiffOptions, location: &super::Location) -> Result<()> {
+    for path in location.paths() {
+        options.pathspec(utf8_path(path)?);
+    }
+    if let super::Location::Copy { before, .. } = location {
+        options
+            .include_unmodified(true)
+            .pathspec(utf8_path(before)?);
+    }
+    Ok(())
+}
+
+pub(crate) fn match_location(diff: &mut git2::Diff<'_>, location: &super::Location) -> Result<()> {
+    let mut options = git2::DiffFindOptions::new();
+    options.for_untracked(true);
+    match location {
+        super::Location::Path(_) => return Ok(()),
+        super::Location::Rename { .. } => {
+            options.renames(true);
+        }
+        super::Location::Copy { .. } => {
+            options
+                .copies(true)
+                .copies_from_unmodified(true)
+                .remove_unmodified(true);
+        }
+    }
+    diff.find_similar(Some(&mut options))?;
+    Ok(())
+}
+
 pub(crate) fn collect(
     repo: &git2::Repository,
     diff: &git2::Diff<'_>,
     after_storage: Storage,
+    location: &super::Location,
     cancel: &Cancel,
 ) -> Result<Document> {
     struct Pending {
@@ -124,6 +156,19 @@ pub(crate) fn collect(
     let printed = diff.print(DiffFormat::Patch, |delta, _, line| {
         if cancel.is_cancelled() {
             return false;
+        }
+        let selected = match location {
+            super::Location::Path(path) => {
+                delta.old_file().path() == Some(path.as_path())
+                    || delta.new_file().path() == Some(path.as_path())
+            }
+            super::Location::Rename { before, after } | super::Location::Copy { before, after } => {
+                delta.old_file().path() == Some(before.as_path())
+                    && delta.new_file().path() == Some(after.as_path())
+            }
+        };
+        if !selected {
+            return true;
         }
         if bytes + line.content().len() + 1 > 128 * 1024 {
             collection = Collection::Truncated;

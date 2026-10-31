@@ -1,5 +1,5 @@
 use super::*;
-use engine::state::view::{DiffLayout, FileLayout, Preferences, RepositoryOrder};
+use engine::state::view::{DiffLayout, FileLayout, HeaderVisibility, Preferences, RepositoryOrder};
 
 #[test]
 fn command_and_picker_choices_survive_restart_without_restoring_transient_selections() {
@@ -16,6 +16,7 @@ fn command_and_picker_choices_survive_restart_without_restoring_transient_select
     key(&mut s, KeyCode::Right);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.diff_preference, crate::diff::Preference::Split);
+    command(&mut s, "repo diff header");
     key(&mut s, KeyCode::Char(' '));
     assert!(!s.mode.file_session().unwrap().selected.is_empty());
     command(&mut s, "repos");
@@ -27,6 +28,7 @@ fn command_and_picker_choices_survive_restart_without_restoring_transient_select
     let mut reopened = Screen::new(Service::new(store, scheduler), &Cancel::default()).unwrap();
     assert_eq!(reopened.file_layout, crate::files::Layout::Flat);
     assert_eq!(reopened.diff_preference, crate::diff::Preference::Split);
+    assert_eq!(reopened.diff_header, HeaderVisibility::Expanded);
     assert_eq!(reopened.order, Order::Name);
     assert_eq!(reopened.filter, Filter::All);
     assert!(reopened.query.is_empty());
@@ -70,6 +72,10 @@ fn rapid_choices_stay_responsive_and_flush_the_latest_value_for_each_field_on_ex
         command(&mut s, &format!("repos sort {order}"));
         assert!(matches!(s.mode, Mode::Browsing));
     }
+    for _ in 0..3 {
+        command(&mut s, "repo diff header");
+        assert!(matches!(s.mode, Mode::Browsing));
+    }
     assert!(s.view_save.pending());
     assert_eq!(store.config().unwrap().view, Preferences::default());
     drop(lock);
@@ -79,6 +85,7 @@ fn rapid_choices_stay_responsive_and_flush_the_latest_value_for_each_field_on_ex
         Preferences {
             file_layout: FileLayout::Flat,
             diff_layout: DiffLayout::Split,
+            diff_header: HeaderVisibility::Expanded,
             repository_order: RepositoryOrder::Name,
         }
     );

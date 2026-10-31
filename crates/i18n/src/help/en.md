@@ -128,6 +128,7 @@
 - Wide windows show files beside the preview; narrow windows stack them. `Tab` or `/focus` switches focus; `Enter` / `→` focuses the preview, and `/zoom` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
+- `/repo diff header` expands or collapses the original Git file header. It starts collapsed; the choice applies across files and views and survives restart. Collapsing restores the previous reading position. Paths and object IDs are hidden from the patch body; file-mode changes and similarity appear in the information area. Hunk headings, binary notices and newline notices remain. Copying preserves the full original patch.
 - `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
 - `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` change layout immediately and save the preference for future launches. These are parameter values; a space opens choices and Tab completes the value.

@@ -46,6 +46,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             view,
             crate::diff::Options {
                 layout: screen.diff_preference,
+                header: screen.diff_header,
                 wrap: screen.config.text_wrap,
             },
             screen.config.file_icons.into(),
@@ -62,6 +63,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 view,
                 crate::diff::Options {
                     layout: screen.diff_preference,
+                    header: screen.diff_header,
                     wrap: screen.config.text_wrap,
                 },
                 screen.config.file_icons.into(),
@@ -89,6 +91,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             session,
             crate::diff::Options {
                 layout: screen.diff_preference,
+                header: screen.diff_header,
                 wrap: screen.config.text_wrap,
             },
             crate::files::Options {
