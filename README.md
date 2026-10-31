@@ -599,7 +599,7 @@ cargo clippy --workspace --locked --all-targets -- -D warnings
 
 测试使用临时本地仓库和 bare 远程，不访问真实仓库、不访问网络、不发送系统通知、不安装用户系统任务。覆盖 Git 忽略规则、子模块、关联工作区、索引、diff、提交钩子、受控推送、并发上限、真实 fetch 重叠、取消与子进程收尾、旧数据兼容和 TUI 操作。
 
-持久的手动演练仓库使用 `python3 examples/playground/create.py` 创建，默认位于忽略目录 `work/playground/workspace/`，带本地 bare 远程和独立的 GW 配置。支持工作区混合变更、同步、分叉、拣选／撤销冲突等十种场景；`--case submodule` 创建含真实子模块的演练，专用配置同时登记父仓库与子模块。组织方式、启动命令与上传约定见 [Git 演练仓库](examples/playground/README.md)。
+持久的手动演练仓库使用 `python3 examples/playground/create.py` 创建，默认位于忽略目录 `work/playground/workspace/`，带本地 bare 远程和独立的 GW 配置。支持工作区混合变更、同步、分叉、拣选／撤销冲突及差异元信息等场景；`--case diff-metadata` 在同一仓库中提供文件头元信息和末尾换行样例；`--case submodule` 创建含真实子模块的演练，专用配置同时登记父仓库与子模块。组织方式、启动命令与上传约定见 [Git 演练仓库](examples/playground/README.md)。
 
 GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格式检查、Clippy、全部测试和发布构建。Ubuntu 另验证真实 systemd 用户任务的安装、重复安装、延迟首轮、临时仓库检查和卸载；不使用 Docker。桌面窗口和通知显示仍需相应桌面会话手动验证。工作流在 push、pull request 或手动触发时执行，见 `.github/workflows/ci.yml`。
 

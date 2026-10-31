@@ -60,7 +60,7 @@ python3 examples/playground/create.py --case diff-metadata
 | `--case` | 初始状态与用途 |
 | --- | --- |
 | `workspace` | 默认场景：同一文件既已暂存又有继续编辑，另有重命名、删除、中文及空格路径、未跟踪文件、忽略文件和 stash |
-| `diff-metadata` | 已暂存的普通修改、可执行权限、符号链接类型变化、增删、重命名、复制及二进制内容；同一份改动另存历史标签 |
+| `diff-metadata` | 同一仓库包含普通修改、可执行权限、符号链接类型变化、增删、重命名、复制、二进制内容和末尾换行对照；改动均已暂存并另存历史标签 |
 | `clean` | 干净且与上游同步，适合从历史中手动执行 cherry-pick、revert 和普通提交 |
 | `ahead` | 当前分支 ↑1 ↓0，适合推送和同步确认 |
 | `behind` | 当前分支 ↑0 ↓1，适合快进拉取和同步 |
@@ -98,6 +98,20 @@ python3 examples/playground/create.py --case diff-metadata
 
 历史图中的 `example/metadata-changes` 标记同一份已提交改动；`example/metadata-base` 是比较基准。可检查连续预览和 Enter 打开的单文件预览是否一致。当前 `main` 停在基准，与本地远程同步，已暂存内容可用于继续手动演练。
 
+## 末尾换行演练
+
+末尾换行样例与上述元信息样例放在同一个 `diff-metadata` 仓库中，保留 GW 当前的提示样式，改动全部位于暂存区。执行 `/repo diff`，查看 `末尾换行/` 下的五个文件：
+
+| 文件 | 比较内容 | 原始提示位置 |
+| --- | --- | --- |
+| `01-补上末尾换行.txt` | 文字相同，只补上换行 | 旧版末行之后 |
+| `02-移除末尾换行.txt` | 文字相同，只移除换行 | 新版末行之后 |
+| `03-两侧都无换行.txt` | 修改文字，两侧都没有末尾换行 | 旧版、新版末行之后各一条 |
+| `04-新增且无换行.txt` | 新增一个没有末尾换行的文件 | 新版末行之后 |
+| `05-正常换行对照.txt` | 修改文字，两侧都有末尾换行 | 无提示 |
+
+可切换 `/repo diff layout unified` 与 `/repo diff layout split` 对比。`example/newline-changes` 标签记录同一份历史改动；进入历史详情可查看连续预览。当前 `main` 停在 `example/newline-base`，与本地远程同步。
+
 ## 子模块演练
 
 `submodule` 场景在父仓库中登记 `modules/演练 库/`，使用真实 `.gitmodules`、gitlink 和 `.git` 文件。子模块的本地远程与第二个工作副本同样留在该场景目录；`.gitmodules` 使用相对远程地址，因此同一场景在不同输出目录中生成相同提交历史。
@@ -122,7 +136,7 @@ python3 examples/playground/create.py --case clean --directory "$PWD/work/playgr
 python3 -m unittest discover -s examples/playground -p 'test_*.py' -v
 ```
 
-测试使用临时目录，验证十一种真实 Git 状态、冲突恢复、可重建的历史、中文与空格路径、已有内容保护，以及 Git 环境隔离。子模块场景另验证本地远程可递归克隆并恢复干净基准。CI 在 macOS 和 Linux 上运行同一套检查。
+测试使用临时目录，验证全部场景的真实 Git 状态、冲突恢复、可重建的历史、中文与空格路径、已有内容保护，以及 Git 环境隔离。子模块场景另验证本地远程可递归克隆并恢复干净基准。CI 在 macOS 和 Linux 上运行同一套检查。
 
 ## 上传方式
 

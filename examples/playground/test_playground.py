@@ -73,6 +73,21 @@ class PlaygroundTests(unittest.TestCase):
                         self.assertNotEqual(manifest["refs"]["example/metadata-changes"], manifest["head"])
                         self.assertTrue((repo.path / "元信息/03-文件类型.txt").is_symlink())
                         self.assertEqual(repo.run("rev-list", "--left-right", "--count", "HEAD...@{upstream}"), "0\t0")
+                        for name, notices, ends_with_newline in [
+                            ("01-补上末尾换行.txt", 1, True),
+                            ("02-移除末尾换行.txt", 1, False),
+                            ("03-两侧都无换行.txt", 2, False),
+                            ("04-新增且无换行.txt", 1, False),
+                            ("05-正常换行对照.txt", 0, True),
+                        ]:
+                            path = "末尾换行/" + name
+                            diff = repo.run("diff", "--cached", "--", path)
+                            self.assertEqual(diff.count("\\ No newline at end of file"), notices, path)
+                            self.assertEqual((repo.path / path).read_bytes().endswith(b"\n"), ends_with_newline, path)
+                            self.assertEqual(diff, repo.run("diff", "example/newline-base", "example/newline-changes", "--", path))
+                        self.assertEqual(repo.run("rev-parse", "HEAD"), manifest["refs"]["example/newline-base"])
+                        self.assertNotEqual(manifest["refs"]["example/newline-changes"], manifest["head"])
+                        self.assertEqual(repo.run("rev-list", "--left-right", "--count", "HEAD...@{upstream}"), "0\t0")
                     elif case == Case.CHERRY_PICK_BATCH:
                         self.assertEqual(repo.run("status", "--porcelain=v1"), "")
                         self.assertEqual(repo.run("rev-list", "--count", "example/base..feature/batch"), "3")

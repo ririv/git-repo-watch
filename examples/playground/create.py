@@ -33,7 +33,6 @@ def generate(directory: Path, case: Case) -> Path:
         '# 演练专用配置，不安装定时任务，不调用 AI。\n'
         'interval_seconds = 21600\n'
         f'repositories = {paths}\n'
-        'excluded_roots = []\n'
         'startup_actions = ["inspect"]\n'
         'scheduled_actions = ["inspect"]\n'
         'max_concurrency = 1\n'
@@ -48,6 +47,7 @@ def generate(directory: Path, case: Case) -> Path:
         tags.append("example/submodule")
     if case == Case.DIFF_METADATA:
         tags.extend(["example/metadata-base", "example/metadata-changes"])
+        tags.extend(["example/newline-base", "example/newline-changes"])
     manifest = {
         "format": 1, "case": case.value,
         "repo": "repo", "remote": "remote.git", "peer": "peer", "home": "home",

@@ -1,5 +1,6 @@
 """Build real file-header changes in both the index and tagged history."""
 from seed import Seed
+from newlines import write_before, write_after
 
 
 def prepare(seed: Seed):
@@ -15,8 +16,10 @@ def prepare(seed: Seed):
     repo.write("元信息/05-重命名前.md", "# 重命名演练\n" + content)
     repo.write("元信息/06-复制来源.md", "# 复制演练\n" + content)
     (repo.path / "元信息/08-二进制.dat").write_bytes(b"\x00before\x00metadata\n")
+    write_before(repo)
     repo.commit("元信息演练：建立比较基准")
     repo.run("tag", "example/metadata-base")
+    repo.run("tag", "example/newline-base")
     repo.run("push", "origin", "main")
 
     repo.write("元信息/01-普通修改.ts", "export const message = 'after';\n")
@@ -30,8 +33,10 @@ def prepare(seed: Seed):
     repo.write("元信息/06-复制来源.md", "# 复制后继续编辑来源\n" + content)
     repo.write("元信息/07-新增文件.md", "# 新增演练\n\n查看新增文件的类型和权限。\n")
     (repo.path / "元信息/08-二进制.dat").write_bytes(b"\x00after\x00metadata\n")
+    write_after(repo)
     repo.commit("元信息演练：权限、类型、重命名、复制及二进制变更")
     repo.run("tag", "example/metadata-changes")
+    repo.run("tag", "example/newline-changes")
     repo.run("push", "origin", "--tags")
     # 保留同一份已暂存改动，历史提交由标签保持可达；不覆盖其它演练目录。
     repo.run("reset", "--soft", "example/metadata-base")
