@@ -7,7 +7,7 @@ use crate::{
     repository_list::{Filter, Order},
 };
 
-fn choices(s: &Screen) -> &command::options::Candidates {
+pub(super) fn choices(s: &Screen) -> &command::options::Candidates {
     let bar::InputBar::Command {
         menu: Menu::Options(values),
         ..
@@ -32,6 +32,9 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
             ),
             ("repos sort", Kind::Sort, 4, "[priority|name|path|updated]"),
             ("repo diff view", Kind::FileView, 2, "[tree|flat]"),
+            ("repo diff header", Kind::DiffHeader, 2, "[show|hide]"),
+            ("repo compose reorder", Kind::ComposeOrder, 2, "[up|down]"),
+            ("schedule enabled", Kind::ScheduleEnabled, 2, "[true|false]"),
             ("repo diff context", Kind::DiffContext, 2, "[full|changes]"),
             ("search", Kind::Search, 2, "[filter|locate]"),
             (
@@ -257,6 +260,80 @@ fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_m
         command(&mut s, "schedule autopush invalid");
         assert_eq!(s.message, i18n::tr!(NoMatchingOptions));
         assert_eq!(std::fs::read(s.service.store.config_path()).unwrap(), saved);
+        s.shutdown();
+    }
+}
+
+#[test]
+fn consolidated_groups_remove_duplicate_commands_without_changing_stash_entries() {
+    for removed in [
+        "repo files toggle",
+        "repo files split",
+        "repo compose up",
+        "repo compose down",
+        "schedule enable",
+        "schedule disable",
+    ] {
+        assert!(
+            !command::COMMANDS
+                .iter()
+                .any(|command| command.name == removed)
+        );
+    }
+    for name in ["repo stash save", "repo stash save-all"] {
+        let entry = command::COMMANDS
+            .iter()
+            .find(|command| command.name == name)
+            .unwrap();
+        assert_eq!(entry.usage(), format!("{name} <message>"));
+    }
+}
+
+#[test]
+fn schedule_options_show_registration_and_require_confirmation_before_running() {
+    use engine::scheduler::{Control, Registration};
+    for registration in [Registration::Loaded, Registration::NotLoaded] {
+        let (_home, mut s) = fixture(vec![]);
+        s.snapshot.registration = registration;
+        let before = std::fs::read(s.service.store.config_path()).unwrap();
+        command(&mut s, "schedule enabled");
+        assert_eq!(
+            choices(&s).current,
+            Some(Value::ScheduleEnabled(registration))
+        );
+        let text = render(&mut s, 100, 28);
+        let token = if registration == Registration::Loaded {
+            "true"
+        } else {
+            "false"
+        };
+        let current = text
+            .lines()
+            .find(|line| line.contains(&format!("│{token} ")))
+            .unwrap();
+        assert!(current.ends_with("✓│"), "{text}");
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.snapshot.registration, registration);
+        assert!(s.repository_tasks.is_empty());
+        assert!(matches!(s.mode, Mode::Browsing));
+        key(&mut s, KeyCode::Enter);
+        let expected = if registration == Registration::Loaded {
+            Control::Disable
+        } else {
+            Control::Enable
+        };
+        assert!(
+            matches!(&s.mode, Mode::Confirm { operation: Confirmation::Schedule(control), .. } if *control == expected)
+        );
+        assert_eq!(s.snapshot.registration, registration);
+        assert!(!matches!(s.mode, Mode::Busy(_)));
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(
+            std::fs::read(s.service.store.config_path()).unwrap(),
+            before
+        );
+        assert!(s.service.store.report().unwrap().is_none());
         s.shutdown();
     }
 }

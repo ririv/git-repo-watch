@@ -16,6 +16,10 @@ pub(crate) enum Kind {
     Sort,
     FileView,
     FileMode,
+    FileLayout,
+    DiffHeader,
+    ComposeOrder,
+    ScheduleEnabled,
     DiffLayout,
     DiffContext,
     Search,
@@ -33,6 +37,10 @@ pub(crate) enum Value {
     Sort(Order),
     FileView(Layout),
     FileMode(crate::browser::opening::TextMode),
+    FileLayout(crate::browser::opening::Layout),
+    DiffHeader(crate::diff::HeaderVisibility),
+    ComposeOrder(crate::composition::Direction),
+    ScheduleEnabled(engine::scheduler::Registration),
     DiffLayout(Preference),
     DiffContext(crate::diff::Context),
     Search(crate::search::Mode),
@@ -50,6 +58,46 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::FileLayout(crate::browser::opening::Layout::Single),
+        token: "single",
+        description: M::FileSingle,
+    },
+    Option {
+        value: Value::FileLayout(crate::browser::opening::Layout::Split),
+        token: "split",
+        description: M::FileSplit,
+    },
+    Option {
+        value: Value::DiffHeader(crate::diff::HeaderVisibility::Expanded),
+        token: "show",
+        description: M::DiffHeaderExpanded,
+    },
+    Option {
+        value: Value::DiffHeader(crate::diff::HeaderVisibility::Collapsed),
+        token: "hide",
+        description: M::DiffHeaderCollapsed,
+    },
+    Option {
+        value: Value::ComposeOrder(crate::composition::Direction::Up),
+        token: "up",
+        description: M::ComposeUp,
+    },
+    Option {
+        value: Value::ComposeOrder(crate::composition::Direction::Down),
+        token: "down",
+        description: M::ComposeDown,
+    },
+    Option {
+        value: Value::ScheduleEnabled(engine::scheduler::Registration::Loaded),
+        token: "true",
+        description: M::EnableScheduledTask,
+    },
+    Option {
+        value: Value::ScheduleEnabled(engine::scheduler::Registration::NotLoaded),
+        token: "false",
+        description: M::DisableScheduledTask,
+    },
     Option {
         value: Value::FileMode(crate::browser::opening::TextMode::Source),
         token: "source",
@@ -255,6 +303,15 @@ impl Value {
             Self::Sort(value) => Action::Sort(value),
             Self::FileView(value) => Action::FileLayout(value),
             Self::FileMode(value) => Action::BrowserMode(value),
+            Self::FileLayout(value) => Action::BrowserLayout(value),
+            Self::DiffHeader(value) => Action::DiffHeaderVisibility(value),
+            Self::ComposeOrder(value) => Action::Compose(value.action()),
+            Self::ScheduleEnabled(engine::scheduler::Registration::Loaded) => {
+                Action::EnableSchedule
+            }
+            Self::ScheduleEnabled(engine::scheduler::Registration::NotLoaded) => {
+                Action::DisableSchedule
+            }
             Self::DiffLayout(value) => Action::DiffLayout(value),
             Self::DiffContext(value) => Action::DiffContext(value),
             Self::Search(value) => Action::Search(value),
@@ -273,6 +330,10 @@ impl Value {
             Self::Sort(_) => Kind::Sort,
             Self::FileView(_) => Kind::FileView,
             Self::FileMode(_) => Kind::FileMode,
+            Self::FileLayout(_) => Kind::FileLayout,
+            Self::DiffHeader(_) => Kind::DiffHeader,
+            Self::ComposeOrder(_) => Kind::ComposeOrder,
+            Self::ScheduleEnabled(_) => Kind::ScheduleEnabled,
             Self::DiffLayout(_) => Kind::DiffLayout,
             Self::DiffContext(_) => Kind::DiffContext,
             Self::Search(_) => Kind::Search,
@@ -293,6 +354,10 @@ impl Kind {
             Self::Sort => Action::SortMenu,
             Self::FileView => Action::FileLayoutMenu,
             Self::FileMode => Action::BrowserModeMenu,
+            Self::FileLayout => Action::BrowserLayoutMenu,
+            Self::DiffHeader => Action::DiffHeader,
+            Self::ComposeOrder => Action::ComposeOrderMenu,
+            Self::ScheduleEnabled => Action::ScheduleEnabledMenu,
             Self::DiffLayout => Action::DiffLayoutMenu,
             Self::DiffContext => Action::DiffContextMenu,
             Self::Search => Action::SearchMenu,
@@ -313,6 +378,12 @@ impl Kind {
         Some(match self {
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
             Self::LogSelection => return None,
+            Self::ComposeOrder => return None,
+            Self::DiffHeader => Value::DiffHeader(screen.diff_header),
+            Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),
+            Self::FileLayout => {
+                Value::FileLayout(screen.bar.selection()?.opener()?.presentation.layout())
+            }
             Self::Filter => Value::Filter(screen.filter),
             Self::Sort => Value::Sort(screen.order),
             Self::FileView => Value::FileView(screen.file_layout),

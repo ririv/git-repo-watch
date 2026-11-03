@@ -226,9 +226,9 @@ fn inline_message_scrolling_and_cancellation_preserve_the_selected_plan_and_patc
 #[test]
 fn plan_order_merge_split_and_reassignment_keep_every_unit_once() {
     let (_f, _home, mut s) = setup();
-    command(&mut s, "repo compose down");
+    command(&mut s, "repo compose reorder down");
     assert!(matches!(&s.mode, Mode::Composition(session) if session.selected == 1));
-    command(&mut s, "repo compose up");
+    command(&mut s, "repo compose reorder up");
     command(&mut s, "repo compose merge");
     assert!(
         matches!(&s.mode, Mode::Composition(session) if session.prepared.plan.commits.len() == 1 && session.ids().len() == 2)
@@ -314,5 +314,62 @@ fn disabled_ai_hides_every_composition_entry() {
     {
         assert!(!command.action.available(false));
     }
+    s.shutdown();
+}
+
+#[test]
+fn reorder_options_explain_boundaries_and_only_rearrange_the_draft_plan() {
+    let (f, _home, mut s) = setup();
+    let before_head = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    let before_worktree = support::git(&f.repo, &["diff"]);
+    let before_index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    fn steps(s: &Screen) -> Vec<(String, Vec<String>)> {
+        let Mode::Composition(session) = &s.mode else {
+            unreachable!()
+        };
+        session
+            .prepared
+            .plan
+            .commits
+            .iter()
+            .map(|step| (step.message.clone(), step.units.clone()))
+            .collect()
+    }
+    let before_plan = steps(&s);
+    command(&mut s, "repo compose reorder");
+    assert_eq!(super::options::choices(&s).current, None);
+    let text = render(&mut s, 140, 32);
+    assert!(text.contains(i18n::tr!(ComposeFirstStep)), "{text}");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.message, i18n::tr!(ComposeFirstStep));
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Tab);
+    assert!(matches!(&s.mode, Mode::Composition(session) if session.selected == 0));
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(&s.mode, Mode::Composition(session) if session.selected == 1));
+    assert_eq!(
+        steps(&s),
+        vec![before_plan[1].clone(), before_plan[0].clone()]
+    );
+    command(&mut s, "repo compose reorder");
+    let text = render(&mut s, 140, 32);
+    assert!(text.contains(i18n::tr!(ComposeLastStep)), "{text}");
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.message, i18n::tr!(ComposeLastStep));
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "repo compose reorder up");
+    assert_eq!(steps(&s), before_plan);
+    let Mode::Composition(session) = &s.mode else {
+        unreachable!()
+    };
+    session.prepared.validate().unwrap();
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before_head);
+    assert_eq!(support::git(&f.repo, &["diff"]), before_worktree);
+    assert_eq!(
+        std::fs::read(f.repo.join(".git/index")).unwrap(),
+        before_index
+    );
     s.shutdown();
 }

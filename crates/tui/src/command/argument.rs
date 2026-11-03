@@ -233,6 +233,16 @@ impl Action {
             Self::WrapMenu => Some(ArgumentAction::Option(super::options::Kind::TextWrap)),
             Self::FileLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::FileView)),
             Self::BrowserModeMenu => Some(ArgumentAction::Option(super::options::Kind::FileMode)),
+            Self::BrowserLayoutMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::FileLayout))
+            }
+            Self::DiffHeader => Some(ArgumentAction::Option(super::options::Kind::DiffHeader)),
+            Self::ComposeOrderMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::ComposeOrder))
+            }
+            Self::ScheduleEnabledMenu => Some(ArgumentAction::Option(
+                super::options::Kind::ScheduleEnabled,
+            )),
             Self::DiffContextMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::DiffContext))
             }

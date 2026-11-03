@@ -7,6 +7,11 @@ pub enum TextMode {
     Source,
     Preview,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Layout {
+    Single,
+    Split,
+}
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Renderer {
     Markdown,
@@ -75,16 +80,17 @@ impl Presentation {
             Self::Split(_) => &[TextMode::Source, TextMode::Preview],
         }
     }
-    pub fn toggle(self) -> Self {
+    pub fn layout(self) -> Layout {
         match self {
-            Self::Single(TextMode::Source) => Self::Single(TextMode::Preview),
-            Self::Single(TextMode::Preview) | Self::Split(_) => Self::Single(TextMode::Source),
+            Self::Single(_) => Layout::Single,
+            Self::Split(_) => Layout::Split,
         }
     }
-    pub fn split(self) -> Self {
-        match self {
-            Self::Single(_) => Self::Split(TextMode::Preview),
-            Self::Split(mode) => Self::Single(mode),
+    pub fn with_layout(self, layout: Layout) -> Self {
+        match (self, layout) {
+            (Self::Single(mode) | Self::Split(mode), Layout::Single) => Self::Single(mode),
+            (Self::Single(_), Layout::Split) => Self::Split(TextMode::Preview),
+            (Self::Split(mode), Layout::Split) => Self::Split(mode),
         }
     }
 }

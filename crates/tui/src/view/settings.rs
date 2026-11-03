@@ -3,6 +3,15 @@ mod general;
 use super::*;
 use crate::settings::Item;
 pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
+    if action == Action::ScheduleEnabledMenu {
+        return Some(
+            match screen.snapshot.registration {
+                Registration::Loaded => i18n::tr!(TaskEnabled),
+                Registration::NotLoaded => i18n::tr!(TaskDisabled),
+            }
+            .into(),
+        );
+    }
     if let Action::Workflow(trigger) = action {
         return Some(match trigger {
             engine::workflow::Trigger::Startup => screen.config.startup_actions.summary(),

@@ -233,7 +233,7 @@ fn render_menu(
                 .or_else(|| settings::annotation(command.action, screen))
                 .or_else(|| match command.action {
                     Action::PartialSelectMenu => screen.partial_mode().map(|mode| mode.label().to_owned()),
-                    Action::BrowserToggle | Action::BrowserSplit | Action::BrowserModeMenu => {
+                    Action::BrowserLayoutMenu | Action::BrowserModeMenu => {
                         selection.annotation(command.action).map(str::to_owned)
                     }
                     _ => None,

@@ -30,8 +30,7 @@ impl Command {
             Action::BrowseFiles => Summary::BrowseFiles,
             Action::BrowserDiff => Summary::BrowserDiff,
             Action::BrowserRefresh => Summary::BrowserRefresh,
-            Action::BrowserToggle => Summary::BrowserToggle,
-            Action::BrowserSplit => Summary::BrowserSplit,
+            Action::BrowserLayoutMenu | Action::BrowserLayout(_) => Summary::BrowserLayout,
             Action::BrowserModeMenu => Summary::BrowserMode,
             Action::BrowserMode(crate::browser::opening::TextMode::Source) => {
                 Summary::BrowserSource
@@ -55,7 +54,9 @@ impl Command {
             }
             Action::FileLayoutMenu => Summary::FileLayoutMenu,
             Action::DiffLayoutMenu => Summary::DiffLayoutMenu,
-            Action::DiffHeader => Summary::DiffHeader,
+            Action::DiffHeader | Action::DiffHeaderVisibility(_) => Summary::DiffHeader,
+            Action::ComposeOrderMenu => Summary::ComposeReorder,
+            Action::ScheduleEnabledMenu => Summary::ScheduleEnabled,
             Action::DiffContextMenu | Action::DiffContext(_) => Summary::DiffContext,
             Action::FilterMenu => Summary::FilterMenu,
             Action::SortMenu => Summary::SortMenu,

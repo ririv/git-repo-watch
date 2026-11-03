@@ -294,9 +294,9 @@ fn source_and_preview_share_one_parameter_menu_and_disable_only_the_active_mode(
     select(&mut s, "plain.txt");
     s.paste("/");
     assert!(
-        !names(&s).iter().any(
-            |name| ["repo files mode", "repo files toggle", "repo files split"].contains(name)
-        )
+        !names(&s)
+            .iter()
+            .any(|name| ["repo files mode", "repo files layout"].contains(name))
     );
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     s.shutdown();

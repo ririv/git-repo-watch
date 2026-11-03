@@ -45,8 +45,8 @@ pub enum Action {
     BrowseFiles,
     BrowserDiff,
     BrowserRefresh,
-    BrowserToggle,
-    BrowserSplit,
+    BrowserLayoutMenu,
+    BrowserLayout(crate::browser::opening::Layout),
     BrowserModeMenu,
     BrowserMode(crate::browser::opening::TextMode),
     Log,
@@ -59,6 +59,7 @@ pub enum Action {
     FileLayout(crate::files::Layout),
     DiffLayoutMenu,
     DiffHeader,
+    DiffHeaderVisibility(crate::diff::HeaderVisibility),
     DiffContextMenu,
     DiffContext(crate::diff::Context),
     DiffLayout(crate::diff::Preference),
@@ -70,6 +71,7 @@ pub enum Action {
     Commit,
     CommitGenerate,
     Compose(crate::composition::Action),
+    ComposeOrderMenu,
     AiAgent,
     AiModel,
     AiPrompt,
@@ -100,6 +102,7 @@ pub enum Action {
     Apply,
     EnableSchedule,
     DisableSchedule,
+    ScheduleEnabledMenu,
     Help,
     InteractionMenu,
     Interaction(engine::state::InteractionMode),
@@ -270,14 +273,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::BrowserRefreshDescription,
     },
     Command {
-        name: "repo files toggle",
-        action: BrowserToggle,
-        description: i18n::Message::FileToggleCommand,
-    },
-    Command {
-        name: "repo files split",
-        action: BrowserSplit,
-        description: i18n::Message::FileSplitCommand,
+        name: "repo files layout",
+        action: BrowserLayoutMenu,
+        description: i18n::Message::FileLayoutCommand,
     },
     Command {
         name: "repo files mode",
@@ -315,14 +313,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::ComposeEdit,
     },
     Command {
-        name: "repo compose up",
-        action: Compose(crate::composition::Action::Up),
-        description: i18n::Message::ComposeUp,
-    },
-    Command {
-        name: "repo compose down",
-        action: Compose(crate::composition::Action::Down),
-        description: i18n::Message::ComposeDown,
+        name: "repo compose reorder",
+        action: ComposeOrderMenu,
+        description: i18n::Message::ComposeReorderCommand,
     },
     Command {
         name: "repo compose split",
@@ -570,14 +563,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::ApplySystemScheduleWithoutStartingACheck,
     },
     Command {
-        name: "schedule enable",
-        action: EnableSchedule,
-        description: i18n::Message::EnableScheduledTask,
-    },
-    Command {
-        name: "schedule disable",
-        action: DisableSchedule,
-        description: i18n::Message::DisableScheduledTask,
+        name: "schedule enabled",
+        action: ScheduleEnabledMenu,
+        description: i18n::Message::ScheduleEnabledCommand,
     },
     Command {
         name: "help",
@@ -759,6 +747,7 @@ impl Action {
                 self,
                 Self::AiSettings
                     | Self::Compose(_)
+                    | Self::ComposeOrderMenu
                     | Self::CommitGenerate
                     | Self::AiAgent
                     | Self::AiModel

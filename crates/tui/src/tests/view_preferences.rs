@@ -16,7 +16,7 @@ fn command_and_picker_choices_survive_restart_without_restoring_transient_select
     key(&mut s, KeyCode::Right);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.diff_preference, crate::diff::Preference::Split);
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     key(&mut s, KeyCode::Char(' '));
     assert!(!s.mode.file_session().unwrap().selected.is_empty());
     command(&mut s, "repos");
@@ -72,8 +72,8 @@ fn rapid_choices_stay_responsive_and_flush_the_latest_value_for_each_field_on_ex
         command(&mut s, &format!("repos sort {order}"));
         assert!(matches!(s.mode, Mode::Browsing));
     }
-    for _ in 0..3 {
-        command(&mut s, "repo diff header");
+    for value in ["show", "hide", "show"] {
+        command(&mut s, &format!("repo diff header {value}"));
         assert!(matches!(s.mode, Mode::Browsing));
     }
     assert!(s.view_save.pending());

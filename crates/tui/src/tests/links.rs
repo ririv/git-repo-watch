@@ -96,7 +96,7 @@ fn rendered_links_open_their_full_targets_without_capturing_lists_or_selection_m
                         || target.label() == local.display().to_string())
             );
         }
-        command(&mut s, "repo files split");
+        command(&mut s, "repo files layout split");
         ready(&mut s);
         render(&mut s, 150, 32);
         ready(&mut s);

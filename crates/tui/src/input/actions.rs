@@ -56,16 +56,22 @@ impl Screen {
             Action::BrowserModeMenu => {
                 self.open_option_menu(command::options::Kind::FileMode, path, selection)
             }
-            Action::BrowserToggle | Action::BrowserSplit | Action::BrowserMode(_) => {
+            Action::BrowserLayoutMenu => {
+                self.open_option_menu(command::options::Kind::FileLayout, path, selection)
+            }
+            Action::ComposeOrderMenu => {
+                self.open_option_menu(command::options::Kind::ComposeOrder, path, selection)
+            }
+            Action::ScheduleEnabledMenu => {
+                self.open_option_menu(command::options::Kind::ScheduleEnabled, path, selection)
+            }
+            Action::BrowserLayout(_) | Action::BrowserMode(_) => {
                 if let Mode::Browser(session) = &mut self.mode
                     && let Some(target) = selection.opener()
                 {
                     match action {
-                        Action::BrowserToggle => {
-                            session.present(target, target.presentation.toggle())
-                        }
-                        Action::BrowserSplit => {
-                            session.present(target, target.presentation.split())
+                        Action::BrowserLayout(layout) => {
+                            session.present(target, target.presentation.with_layout(layout))
                         }
                         Action::BrowserMode(mode) => session.open_with(target, mode),
                         _ => unreachable!(),
@@ -217,7 +223,10 @@ impl Screen {
             Action::DiffLayout(preference) => {
                 self.set_diff_layout(preference);
             }
-            Action::DiffHeader => self.toggle_diff_header(),
+            Action::DiffHeader => {
+                self.open_option_menu(command::options::Kind::DiffHeader, path, selection)
+            }
+            Action::DiffHeaderVisibility(visibility) => self.set_diff_header(visibility),
             Action::DiffContextMenu => {
                 self.open_option_menu(command::options::Kind::DiffContext, path, selection);
             }

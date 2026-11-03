@@ -161,7 +161,7 @@ fn header_preference_applies_to_continuous_and_full_file_previews() {
     assert!(!render(&mut s, 160, 40).contains("diff --git"));
     s.paste("file-00");
     assert_eq!(detail(&s).review.layout.sections.len(), 3);
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     let expanded = render(&mut s, 160, 40);
     assert!(expanded.contains("diff --git a/file-00.ts"), "{expanded}");
     assert_eq!(detail(&s).review.layout.sections.len(), 1);
@@ -175,7 +175,7 @@ fn header_preference_applies_to_continuous_and_full_file_previews() {
     wait(&mut s);
     let expanded = render(&mut s, 160, 40);
     assert!(expanded.contains("diff --git a/file-01.ts"), "{expanded}");
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header hide");
     assert!(!render(&mut s, 160, 40).contains("diff --git"));
     key(&mut s, KeyCode::Esc);
     let collapsed = render(&mut s, 160, 40);

@@ -86,7 +86,7 @@ python3 examples/playground/create.py --case diff-metadata
 
 ## 文件头元信息演练
 
-`diff-metadata` 的变更均在暂存区：进入 `/repo diff` 后查看已暂存区域中 `元信息/` 下的文件。普通修改直接显示变更块，文件模式变化显示摘要；`/repo diff header` 展开原始对象 ID、模式和路径，重复执行收起并恢复阅读位置。复制差异保留完整 Git 补丁。
+`diff-metadata` 的变更均在暂存区：进入 `/repo diff` 后查看已暂存区域中 `元信息/` 下的文件。普通修改直接显示变更块，文件模式变化显示摘要；`/repo diff header show` 展开原始对象 ID、模式和路径，`/repo diff header hide` 收起并恢复阅读位置；不填参数时打开选项菜单。复制差异保留完整 Git 补丁。
 
 - `01-普通修改.ts`：验证 `diff --git`、`index`、`---/+++` 默认隐藏。
 - `02-可执行权限.sh`：仅增加可执行标记，文件类型仍为普通文件，内容未改。

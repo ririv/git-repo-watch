@@ -63,6 +63,7 @@ impl Screen {
                     | Commit
                     | CommitGenerate
                     | Compose(_)
+                    | ComposeOrderMenu
                     | Push
                     | Terminal
                     | Check
@@ -87,6 +88,27 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            ComposeOrderMenu
+            | Compose(crate::composition::Action::Up | crate::composition::Action::Down) => {
+                match &self.mode {
+                    Mode::Composition(session)
+                        if matches!(session.state, crate::composition::State::Browsing) =>
+                    {
+                        match action {
+                            Compose(crate::composition::Action::Up) if session.selected == 0 => {
+                                Some(i18n::tr!(ComposeFirstStep).into())
+                            }
+                            Compose(crate::composition::Action::Down)
+                                if session.selected + 1 >= session.prepared.plan.commits.len() =>
+                            {
+                                Some(i18n::tr!(ComposeLastStep).into())
+                            }
+                            _ => None,
+                        }
+                    }
+                    _ => Some(i18n::tr!(ComposeSelected).into()),
+                }
+            }
             Replay(_) if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),
             Copy(scope) => selection.unavailable(scope, path).map(str::to_owned),
             LogMore | LogSelect | LogSelection(_) => match &self.mode {
@@ -127,6 +149,9 @@ impl Screen {
                     Some(_) => None,
                     None => Some(i18n::tr!(CommandRequiresPreviewableFile).into()),
                 }
+            }
+            BrowserLayoutMenu | BrowserLayout(_) if selection.opener().is_none() => {
+                Some(i18n::tr!(CommandRequiresPreviewableFile).into())
             }
             BrowserRefresh | BrowserDiff if !matches!(self.mode, Mode::Browser(_)) => {
                 Some(i18n::tr!(CommandRequiresBrowser).into())

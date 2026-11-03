@@ -1110,10 +1110,13 @@ pub enum Message {
     FileSvgPreview,
     FileSplit,
     FileSingle,
-    FileToggleCommand,
-    FileSplitCommand,
     FileSourceCommand,
     FileModeCommand,
+    FileLayoutCommand,
+    ComposeReorderCommand,
+    ScheduleEnabledCommand,
+    ComposeFirstStep,
+    ComposeLastStep,
     FilePreviewCommand,
     SvgInvalid,
     SvgExternal,
@@ -3157,7 +3160,7 @@ impl Message {
             (Self::DiffHeaderCommand, Language::English) => {
                 "Show or hide the original Git file header"
             }
-            (Self::DiffHeaderCommand, Language::Chinese) => "展开或收起原始 Git 文件头",
+            (Self::DiffHeaderCommand, Language::Chinese) => "选择是否显示原始 Git 文件头",
             (Self::DiffHeaderUnavailable, Language::English) => {
                 "There is no file header in the current preview"
             }
@@ -4822,16 +4825,28 @@ impl Message {
             (Self::FileSingle, Language::Chinese) => "单栏",
             (Self::FileSplit, Language::English) => "Split",
             (Self::FileSplit, Language::Chinese) => "分屏",
-            (Self::FileToggleCommand, Language::English) => "Toggle source and rendered preview",
-            (Self::FileToggleCommand, Language::Chinese) => "切换源码和渲染预览",
-            (Self::FileSplitCommand, Language::English) => "Toggle source and preview split",
-            (Self::FileSplitCommand, Language::Chinese) => "开合源码与预览分屏",
             (Self::FileSourceCommand, Language::English) => "Open the selected file as source",
             (Self::FileSourceCommand, Language::Chinese) => "以源码打开当前文件",
             (Self::FileModeCommand, Language::English) => {
                 "Choose source or preview for the selected file"
             }
             (Self::FileModeCommand, Language::Chinese) => "选择当前文件的源码或预览",
+            (Self::FileLayoutCommand, Language::English) => {
+                "Choose a single pane or source/preview split"
+            }
+            (Self::FileLayoutCommand, Language::Chinese) => "选择单栏或源码与预览分屏",
+            (Self::ComposeReorderCommand, Language::English) => {
+                "Move the selected planned commit earlier or later"
+            }
+            (Self::ComposeReorderCommand, Language::Chinese) => "将所选计划提交前移或后移",
+            (Self::ScheduleEnabledCommand, Language::English) => {
+                "Choose whether scheduled execution is enabled"
+            }
+            (Self::ScheduleEnabledCommand, Language::Chinese) => "选择是否启用定时执行",
+            (Self::ComposeFirstStep, Language::English) => "Already the first planned commit",
+            (Self::ComposeFirstStep, Language::Chinese) => "已经是第一条计划提交",
+            (Self::ComposeLastStep, Language::English) => "Already the last planned commit",
+            (Self::ComposeLastStep, Language::Chinese) => "已经是最后一条计划提交",
             (Self::FilePreviewCommand, Language::English) => {
                 "Open the selected file's rendered preview"
             }

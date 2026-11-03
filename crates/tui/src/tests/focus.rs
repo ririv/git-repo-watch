@@ -91,7 +91,7 @@ fn focus_mode_applies_to_diff_and_file_browser_splits_at_both_layouts() {
     command(&mut s, "repo files");
     ready(&mut s);
     select(&mut s, "README.md");
-    command(&mut s, "repo files split");
+    command(&mut s, "repo files layout split");
     ready(&mut s);
     for width in [160, 24] {
         session(&mut s).focus = crate::browser::Focus::Tree;

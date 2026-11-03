@@ -53,7 +53,7 @@ fn header_command_preserves_export_selection_and_the_reading_position_in_both_la
             Interaction::Editable(value) => value.clone(),
             _ => panic!("editable diff"),
         };
-        command(&mut s, "repo diff header");
+        command(&mut s, "repo diff header show");
         let expanded = render(&mut s, 160, 24);
         assert!(
             expanded.contains("diff --git") && expanded.contains("index "),
@@ -61,7 +61,25 @@ fn header_command_preserves_export_selection_and_the_reading_position_in_both_la
         );
         assert!(expanded.contains("--- ") && expanded.contains("+++ "));
         assert_eq!(s.diff_header_label(), i18n::tr!(DiffHeaderExpanded));
+        let expanded_scroll = text(&s).1;
+        command(&mut s, "repo diff header show");
+        render(&mut s, 160, 24);
+        assert_eq!(text(&s).1, expanded_scroll);
         command(&mut s, "repo diff header");
+        assert_eq!(
+            super::options::choices(&s).current,
+            Some(command::options::Value::DiffHeader(
+                crate::diff::HeaderVisibility::Expanded
+            ))
+        );
+        key(&mut s, KeyCode::Down);
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.diff_header, crate::diff::HeaderVisibility::Expanded);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "repo diff header hide");
+        render(&mut s, 160, 24);
+        command(&mut s, "repo diff header hide");
         render(&mut s, 160, 24);
         let (content, scroll) = text(&s);
         assert_eq!(scroll, old_scroll);
@@ -139,7 +157,7 @@ fn permission_only_changes_remain_visible_without_hunks_or_raw_headers() {
     assert_eq!(buffer.content[label].fg, ratatui::style::Color::DarkGray);
     let value = label + unicode_width::UnicodeWidthStr::width("模式: ");
     assert_eq!(buffer.content[value].fg, ratatui::style::Color::LightBlue);
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     let preview = render(&mut s, 160, 32);
     assert!(preview.contains("old mode 100644") && preview.contains("new mode 100755"));
 }
@@ -158,17 +176,17 @@ fn header_visibility_follows_files_and_survives_restart() {
     command(&mut s, "repo diff");
     wait(&mut s);
     assert!(!render(&mut s, 160, 32).contains("diff --git"));
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     assert!(render(&mut s, 160, 32).contains("diff --git a/a.rs"));
     key(&mut s, KeyCode::Down);
     wait(&mut s);
     assert!(render(&mut s, 160, 32).contains("diff --git a/b.rs"));
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header hide");
     assert!(!render(&mut s, 160, 32).contains("diff --git"));
     key(&mut s, KeyCode::Up);
     wait(&mut s);
     assert!(!render(&mut s, 160, 32).contains("diff --git"));
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     s.shutdown();
     let mut reopened = Screen::new(Service::new(store, scheduler), &Cancel::default()).unwrap();
     command(&mut reopened, "repo diff");
@@ -202,7 +220,7 @@ fn ordinary_additions_hide_default_mode_but_keep_it_in_raw_headers_and_export() 
     assert!(
         matches!(&content.export, Export::Complete(patch) if patch.contains("new file mode 100644"))
     );
-    command(&mut s, "repo diff header");
+    command(&mut s, "repo diff header show");
     assert!(render(&mut s, 160, 32).contains("new file mode 100644"));
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     s.shutdown();

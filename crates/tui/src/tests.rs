@@ -1426,8 +1426,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             "schedule autopush",
             "schedule actions",
             "schedule apply",
-            "schedule enable",
-            "schedule disable"
+            "schedule enabled"
         ]
     );
     assert_eq!(
@@ -1541,7 +1540,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     s.paste("//sche");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/schedule");
-    assert_eq!(s.search_commands().unwrap().len(), 8);
+    assert_eq!(s.search_commands().unwrap().len(), 7);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert_eq!(s.setting_selected, 0);

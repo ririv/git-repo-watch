@@ -20,6 +20,19 @@ pub(crate) enum Action {
     Move,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Direction {
+    Up,
+    Down,
+}
+impl Direction {
+    pub fn action(self) -> Action {
+        match self {
+            Self::Up => Action::Up,
+            Self::Down => Action::Down,
+        }
+    }
+}
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Focus {
     Commits,
     Units,

@@ -2,7 +2,7 @@ use super::browser::{ready, select, session, text};
 use super::*;
 use crate::browser::{
     Focus, Preview,
-    opening::{Presentation, TextMode},
+    opening::{Layout, Presentation, TextMode},
     preview::Document,
 };
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
@@ -31,8 +31,9 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
         key(&mut s, KeyCode::Char('/'));
         assert!(!s.search_commands().unwrap().iter().any(|command| matches!(
             command.action,
-            Action::BrowserToggle
-                | Action::BrowserSplit
+            Action::BrowserLayoutMenu
+                | Action::BrowserLayout(_)
+                | Action::BrowserModeMenu
                 | Action::BrowserMode(crate::browser::opening::TextMode::Source)
                 | Action::BrowserMode(crate::browser::opening::TextMode::Preview)
         )));
@@ -47,7 +48,7 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
         session(&mut s).pane().position.scroll = 7;
         session(&mut s).pane().position.horizontal.constrain(40);
         session(&mut s).pane().position.horizontal.seek(4);
-        command(&mut s, "repo files toggle");
+        command(&mut s, "repo files mode preview");
         ready(&mut s);
         assert_eq!(
             session(&mut s).open_target().unwrap().presentation.active(),
@@ -149,7 +150,7 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
         command(&mut s, "repo files");
         ready(&mut s);
         select(&mut s, "README.md");
-        command(&mut s, "repo files split");
+        command(&mut s, "repo files layout split");
         ready(&mut s);
         let rendered = render(&mut s, 150, 32);
         ready(&mut s);
@@ -198,14 +199,38 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
         );
         key(&mut s, KeyCode::BackTab);
         assert_eq!(session(&mut s).presentation().active(), TextMode::Source);
-        command(&mut s, "repo files split");
+        command(&mut s, "repo files layout");
+        assert_eq!(
+            super::options::choices(&s).current,
+            Some(command::options::Value::FileLayout(Layout::Split))
+        );
+        let text = render(&mut s, 150, 32);
+        let current = text.lines().find(|line| line.contains("│split ")).unwrap();
+        assert!(current.ends_with("✓│"), "{text}");
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "repo files layout split");
+        ready(&mut s);
+        assert_eq!(
+            session(&mut s).presentation(),
+            Presentation::Split(TextMode::Source)
+        );
+        assert_eq!(session(&mut s).pane().position.scroll, 6);
+        command(&mut s, "repo files layout single");
         ready(&mut s);
         assert_eq!(
             session(&mut s).presentation(),
             Presentation::Single(TextMode::Source)
         );
         assert_eq!(session(&mut s).pane().position.scroll, 6);
-        command(&mut s, "repo files split");
+        command(&mut s, "repo files layout single");
+        ready(&mut s);
+        assert_eq!(
+            session(&mut s).presentation(),
+            Presentation::Single(TextMode::Source)
+        );
+        assert_eq!(session(&mut s).pane().position.scroll, 6);
+        command(&mut s, "repo files layout split");
         ready(&mut s);
         assert_eq!(session(&mut s).pane().position.scroll, 10);
         select(&mut s, "other.md");
@@ -249,7 +274,7 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
                 Presentation::Split(_)
             ));
         }
-        command(&mut s, "repo files toggle");
+        command(&mut s, "repo files mode source");
         ready(&mut s);
         assert_eq!(
             session(&mut s).presentation(),
@@ -273,7 +298,7 @@ fn split_pointer_focus_wheel_and_scrollbars_target_the_correct_side_and_respect_
     command(&mut s, "repo files");
     ready(&mut s);
     select(&mut s, "README.md");
-    command(&mut s, "repo files split");
+    command(&mut s, "repo files layout split");
     ready(&mut s);
     render(&mut s, 150, 32);
     ready(&mut s);

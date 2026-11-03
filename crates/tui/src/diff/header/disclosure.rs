@@ -84,8 +84,8 @@ impl View {
 }
 
 impl crate::Screen {
-    pub(crate) fn toggle_diff_header(&mut self) {
-        self.diff_header = self.diff_header.toggled();
+    pub(crate) fn set_diff_header(&mut self, visibility: super::super::HeaderVisibility) {
+        self.diff_header = visibility;
         self.save_view_preference(engine::state::view::Edit::DiffHeader(self.diff_header));
     }
     pub(crate) fn diff_header_label(&self) -> &'static str {

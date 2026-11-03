@@ -161,7 +161,7 @@ fn file_filter_source_and_rendered_content_keep_independent_queries_in_split_mod
     assert!(s.bar.text().is_empty());
     s.paste("**needle phrase**");
     assert!(s.search_title().contains("1/1"));
-    command(&mut s, "repo files split");
+    command(&mut s, "repo files layout split");
     ready(&mut s);
     render(&mut s, 100, 24);
     ready(&mut s);

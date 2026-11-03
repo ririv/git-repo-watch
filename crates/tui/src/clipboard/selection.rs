@@ -202,8 +202,8 @@ impl Selection {
                 )
             }
             Action::Replay(_) => matches!(self, Self::Log(_)),
-            Action::BrowserToggle
-            | Action::BrowserSplit
+            Action::BrowserLayoutMenu
+            | Action::BrowserLayout(_)
             | Action::BrowserModeMenu
             | Action::BrowserMode(_) => self.opener().is_some(),
             Action::Copy(Scope::Repository) => true,
@@ -217,10 +217,7 @@ impl Selection {
                 crate::browser::opening::Presentation::Single(mode) => target.opening(mode).label(),
                 crate::browser::opening::Presentation::Split(_) => i18n::tr!(FileSplit),
             }),
-            Action::BrowserToggle => self
-                .opener()
-                .map(|target| target.opening(target.presentation.active()).label()),
-            Action::BrowserSplit => self.opener().map(|target| match target.presentation {
+            Action::BrowserLayoutMenu => self.opener().map(|target| match target.presentation {
                 crate::browser::opening::Presentation::Single(_) => i18n::tr!(FileSingle),
                 crate::browser::opening::Presentation::Split(_) => i18n::tr!(FileSplit),
             }),
