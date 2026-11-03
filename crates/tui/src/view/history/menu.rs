@@ -9,7 +9,13 @@ pub(in crate::view) fn render(frame: &mut Frame, screen: &mut Screen, body: Rect
     let Some(count) = screen.history_actions().map(|menu| menu.operations().len()) else {
         return;
     };
-    let (popup, inner) = super::super::candidates::panel(frame, screen, body, count);
+    let (popup, inner) = super::super::candidates::panel(
+        frame,
+        screen,
+        body,
+        count,
+        Some(i18n::tr!(HistoryActionsTitle)),
+    );
     let Screen {
         mode,
         pointer: hits,

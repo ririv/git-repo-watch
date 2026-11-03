@@ -1,4 +1,4 @@
-//! Titleless candidates share a border with the command input when space permits.
+//! Candidate panels share the input border and optionally label parameter choices.
 use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
@@ -75,7 +75,13 @@ pub(super) fn render_list(
         .collect()
 }
 
-pub(super) fn panel(frame: &mut Frame, screen: &Screen, body: Rect, count: usize) -> (Rect, Rect) {
+pub(super) fn panel(
+    frame: &mut Frame,
+    screen: &Screen,
+    body: Rect,
+    count: usize,
+    title: Option<&str>,
+) -> (Rect, Rect) {
     let input = screen.input_area.filter(|input| {
         input.height >= 3
             && input.width >= 2
@@ -103,6 +109,12 @@ pub(super) fn panel(frame: &mut Frame, screen: &Screen, body: Rect, count: usize
         }
         None if height >= 3 => Block::bordered().border_style(Style::default().fg(BORDER)),
         None => Block::default(),
+    };
+    let border = match title {
+        Some(title) if input.is_some() || height >= 3 => border
+            .title(format!(" {title} "))
+            .title_style(Style::default().fg(input::active_accent(screen))),
+        _ => border,
     };
     let inner = border.inner(area);
     frame.render_widget(Clear, area);

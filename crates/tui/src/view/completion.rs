@@ -1,6 +1,13 @@
 //! Directory candidates share the full-width panel above the persistent input.
 use super::*;
 
+fn parameter_title(screen: &Screen) -> &'static str {
+    let input = screen.bar.command_input().expect("parameter command input");
+    let (argument, _) =
+        command::argument_input(&input.query()).expect("parameter candidate command");
+    argument.command().summary().text()
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     screen: &Screen,
@@ -21,7 +28,13 @@ pub(super) fn render(
     if items.is_empty() {
         items.push(ListItem::new(i18n::tr!(NoMatchingDirectories)));
     }
-    let areas = candidates::panel(frame, screen, body, directories.names().len());
+    let areas = candidates::panel(
+        frame,
+        screen,
+        body,
+        directories.names().len(),
+        Some(i18n::tr!(DirectoryCandidates)),
+    );
     candidates::render_list(
         frame,
         areas,
@@ -41,7 +54,13 @@ pub(super) fn render_values(
 ) -> Vec<(Rect, usize)> {
     use unicode_width::UnicodeWidthStr;
     let entries = values.entries().collect::<Vec<_>>();
-    let areas = candidates::panel(frame, screen, body, entries.len());
+    let areas = candidates::panel(
+        frame,
+        screen,
+        body,
+        entries.len(),
+        Some(parameter_title(screen)),
+    );
     let width = usize::from(areas.1.width);
     let label_width = entries
         .iter()
@@ -97,7 +116,13 @@ pub(super) fn render_options(
     viewport: &mut candidates::Viewport,
 ) -> Vec<(Rect, usize)> {
     use unicode_width::UnicodeWidthStr;
-    let (area, inner) = candidates::panel(frame, screen, body, values.options.len());
+    let (area, inner) = candidates::panel(
+        frame,
+        screen,
+        body,
+        values.options.len(),
+        Some(parameter_title(screen)),
+    );
     let width = usize::from(inner.width);
     let name_width = values
         .options

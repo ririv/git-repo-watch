@@ -199,7 +199,7 @@ fn render_menu(
         }
         command::completion::Menu::Loading(_) => {}
         command::completion::Menu::Failed(error) => {
-            let areas = candidates::panel(frame, screen, body, 1);
+            let areas = candidates::panel(frame, screen, body, 1, None);
             candidates::render_list(
                 frame,
                 areas,
@@ -253,7 +253,7 @@ fn render_menu(
             }
         })
         .collect::<Vec<_>>();
-    let (area, list) = candidates::panel(frame, screen, body, entries.len());
+    let (area, list) = candidates::panel(frame, screen, body, entries.len(), None);
     if list.is_empty() {
         return;
     }
