@@ -127,6 +127,16 @@ pub enum Message {
     OptionCompletionHint,
     UnknownOptionValue,
     NoMatchingOptions,
+    ReadingCommandCandidates,
+    ValueCompletionHint,
+    DiffLayoutEntryHint,
+    CommandRequiresHistory,
+    CommandRequiresBrowser,
+    CommandNeedsUnstaged,
+    CommandNeedsStaged,
+    CommandTargetFiles,
+    CommandTargetLines,
+    CommandTargetCommits,
     ComposeWaitingHint,
     ComposeRetryHint,
     ComposeGenerationFailed,
@@ -1570,6 +1580,36 @@ impl Message {
             }
             (Self::UnknownOptionValue, Language::Chinese) => "未知参数：{value}。可选值：{choices}",
             (Self::NoMatchingOptions, Language::English) => "No matching option is available",
+            (Self::ReadingCommandCandidates, Language::English) => {
+                "Reading candidates · Esc cancel"
+            }
+            (Self::ReadingCommandCandidates, Language::Chinese) => "正在读取候选 · Esc 取消",
+            (Self::ValueCompletionHint, Language::English) => {
+                "↑↓ choose · Tab complete · Enter review · Esc close"
+            }
+            (Self::ValueCompletionHint, Language::Chinese) => {
+                "↑↓ 选择 · Tab 补全 · Enter 预览 · Esc 收起"
+            }
+            (Self::DiffLayoutEntryHint, Language::English) => {
+                "Enter/Tab choose layout · Type to complete a value · Esc close"
+            }
+            (Self::DiffLayoutEntryHint, Language::Chinese) => {
+                "Enter/Tab 选择布局 · 输入参数补全 · Esc 关闭"
+            }
+            (Self::CommandRequiresHistory, Language::English) => "Open commit history first",
+            (Self::CommandRequiresHistory, Language::Chinese) => "请先打开提交历史",
+            (Self::CommandRequiresBrowser, Language::English) => "Open the file browser first",
+            (Self::CommandRequiresBrowser, Language::Chinese) => "请先打开文件浏览",
+            (Self::CommandNeedsUnstaged, Language::English) => "Select unstaged changes",
+            (Self::CommandNeedsUnstaged, Language::Chinese) => "请选择未暂存改动",
+            (Self::CommandNeedsStaged, Language::English) => "Select staged changes",
+            (Self::CommandNeedsStaged, Language::Chinese) => "请选择已暂存改动",
+            (Self::CommandTargetFiles, Language::English) => "{count} files",
+            (Self::CommandTargetFiles, Language::Chinese) => "{count} 个文件",
+            (Self::CommandTargetLines, Language::English) => "{count} lines",
+            (Self::CommandTargetLines, Language::Chinese) => "{count} 行",
+            (Self::CommandTargetCommits, Language::English) => "{count} commits",
+            (Self::CommandTargetCommits, Language::Chinese) => "{count} 个提交",
             (Self::NoMatchingOptions, Language::Chinese) => "没有匹配的可用选项",
             (Self::ComposeWaitingHint, Language::English) => "Esc cancel and return · / commands",
             (Self::ComposeWaitingHint, Language::Chinese) => "Esc 取消并返回 · / 命令",
@@ -4445,10 +4485,10 @@ impl Message {
             (Self::DirectoryCandidates, Language::English) => "Directories",
             (Self::DirectoryCandidates, Language::Chinese) => "目录补全",
             (Self::DirectoryCompletionHint, Language::English) => {
-                "↑↓ / Tab select · Enter complete · Esc close"
+                "↑↓ choose · Tab/Enter complete · Esc close"
             }
             (Self::DirectoryCompletionHint, Language::Chinese) => {
-                "↑↓ / Tab 选择 · Enter 补全 · Esc 关闭"
+                "↑↓ 选择 · Tab/Enter 补全 · Esc 关闭"
             }
             (Self::ReadCompletionDirectory, Language::English) => "Cannot read directory: {}",
             (Self::ReadCompletionDirectory, Language::Chinese) => "无法读取目录：{}",
@@ -5110,6 +5150,24 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (CommandTargetFiles $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{count} files" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{count} 个文件" $(, $($args)*)?),
+        }
+    };
+    (CommandTargetLines $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{count} lines" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{count} 行" $(, $($args)*)?),
+        }
+    };
+    (CommandTargetCommits $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("{count} commits" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{count} 个提交" $(, $($args)*)?),
+        }
+    };
     (ReplayStats $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("{} files · +{} −{}" $(, $($args)*)?),

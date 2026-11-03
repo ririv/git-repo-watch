@@ -6,13 +6,14 @@ pub(super) enum Source {
     Commands(Vec<&'static str>),
     Options(Vec<command::options::Value>),
     Directories(Vec<String>),
+    Values(Vec<String>),
 }
 impl Source {
     fn len(&self) -> usize {
         match self {
             Self::Commands(items) => items.len(),
             Self::Options(items) => items.len(),
-            Self::Directories(items) => items.len(),
+            Self::Directories(items) | Self::Values(items) => items.len(),
         }
     }
 }

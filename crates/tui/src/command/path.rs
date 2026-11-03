@@ -11,6 +11,8 @@ use super::completion::Menu;
 #[derive(Debug)]
 pub(crate) struct Directories {
     input: Box<PathInput>,
+    available: Vec<String>,
+    base_prefix: String,
     names: Vec<String>,
     selected: usize,
 }
@@ -28,10 +30,30 @@ impl Directories {
         self.selected = index;
         true
     }
-    pub fn choose(&self) -> Editor {
-        self.input.replace(&self.names[self.selected], true)
+    pub fn choose(&self) -> Option<Editor> {
+        Some(self.input.replace(self.names.get(self.selected)?, true))
+    }
+    pub fn refine(&mut self, editor: &Editor, home: &Path) -> Result<bool> {
+        let Some(input) = PathInput::at(editor, home)? else {
+            return Ok(false);
+        };
+        if input.directory != self.input.directory || !input.prefix.starts_with(&self.base_prefix) {
+            return Ok(false);
+        }
+        self.names = self
+            .available
+            .iter()
+            .filter(|name| name.starts_with(&input.prefix))
+            .cloned()
+            .collect();
+        self.selected = 0;
+        *self.input = input;
+        Ok(true)
     }
     pub fn advance(&mut self, backwards: bool) {
+        if self.names.is_empty() {
+            return;
+        }
         self.selected = if backwards {
             (self.selected + self.names.len() - 1) % self.names.len()
         } else {
@@ -222,7 +244,16 @@ impl PathInput {
 }
 
 /// Completes a single directory component and returns a menu only for ambiguous paths.
+#[cfg(test)]
 pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
+    complete_cancellable(editor, user_home, &engine::cancel::Cancel::default())
+}
+pub(crate) fn complete_cancellable(
+    editor: &mut Editor,
+    user_home: &Path,
+    cancel: &engine::cancel::Cancel,
+) -> Result<Menu> {
+    cancel.check()?;
     if complete_scan_flag(editor) {
         return Ok(Menu::Commands);
     }
@@ -233,6 +264,7 @@ pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
     for entry in fs::read_dir(&input.directory)
         .with_context(|| i18n::tf!(ReadCompletionDirectory, &input.parent))?
     {
+        cancel.check()?;
         let entry = entry.with_context(|| i18n::tf!(ReadCompletionDirectory, &input.parent))?;
         let name = entry.file_name();
         // 非 UTF-8 名称无法在输入栏中无损编辑，匹配时明确拒绝，避免有损转换。
@@ -289,7 +321,9 @@ pub(crate) fn complete(editor: &mut Editor, user_home: &Path) -> Result<Menu> {
         .collect::<String>();
     *editor = input.replace(&common, false);
     Ok(Menu::Directories(Directories {
+        base_prefix: input.prefix.clone(),
         input: Box::new(input),
+        available: names.clone(),
         names,
         selected: 0,
     }))

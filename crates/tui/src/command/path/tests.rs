@@ -79,7 +79,7 @@ fn ambiguous_names_use_a_unicode_common_prefix_and_sorted_wrapping_choices() {
     menu.advance(false);
     assert_eq!(menu.selected, 0);
     assert_eq!(
-        parsed(&menu.choose()),
+        parsed(&menu.choose().unwrap()),
         format!("{}/中午目录/", temp.path().display())
     );
 }
@@ -275,14 +275,19 @@ fn bare_tilde_and_ambiguous_components_complete_from_home_without_losing_the_suf
             panic!("ambiguous home children")
         };
         assert_eq!(input.text, "/repos scan \"~/仓库 \"");
-        assert!(menu.choose().text.starts_with("/repos scan \"~/仓库 "));
+        assert!(
+            menu.choose()
+                .unwrap()
+                .text
+                .starts_with("/repos scan \"~/仓库 ")
+        );
     }
     let mut input = Editor::new("/repos scan \"~/仓wrong/保留 后缀\"".into());
     input.cursor = input.text.find("wrong").unwrap();
     let Menu::Directories(menu) = super::complete(&mut input, temp.path()).unwrap() else {
         panic!("ambiguous path component")
     };
-    let chosen = menu.choose();
+    let chosen = menu.choose().unwrap();
     assert_eq!(chosen.text, "/repos scan \"~/仓库 乙/保留 后缀\"");
     assert_eq!(&chosen.text[chosen.cursor..], "保留 后缀\"");
     assert!(chosen.text.is_char_boundary(chosen.cursor));

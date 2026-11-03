@@ -17,6 +17,11 @@ impl Screen {
             ),
             Menu::Options(values) => (values.selected, values.options.len()),
             Menu::Directories(values) => (values.selected(), values.names().len()),
+            Menu::Values(values) => match values.selected {
+                Some(index) => (index, values.options.len()),
+                None => return true,
+            },
+            Menu::Loading(_) | Menu::Failed(_) => return true,
         };
         if count == 0 {
             return true;
@@ -36,6 +41,12 @@ impl Screen {
             Menu::Options(values) => values.selected = next,
             Menu::Directories(values) => {
                 values.select(next);
+            }
+            Menu::Values(values) => {
+                values.select(next);
+            }
+            Menu::Loading(_) | Menu::Failed(_) => {
+                unreachable!("non-interactive candidates returned above")
             }
         }
         true

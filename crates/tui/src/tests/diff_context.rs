@@ -92,6 +92,7 @@ fn full_context_partial_staging_retains_source_and_reading_position() {
         command(&mut s, "repo diff stage");
         wait(&mut s);
         assert_eq!(support::git(&f.repo, &["diff", "--cached"]), staged);
+        key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Down);
         let Mode::Changes(session) = &s.mode else {
             unreachable!()

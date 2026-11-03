@@ -354,6 +354,7 @@ impl Screen {
         };
     }
     pub(super) fn shutdown(&mut self) {
+        self.command_reader.clear();
         self.clipboard.shutdown();
         self.link_opener.shutdown();
         self.commit_generator.shutdown();

@@ -34,6 +34,10 @@ pub(crate) enum Content {
     Text { target: Target, text: Arc<str> },
     Unavailable(Unavailable),
 }
+pub(crate) enum Amount {
+    Files(usize),
+    Commits(usize),
+}
 impl Content {
     fn text(target: Target, text: impl Into<Arc<str>>) -> Self {
         Self::Text {
@@ -111,6 +115,29 @@ pub(crate) enum Selection {
     Error(Content),
 }
 impl Selection {
+    pub fn unavailable(&self, scope: Scope, path: Option<&Path>) -> Option<&'static str> {
+        if scope == Scope::Repository {
+            return path.is_none().then(|| i18n::tr!(SelectARepositoryFirst));
+        }
+        match self.content(scope) {
+            Some(Content::Text { .. }) => None,
+            Some(Content::Unavailable(reason)) => Some(reason.message()),
+            None => Some(i18n::tr!(CopySelectionRequired)),
+        }
+    }
+    pub fn amount(&self, scope: Scope) -> Option<Amount> {
+        match self.content(scope)? {
+            Content::Text {
+                target: Target::FilePaths,
+                text,
+            } => Some(Amount::Files(text.lines().count())),
+            Content::Text {
+                target: Target::Commit,
+                text,
+            } => Some(Amount::Commits(text.lines().count())),
+            _ => None,
+        }
+    }
     fn content(&self, scope: Scope) -> Option<&Content> {
         match (self, scope) {
             (Self::Browser { content, .. }, Scope::Browser) => Some(content),

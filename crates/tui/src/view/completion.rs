@@ -8,7 +8,7 @@ pub(super) fn render(
     body: Rect,
     viewport: &mut candidates::Viewport,
 ) -> Vec<(Rect, usize)> {
-    let items = directories
+    let mut items = directories
         .names()
         .iter()
         .map(|name| {
@@ -18,6 +18,9 @@ pub(super) fn render(
             )))
         })
         .collect::<Vec<_>>();
+    if items.is_empty() {
+        items.push(ListItem::new(i18n::tr!(NoMatchingDirectories)));
+    }
     let areas = candidates::panel(frame, screen, body, directories.names().len());
     candidates::render_list(
         frame,
@@ -25,6 +28,63 @@ pub(super) fn render(
         items,
         Some(directories.selected()),
         candidates::Source::Directories(directories.names().to_vec()),
+        viewport,
+    )
+}
+
+pub(super) fn render_values(
+    frame: &mut Frame,
+    screen: &Screen,
+    values: &command::values::Candidates,
+    body: Rect,
+    viewport: &mut candidates::Viewport,
+) -> Vec<(Rect, usize)> {
+    use unicode_width::UnicodeWidthStr;
+    let entries = values.entries().collect::<Vec<_>>();
+    let areas = candidates::panel(frame, screen, body, entries.len());
+    let width = usize::from(areas.1.width);
+    let label_width = entries
+        .iter()
+        .map(|entry| entry.label.width())
+        .max()
+        .unwrap_or(0)
+        .min(width.saturating_sub(8));
+    let mut items = entries
+        .iter()
+        .map(|entry| {
+            let label = crate::horizontal::clip(&Line::from(safe(&entry.label)), 0, label_width);
+            let gap = label_width.saturating_sub(label.width()) + 2;
+            let description = crate::horizontal::clip(
+                &Line::from(safe(&entry.description)),
+                0,
+                width.saturating_sub(label_width + 2),
+            );
+            let mut spans = label
+                .spans
+                .into_iter()
+                .map(|span| span.style(Style::default().fg(ACCENT).bold()))
+                .collect::<Vec<_>>();
+            spans.push(Span::raw(
+                " ".repeat(gap.min(width.saturating_sub(label_width))),
+            ));
+            spans.extend(
+                description
+                    .spans
+                    .into_iter()
+                    .map(|span| span.style(Style::default().fg(MUTED))),
+            );
+            ListItem::new(Line::from(spans))
+        })
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        items.push(ListItem::new(i18n::tr!(NoMatchingOptions)));
+    }
+    candidates::render_list(
+        frame,
+        areas,
+        items,
+        values.selected,
+        candidates::Source::Values(entries.iter().map(|entry| entry.token.clone()).collect()),
         viewport,
     )
 }

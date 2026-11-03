@@ -230,6 +230,14 @@ impl Screen {
                     }
                 }
                 command::completion::Menu::Commands => *selected = index,
+                command::completion::Menu::Values(values) => {
+                    if !values.select(index) {
+                        return Ok(false);
+                    }
+                }
+                command::completion::Menu::Loading(_) | command::completion::Menu::Failed(_) => {
+                    return Ok(false);
+                }
             }
             if self
                 .bar

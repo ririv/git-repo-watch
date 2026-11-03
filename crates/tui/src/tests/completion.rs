@@ -9,7 +9,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "repos manage");
     s.paste(&format!("//repos add \"{}/仓\"", temp.path().display()));
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
@@ -22,9 +22,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
     assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
     assert!(matches!(s.mode, Mode::Management(_)));
     key(&mut s, KeyCode::Down);
-    key(&mut s, KeyCode::BackTab);
-    key(&mut s, KeyCode::Tab);
-    key(&mut s, KeyCode::Enter);
+    complete_path(&mut s);
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
@@ -46,7 +44,7 @@ fn directory_completion_accepts_a_candidate_before_review_and_preserves_its_orig
 }
 
 #[test]
-fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
+fn completion_menu_filters_on_edit_or_paste_and_errors_keep_the_input() {
     let temp = tempfile::tempdir().unwrap();
     for name in ["one", "other"] {
         std::fs::create_dir(temp.path().join(name)).unwrap();
@@ -54,39 +52,39 @@ fn completion_menu_closes_on_escape_edit_or_paste_and_errors_keep_the_input() {
     let (_home, mut s) = fixture(vec![]);
     for input in ["repos add", "repos scan"] {
         s.paste(&format!("/{input} {}/o", temp.path().display()));
-        key(&mut s, KeyCode::Tab);
+        complete_path(&mut s);
         let draft = s.bar.editor().text.clone();
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.bar.editor().text, draft);
         assert!(matches!(s.mode, Mode::Browsing));
-        key(&mut s, KeyCode::Tab);
+        complete_path(&mut s);
         key(&mut s, KeyCode::Char('n'));
         assert!(matches!(
             &s.bar,
             bar::InputBar::Command {
-                menu: command::completion::Menu::Commands,
+                menu: command::completion::Menu::Directories(_),
                 ..
             }
         ));
-        key(&mut s, KeyCode::Tab);
+        complete_path(&mut s);
         assert!(s.bar.text().ends_with("/one/"));
         key(&mut s, KeyCode::Esc);
     }
     s.paste(&format!("//repos add {}/o", temp.path().display()));
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     s.paste("ne");
     assert!(matches!(
         &s.bar,
         bar::InputBar::Command {
-            menu: command::completion::Menu::Commands,
+            menu: command::completion::Menu::Directories(_),
             ..
         }
     ));
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     assert!(s.bar.text().ends_with("/one/"));
     s.paste("missing/");
     let draft = s.bar.editor().text.clone();
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     assert!(!s.message.is_empty());
     assert_eq!(s.bar.editor().text, draft);
     assert!(matches!(s.mode, Mode::Browsing));
@@ -103,7 +101,7 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
         s.paste(&format!("//repos add {}/目", temp.path().display()));
-        key(&mut s, KeyCode::Tab);
+        complete_path(&mut s);
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let rendered = render(&mut s, width, height);
             assert!(
@@ -155,7 +153,7 @@ fn tilde_completed_repository_add_executes_with_the_same_home_and_saves_an_absol
     let repository = home.path().join("仓库 空格");
     support::git(home.path(), &["init", "仓库 空格"]);
     s.paste("//repos add \"~/仓\"");
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     assert_eq!(s.bar.text(), "/repos add \"~/仓库 空格/\"");
     assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Enter);

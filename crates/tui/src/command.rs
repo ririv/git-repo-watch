@@ -1,8 +1,10 @@
 //! Explicit command catalog independent of terminal rendering.
 mod argument;
+pub(crate) mod availability;
 pub(crate) mod completion;
 pub(crate) mod context;
 mod input;
+pub(crate) mod loader;
 pub(crate) mod options;
 pub(crate) mod path;
 mod prefix;
@@ -10,6 +12,7 @@ pub(crate) mod scan;
 mod summary;
 #[cfg(test)]
 mod tests;
+pub(crate) mod values;
 pub(crate) use argument::ArgumentSyntax;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
@@ -630,7 +633,17 @@ pub fn matches(input: &str) -> Vec<&'static Command> {
         })
         .filter_map(|command| command.match_kind(&query).map(|kind| (kind, command)))
         .collect::<Vec<_>>();
-    matches.sort_by_key(|(kind, _)| *kind);
+    let grouped = exact || parent.is_some();
+    matches.sort_by_key(|(kind, command)| {
+        (
+            *kind,
+            if grouped {
+                command.name.split_whitespace().count()
+            } else {
+                0
+            },
+        )
+    });
     matches.into_iter().map(|(_, command)| command).collect()
 }
 

@@ -12,7 +12,7 @@ struct Active<K, T> {
     handle: thread::JoinHandle<()>,
     rx: mpsc::Receiver<Result<T, String>>,
 }
-pub(super) struct Worker<K, T> {
+pub(crate) struct Worker<K, T> {
     active: Option<Active<K, T>>,
     queued: Option<Job<K, T>>,
 }

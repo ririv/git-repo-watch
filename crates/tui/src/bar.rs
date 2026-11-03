@@ -1,4 +1,5 @@
 //! Persistent input: plain text filters the current list; slash-prefixed text selects commands.
+mod complete;
 mod navigation;
 mod options;
 use crate::{Action, Editor, Mode, Page, Screen, command};
@@ -202,8 +203,29 @@ impl Screen {
             editor.insert(text);
         }
         self.normalize_bar();
-        if let InputBar::Command { selected, menu, .. } = &mut self.bar {
-            *menu = Default::default();
+        if let InputBar::Command {
+            selected,
+            menu,
+            input,
+            ..
+        } = &mut self.bar
+        {
+            if let command::completion::Menu::Directories(values) = menu {
+                match values.refine(
+                    &input.canonical_editor(),
+                    self.service.scheduler.user_home(),
+                ) {
+                    Ok(true) => {}
+                    Ok(false) => *menu = Default::default(),
+                    Err(error) => *menu = command::completion::Menu::Failed(format!("{error:#}")),
+                }
+            } else if !matches!(
+                menu,
+                command::completion::Menu::Values(_)
+                    | command::completion::Menu::Loading(command::loader::Request::Values { .. })
+            ) {
+                *menu = Default::default();
+            }
             *selected = 0
         }
         self.refresh_option_candidates();
@@ -244,8 +266,42 @@ impl Screen {
         if self.layout_picker_key(key) {
             return Ok(BarEvent::Handled);
         }
+        if self.empty_layout_picker_key(key) {
+            return Ok(BarEvent::Handled);
+        }
         if self.command_page_key(key) {
             return Ok(BarEvent::Handled);
+        }
+        if key.code == KeyCode::Enter
+            && matches!(&self.bar, InputBar::Command { input, menu: command::completion::Menu::Loading(command::loader::Request::Values { .. }), .. }
+                if command::argument_input(&input.query()).is_some_and(|(argument, value)| !value.trim().is_empty() && argument.parse(value, self.service.scheduler.user_home()).is_ok()))
+        {
+            if let InputBar::Command { menu, .. } = &mut self.bar {
+                *menu = Default::default();
+            }
+            self.command_reader.clear();
+        }
+        if matches!(
+            self.bar,
+            InputBar::Command {
+                menu: command::completion::Menu::Loading(_),
+                ..
+            }
+        ) {
+            match key.code {
+                KeyCode::Enter | KeyCode::Tab | KeyCode::Up | KeyCode::Down | KeyCode::BackTab => {
+                    return Ok(BarEvent::Handled);
+                }
+                KeyCode::Esc => {
+                    if let InputBar::Command { menu, .. } = &mut self.bar {
+                        *menu = Default::default();
+                    }
+                    self.command_reader.clear();
+                    self.message.clear();
+                    return Ok(BarEvent::Handled);
+                }
+                _ => {}
+            }
         }
         let search_support = self.search_support();
         let replay_state = match &self.bar {
@@ -256,6 +312,31 @@ impl Screen {
         };
         if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
+        }
+        if key.code == KeyCode::Enter
+            && let InputBar::Command {
+                input,
+                path,
+                selection,
+                selected,
+                ..
+            } = &self.bar
+            && !input.prefix_selected()
+        {
+            let action = command::argument_input(&input.query())
+                .map(|(argument, _)| argument.action())
+                .or_else(|| {
+                    self.search_commands()
+                        .and_then(|commands| commands.get(*selected).map(|command| command.action))
+                });
+            if let Some(action) = action
+                && let Some(reason) = self
+                    .command_availability(action, path.as_deref(), selection)
+                    .reason()
+            {
+                self.message = reason.to_owned();
+                return Ok(BarEvent::Handled);
+            }
         }
         if let InputBar::Command {
             input,
@@ -278,6 +359,7 @@ impl Screen {
                 }
                 command::NamespaceEvent::Pass => {}
             }
+            let values_menu = matches!(menu, command::completion::Menu::Values(_));
             if let Some(candidates) = menu.selection() {
                 match key.code {
                     KeyCode::Esc => {
@@ -285,16 +367,36 @@ impl Screen {
                         self.message.clear();
                     }
                     KeyCode::Up | KeyCode::BackTab => candidates.advance(true),
-                    KeyCode::Down | KeyCode::Tab => candidates.advance(false),
-                    KeyCode::Enter => {
-                        input.replace_canonical(candidates.choose());
-                        *menu = Default::default();
-                        self.message.clear();
+                    KeyCode::Down => candidates.advance(false),
+                    KeyCode::Enter | KeyCode::Tab => {
+                        let execute = key.code == KeyCode::Enter && values_menu;
+                        if let Some(editor) = candidates.choose() {
+                            input.replace_canonical(editor);
+                            *menu = Default::default();
+                            self.message.clear();
+                            if execute {
+                                return self.bar_key(key, root);
+                            }
+                        } else {
+                            self.message = i18n::tr!(NoMatchingOptions).into();
+                        }
                     }
                     _ => {
-                        *menu = Default::default();
                         input.editor_mut().key(key);
+                        if let command::completion::Menu::Directories(values) = menu {
+                            match values.refine(
+                                &input.canonical_editor(),
+                                self.service.scheduler.user_home(),
+                            ) {
+                                Ok(true) => {}
+                                Ok(false) => *menu = Default::default(),
+                                Err(error) => {
+                                    *menu = command::completion::Menu::Failed(format!("{error:#}"))
+                                }
+                            }
+                        }
                         self.normalize_bar();
+                        self.refresh_option_candidates();
                         self.message.clear();
                     }
                 }
@@ -322,17 +424,11 @@ impl Screen {
                         {
                             self.message.clear();
                         } else if command::argument_input(&query).is_some() {
-                            let mut canonical = input.canonical_editor();
-                            match command::completion::complete(
-                                &mut canonical,
-                                self.service.scheduler.user_home(),
-                            ) {
-                                Ok(completion) => {
-                                    input.replace_canonical(canonical);
-                                    *menu = completion;
-                                    self.message.clear();
-                                }
-                                Err(error) => self.message = format!("{error:#}"),
+                            if command::argument_input(&query)
+                                .is_some_and(|(argument, _)| argument.is_path())
+                            {
+                                self.start_path_completion();
+                                return Ok(BarEvent::Handled);
                             }
                         } else {
                             selection.complete(input, c);
@@ -430,6 +526,14 @@ impl Screen {
                     }
                 }
                 _ => {
+                    if matches!(
+                        menu,
+                        command::completion::Menu::Loading(
+                            command::loader::Request::Directory { .. }
+                        ) | command::completion::Menu::Failed(_)
+                    ) {
+                        *menu = Default::default();
+                    }
                     input.editor_mut().key(key);
                     *selected = 0;
                     self.normalize_bar();

@@ -38,6 +38,7 @@ mod pointer;
 mod preview;
 mod prompt_editor;
 mod push;
+mod reader;
 mod replay;
 mod repository_list;
 mod repository_tasks;
@@ -267,6 +268,7 @@ struct Screen {
     drag: Option<pointer::drag::Grab>,
     command_items: Vec<(ratatui::layout::Rect, usize)>,
     command_viewport: view::CandidateViewport,
+    command_reader: command::loader::Loader,
     breadcrumb_items: Vec<(ratatui::layout::Rect, navigation::breadcrumbs::Destination)>,
     filter: Filter,
     query: String,
@@ -333,6 +335,7 @@ impl Screen {
             drag: None,
             command_items: Vec::new(),
             command_viewport: Default::default(),
+            command_reader: Default::default(),
             breadcrumb_items: Vec::new(),
             filter: Filter::All,
             query: String::new(),
@@ -536,6 +539,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.poll_workspace()
                 | screen.poll_changes()
                 | screen.poll_clipboard()
+                | screen.poll_command_completion()
                 | screen.poll_links()
                 | screen.poll_interaction()
                 | screen.poll_view_preferences()

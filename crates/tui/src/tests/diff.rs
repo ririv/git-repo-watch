@@ -142,12 +142,11 @@ fn layout_commands_complete_without_confirmation_and_reuse_the_open_diff_snapsho
             i18n::tr!(DiffAuto),
             i18n::tr!(DiffSplit)
         )));
-        s.paste("//repo diff layout ");
+        s.paste("//repo diff layout s");
         let menu = render(&mut s, 160, 32);
         for name in ["auto", "split", "unified"] {
             assert!(menu.contains(name));
         }
-        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff layout split");
         support::write(f.repo.join("one.rs"), "fn changed_after_snapshot() {}\n");

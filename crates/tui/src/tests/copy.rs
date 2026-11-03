@@ -24,6 +24,12 @@ fn copied(s: &mut Screen, rx: &mpsc::Receiver<String>) -> String {
     text
 }
 fn local_copy(s: &mut Screen) {
+    while matches!(
+        s.bar,
+        bar::InputBar::Command { .. } | bar::InputBar::Layout { .. }
+    ) {
+        key(s, KeyCode::Esc);
+    }
     key(s, KeyCode::Char('/'));
     s.paste("copy");
     key(s, KeyCode::Enter);
@@ -379,6 +385,7 @@ fn image_file_paths_are_copyable_while_the_image_preview_reports_no_text_patch()
     local_copy(&mut s);
     assert!(s.message.contains(i18n::tr!(CopyDiffImage)));
     assert!(rx.try_recv().is_err());
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     local_copy(&mut s);
     assert_eq!(copied(&mut s, &rx), "中文 image.png");

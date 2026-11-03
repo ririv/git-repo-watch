@@ -383,6 +383,23 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 let hint = if matches!(
                     bar,
                     crate::bar::InputBar::Command {
+                        menu: command::completion::Menu::Loading(_),
+                        ..
+                    }
+                ) && screen.command_reader.visible()
+                {
+                    i18n::tr!(ReadingCommandCandidates)
+                } else if matches!(
+                    bar,
+                    crate::bar::InputBar::Command {
+                        menu: command::completion::Menu::Values(_),
+                        ..
+                    }
+                ) {
+                    i18n::tr!(ValueCompletionHint)
+                } else if matches!(
+                    bar,
+                    crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Options(_),
                         ..
                     }
@@ -400,6 +417,12 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     match command::argument_input(
                         bar.text().strip_prefix('/').expect("command prefix"),
                     ) {
+                        Some((argument, value))
+                            if argument.options() == Some(command::options::Kind::DiffLayout)
+                                && value.trim().is_empty() =>
+                        {
+                            i18n::tr!(DiffLayoutEntryHint)
+                        }
                         Some((argument, _))
                             if argument.action().available(screen.config.ai.enabled) =>
                         {

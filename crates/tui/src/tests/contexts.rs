@@ -213,7 +213,7 @@ fn configuration_scope_preserves_tilde_completion_unicode_and_confirmation_curso
     assert_eq!(context(&s), Some(Context::Repositories));
     s.paste("add \"~/中文\"");
     key(&mut s, KeyCode::Left);
-    key(&mut s, KeyCode::Tab);
+    complete_path(&mut s);
     assert_eq!(s.bar.editor().text, "add \"~/中文 目录/\"");
     let cursor = s.bar.editor().cursor;
     key(&mut s, KeyCode::Enter);

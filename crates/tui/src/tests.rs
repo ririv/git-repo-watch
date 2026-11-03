@@ -6,6 +6,7 @@ mod browser_horizontal;
 mod changes;
 mod command_navigation;
 mod command_trigger;
+mod command_values;
 mod commands;
 mod commit_message;
 mod completion;
@@ -127,6 +128,7 @@ fn screen(service: Service) -> Screen {
         drag: None,
         command_items: Vec::new(),
         command_viewport: Default::default(),
+        command_reader: Default::default(),
         breadcrumb_items: Vec::new(),
         filter: Filter::All,
         query: String::new(),
@@ -222,8 +224,10 @@ fn maximize_preview(s: &mut Screen) {
 }
 fn wait(s: &mut Screen) {
     s.poll_changes();
+    s.poll_command_completion();
     let started = Instant::now();
     while s.interaction_save.pending()
+        || s.command_reader.pending()
         || s.view_save.pending()
         || matches!(s.mode, Mode::Busy(_))
         || matches!(s.mode, Mode::Panel(section) if section != crate::workspace::Section::Overview)
@@ -239,8 +243,13 @@ fn wait(s: &mut Screen) {
         s.poll_view_preferences();
         s.poll_workspace();
         s.poll_changes();
+        s.poll_command_completion();
         thread::sleep(Duration::from_millis(5));
     }
+}
+fn complete_path(s: &mut Screen) {
+    key(s, KeyCode::Tab);
+    wait(s);
 }
 fn wait_workspace(s: &mut Screen) {
     let started = Instant::now();
@@ -806,7 +815,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             }
             let last = render(&mut s, width, height);
             assert_eq!(s.command_items.len(), 8);
-            assert!(last.contains("/repo copy"));
+            assert!(last.contains(s.search_commands().unwrap().last().unwrap().name));
             key(&mut s, KeyCode::Esc);
         }
     }
@@ -829,7 +838,7 @@ fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
         let (_, index) = s.command_items.last().unwrap();
         let commands = s.search_commands().unwrap();
         assert_eq!(*index, commands.len() - 1, "{text}");
-        assert!(text.contains("/repo copy"), "{text}");
+        assert!(text.contains(commands.last().unwrap().name), "{text}");
         key(&mut s, KeyCode::Esc);
     }
 }
@@ -1428,10 +1437,10 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
         [
             "settings concurrency",
             "settings startup",
-            "settings startup enabled",
             "settings wrap",
             "settings interaction",
             "settings ai",
+            "settings startup enabled",
             "settings ai agent",
             "settings ai model",
             "settings ai prompt",

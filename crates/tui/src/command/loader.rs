@@ -1,0 +1,106 @@
+//! Parameter reads run outside input handling and publish only the active request.
+use super::{
+    completion::Menu,
+    values::{Choice, Kind},
+};
+use crate::{Editor, Service};
+use engine::cancel::Cancel;
+use std::{path::PathBuf, sync::Arc};
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum Request {
+    Directory { editor: Editor, home: PathBuf },
+    Values { kind: Kind, path: PathBuf },
+}
+#[derive(Debug)]
+pub(crate) enum Output {
+    Directory { editor: Editor, menu: Menu },
+    Values { kind: Kind, entries: Vec<Choice> },
+}
+#[derive(Debug, Default)]
+pub(crate) struct Loader {
+    worker: crate::reader::Worker<Request, Output>,
+    feedback: crate::loading::Feedback<()>,
+}
+impl Loader {
+    pub fn request(&mut self, request: Request, service: &Arc<Service>) {
+        self.feedback.begin(None, std::time::Instant::now());
+        let source = request.clone();
+        let service = Arc::clone(service);
+        self.worker
+            .request(request, move |cancel| read(source, &service, &cancel));
+    }
+    pub fn poll(&mut self) -> Option<(Request, Result<Output, String>)> {
+        let result = self.worker.poll()?;
+        self.feedback.finish();
+        Some(result)
+    }
+    pub fn tick(&mut self) -> bool {
+        self.feedback.tick(std::time::Instant::now())
+    }
+    pub fn visible(&self) -> bool {
+        self.feedback.visible()
+    }
+    pub fn clear(&mut self) {
+        self.worker.clear();
+        self.feedback.finish();
+    }
+    #[cfg(test)]
+    pub fn pending(&self) -> bool {
+        self.worker.pending()
+    }
+    #[cfg(test)]
+    pub fn request_with(
+        &mut self,
+        request: Request,
+        work: impl FnOnce(Cancel) -> anyhow::Result<Output> + Send + 'static,
+    ) {
+        self.feedback.begin(None, std::time::Instant::now());
+        self.worker.request(request, work);
+    }
+}
+fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<Output> {
+    match request {
+        Request::Directory { mut editor, home } => {
+            let menu = super::path::complete_cancellable(&mut editor, &home, cancel)?;
+            Ok(Output::Directory { editor, menu })
+        }
+        Request::Values {
+            kind: Kind::Branch,
+            path,
+        } => {
+            let entries = service
+                .branch_names(&path, cancel)?
+                .into_iter()
+                .map(|entry| Choice {
+                    token: entry.name.clone(),
+                    label: entry.name,
+                    description: entry.subject,
+                })
+                .collect();
+            Ok(Output::Values {
+                kind: Kind::Branch,
+                entries,
+            })
+        }
+        Request::Values {
+            kind: Kind::Stash,
+            path,
+        } => {
+            let snapshot = service.stashes(&path, cancel)?;
+            let entries = snapshot
+                .entries
+                .into_iter()
+                .map(|entry| Choice {
+                    token: entry.oid.to_string(),
+                    label: format!("stash@{{{}}} {}", entry.index, &entry.oid.to_string()[..8]),
+                    description: entry.message,
+                })
+                .collect();
+            Ok(Output::Values {
+                kind: Kind::Stash,
+                entries,
+            })
+        }
+    }
+}

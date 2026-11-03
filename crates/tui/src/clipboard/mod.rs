@@ -2,7 +2,7 @@
 mod selection;
 mod worker;
 use crate::Screen;
-pub(crate) use selection::Selection;
+pub(crate) use selection::{Amount, Selection};
 pub(crate) use worker::Writer;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

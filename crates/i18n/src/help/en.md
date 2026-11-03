@@ -34,6 +34,7 @@
 - Recovery commands appear only while cherry-pick or revert is in progress, including after restart. Completing or aborting the sequence marks its matching pending tasks handled while retaining their history.
 
 ## Search and commands
+- When opening a command group, direct entries precede deeper actions; typing still searches all descendants. Unavailable actions show a muted reason and keep the draft on Enter. Selection actions show their file, line or commit count.
 - `/` at the start of the input opens commands; `/` and `、` inside a search remain literal path characters. Pasting a complete `//command` opens global commands from an existing search; closing the menu restores that search.
 - Command, option and directory candidates support `PgUp` / `PgDn` using the visible row count, stopping at either end. After closing options, `Enter` with an empty parameter reopens them without applying a default.
 - Use commands for pane focus, zoom, staging and graph panning. Typing searches immediately; basic navigation and editing keys remain. No terminal configuration changes are needed. Alt+B/F moves by words, Alt+D deletes the next word, and Alt+Left/Right also moves by words in command and commit editors.
@@ -83,7 +84,8 @@
 
 ## Paths and completion
 - `Tab` completes the directory component at the cursor. One match adds `/`; multiple matches show directory candidates.
-- In candidates, `↑↓` / `Tab` / `Shift+Tab` selects; `Enter` fills the directory and keeps editing; `Esc` closes the menu.
+- In candidates, `↑↓` / `Shift+Tab` selects; `Tab` / `Enter` fills the selected directory and keeps editing; `Esc` closes the menu. Typing filters the current directory candidates.
+- Directory, branch and stash candidates load in the background. Editing paths or switching commands cancels obsolete requests; late results cannot overwrite a newer draft. Loading feedback appears only after a brief delay.
 - With precise clicks enabled, clicking a directory candidate fills its path. Continue editing, then press `Enter` to review the operation.
 - `~` and `~/…` use your user home, independent of the application's data directory. Review and execution use absolute paths.
 - Spaces and Chinese text are literal. Matching single or double quotes may enclose the entire path, including `~/…`.
@@ -91,6 +93,8 @@
 > A path is the entire remaining argument. No variable, wildcard or shell escape expansion occurs. Named-user paths such as ~user are unsupported.
 
 ## Branches, fetching and stashes
+- After `branch switch `, local names and tip subjects appear as parameter candidates. Type to filter, use arrows to choose, Tab to fill, and Enter to review. Completion does not inspect remote tracking or ahead/behind counts.
+- Stash parameters show indices, short IDs and messages. Filter by ID or message, use Tab to fill the complete object ID, or Enter/click to review. Repository changes still require confirmation.
 - `/repo branch create <name>` creates a local branch at the current commit without switching. `/repo branch switch <name>` switches to an existing local branch. Tracked files must be clean; untracked files are protected, and branches checked out in another worktree are refused.
 - `/repo fetch` fetches configured remote-tracking branches immediately in the background, honoring refspecs, exclusions and skipFetchAll. It does not change the worktree or push.
 - `/repo pull` fetches once and reviews a pinned upstream commit. Confirmation allows fast-forward only; divergence and dirty worktrees are explicit errors. No automatic merge, rebase or stash.
@@ -133,7 +137,7 @@
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
 - `/repo diff context [full|changes]` chooses full source or changes only. Full source is the default; the preference survives restart independently of split/unified layout. Staging retains source and the reading position. A disappearing selection is cleared; use arrows or click another change to continue. Copying still uses the original patch.
 - `/repo diff header` expands or collapses the original Git file header. It starts collapsed; the choice applies across files and views and survives restart. Collapsing restores the previous reading position. Paths and object IDs are hidden from the patch body; file-mode changes and similarity appear in the information area. Hunk headings and binary notices remain; a missing final newline has a separate red `⊖` marker below the affected last line, without a line number or line selection. Split view marks each affected side independently. Copying preserves the full original patch.
-- `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
+- With no argument, Enter on `/repo diff layout` opens the horizontal selector, including with trailing spaces. Typing a value shows completion candidates. In the selector, `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.
 - `/repo diff layout auto`, `/repo diff layout split`, `/repo diff layout unified` change layout immediately and save the preference for future launches. These are parameter values; a space opens choices and Tab completes the value.
 - Click a directory or press Enter to fold/unfold it. Click a checkbox to toggle selection; click a file name to focus it, or double-click to enter. This follows the precise-click preference. `Space` marks with empty input; `Insert` always marks; `Ctrl+A` marks all visible files. Filtering retains hidden selections. A directory checkbox applies to all matching descendants in the same staged or unstaged group, including folded files; `✓` means all checked and `−` means partially checked.

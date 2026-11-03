@@ -13,9 +13,11 @@ impl Screen {
                 path,
                 selection,
                 ..
-            } => match command::argument_input(&input.query())
-                .and_then(|(argument, _)| argument.options())
-            {
+            } => match command::argument_input(&input.query()).and_then(|(argument, value)| {
+                argument
+                    .options()
+                    .filter(|kind| *kind != Kind::DiffLayout || !value.trim().is_empty())
+            }) {
                 Some(kind)
                     if kind.action().available(self.config.ai.enabled)
                         && selection.admits(kind.action(), path.as_deref())
@@ -34,6 +36,7 @@ impl Screen {
                 *menu = Menu::Commands;
             }
         }
+        self.refresh_value_candidates();
     }
     pub(crate) fn open_option_menu(
         &mut self,

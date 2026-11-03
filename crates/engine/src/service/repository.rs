@@ -5,6 +5,14 @@ pub(super) struct RepositoryLock {
     _slot: Lock,
 }
 impl Service {
+    pub fn branch_names(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<Vec<local::branches::names::Entry>> {
+        self.validate_repository(path, cancel)?;
+        local::branches::names::read(path, cancel)
+    }
     pub fn find_files(
         &self,
         root: &Path,

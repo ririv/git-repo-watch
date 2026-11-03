@@ -7,7 +7,7 @@ pub(super) mod panes;
 pub(super) mod preview;
 mod search;
 mod tree;
-mod worker;
+use crate::reader::Worker;
 use crate::{Service, horizontal, spinner, workspace::Arrangement};
 use engine::local::browser::{Directory, Entry, SearchExtent};
 use opening::{LayoutKey, Memory, Opening, Renderer, TextMode};
@@ -18,7 +18,6 @@ use std::{
     sync::Arc,
     time::Instant,
 };
-use worker::Worker;
 
 impl crate::Screen {
     pub(super) fn poll_browser(&mut self) -> bool {

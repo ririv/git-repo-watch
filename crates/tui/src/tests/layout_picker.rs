@@ -182,18 +182,14 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Split);
         s.paste("//repo diff layout ");
+        key(&mut s, KeyCode::Enter);
         let text = render(&mut s, 100, 28);
         let current = "✓";
         assert!(
-            text.lines()
-                .any(|line| line.contains("split") && line.contains(current)),
+            text.contains(&format!("{current} {}", Preference::Split.label())),
             "{text}"
         );
-        assert!(
-            !text
-                .lines()
-                .any(|line| line.contains("unified") && line.contains(current))
-        );
+        assert!(!text.contains(&format!("{current} {}", Preference::Unified.label())));
         assert!(s.repository_tasks.is_empty());
     }
 }

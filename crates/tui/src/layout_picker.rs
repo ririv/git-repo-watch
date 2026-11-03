@@ -6,6 +6,35 @@ use crate::{
 use crossterm::event::{KeyCode, KeyEvent};
 
 impl Screen {
+    pub(crate) fn empty_layout_picker_key(&mut self, key: KeyEvent) -> bool {
+        if !matches!(key.code, KeyCode::Enter | KeyCode::Tab) {
+            return false;
+        }
+        let InputBar::Command {
+            input,
+            path,
+            selection,
+            selected,
+            ..
+        } = &self.bar
+        else {
+            return false;
+        };
+        if !crate::command::argument_input(&input.query()).is_some_and(|(argument, value)| {
+            argument.options() == Some(crate::command::options::Kind::DiffLayout)
+                && value.trim().is_empty()
+        }) {
+            return false;
+        }
+        let draft = CommandDraft {
+            input: input.clone(),
+            path: path.clone(),
+            selection: selection.clone(),
+            return_to: crate::bar::ReturnTo::Command,
+        };
+        self.open_layout_picker(draft, *selected);
+        true
+    }
     pub(super) fn open_layout_picker(&mut self, draft: CommandDraft, command_cursor: usize) {
         self.bar = InputBar::Layout {
             selected: self.diff_preference,

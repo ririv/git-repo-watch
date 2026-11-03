@@ -225,6 +225,7 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     assert_eq!(s.message, i18n::tr!(ChangesWrongArea));
     assert!(s.repository_tasks.is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    key(&mut s, KeyCode::Esc);
     ctrl(&mut s, 'a');
     command(&mut s, "repo diff unstage");
     wait(&mut s);

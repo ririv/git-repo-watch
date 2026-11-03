@@ -13,6 +13,13 @@ impl Screen {
             self.message = i18n::tr!(NoMatchingCommands).into();
             return Ok(false);
         }
+        if let Some(reason) = self
+            .command_availability(action, path.as_deref(), &selection)
+            .reason()
+        {
+            self.message = reason.to_owned();
+            return Ok(false);
+        }
         if !matches!(
             action,
             Action::Commit | Action::CommitGenerate | Action::Tasks

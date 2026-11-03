@@ -10,6 +10,7 @@ struct Entry {
     argument: Option<command::ArgumentSyntax>,
     description: String,
     value: String,
+    availability: command::availability::Availability,
 }
 struct Columns {
     name: usize,
@@ -66,7 +67,18 @@ impl Entry {
     fn item(&self, columns: &Columns) -> ListItem<'static> {
         let name = clipped(&self.name, columns.name);
         let mut used = name.width();
-        let mut spans = vec![Span::styled(name, Style::default().fg(ACCENT).bold())];
+        let enabled = matches!(
+            self.availability,
+            command::availability::Availability::Ready
+        );
+        let mut spans = vec![Span::styled(
+            name,
+            if enabled {
+                Style::default().fg(ACCENT).bold()
+            } else {
+                Style::default().fg(MUTED)
+            },
+        )];
         if let Some(argument) = &self.argument
             && used < columns.name
         {
@@ -74,7 +86,9 @@ impl Entry {
             used += argument.width() + 1;
             spans.push(Span::styled(
                 format!(" {argument}"),
-                Style::default().fg(Color::LightCyan).italic(),
+                Style::default()
+                    .fg(if enabled { Color::LightCyan } else { MUTED })
+                    .italic(),
             ));
         }
         spans.push(Span::raw(" ".repeat(columns.name.saturating_sub(used))));
@@ -82,7 +96,11 @@ impl Entry {
             &mut spans,
             &self.description,
             columns.description,
-            Style::default(),
+            if enabled {
+                Style::default()
+            } else {
+                Style::default().fg(MUTED)
+            },
             Alignment::Left,
         );
         field(
@@ -141,6 +159,7 @@ fn render_menu(
         input,
         selected,
         menu,
+        path,
         ..
     } = &screen.bar
     else {
@@ -174,6 +193,23 @@ fn render_menu(
             return;
         }
         command::completion::Menu::Commands => {}
+        command::completion::Menu::Values(values) => {
+            screen.command_items = completion::render_values(frame, screen, values, body, viewport);
+            return;
+        }
+        command::completion::Menu::Loading(_) => {}
+        command::completion::Menu::Failed(error) => {
+            let areas = candidates::panel(frame, screen, body, 1);
+            candidates::render_list(
+                frame,
+                areas,
+                vec![ListItem::new(safe(error))],
+                None,
+                candidates::Source::Commands(Vec::new()),
+                viewport,
+            );
+            return;
+        }
     }
     let commands = screen.search_commands().expect("command candidates");
     let source =
@@ -182,6 +218,7 @@ fn render_menu(
         .into_iter()
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
+            let availability = screen.command_availability(command.action, path.as_deref(), selection);
             let description = match command.action {
                 Action::Stage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialStage),
                 Action::Unstage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialUnstage),
@@ -190,7 +227,8 @@ fn render_menu(
                     .expect("copy target label"),
                 _ => command.summary().text(),
             };
-            let value = repository_list::annotation(command.action, screen)
+            let value = screen.command_target(command.action, selection)
+                .or_else(|| repository_list::annotation(command.action, screen))
                 .or_else(|| layout_picker::annotation(command.action, screen, body))
                 .or_else(|| settings::annotation(command.action, screen))
                 .or_else(|| match command.action {
@@ -209,8 +247,9 @@ fn render_menu(
                 name: format!("{prefix}{}", input.name(command)),
                 usage_width: prefix.width() + input.usage(command).width(),
                 argument: command.action.argument().map(|argument| argument.syntax()),
-                description: safe(description),
-                value: value.unwrap_or_default(),
+                description: safe(match availability.label() { None => description, Some(reason) => reason }),
+                value: if matches!(availability, command::availability::Availability::Ready) { value.unwrap_or_default() } else { String::new() },
+                availability,
             }
         })
         .collect::<Vec<_>>();

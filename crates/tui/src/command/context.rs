@@ -121,7 +121,26 @@ impl Context {
                 c.match_name(relative, &query).map(|rank| (rank, c))
             })
             .collect::<Vec<_>>();
-        candidates.sort_by_key(|(rank, _)| *rank);
+        let grouped = query.is_empty()
+            || super::COMMANDS.iter().any(|command| {
+                self.admits(command)
+                    && self
+                        .relative(command)
+                        .is_some_and(|name| name.eq_ignore_ascii_case(&query))
+            });
+        candidates.sort_by_key(|(rank, command)| {
+            (
+                *rank,
+                if grouped {
+                    self.relative(command)
+                        .expect("admitted command")
+                        .split_whitespace()
+                        .count()
+                } else {
+                    0
+                },
+            )
+        });
         candidates.into_iter().map(|(_, command)| command).collect()
     }
 }

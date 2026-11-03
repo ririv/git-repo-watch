@@ -136,10 +136,10 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             [
                 "settings concurrency",
                 "settings startup",
-                "settings startup enabled",
                 "settings wrap",
                 "settings interaction",
                 "settings ai",
+                "settings startup enabled",
                 "settings ai agent",
                 "settings ai model",
                 "settings ai prompt",

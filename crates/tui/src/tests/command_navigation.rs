@@ -8,6 +8,8 @@ fn candidate(s: &Screen) -> usize {
             Menu::Commands => *selected,
             Menu::Options(values) => values.selected,
             Menu::Directories(values) => values.selected(),
+            Menu::Values(values) => values.selected.expect("selected repository value"),
+            Menu::Loading(_) | Menu::Failed(_) => panic!("interactive candidates expected"),
         },
         _ => panic!("candidate menu expected"),
     }
@@ -25,7 +27,7 @@ fn candidate_menus_page_by_visible_rows_and_stop_at_both_ends() {
                 }
                 s.paste(&format!("//{entry}"));
                 if entry.starts_with("repos add") {
-                    key(&mut s, KeyCode::Tab);
+                    complete_path(&mut s);
                 }
                 render(&mut s, 100, height);
                 let count = match &s.bar {
@@ -116,7 +118,6 @@ fn empty_option_values_reopen_after_escape_without_applying_a_choice() {
         for name in [
             "repos sort",
             "repos filter",
-            "repo diff layout",
             "settings startup enabled",
             "schedule autopush",
             "settings ai agent",
@@ -178,7 +179,7 @@ fn directory_click_fills_the_visible_candidate_without_running_the_command() {
             }
             let before = std::fs::read(s.service.store.config_path()).unwrap();
             s.paste(&format!("//repos add {quote}~/目{quote}"));
-            key(&mut s, KeyCode::Tab);
+            complete_path(&mut s);
             render(&mut s, 100, 28);
             key(&mut s, KeyCode::PageDown);
             key(&mut s, KeyCode::PageDown);
