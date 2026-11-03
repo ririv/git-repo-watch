@@ -27,6 +27,9 @@ impl Screen {
                 ..
             } => {
                 editing.set_mode(mode);
+                if editing.selected().is_empty() {
+                    editing.advance(0, false);
+                }
                 session.focus = Focus::Preview;
             }
             Preview::Ready {

@@ -280,6 +280,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         "file_layout",
         "diff_layout",
         "diff_header",
+        "diff_context",
         "repository_order",
     ] {
         if before

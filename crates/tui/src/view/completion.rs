@@ -7,7 +7,7 @@ pub(super) fn render(
     directories: &command::path::Directories,
     body: Rect,
     viewport: &mut candidates::Viewport,
-) {
+) -> Vec<(Rect, usize)> {
     let items = directories
         .names()
         .iter()
@@ -26,7 +26,7 @@ pub(super) fn render(
         Some(directories.selected()),
         candidates::Source::Directories(directories.names().to_vec()),
         viewport,
-    );
+    )
 }
 
 pub(super) fn render_options(

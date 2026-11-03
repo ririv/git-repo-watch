@@ -1,4 +1,5 @@
 //! Persistent input: plain text filters the current list; slash-prefixed text selects commands.
+mod navigation;
 mod options;
 use crate::{Action, Editor, Mode, Page, Screen, command};
 use anyhow::Result;
@@ -187,6 +188,7 @@ impl Screen {
             return;
         }
         if self.bar.is_plain()
+            && (self.at_command_entry() || text.starts_with("//"))
             && let Some(body) = text.strip_prefix('/')
         {
             self.open_command_bar();
@@ -240,6 +242,9 @@ impl Screen {
             return Ok(BarEvent::Pass);
         }
         if self.layout_picker_key(key) {
+            return Ok(BarEvent::Handled);
+        }
+        if self.command_page_key(key) {
             return Ok(BarEvent::Handled);
         }
         let search_support = self.search_support();
@@ -514,12 +519,7 @@ impl Screen {
             return Ok(BarEvent::Pass);
         }
         // 按 / 捕获当前视图和仓库，独立保存命令草稿，保留已有搜索。
-        if key.code == KeyCode::Char('/')
-            && key.modifiers.is_empty()
-            && (self.repository_list_active()
-                || search_support == crate::search::Support::Unavailable
-                || self.bar.editor().cursor == 0)
-        {
+        if key.code == KeyCode::Char('/') && key.modifiers.is_empty() && self.at_command_entry() {
             self.open_command_bar();
             self.message.clear();
             return Ok(BarEvent::Handled);

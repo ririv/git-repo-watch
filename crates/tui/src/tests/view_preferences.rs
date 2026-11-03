@@ -86,6 +86,7 @@ fn rapid_choices_stay_responsive_and_flush_the_latest_value_for_each_field_on_ex
             file_layout: FileLayout::Flat,
             diff_layout: DiffLayout::Split,
             diff_header: HeaderVisibility::Expanded,
+            diff_context: Default::default(),
             repository_order: RepositoryOrder::Name,
         }
     );

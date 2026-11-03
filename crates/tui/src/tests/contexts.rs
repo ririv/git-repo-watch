@@ -186,6 +186,8 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
         c.action,
         Action::DiffLayoutMenu
             | Action::DiffHeader
+            | Action::DiffContextMenu
+            | Action::DiffContext(_)
             | Action::DiffLayout(_)
             | Action::Copy(crate::clipboard::Scope::Diff)
     )));

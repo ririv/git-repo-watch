@@ -21,6 +21,13 @@ impl Directories {
     pub fn selected(&self) -> usize {
         self.selected
     }
+    pub fn select(&mut self, index: usize) -> bool {
+        if index >= self.names.len() {
+            return false;
+        }
+        self.selected = index;
+        true
+    }
     pub fn choose(&self) -> Editor {
         self.input.replace(&self.names[self.selected], true)
     }

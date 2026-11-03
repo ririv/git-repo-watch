@@ -124,8 +124,21 @@ impl Layout {
                         header_changed
                             || cache.layout.width != area.width
                             || cache.layout.wrap != wrap
+                            || cache.layout.context != options.context
                             || !cache.layout.matches_paths(paths)
                     }) {
+                        let source_position = cache
+                            .as_ref()
+                            .filter(|cache| {
+                                file == anchor.file
+                                    && anchor.row > 0
+                                    && cache.layout.context != options.context
+                            })
+                            .and_then(|cache| {
+                                cache
+                                    .layout
+                                    .source_position(anchor.row.saturating_sub(1), 0)
+                            });
                         let mut source_anchor = (file == anchor.file && anchor.row > 0)
                             .then(|| {
                                 cache
@@ -156,8 +169,18 @@ impl Layout {
                             wrap,
                             paths,
                             options.header,
+                            options.context,
                         ));
-                        if let Some(source_anchor) = source_anchor {
+                        if let Some(position) = source_position {
+                            anchor.row = next.locate_position(&position).unwrap_or(0) + 1;
+                        } else if cache
+                            .as_ref()
+                            .is_some_and(|cache| cache.layout.context != options.context)
+                        {
+                            if file == anchor.file {
+                                anchor.row = 0;
+                            }
+                        } else if let Some(source_anchor) = source_anchor {
                             anchor.row = next.locate(source_anchor) + 1;
                         }
                         *cache = Some(Cached {
@@ -248,6 +271,7 @@ mod tests {
                 layout: Preference::Unified,
                 wrap: false,
                 header: HeaderVisibility::Collapsed,
+                context: engine::state::view::DiffContext::Changes,
             },
             &[],
             &mut anchor,
@@ -262,6 +286,7 @@ mod tests {
                 layout: Preference::Unified,
                 wrap: false,
                 header: HeaderVisibility::Collapsed,
+                context: engine::state::view::DiffContext::Changes,
             },
             &[],
             &mut anchor,
@@ -278,6 +303,7 @@ mod tests {
                     layout: Preference::Unified,
                     wrap: true,
                     header: HeaderVisibility::Collapsed,
+                    context: engine::state::view::DiffContext::Changes,
                 },
                 &[],
                 &mut anchor,

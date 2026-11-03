@@ -1,7 +1,18 @@
 //! Cached logical diff rows shared by responsive unified and side-by-side layouts.
 mod build;
+#[cfg(test)]
+mod context_tests;
+mod full;
+mod position;
+pub(crate) use position::Position;
 mod header;
-pub(crate) use engine::state::view::HeaderVisibility;
+pub(crate) use engine::state::view::{DiffContext as Context, HeaderVisibility};
+pub(crate) fn context_label(context: Context) -> &'static str {
+    match context {
+        Context::Full => i18n::tr!(DiffContextFull),
+        Context::Changes => i18n::tr!(DiffContextChanges),
+    }
+}
 pub(crate) use header::summary as header_summary;
 mod layout;
 #[cfg(test)]
@@ -47,6 +58,7 @@ pub(crate) struct Options {
     pub layout: Preference,
     pub wrap: bool,
     pub header: HeaderVisibility,
+    pub context: Context,
 }
 impl Preference {
     pub const ALL: [Self; 3] = [Self::Auto, Self::Split, Self::Unified];
@@ -166,6 +178,8 @@ pub(super) struct View {
     pub information: Option<Information>,
     pub header: header::Raw,
     rows: Vec<Row>,
+    full: Result<Vec<Row>, &'static str>,
+    reading: Option<Position>,
     digits: u16,
     comparison: Comparison,
     cache: Option<Cache>,
@@ -196,9 +210,6 @@ pub(crate) enum Export {
     Truncated,
 }
 impl View {
-    pub fn rows_len(&self) -> usize {
-        self.rows.len()
-    }
     pub fn select(
         &mut self,
         selection: Option<(
@@ -226,9 +237,6 @@ impl View {
             }
         }
     }
-    pub fn line_id(&self, row: usize) -> Option<engine::local::files::partial::LineId> {
-        self.rows.get(row).and_then(Row::line_id)
-    }
     pub fn layout(
         &self,
         width: u16,
@@ -236,41 +244,49 @@ impl View {
         wrap: bool,
         paths: &[std::path::PathBuf],
         header: HeaderVisibility,
+        context: Context,
     ) -> Cache {
-        let current = self.header.expanded();
+        let (mut rows, current) = match context {
+            Context::Changes => (self.rows.clone(), self.header.expanded()),
+            Context::Full => (
+                match &self.full {
+                    Ok(rows) => rows.clone(),
+                    Err(reason) => vec![Row::Information(Line::styled(
+                        *reason,
+                        Style::default().fg(Color::Yellow),
+                    ))],
+                },
+                false,
+            ),
+        };
         let wanted = header == HeaderVisibility::Expanded;
-        if current == wanted || self.header.lines().is_empty() {
-            return layout::arrange(
-                &self.rows,
-                self.digits,
-                width,
-                preference.resolve(width, self.digits),
-                wrap,
-                paths,
-            );
+        if current != wanted && !self.header.lines().is_empty() {
+            let raw = self.header.lines();
+            let start = rows
+                .iter()
+                .take_while(|row| matches!(row, Row::Information(_)))
+                .count();
+            if wanted {
+                rows.splice(
+                    start..start,
+                    raw.iter().map(|line| {
+                        Row::Metadata(Line::styled(safe(line), Style::default().fg(MUTED)))
+                    }),
+                );
+            } else {
+                rows.drain(start..start + raw.len());
+            }
         }
-        // 连续历史预览共享不可变的源快照，仅在生成布局缓存时组合文件头。
-        let mut rows = self.rows.clone();
-        let raw = self.header.lines();
-        let start = self.header_start();
-        if wanted {
-            rows.splice(
-                start..start,
-                raw.iter().map(|line| {
-                    Row::Metadata(Line::styled(safe(line), Style::default().fg(MUTED)))
-                }),
-            );
-        } else {
-            rows.drain(start..start + raw.len());
-        }
-        layout::arrange(
+        let mut cache = layout::arrange(
             &rows,
             self.digits,
             width,
             preference.resolve(width, self.digits),
             wrap,
             paths,
-        )
+        );
+        cache.context = context;
+        cache
     }
     pub fn header_rows(&self) -> usize {
         self.header.lines().len()
@@ -304,6 +320,7 @@ impl View {
         wrap: bool,
         paths: &[std::path::PathBuf],
         scroll: &mut usize,
+        context: Context,
     ) -> &mut Cache {
         let mode = preference.resolve(width, self.digits);
         if self.cache.as_ref().is_none_or(|cache| {
@@ -311,10 +328,29 @@ impl View {
                 || cache.mode != mode
                 || cache.wrap != wrap
                 || !cache.matches_paths(paths)
+                || cache.context != context
         }) {
+            let changed_context = self
+                .cache
+                .as_ref()
+                .is_some_and(|cache| cache.context != context);
             let anchor = self.cache.as_ref().and_then(|cache| cache.anchor(*scroll));
-            let mut cache = layout::arrange(&self.rows, self.digits, width, mode, wrap, paths);
-            if let Some(anchor) = anchor {
+            if changed_context {
+                self.reading = self.position(*scroll);
+            }
+            let mut cache = self.layout(
+                width,
+                preference,
+                wrap,
+                paths,
+                if self.header.expanded() {
+                    HeaderVisibility::Expanded
+                } else {
+                    HeaderVisibility::Collapsed
+                },
+                context,
+            );
+            if !changed_context && let Some(anchor) = anchor {
                 *scroll = cache.locate(anchor);
                 cache.restore(anchor, *scroll);
             }
@@ -325,6 +361,7 @@ impl View {
                 marking.reveal = true;
             }
         }
+        self.restore_reading(scroll);
         let cache = self.cache.as_mut().expect("diff layout prepared");
         self.horizontal.constrain(cache.horizontal_maximum());
         cache
@@ -407,9 +444,11 @@ fn prepare_rows(
         rows,
         information,
         header,
+        full,
     } = build::rows(heading, document, cancel)?;
     let digits = rows
         .iter()
+        .chain(full.as_ref().into_iter().flatten())
         .map(Row::max_number)
         .max()
         .unwrap_or(1)
@@ -421,6 +460,8 @@ fn prepare_rows(
         information,
         header: header::Raw::new(header),
         rows,
+        full,
+        reading: None,
         digits,
         comparison,
         cache: None,

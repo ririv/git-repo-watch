@@ -248,6 +248,7 @@ struct Screen {
     view_save: view_preferences::Writer,
     diff_preference: diff::Preference,
     diff_header: diff::HeaderVisibility,
+    diff_context: diff::Context,
     file_layout: files::Layout,
     graphics: graphics::Display,
     bar: bar::InputBar,
@@ -311,6 +312,7 @@ impl Screen {
             view_save: Default::default(),
             diff_preference: view_preferences.diff_layout.into(),
             diff_header: view_preferences.diff_header,
+            diff_context: view_preferences.diff_context,
             file_layout: view_preferences.file_layout.into(),
             graphics: graphics::Display::new(graphics::Support::Unavailable(
                 i18n::tr!(GraphicsUnsupported).into(),

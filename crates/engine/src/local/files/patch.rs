@@ -40,7 +40,7 @@ pub enum SourceOmission {
     NonRegular,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Line {
     Metadata {
         kind: Metadata,

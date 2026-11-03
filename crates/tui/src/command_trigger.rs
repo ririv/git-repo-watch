@@ -7,13 +7,11 @@ impl Screen {
     fn chinese_command_trigger_enabled(&self) -> bool {
         self.config.chinese_command_trigger && i18n::language() == i18n::Language::Chinese
     }
-    fn at_command_entry(&self) -> bool {
+    pub(crate) fn at_command_entry(&self) -> bool {
         match &self.bar {
             InputBar::CommandsOnly => true,
             InputBar::Search(editor) => {
-                matches!(self.mode, Mode::Error { .. })
-                    || self.repository_list_active()
-                    || editor.cursor == 0
+                matches!(self.mode, Mode::Error { .. }) || editor.cursor == 0
             }
             InputBar::Command { input, .. } => match input {
                 Input::Prefix(_) => true,
@@ -35,9 +33,7 @@ impl Screen {
     }
     pub(crate) fn command_trigger_text<'a>(&self, text: &'a str) -> Cow<'a, str> {
         // 粘贴沿用 / 的入口语义；只规范开头最多两个触发符，正文不做全局替换。
-        if !self.chinese_command_trigger_enabled()
-            || !(self.bar.is_plain() || self.at_command_entry())
-        {
+        if !self.chinese_command_trigger_enabled() {
             return Cow::Borrowed(text);
         }
         let prefix = text
@@ -45,6 +41,9 @@ impl Screen {
             .take(2)
             .take_while(|c| matches!(c, '/' | '、'))
             .collect::<String>();
+        if !(self.at_command_entry() || self.bar.is_plain() && prefix.chars().count() == 2) {
+            return Cow::Borrowed(text);
+        }
         if !prefix.contains('、') {
             return Cow::Borrowed(text);
         }

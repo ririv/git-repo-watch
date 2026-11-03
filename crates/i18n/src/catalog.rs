@@ -604,6 +604,13 @@ pub enum Message {
     FilesTree,
     FilesFlat,
     DiffChooseUnified,
+    PartialSelectionIdle,
+    DiffContextCommand,
+    DiffContextFull,
+    DiffContextChanges,
+    DiffFullUnavailable,
+    DiffFullLineLimit,
+    DiffFullTruncated,
     DiffHeaderCommand,
     DiffHeaderUnavailable,
     DiffHeaderCollapsed,
@@ -3057,6 +3064,32 @@ impl Message {
             (Self::FilesFlat, Language::Chinese) => "平铺列表",
             (Self::DiffChooseUnified, Language::English) => "Show changes in a single unified diff",
             (Self::DiffChooseUnified, Language::Chinese) => "在统一视图中查看差异",
+            (Self::PartialSelectionIdle, Language::English) => "No change selected",
+            (Self::PartialSelectionIdle, Language::Chinese) => "未选择改动",
+            (Self::DiffContextCommand, Language::English) => "Choose full source or changes only",
+            (Self::DiffContextCommand, Language::Chinese) => "选择完整源码或仅差异",
+            (Self::DiffContextFull, Language::English) => "Full source",
+            (Self::DiffContextFull, Language::Chinese) => "完整源码",
+            (Self::DiffContextChanges, Language::English) => "Changes only",
+            (Self::DiffContextChanges, Language::Chinese) => "仅差异",
+            (Self::DiffFullUnavailable, Language::English) => {
+                "Full source exceeds the 1 MiB read limit. Choose context changes to view the patch."
+            }
+            (Self::DiffFullUnavailable, Language::Chinese) => {
+                "完整源码超过 1 MiB 读取上限。可切换为仅差异查看补丁。"
+            }
+            (Self::DiffFullLineLimit, Language::English) => {
+                "Full source exceeds 50,000 lines. Choose context changes to view the patch."
+            }
+            (Self::DiffFullLineLimit, Language::Chinese) => {
+                "完整源码超过 50,000 行。可切换为仅差异查看补丁。"
+            }
+            (Self::DiffFullTruncated, Language::English) => {
+                "The patch is truncated, so a complete comparison cannot be displayed. Choose context changes to view the available patch."
+            }
+            (Self::DiffFullTruncated, Language::Chinese) => {
+                "补丁已截断，无法展示完整对比。可切换为仅差异查看已读取的补丁。"
+            }
             (Self::DiffHeaderCommand, Language::English) => {
                 "Show or hide the original Git file header"
             }

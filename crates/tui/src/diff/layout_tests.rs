@@ -114,6 +114,8 @@ fn unified_order_stays_removed_then_added_and_metadata_is_not_duplicated() {
 #[test]
 fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() {
     let mut view = View {
+        full: Ok(Vec::new()),
+        reading: None,
         header: Default::default(),
         interaction: Interaction::ReadOnly,
         export: Export::Unavailable,
@@ -129,7 +131,14 @@ fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() 
         horizontal: Default::default(),
     };
     let mut scroll = 2;
-    let cache = view.arrange(80, Preference::Auto, false, &[], &mut scroll);
+    let cache = view.arrange(
+        80,
+        Preference::Auto,
+        false,
+        &[],
+        &mut scroll,
+        Context::Changes,
+    );
     cache.settle(scroll);
     let original_scroll = scroll;
     let original_anchor = cache.anchor(scroll).unwrap();
@@ -141,13 +150,20 @@ fn repeated_resize_and_mode_changes_keep_an_exact_source_anchor_without_drift() 
         (200, Preference::Unified),
         (80, Preference::Auto),
     ] {
-        let cache = view.arrange(width, preference, false, &[], &mut scroll);
+        let cache = view.arrange(width, preference, false, &[], &mut scroll, Context::Changes);
         cache.settle(scroll);
         assert_eq!(cache.anchor(scroll), Some(original_anchor));
         assert_eq!(view.horizontal.offset(), 100);
     }
     assert_eq!(scroll, original_scroll);
-    view.arrange(2000, Preference::Unified, false, &[], &mut scroll);
+    view.arrange(
+        2000,
+        Preference::Unified,
+        false,
+        &[],
+        &mut scroll,
+        Context::Changes,
+    );
     assert_eq!(view.horizontal.offset(), 0);
     assert!(!view.horizontal.overflowing());
 }

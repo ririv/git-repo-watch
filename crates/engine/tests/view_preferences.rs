@@ -87,13 +87,14 @@ fn independent_instances_merge_preference_edits_under_the_configuration_lock() {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::custom(temp.path().to_owned());
     store.initialize().unwrap();
-    let barrier = Barrier::new(4);
+    let barrier = Barrier::new(5);
     std::thread::scope(|scope| {
         for edit in [
             Edit::FileLayout(FileLayout::Flat),
             Edit::DiffLayout(DiffLayout::Split),
             Edit::DiffHeader(HeaderVisibility::Expanded),
             Edit::RepositoryOrder(RepositoryOrder::Name),
+            Edit::DiffContext(DiffContext::Changes),
         ] {
             let service = service(&store);
             let barrier = &barrier;
@@ -110,6 +111,7 @@ fn independent_instances_merge_preference_edits_under_the_configuration_lock() {
             file_layout: FileLayout::Flat,
             diff_layout: DiffLayout::Split,
             diff_header: HeaderVisibility::Expanded,
+            diff_context: DiffContext::Changes,
             repository_order: RepositoryOrder::Name,
         }
     );

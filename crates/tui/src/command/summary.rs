@@ -51,6 +51,7 @@ impl Command {
             Action::FileLayoutMenu => Summary::FileLayoutMenu,
             Action::DiffLayoutMenu => Summary::DiffLayoutMenu,
             Action::DiffHeader => Summary::DiffHeader,
+            Action::DiffContextMenu | Action::DiffContext(_) => Summary::DiffContext,
             Action::FilterMenu => Summary::FilterMenu,
             Action::SortMenu => Summary::SortMenu,
             Action::Compose(action) => match action {

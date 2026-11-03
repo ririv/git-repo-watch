@@ -32,6 +32,7 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
             ),
             ("repos sort", Kind::Sort, 4, "[priority|name|path|updated]"),
             ("repo diff view", Kind::FileView, 2, "[tree|flat]"),
+            ("repo diff context", Kind::DiffContext, 2, "[full|changes]"),
             (
                 "repo diff layout",
                 Kind::DiffLayout,

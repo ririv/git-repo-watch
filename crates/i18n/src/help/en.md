@@ -34,6 +34,8 @@
 - Recovery commands appear only while cherry-pick or revert is in progress, including after restart. Completing or aborting the sequence marks its matching pending tasks handled while retaining their history.
 
 ## Search and commands
+- `/` at the start of the input opens commands; `/` and `、` inside a search remain literal path characters. Pasting a complete `//command` opens global commands from an existing search; closing the menu restores that search.
+- Command, option and directory candidates support `PgUp` / `PgDn` using the visible row count, stopping at either end. After closing options, `Enter` with an empty parameter reopens them without applying a default.
 - Use commands for pane focus, zoom, staging and graph panning. Typing searches immediately; basic navigation and editing keys remain. No terminal configuration changes are needed. Alt+B/F moves by words, Alt+D deletes the next word, and Alt+Left/Right also moves by words in command and commit editors.
 - The command menu sits directly above the input, followed by key hints and one reserved task-status row. Success notices disappear after 5 seconds; pending failures and running tasks remain. Use `/tasks`, `Alt+Enter`, or click the status row to open tasks and return to the original page and input draft.
 - Tasks show pending failures, running work, and the latest 200 completed records, retaining all active and pending tasks. `Enter` opens full details; `c` requests cancellation, `r` retries manual checks or fetch, and `d` marks a failure handled. Viewing a failure does not dismiss it. A successful retry resolves its original failure. Scheduled checks share this history.
@@ -82,6 +84,7 @@
 ## Paths and completion
 - `Tab` completes the directory component at the cursor. One match adds `/`; multiple matches show directory candidates.
 - In candidates, `↑↓` / `Tab` / `Shift+Tab` selects; `Enter` fills the directory and keeps editing; `Esc` closes the menu.
+- With precise clicks enabled, clicking a directory candidate fills its path. Continue editing, then press `Enter` to review the operation.
 - `~` and `~/…` use your user home, independent of the application's data directory. Review and execution use absolute paths.
 - Spaces and Chinese text are literal. Matching single or double quotes may enclose the entire path, including `~/…`.
 - Hidden directories appear after a `.` prefix. Completion reads one directory level and retains the path after the cursor.
@@ -128,6 +131,7 @@
 - Wide windows show files beside the preview; narrow windows stack them. `Tab` or `/focus` switches focus; `Enter` / `→` focuses the preview, and `/zoom` maximizes the focused pane.
 - `Esc` first clears input, then restores a maximized pane, then returns focus to files. Another `Esc` returns to the repository pane or list.
 - Diff defaults to side-by-side on wide screens and unified on narrow screens. Long lines stay on one row; both sides scroll together with fixed line numbers.
+- `/repo diff context [full|changes]` chooses full source or changes only. Full source is the default; the preference survives restart independently of split/unified layout. Staging retains source and the reading position. A disappearing selection is cleared; use arrows or click another change to continue. Copying still uses the original patch.
 - `/repo diff header` expands or collapses the original Git file header. It starts collapsed; the choice applies across files and views and survives restart. Collapsing restores the previous reading position. Paths and object IDs are hidden from the patch body; file-mode changes and similarity appear in the information area. Hunk headings and binary notices remain; a missing final newline has a separate red `⊖` marker below the affected last line, without a line number or line selection. Split view marks each affected side independently. Copying preserves the full original patch.
 - `/repo diff layout` opens a horizontal selector at the current setting. `←→` / `Tab` / `Shift+Tab` chooses; `Enter` applies; `Esc` restores the command draft. Clicking an option selects it without applying.
 - Command candidates show the current setting; Auto also identifies the visible unified or split layout and updates on resize. Click a command row or press `Enter` to open it.

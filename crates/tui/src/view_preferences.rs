@@ -76,6 +76,10 @@ impl Screen {
         self.save_view_preference(Edit::DiffLayout(preference.into()));
         self.message = i18n::tf!(DiffLayoutSelected, preference.label());
     }
+    pub(crate) fn set_diff_context(&mut self, context: crate::diff::Context) {
+        self.diff_context = context;
+        self.save_view_preference(Edit::DiffContext(context));
+    }
     pub(crate) fn poll_view_preferences(&mut self) -> bool {
         let Some((edit, result)) = self.view_save.poll() else {
             return false;

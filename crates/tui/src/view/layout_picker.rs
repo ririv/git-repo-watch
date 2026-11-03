@@ -51,6 +51,7 @@ pub(super) fn annotation(action: Action, screen: &Screen, body: Rect) -> Option<
         Action::FileLayout(layout) if layout == screen.file_layout => Some("✓".into()),
         Action::DiffLayoutMenu => Some(summary(screen, body)),
         Action::DiffHeader => Some(screen.diff_header_label().to_owned()),
+        Action::DiffContextMenu => Some(crate::diff::context_label(screen.diff_context).into()),
         Action::DiffLayout(preference) if preference == screen.diff_preference => Some("✓".into()),
         _ => None,
     }

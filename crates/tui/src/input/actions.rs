@@ -216,6 +216,10 @@ impl Screen {
                 self.set_diff_layout(preference);
             }
             Action::DiffHeader => self.toggle_diff_header(),
+            Action::DiffContextMenu => {
+                self.open_option_menu(command::options::Kind::DiffContext, path, selection);
+            }
+            Action::DiffContext(context) => self.set_diff_context(context),
             Action::Log => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::History, path);

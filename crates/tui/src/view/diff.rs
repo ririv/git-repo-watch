@@ -28,7 +28,11 @@ pub(super) fn render(
         crate::diff::Interaction::Editable(Some(marking)) => format!(" · {}", marking.label),
         _ => String::new(),
     };
-    let border = block(format!("{} · {mode_label}{selection}", i18n::tr!(FileDiff)));
+    let border = block(format!(
+        "{} · {mode_label} · {}{selection}",
+        i18n::tr!(FileDiff),
+        crate::diff::context_label(options.context)
+    ));
     let inner = border.inner(area);
     frame.render_widget(border, area);
     if inner.width < content.minimum_width(mode) {
@@ -48,6 +52,7 @@ pub(super) fn render(
         options.wrap,
         &hits.links.paths,
         scroll,
+        options.context,
     );
     let horizontal = content.horizontal.clone();
     let gutter = content.gutter_width(mode);
@@ -77,9 +82,6 @@ pub(super) fn render(
         }
     }
     let offset = horizontal.offset();
-    let ids = (0..content.rows_len())
-        .map(|row| content.line_id(row))
-        .collect::<Vec<_>>();
     let (editable, marking) = match &mut content.interaction {
         crate::diff::Interaction::ReadOnly => (false, None),
         crate::diff::Interaction::Editable(marking) => (true, marking.clone()),
@@ -93,10 +95,11 @@ pub(super) fn render(
         options.wrap,
         &hits.links.paths,
         scroll,
+        options.context,
     );
     if let Some(marking) = &marking
         && marking.reveal
-        && let Some(row) = ids.iter().position(|id| *id == Some(marking.cursor))
+        && let Some(row) = cache.ids.iter().position(|id| *id == Some(marking.cursor))
     {
         let position = cache.locate(crate::diff::Anchor { row });
         if position < *scroll {
@@ -109,6 +112,7 @@ pub(super) fn render(
     }
     *scroll = (*scroll).min(cache.rows.len().saturating_sub(body.height as usize));
     cache.settle(*scroll);
+    let ids = &cache.ids;
     crate::scrollbar::vertical(frame, area, body, cache.rows.len(), *scroll);
     hits.vertical(
         area,

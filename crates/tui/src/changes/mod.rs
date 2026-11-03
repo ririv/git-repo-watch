@@ -59,7 +59,13 @@ pub(super) struct Session {
     loader: load::Loader,
     animation: spinner::Spinner,
     pub feedback: crate::loading::Feedback<Box<Preview>>,
-    bookmark: Option<edit::Bookmark>,
+    bookmark: Option<Bookmark>,
+}
+#[derive(Debug)]
+struct Bookmark {
+    path: std::path::PathBuf,
+    selection: Option<edit::Bookmark>,
+    reading: Option<crate::diff::Position>,
 }
 impl Session {
     pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
@@ -79,9 +85,22 @@ impl Session {
     pub fn refreshed(&mut self, snapshot: Files) {
         self.bookmark = match &self.preview {
             Preview::Ready {
-                editing: edit::State::Ready(editing),
+                key,
+                editing,
+                content,
+                scroll,
                 ..
-            } => Some(editing.bookmark()),
+            } => Some(Bookmark {
+                path: key.change.location.name().to_owned(),
+                selection: match editing {
+                    edit::State::Ready(editing) => Some(editing.bookmark()),
+                    _ => None,
+                },
+                reading: match content.as_ref() {
+                    document::View::Text(view) => view.position(*scroll),
+                    _ => None,
+                },
+            }),
             _ => None,
         };
         self.files = self.files.refreshed(snapshot);
@@ -145,9 +164,18 @@ impl Session {
             self.preview = match result {
                 Ok(mut review) => {
                     if let Some(bookmark) = self.bookmark.take()
-                        && let edit::State::Ready(editing) = &mut review.editing
+                        && key.change.location.name() == bookmark.path
                     {
-                        editing.restore(&bookmark);
+                        if let (Some(selection), edit::State::Ready(editing)) =
+                            (bookmark.selection, &mut review.editing)
+                        {
+                            editing.restore(&selection);
+                        }
+                        if let (Some(reading), document::View::Text(view)) =
+                            (bookmark.reading, review.content.as_mut())
+                        {
+                            view.restore_position(reading);
+                        }
                     }
                     Preview::Ready {
                         key,

@@ -10,6 +10,7 @@ pub(super) struct Prepared {
     pub rows: Vec<Row>,
     pub information: Option<Information>,
     pub header: Vec<String>,
+    pub full: Result<Vec<Row>, &'static str>,
 }
 
 pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Prepared> {
@@ -24,8 +25,12 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
     };
     let mut rows = Vec::new();
     let mut header = Vec::new();
+    let mut full_rows = Ok(Vec::new());
     match document {
-        Document::Notice(text) => metadata(&mut rows, &text, Style::default()),
+        Document::Notice(text) => {
+            metadata(&mut rows, &text, Style::default());
+            full_rows = Ok(rows.clone());
+        }
         Document::Patch { files, extent } => {
             for file in files {
                 let raw = file
@@ -42,9 +47,15 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                     .collect::<Vec<_>>();
                 let facts = header::facts(&raw)?;
                 header.extend(raw);
+                let expanded =
+                    super::full::expand(&file.before, &file.after, &file.lines, extent, cancel)?;
                 let mut old_numbers = BTreeSet::new();
                 let mut new_numbers = BTreeSet::new();
-                for line in &file.lines {
+                let full_lines = match &expanded {
+                    super::full::Expansion::Text(lines) => lines.as_slice(),
+                    _ => &[],
+                };
+                for line in file.lines.iter().chain(full_lines) {
                     match line {
                         PatchLine::Context { old, new, .. } => {
                             old_numbers.insert(*old);
@@ -73,6 +84,7 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                     source::Side::New,
                     cancel,
                 )?;
+                let start = rows.len();
                 let mut labels = Vec::new();
                 for label in [old.label(), new.label()].into_iter().flatten() {
                     if !labels.contains(&label) {
@@ -97,48 +109,24 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                 } else if !facts.is_empty() {
                     rows.push(Row::Information(header::summary(&facts)));
                 }
-                let code = |number, text: &str, paint: &source::Paint| Code {
-                    number,
-                    content: Line::from(source::spans(text, paint.line(number), Style::default())),
-                    ending: if text.ends_with('\n') {
-                        Ending::Newline
-                    } else {
-                        Ending::EndOfFile
-                    },
-                };
-                for line in file.lines {
-                    cancel.check()?;
-                    match line {
-                        PatchLine::Context {
-                            old: before,
-                            new: after,
-                            text,
-                        } => rows.push(Row::Context {
-                            old: code(before, &text, &old),
-                            new: code(after, &text, &new),
-                        }),
-                        PatchLine::Added { new: number, text } => {
-                            rows.push(Row::Added(code(number, &text, &new)))
-                        }
-                        PatchLine::Removed { old: number, text } => {
-                            rows.push(Row::Removed(code(number, &text, &old)))
-                        }
-                        PatchLine::Metadata { kind, text } => {
-                            let (text, style) = match kind {
-                                Metadata::File | Metadata::NoNewline => continue,
-                                Metadata::Hunk => {
-                                    (text, Style::default().fg(Color::Rgb(180, 142, 220)))
+                let body = body(&file.lines, &old, &new, cancel)?;
+                let information = rows[start..].to_vec();
+                match expanded {
+                    super::full::Expansion::Unavailable(reason) => full_rows = Err(reason),
+                    expanded => {
+                        if let Ok(full) = &mut full_rows {
+                            full.extend(information);
+                            match expanded {
+                                super::full::Expansion::Text(lines) => {
+                                    full.extend(self::body(&lines, &old, &new, cancel)?)
                                 }
-                                Metadata::Notice => (text, Style::default().fg(MUTED).italic()),
-                                Metadata::Binary { before, after } => (
-                                    notice::binary(&before, &after),
-                                    Style::default().fg(MUTED).italic(),
-                                ),
-                            };
-                            metadata(&mut rows, &text, style);
+                                super::full::Expansion::NonText => full.extend(body.clone()),
+                                super::full::Expansion::Unavailable(_) => unreachable!(),
+                            }
                         }
                     }
                 }
+                rows.extend(body);
                 if matches!(heading, Heading::Full(_)) {
                     rows.push(Row::Metadata(Line::default()));
                 }
@@ -157,7 +145,59 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
         rows,
         information,
         header,
+        full: full_rows,
     })
+}
+fn body(
+    lines: &[PatchLine],
+    old: &source::Paint,
+    new: &source::Paint,
+    cancel: &Cancel,
+) -> Result<Vec<Row>> {
+    let mut rows = Vec::new();
+    let code = |number, text: &str, paint: &source::Paint| Code {
+        number,
+        content: Line::from(source::spans(text, paint.line(number), Style::default())),
+        ending: if text.ends_with('\n') {
+            Ending::Newline
+        } else {
+            Ending::EndOfFile
+        },
+    };
+    for line in lines {
+        cancel.check()?;
+        match line {
+            PatchLine::Context {
+                old: before,
+                new: after,
+                text,
+            } => rows.push(Row::Context {
+                old: code(*before, text, old),
+                new: code(*after, text, new),
+            }),
+            PatchLine::Added { new: number, text } => {
+                rows.push(Row::Added(code(*number, text, new)))
+            }
+            PatchLine::Removed { old: number, text } => {
+                rows.push(Row::Removed(code(*number, text, old)))
+            }
+            PatchLine::Metadata { kind, text } => {
+                let (text, style) = match kind {
+                    Metadata::File | Metadata::NoNewline => continue,
+                    Metadata::Hunk => {
+                        (text.clone(), Style::default().fg(Color::Rgb(180, 142, 220)))
+                    }
+                    Metadata::Notice => (text.clone(), Style::default().fg(MUTED).italic()),
+                    Metadata::Binary { before, after } => (
+                        notice::binary(before, after),
+                        Style::default().fg(MUTED).italic(),
+                    ),
+                };
+                metadata(&mut rows, &text, style);
+            }
+        }
+    }
+    Ok(rows)
 }
 fn metadata(rows: &mut Vec<Row>, text: &str, style: Style) {
     rows.extend(

@@ -45,7 +45,14 @@ fn newline_markers_are_separate_unnumbered_rows_on_affected_sides_and_keep_expor
         let original = patch.text();
         let view = prepare(name, patch, Area::Staged, &Cancel::default()).unwrap();
         for preference in [Preference::Unified, Preference::Split] {
-            let cache = view.layout(180, preference, false, &[], HeaderVisibility::Collapsed);
+            let cache = view.layout(
+                180,
+                preference,
+                false,
+                &[],
+                HeaderVisibility::Collapsed,
+                Context::Changes,
+            );
             let annotations = cache
                 .rows
                 .iter()
@@ -157,6 +164,7 @@ fn unchanged_eof_context_marks_both_split_sides_and_literal_git_notices_stay_cod
             false,
             &[],
             HeaderVisibility::Collapsed,
+            Context::Changes,
         );
         let rows = cache
             .rows
@@ -193,7 +201,14 @@ fn newline_markers_follow_wrapped_source_and_stay_visible_during_horizontal_scro
     let view = prepare("long.txt", patch, Area::Unstaged, &Cancel::default()).unwrap();
     for layout in [Preference::Unified, Preference::Split] {
         for wrap in [false, true] {
-            let cache = view.layout(40, layout, wrap, &[], HeaderVisibility::Collapsed);
+            let cache = view.layout(
+                40,
+                layout,
+                wrap,
+                &[],
+                HeaderVisibility::Collapsed,
+                Context::Changes,
+            );
             let mut markers = 0;
             for (index, row) in cache.rows.iter().enumerate() {
                 let (lines, fixed) = match row {

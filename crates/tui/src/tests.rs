@@ -4,6 +4,7 @@ mod breadcrumbs;
 mod browser;
 mod browser_horizontal;
 mod changes;
+mod command_navigation;
 mod command_trigger;
 mod commands;
 mod commit_message;
@@ -15,6 +16,7 @@ mod contexts;
 mod copy;
 mod daily_operations;
 mod diff;
+mod diff_context;
 mod diff_header;
 mod double_click;
 mod file_icons;
@@ -106,6 +108,7 @@ fn screen(service: Service) -> Screen {
         view_save: Default::default(),
         diff_preference: view_preferences.diff_layout.into(),
         diff_header: view_preferences.diff_header,
+        diff_context: view_preferences.diff_context,
         file_layout: view_preferences.file_layout.into(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
         bar: crate::bar::InputBar::default(),
@@ -592,6 +595,7 @@ fn numeric_search_and_list_commands_do_not_conflict() {
         ("repos filter unchecked", Filter::Unchecked),
         ("repos filter all", Filter::All),
     ] {
+        key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Char('/'));
         s.paste(&format!("/{name}"));
         key(&mut s, KeyCode::Enter);

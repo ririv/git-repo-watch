@@ -222,10 +222,14 @@ impl Screen {
             && let bar::InputBar::Command { selected, menu, .. } = &mut self.bar
         {
             self.clicks.reset();
-            if let command::completion::Menu::Options(options) = menu {
-                options.selected = index;
-            } else {
-                *selected = index;
+            match menu {
+                command::completion::Menu::Options(options) => options.selected = index,
+                command::completion::Menu::Directories(directories) => {
+                    if !directories.select(index) {
+                        return Ok(false);
+                    }
+                }
+                command::completion::Menu::Commands => *selected = index,
             }
             if self
                 .bar

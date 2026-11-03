@@ -40,6 +40,8 @@ file_layout = "tree"
 diff_layout = "auto"
 # 原始 Git 文件头：collapsed 为收起，expanded 为展开；切换文件及重启后沿用。
 diff_header = "collapsed"
+# 差异显示范围：full 为完整源码，changes 为仅差异及少量上下文。
+diff_context = "full"
 # 仓库排序：priority、name、path 或 updated。
 repository_order = "priority"
 

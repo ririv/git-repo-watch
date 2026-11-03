@@ -165,7 +165,7 @@ fn render_menu(
     }
     match menu {
         command::completion::Menu::Directories(values) => {
-            completion::render(frame, screen, values, body, viewport);
+            screen.command_items = completion::render(frame, screen, values, body, viewport);
             return;
         }
         command::completion::Menu::Options(values) => {

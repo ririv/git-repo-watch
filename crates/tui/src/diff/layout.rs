@@ -60,6 +60,9 @@ pub(crate) struct Cache {
     pub width: u16,
     pub mode: Layout,
     pub wrap: bool,
+    pub context: Context,
+    pub ids: Vec<Option<engine::local::files::partial::LineId>>,
+    pub(super) coordinates: Vec<super::position::Coordinates>,
     paths: Vec<std::path::PathBuf>,
     pub rows: Vec<VisualRow>,
     maximum: usize,
@@ -109,6 +112,8 @@ pub(super) fn arrange(
     wrap: bool,
     paths: &[std::path::PathBuf],
 ) -> Cache {
+    let ids = rows.iter().map(Row::line_id).collect();
+    let coordinates = rows.iter().map(Row::coordinates).collect();
     let rows = match mode {
         Layout::Unified => unified::arrange(rows, digits),
         Layout::Split => split::arrange(rows, digits),
@@ -133,6 +138,9 @@ pub(super) fn arrange(
         width,
         mode,
         wrap,
+        context: Context::Changes,
+        ids,
+        coordinates,
         paths: paths.to_vec(),
         rows,
         maximum,
