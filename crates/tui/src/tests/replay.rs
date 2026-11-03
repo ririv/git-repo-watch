@@ -38,7 +38,22 @@ fn accept(s: &mut Screen) {
 }
 fn available(s: &mut Screen, name: &str) -> bool {
     s.paste(&format!("//{name}"));
-    let found = s.search_commands().unwrap().iter().any(|c| c.name == name);
+    let found = s
+        .search_commands()
+        .unwrap()
+        .iter()
+        .find(|c| c.name == name)
+        .is_some_and(|command| {
+            let bar::InputBar::Command {
+                path, selection, ..
+            } = &s.bar
+            else {
+                unreachable!()
+            };
+            s.command_availability(command.action, path.as_deref(), selection)
+                .reason()
+                .is_none()
+        });
     key(s, KeyCode::Esc);
     found
 }
@@ -206,7 +221,34 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     command(&mut s, "repo diff");
     wait(&mut s);
     assert!(matches!(s.replay_state(&f.repo), Some(State::Active(_))));
-    assert!(available(&mut s, "repo continue"));
+    command(&mut s, "repo log");
+    wait(&mut s);
+    s.paste("//repo log cherry-pick");
+    assert!(
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .any(|command| command.name == "repo log cherry-pick")
+    );
+    let bar::InputBar::Command {
+        path, selection, ..
+    } = &s.bar
+    else {
+        unreachable!()
+    };
+    assert_eq!(
+        s.command_availability(Action::Replay(Kind::CherryPick), path.as_deref(), selection)
+            .reason(),
+        Some(i18n::tr!(CommandReplayInProgress))
+    );
+    let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.bar.text(), "/repo log cherry-pick");
+    assert!(s.repository_tasks.is_empty());
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    assert!(!available(&mut s, "repo continue"));
     assert!(available(&mut s, "repo skip"));
     assert!(available(&mut s, "repo abort"));
     assert!(!available(&mut s, "repo log cherry-pick"));
@@ -219,6 +261,7 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     wait(&mut s);
     assert!(!matches!(s.mode, Mode::Error { .. }), "{:?}", s.mode);
     assert!(support::git(&f.repo, &["ls-files", "-u"]).is_empty());
+    assert!(available(&mut s, "repo continue"));
     command(&mut s, "repo continue");
     wait(&mut s);
     assert!(matches!(reviewed(&s), Plan::Control(p) if p.control == Control::Continue));

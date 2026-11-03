@@ -134,6 +134,11 @@ pub enum Message {
     CommandRequiresBrowser,
     CommandNeedsUnstaged,
     CommandNeedsStaged,
+    CommandReplayStateUnknown,
+    CommandReplayInProgress,
+    CommandSourceCurrent,
+    CommandPreviewCurrent,
+    CommandRequiresPreviewableFile,
     CommandTargetFiles,
     CommandTargetLines,
     CommandTargetCommits,
@@ -1604,6 +1609,24 @@ impl Message {
             (Self::CommandNeedsUnstaged, Language::Chinese) => "请选择未暂存改动",
             (Self::CommandNeedsStaged, Language::English) => "Select staged changes",
             (Self::CommandNeedsStaged, Language::Chinese) => "请选择已暂存改动",
+            (Self::CommandReplayStateUnknown, Language::English) => {
+                "Open the repository to read operation state"
+            }
+            (Self::CommandReplayStateUnknown, Language::Chinese) => "请先打开仓库以读取操作状态",
+            (Self::CommandReplayInProgress, Language::English) => {
+                "Finish or abort the current Git operation first"
+            }
+            (Self::CommandReplayInProgress, Language::Chinese) => "请先完成或中止当前 Git 操作",
+            (Self::CommandSourceCurrent, Language::English) => "Source view is already active",
+            (Self::CommandSourceCurrent, Language::Chinese) => "当前已是源文件视图",
+            (Self::CommandPreviewCurrent, Language::English) => "Preview is already active",
+            (Self::CommandPreviewCurrent, Language::Chinese) => "当前已是预览视图",
+            (Self::CommandRequiresPreviewableFile, Language::English) => {
+                "Select a Markdown or SVG file first"
+            }
+            (Self::CommandRequiresPreviewableFile, Language::Chinese) => {
+                "请先选择 Markdown 或 SVG 文件"
+            }
             (Self::CommandTargetFiles, Language::English) => "{count} files",
             (Self::CommandTargetFiles, Language::Chinese) => "{count} 个文件",
             (Self::CommandTargetLines, Language::English) => "{count} lines",

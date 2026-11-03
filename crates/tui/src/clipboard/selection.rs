@@ -183,7 +183,8 @@ impl Selection {
             _ => self.commit().into_iter().collect(),
         }
     }
-    pub fn admits(&self, action: Action, path: Option<&Path>) -> bool {
+    /// Match view capabilities independently of the current selection or operation state.
+    pub fn in_scope(&self, action: Action) -> bool {
         if self.is_error() {
             return matches!(
                 action,
@@ -195,23 +196,17 @@ impl Selection {
                 matches!(self, Self::Diff(_))
             }
             Action::LogSelect | Action::LogSelection(_) => {
-                matches!(self, Self::Log(CommitSelection::Graph { .. }))
+                matches!(
+                    self,
+                    Self::Log(CommitSelection::Graph { .. } | CommitSelection::Unavailable(_))
+                )
             }
-            Action::Replay(_) => path.is_some() && self.commit().is_some(),
-            Action::BrowserToggle | Action::BrowserSplit => self.opener().is_some(),
-            Action::BrowserSource => self.opener().is_some_and(|target| {
-                target.presentation
-                    != crate::browser::opening::Presentation::Single(
-                        crate::browser::opening::TextMode::Source,
-                    )
-            }),
-            Action::BrowserPreview => self.opener().is_some_and(|target| {
-                target.presentation
-                    != crate::browser::opening::Presentation::Single(
-                        crate::browser::opening::TextMode::Preview,
-                    )
-            }),
-            Action::Copy(Scope::Repository) => path.is_some(),
+            Action::Replay(_) => matches!(self, Self::Log(_)),
+            Action::BrowserToggle
+            | Action::BrowserSplit
+            | Action::BrowserSource
+            | Action::BrowserPreview => self.opener().is_some(),
+            Action::Copy(Scope::Repository) => true,
             Action::Copy(scope) => self.content(scope).is_some(),
             _ => true,
         }

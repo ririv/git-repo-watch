@@ -61,17 +61,13 @@ impl InputBar {
     pub fn commands(&self, ai_enabled: bool) -> Option<Vec<&'static command::Command>> {
         match self {
             Self::Command {
-                input,
-                path,
-                selection,
-                ..
+                input, selection, ..
             } => Some(
                 input
                     .matches()
                     .into_iter()
                     .filter(|command| {
-                        command.action.available(ai_enabled)
-                            && selection.admits(command.action, path.as_deref())
+                        command.action.available(ai_enabled) && selection.in_scope(command.action)
                     })
                     .collect(),
             ),
@@ -304,12 +300,6 @@ impl Screen {
             }
         }
         let search_support = self.search_support();
-        let replay_state = match &self.bar {
-            InputBar::Command {
-                path: Some(path), ..
-            } => self.replay_state(path).cloned(),
-            _ => None,
-        };
         if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
         }
@@ -408,8 +398,7 @@ impl Screen {
                 .filter(|command| {
                     command.action.available(self.config.ai.enabled)
                         && search_support.admits(command.action)
-                        && crate::replay::admits(replay_state.as_ref(), command.action)
-                        && selection.admits(command.action, path.as_deref())
+                        && selection.in_scope(command.action)
                 })
                 .collect::<Vec<_>>();
             let query = input.query();

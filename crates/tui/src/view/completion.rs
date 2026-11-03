@@ -116,6 +116,12 @@ pub(super) fn render_options(
     viewport: &mut candidates::Viewport,
 ) -> Vec<(Rect, usize)> {
     use unicode_width::UnicodeWidthStr;
+    let crate::bar::InputBar::Command {
+        path, selection, ..
+    } = &screen.bar
+    else {
+        unreachable!("option menu has a captured command draft")
+    };
     let (area, inner) = candidates::panel(
         frame,
         screen,
@@ -135,17 +141,38 @@ pub(super) fn render_options(
         .options
         .iter()
         .map(|option| {
+            let availability =
+                screen.command_availability(option.value.action(), path.as_deref(), selection);
+            let enabled = availability.reason().is_none();
             let mut spans = vec![Span::styled(
                 truncate(option.token, name_width + 1),
-                Style::default().fg(ACCENT).bold(),
+                if enabled {
+                    Style::default().fg(ACCENT).bold()
+                } else {
+                    Style::default().fg(MUTED)
+                },
             )];
             let gap = name_width.saturating_sub(option.token.width()) + 2;
             let available = width.saturating_sub(name_width + 2 + 2);
             spans.push(Span::raw(
                 " ".repeat(gap.min(width.saturating_sub(name_width))),
             ));
-            let description =
-                crate::horizontal::clip(&Line::from(safe(option.description.text())), 0, available);
+            let description = crate::horizontal::clip(
+                &Line::from(Span::styled(
+                    safe(
+                        availability
+                            .label()
+                            .unwrap_or_else(|| option.description.text()),
+                    ),
+                    if enabled {
+                        Style::default()
+                    } else {
+                        Style::default().fg(MUTED)
+                    },
+                )),
+                0,
+                available,
+            );
             let used = option.token.width() + gap + description.width();
             spans.extend(description.spans);
             if width >= 2 {
@@ -156,7 +183,7 @@ pub(super) fn render_options(
                     } else {
                         " "
                     },
-                    Style::default().fg(GOOD),
+                    Style::default().fg(if enabled { GOOD } else { MUTED }),
                 ));
             }
             ListItem::new(Line::from(spans))

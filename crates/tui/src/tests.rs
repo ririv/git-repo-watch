@@ -4,6 +4,7 @@ mod breadcrumbs;
 mod browser;
 mod browser_horizontal;
 mod changes;
+mod command_availability;
 mod command_navigation;
 mod command_trigger;
 mod command_values;

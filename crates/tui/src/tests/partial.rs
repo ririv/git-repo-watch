@@ -272,12 +272,11 @@ fn partial_commands_stay_out_of_historical_diffs_and_cannot_modify_them() {
     );
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let selection = s.copy_selection();
-    let path = s.scope_path();
     for command in command::COMMANDS
         .iter()
         .filter(|command| matches!(command.action, Action::PartialSelectMenu | Action::Discard))
     {
-        assert!(!selection.admits(command.action, path.as_deref()));
+        assert!(!selection.in_scope(command.action));
         assert!(!s.command_context().unwrap().admits(command));
     }
     key(&mut s, KeyCode::Char(' '));

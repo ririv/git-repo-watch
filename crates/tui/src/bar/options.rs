@@ -9,10 +9,7 @@ impl Screen {
     pub(crate) fn refresh_option_candidates(&mut self) {
         let candidates = match &self.bar {
             InputBar::Command {
-                input,
-                path,
-                selection,
-                ..
+                input, selection, ..
             } => match command::argument_input(&input.query()).and_then(|(argument, value)| {
                 argument
                     .options()
@@ -20,7 +17,7 @@ impl Screen {
             }) {
                 Some(kind)
                     if kind.action().available(self.config.ai.enabled)
-                        && selection.admits(kind.action(), path.as_deref())
+                        && selection.in_scope(kind.action())
                         && self.search_support().admits(kind.action()) =>
                 {
                     Candidates::new(input, kind, self)
@@ -57,6 +54,21 @@ impl Screen {
         self.refresh_option_candidates();
     }
     pub(super) fn option_candidate_key(&mut self, key: KeyEvent) -> bool {
+        if key.code == KeyCode::Enter
+            && let InputBar::Command {
+                menu: Menu::Options(candidates),
+                path,
+                selection,
+                ..
+            } = &self.bar
+            && let Some(option) = candidates.options.get(candidates.selected)
+            && let Some(reason) = self
+                .command_availability(option.value.action(), path.as_deref(), selection)
+                .reason()
+        {
+            self.message = reason.to_owned();
+            return true;
+        }
         if key.code == KeyCode::Enter
             && matches!(&self.bar, InputBar::Command { input, menu: Menu::Commands, .. }
                 if command::argument_input(&input.query()).is_some_and(|(argument, value)|

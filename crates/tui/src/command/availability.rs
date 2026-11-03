@@ -81,10 +81,54 @@ impl Screen {
                 Err(problem) => Availability::Unavailable(problem),
             };
         }
+        if let Some(reason) =
+            crate::replay::unavailable(path.and_then(|path| self.replay_state(path)), action)
+        {
+            return Availability::Unavailable(Problem::Reason(reason.into()));
+        }
         let reason = match action {
+            Replay(_) if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),
             Copy(scope) => selection.unavailable(scope, path).map(str::to_owned),
-            LogMore if !matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_))) => {
-                Some(i18n::tr!(CommandRequiresHistory).into())
+            LogMore | LogSelect | LogSelection(_) => match &self.mode {
+                Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)) => {
+                    if action == LogMore && view.session().cursor().is_none() {
+                        Some(i18n::tr!(HistoryNoMore).into())
+                    } else if matches!(action, LogSelect) && selection.commit().is_none() {
+                        Some(i18n::tr!(ReplaySelectCommit).into())
+                    } else {
+                        None
+                    }
+                }
+                _ => Some(i18n::tr!(CommandRequiresHistory).into()),
+            },
+            PartialSelectMenu | PartialSelect(_) => self.partial_target().err(),
+            Discard => match &self.mode {
+                Mode::Changes(session) if session.focus == changes::Focus::Preview => {
+                    match self.partial_target() {
+                        Err(reason) => Some(reason),
+                        Ok(editing) if editing.selected().is_empty() => {
+                            Some(i18n::tr!(PartialSelectionIdle).into())
+                        }
+                        Ok(editing) if editing.snapshot.change().area == Area::Staged => {
+                            Some(i18n::tr!(CommandNeedsUnstaged).into())
+                        }
+                        Ok(_) => None,
+                    }
+                }
+                _ => Some(i18n::tr!(PartialSelectRequired).into()),
+            },
+            BrowserSource | BrowserPreview => {
+                use crate::browser::opening::{Presentation, TextMode};
+                match selection.opener().map(|target| target.presentation) {
+                    Some(Presentation::Single(TextMode::Source)) if action == BrowserSource => {
+                        Some(i18n::tr!(CommandSourceCurrent).into())
+                    }
+                    Some(Presentation::Single(TextMode::Preview)) if action == BrowserPreview => {
+                        Some(i18n::tr!(CommandPreviewCurrent).into())
+                    }
+                    Some(_) => None,
+                    None => Some(i18n::tr!(CommandRequiresPreviewableFile).into()),
+                }
             }
             BrowserRefresh | BrowserDiff if !matches!(self.mode, Mode::Browser(_)) => {
                 Some(i18n::tr!(CommandRequiresBrowser).into())
@@ -94,6 +138,22 @@ impl Screen {
         match reason {
             Some(reason) => Availability::Unavailable(Problem::Reason(reason)),
             None => Availability::Ready,
+        }
+    }
+    fn partial_target(&self) -> Result<&changes::edit::Session, String> {
+        match &self.mode {
+            Mode::Changes(session) => match &session.preview {
+                changes::Preview::Ready {
+                    editing: changes::edit::State::Ready(editing),
+                    ..
+                } => Ok(editing),
+                changes::Preview::Ready {
+                    editing: changes::edit::State::Unavailable(reason),
+                    ..
+                } => Err(reason.clone()),
+                _ => Err(i18n::tr!(PartialSelectRequired).into()),
+            },
+            _ => Err(i18n::tr!(PartialSelectRequired).into()),
         }
     }
     pub(crate) fn command_target(

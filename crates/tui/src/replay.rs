@@ -26,10 +26,21 @@ impl Cache {
     }
 }
 pub(crate) fn admits(state: Option<&State>, action: Action) -> bool {
+    unavailable(state, action).is_none()
+}
+pub(crate) fn unavailable(state: Option<&State>, action: Action) -> Option<&'static str> {
     match action {
-        Action::ReplayControl(_) => matches!(state, Some(State::Active(_))),
-        Action::Replay(_) => !matches!(state, Some(State::Active(_) | State::Other)),
-        _ => true,
+        Action::ReplayControl(_) if state.is_none() => Some(i18n::tr!(CommandReplayStateUnknown)),
+        Action::ReplayControl(replay::Control::Continue) if matches!(state, Some(State::Active(active)) if !active.conflicts.is_empty()) => {
+            Some(i18n::tr!(ReplayResolveFirst))
+        }
+        Action::ReplayControl(_) if !matches!(state, Some(State::Active(_))) => {
+            Some(i18n::tr!(ReplayNotActive))
+        }
+        Action::Replay(_) if matches!(state, Some(State::Active(_) | State::Other)) => {
+            Some(i18n::tr!(CommandReplayInProgress))
+        }
+        _ => None,
     }
 }
 impl Screen {
