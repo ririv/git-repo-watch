@@ -117,15 +117,13 @@ impl Screen {
                 }
                 _ => Some(i18n::tr!(PartialSelectRequired).into()),
             },
-            BrowserSource | BrowserPreview => {
+            BrowserMode(mode) => {
                 use crate::browser::opening::{Presentation, TextMode};
                 match selection.opener().map(|target| target.presentation) {
-                    Some(Presentation::Single(TextMode::Source)) if action == BrowserSource => {
-                        Some(i18n::tr!(CommandSourceCurrent).into())
-                    }
-                    Some(Presentation::Single(TextMode::Preview)) if action == BrowserPreview => {
-                        Some(i18n::tr!(CommandPreviewCurrent).into())
-                    }
+                    Some(Presentation::Single(current)) if current == mode => Some(match mode {
+                        TextMode::Source => i18n::tr!(CommandSourceCurrent).into(),
+                        TextMode::Preview => i18n::tr!(CommandPreviewCurrent).into(),
+                    }),
                     Some(_) => None,
                     None => Some(i18n::tr!(CommandRequiresPreviewableFile).into()),
                 }

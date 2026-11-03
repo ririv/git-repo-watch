@@ -1113,6 +1113,7 @@ pub enum Message {
     FileToggleCommand,
     FileSplitCommand,
     FileSourceCommand,
+    FileModeCommand,
     FilePreviewCommand,
     SvgInvalid,
     SvgExternal,
@@ -4827,6 +4828,10 @@ impl Message {
             (Self::FileSplitCommand, Language::Chinese) => "开合源码与预览分屏",
             (Self::FileSourceCommand, Language::English) => "Open the selected file as source",
             (Self::FileSourceCommand, Language::Chinese) => "以源码打开当前文件",
+            (Self::FileModeCommand, Language::English) => {
+                "Choose source or preview for the selected file"
+            }
+            (Self::FileModeCommand, Language::Chinese) => "选择当前文件的源码或预览",
             (Self::FilePreviewCommand, Language::English) => {
                 "Open the selected file's rendered preview"
             }

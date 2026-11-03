@@ -15,6 +15,7 @@ pub(crate) enum Kind {
     Filter,
     Sort,
     FileView,
+    FileMode,
     DiffLayout,
     DiffContext,
     Search,
@@ -31,6 +32,7 @@ pub(crate) enum Value {
     Filter(Filter),
     Sort(Order),
     FileView(Layout),
+    FileMode(crate::browser::opening::TextMode),
     DiffLayout(Preference),
     DiffContext(crate::diff::Context),
     Search(crate::search::Mode),
@@ -48,6 +50,16 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::FileMode(crate::browser::opening::TextMode::Source),
+        token: "source",
+        description: M::FileSourceCommand,
+    },
+    Option {
+        value: Value::FileMode(crate::browser::opening::TextMode::Preview),
+        token: "preview",
+        description: M::FilePreviewCommand,
+    },
     Option {
         value: Value::DiffSelection(crate::changes::edit::Granularity::Hunk),
         token: "hunk",
@@ -242,6 +254,7 @@ impl Value {
             Self::Filter(value) => Action::Filter(value),
             Self::Sort(value) => Action::Sort(value),
             Self::FileView(value) => Action::FileLayout(value),
+            Self::FileMode(value) => Action::BrowserMode(value),
             Self::DiffLayout(value) => Action::DiffLayout(value),
             Self::DiffContext(value) => Action::DiffContext(value),
             Self::Search(value) => Action::Search(value),
@@ -259,6 +272,7 @@ impl Value {
             Self::Filter(_) => Kind::Filter,
             Self::Sort(_) => Kind::Sort,
             Self::FileView(_) => Kind::FileView,
+            Self::FileMode(_) => Kind::FileMode,
             Self::DiffLayout(_) => Kind::DiffLayout,
             Self::DiffContext(_) => Kind::DiffContext,
             Self::Search(_) => Kind::Search,
@@ -278,6 +292,7 @@ impl Kind {
             Self::Filter => Action::FilterMenu,
             Self::Sort => Action::SortMenu,
             Self::FileView => Action::FileLayoutMenu,
+            Self::FileMode => Action::BrowserModeMenu,
             Self::DiffLayout => Action::DiffLayoutMenu,
             Self::DiffContext => Action::DiffContextMenu,
             Self::Search => Action::SearchMenu,
@@ -301,6 +316,10 @@ impl Kind {
             Self::Filter => Value::Filter(screen.filter),
             Self::Sort => Value::Sort(screen.order),
             Self::FileView => Value::FileView(screen.file_layout),
+            Self::FileMode => match screen.bar.selection()?.opener()?.presentation {
+                crate::browser::opening::Presentation::Single(mode) => Value::FileMode(mode),
+                crate::browser::opening::Presentation::Split(_) => return None,
+            },
             Self::DiffLayout => Value::DiffLayout(screen.diff_preference),
             Self::DiffContext => Value::DiffContext(screen.diff_context),
             Self::Search => Value::Search(screen.search_support().mode()?),

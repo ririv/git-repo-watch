@@ -33,8 +33,8 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
             command.action,
             Action::BrowserToggle
                 | Action::BrowserSplit
-                | Action::BrowserSource
-                | Action::BrowserPreview
+                | Action::BrowserMode(crate::browser::opening::TextMode::Source)
+                | Action::BrowserMode(crate::browser::opening::TextMode::Preview)
         )));
         key(&mut s, KeyCode::Esc);
         select(&mut s, "README.md");
@@ -60,14 +60,14 @@ fn per_file_commands_preserve_independent_source_and_rendered_positions() {
             Some(Document::Text { gutter: 0, .. })
         ));
         session(&mut s).pane().position.scroll = 3;
-        command(&mut s, "repo files source");
+        command(&mut s, "repo files mode source");
         ready(&mut s);
         assert_eq!(session(&mut s).pane().position.scroll, 7);
         assert_eq!(session(&mut s).pane().position.horizontal.offset(), 4);
         select(&mut s, "plain.txt");
         select(&mut s, "README.md");
         assert_eq!(session(&mut s).pane().position.scroll, 7);
-        command(&mut s, "repo files preview");
+        command(&mut s, "repo files mode preview");
         ready(&mut s);
         assert_eq!(session(&mut s).pane().position.scroll, 3);
         for (width, height) in [(150, 32), (48, 12), (24, 8), (1, 1), (150, 32)] {
@@ -95,7 +95,7 @@ fn svg_preview_uses_pixels_and_errors_keep_source_available() {
     command(&mut s, "repo files");
     ready(&mut s);
     select(&mut s, "drawing.svg");
-    command(&mut s, "repo files preview");
+    command(&mut s, "repo files mode preview");
     ready(&mut s);
     let Some(Document::Image(view)) = session(&mut s).pane().preview.document() else {
         panic!("SVG image")
@@ -110,7 +110,7 @@ fn svg_preview_uses_pixels_and_errors_keep_source_available() {
     s.graphics =
         crate::graphics::Display::new(crate::graphics::Support::Unavailable("no pixels".into()));
     assert!(render(&mut s, 150, 32).contains("no pixels"));
-    command(&mut s, "repo files source");
+    command(&mut s, "repo files mode source");
     ready(&mut s);
     assert!(text(&mut s).contains("<svg"));
     for (file, message) in [
@@ -118,12 +118,12 @@ fn svg_preview_uses_pixels_and_errors_keep_source_available() {
         ("external.svg", i18n::tr!(SvgExternal)),
     ] {
         select(&mut s, file);
-        command(&mut s, "repo files preview");
+        command(&mut s, "repo files mode preview");
         ready(&mut s);
         assert!(
             matches!(&session(&mut s).pane().preview, Preview::Failed {error,..} if error.contains(message))
         );
-        command(&mut s, "repo files source");
+        command(&mut s, "repo files mode source");
         ready(&mut s);
         assert!(text(&mut s).contains("<svg"));
         assert_eq!(session(&mut s).focus, Focus::Preview);

@@ -198,47 +198,106 @@ fn binary_selection_options_remain_visible_and_cannot_change_the_index() {
 }
 
 #[test]
-fn source_and_preview_choices_keep_their_positions_and_disable_only_the_active_mode() {
+fn source_and_preview_share_one_parameter_menu_and_disable_only_the_active_mode() {
     use super::browser::{ready, select};
+    use crate::{
+        browser::opening::TextMode,
+        command::{completion::Menu, options::Value},
+    };
     let f = support::Fixture::create();
     f.commit("README.md", "# Rendered\n");
     f.commit("plain.txt", "plain\n");
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo files");
     ready(&mut s);
     select(&mut s, "README.md");
     s.paste("/");
     let before = names(&s);
-    assert!(before.contains(&"repo files source") && before.contains(&"repo files preview"));
+    assert!(before.contains(&"repo files mode"));
+    assert!(
+        !command::COMMANDS
+            .iter()
+            .any(|entry| ["repo files source", "repo files preview"].contains(&entry.name))
+    );
+    assert_eq!(command::matches("repo files mode").len(), 1);
     assert_eq!(
-        reason(&s, Action::BrowserSource).as_deref(),
+        command::matches("repo files mode")[0].usage(),
+        "repo files mode [source|preview]"
+    );
+    command(&mut s, "repo files mode");
+    let bar::InputBar::Command {
+        menu: Menu::Options(values),
+        ..
+    } = &s.bar
+    else {
+        panic!("mode options")
+    };
+    assert_eq!(
+        values
+            .options
+            .iter()
+            .map(|option| option.token)
+            .collect::<Vec<_>>(),
+        ["source", "preview"]
+    );
+    assert_eq!(values.current, Some(Value::FileMode(TextMode::Source)));
+    assert_eq!(
+        reason(&s, Action::BrowserMode(TextMode::Source)).as_deref(),
         Some(i18n::tr!(CommandSourceCurrent))
     );
-    assert!(reason(&s, Action::BrowserPreview).is_none());
+    assert!(reason(&s, Action::BrowserMode(TextMode::Preview)).is_none());
+    let rendered = render(&mut s, 160, 32);
+    assert!(rendered.contains(i18n::CommandSummary::BrowserMode.text()));
+    let first = s.command_items[0].0;
     let draft = s.bar.text();
-    click(&mut s, Action::BrowserSource);
+    s.mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: first.x,
+            row: first.y,
+            modifiers: KeyModifiers::NONE,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
     assert_eq!(s.bar.text(), draft);
-    key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo files preview");
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "/repo files mode preview");
+    assert!(reason(&s, Action::BrowserMode(TextMode::Preview)).is_none());
+    assert!(matches!(
+        &s.copy_selection().opener().unwrap().presentation,
+        crate::browser::opening::Presentation::Single(TextMode::Source)
+    ));
+    key(&mut s, KeyCode::Enter);
     ready(&mut s);
     s.paste("/");
     assert_eq!(names(&s), before);
-    assert!(reason(&s, Action::BrowserSource).is_none());
+    s.paste("mode ");
+    let bar::InputBar::Command {
+        menu: Menu::Options(values),
+        ..
+    } = &s.bar
+    else {
+        panic!("mode options")
+    };
+    assert_eq!(values.current, Some(Value::FileMode(TextMode::Preview)));
+    assert!(reason(&s, Action::BrowserMode(TextMode::Source)).is_none());
     assert_eq!(
-        reason(&s, Action::BrowserPreview).as_deref(),
+        reason(&s, Action::BrowserMode(TextMode::Preview)).as_deref(),
         Some(i18n::tr!(CommandPreviewCurrent))
     );
-    key(&mut s, KeyCode::Esc);
+    while !s.bar.is_plain() {
+        key(&mut s, KeyCode::Esc);
+    }
     select(&mut s, "plain.txt");
     s.paste("/");
-    assert!(!names(&s).iter().any(|name| {
-        [
-            "repo files source",
-            "repo files preview",
-            "repo files toggle",
-            "repo files split",
-        ]
-        .contains(name)
-    }));
+    assert!(
+        !names(&s).iter().any(
+            |name| ["repo files mode", "repo files toggle", "repo files split"].contains(name)
+        )
+    );
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     s.shutdown();
 }

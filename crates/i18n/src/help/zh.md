@@ -124,7 +124,7 @@
 - `/repo files diff` 查看选中文件的改动，返回保留文件树与选择；`/repo files refresh` 刷新目录与预览，`/repo files copy` 复制选中路径。
 - 行尾固定两列显示文件状态：左侧索引、右侧工作区；`M` 修改、`A` 新增、`D` 删除、`R` 重命名、`T` 类型变化，`??` 未跟踪、`UU` 冲突。
 - Markdown、SVG 默认以源码打开，通过命令菜单切换源码、渲染预览与分屏。普通文件不显示这些切换命令。
-- `/repo files toggle` 切换源码与预览，`/repo files split` 开合分屏；`preview`、`source` 直接打开对应内容。菜单显示当前模式，分屏时 `toggle` 或 `source` 返回源码单栏。各文件分别记住显示方式与两侧滚动位置，直到退出当前会话。
+- `/repo files mode [source|preview]` 选择当前文件的源码或渲染预览；不填参数时展开同一组选项，用 ✓ 标记当前值，Tab 补全、Enter 应用，Esc 取消。已处于目标模式的选项置灰并说明原因。`/repo files toggle` 快速切换，`/repo files split` 开合分屏；分屏中选择 source 或 preview 返回对应单栏。各文件分别记住显示方式与两侧滚动位置，直到退出当前会话。
 - 分屏时，`Tab`、`Shift+Tab` 或 `/focus` 在文件树、源码、预览之间切换；点击或滚动可聚焦对应一侧，沿用指针设置。窄窗口上下排列，最小窗口只显示当前焦点，恢复尺寸后保持分屏。
 - SVG 由 resvg 在后台按窗口尺寸渲染，支持内嵌资源；引用外部图片会明确报错。Markdown 复用帮助页的终端排版，图片保留说明与地址。
 

@@ -53,10 +53,10 @@ impl Screen {
                 }
             }
             Action::BrowserDiff => self.open_browser_diff(),
-            Action::BrowserToggle
-            | Action::BrowserSplit
-            | Action::BrowserSource
-            | Action::BrowserPreview => {
+            Action::BrowserModeMenu => {
+                self.open_option_menu(command::options::Kind::FileMode, path, selection)
+            }
+            Action::BrowserToggle | Action::BrowserSplit | Action::BrowserMode(_) => {
                 if let Mode::Browser(session) = &mut self.mode
                     && let Some(target) = selection.opener()
                 {
@@ -67,12 +67,7 @@ impl Screen {
                         Action::BrowserSplit => {
                             session.present(target, target.presentation.split())
                         }
-                        Action::BrowserSource => {
-                            session.open_with(target, crate::browser::opening::TextMode::Source)
-                        }
-                        Action::BrowserPreview => {
-                            session.open_with(target, crate::browser::opening::TextMode::Preview)
-                        }
+                        Action::BrowserMode(mode) => session.open_with(target, mode),
                         _ => unreachable!(),
                     }
                     self.poll_browser();

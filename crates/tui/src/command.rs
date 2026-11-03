@@ -47,8 +47,8 @@ pub enum Action {
     BrowserRefresh,
     BrowserToggle,
     BrowserSplit,
-    BrowserSource,
-    BrowserPreview,
+    BrowserModeMenu,
+    BrowserMode(crate::browser::opening::TextMode),
     Log,
     LogMore,
     LogSelect,
@@ -280,14 +280,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::FileSplitCommand,
     },
     Command {
-        name: "repo files source",
-        action: BrowserSource,
-        description: i18n::Message::FileSourceCommand,
-    },
-    Command {
-        name: "repo files preview",
-        action: BrowserPreview,
-        description: i18n::Message::FilePreviewCommand,
+        name: "repo files mode",
+        action: BrowserModeMenu,
+        description: i18n::Message::FileModeCommand,
     },
     Command {
         name: "repo files copy",

@@ -32,8 +32,13 @@ impl Command {
             Action::BrowserRefresh => Summary::BrowserRefresh,
             Action::BrowserToggle => Summary::BrowserToggle,
             Action::BrowserSplit => Summary::BrowserSplit,
-            Action::BrowserSource => Summary::BrowserSource,
-            Action::BrowserPreview => Summary::BrowserPreview,
+            Action::BrowserModeMenu => Summary::BrowserMode,
+            Action::BrowserMode(crate::browser::opening::TextMode::Source) => {
+                Summary::BrowserSource
+            }
+            Action::BrowserMode(crate::browser::opening::TextMode::Preview) => {
+                Summary::BrowserPreview
+            }
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
             Action::LogSelect | Action::LogSelection(_) => Summary::LogSelection,

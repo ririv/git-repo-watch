@@ -43,7 +43,7 @@ fn rendered_links_open_their_full_targets_without_capturing_lists_or_selection_m
         command(&mut s, "repo files");
         ready(&mut s);
         select(&mut s, "README.md");
-        command(&mut s, "repo files preview");
+        command(&mut s, "repo files mode preview");
         ready(&mut s);
         render(&mut s, 150, 32);
         ready(&mut s);

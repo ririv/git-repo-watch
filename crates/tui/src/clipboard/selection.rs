@@ -204,8 +204,8 @@ impl Selection {
             Action::Replay(_) => matches!(self, Self::Log(_)),
             Action::BrowserToggle
             | Action::BrowserSplit
-            | Action::BrowserSource
-            | Action::BrowserPreview => self.opener().is_some(),
+            | Action::BrowserModeMenu
+            | Action::BrowserMode(_) => self.opener().is_some(),
             Action::Copy(Scope::Repository) => true,
             Action::Copy(scope) => self.content(scope).is_some(),
             _ => true,
@@ -213,6 +213,10 @@ impl Selection {
     }
     pub fn annotation(&self, action: Action) -> Option<&'static str> {
         match action {
+            Action::BrowserModeMenu => self.opener().map(|target| match target.presentation {
+                crate::browser::opening::Presentation::Single(mode) => target.opening(mode).label(),
+                crate::browser::opening::Presentation::Split(_) => i18n::tr!(FileSplit),
+            }),
             Action::BrowserToggle => self
                 .opener()
                 .map(|target| target.opening(target.presentation.active()).label()),

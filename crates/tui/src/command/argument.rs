@@ -232,6 +232,7 @@ impl Action {
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
             Self::WrapMenu => Some(ArgumentAction::Option(super::options::Kind::TextWrap)),
             Self::FileLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::FileView)),
+            Self::BrowserModeMenu => Some(ArgumentAction::Option(super::options::Kind::FileMode)),
             Self::DiffContextMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::DiffContext))
             }
