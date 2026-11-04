@@ -15,8 +15,6 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff context",
         "repo diff header",
         "repo diff discard",
-        "repo diff refresh",
-        "repo diff copy",
         "repo diff view",
     ];
     for input in ["di", "repo diff", "  diff"] {
@@ -53,7 +51,7 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
                 .any(|candidate| candidate.name == child.name)
         }));
     }
-    assert_eq!(names("repos r"), ["repos refresh", "repos remove"]);
+    assert_eq!(names("repos r"), ["repos remove"]);
     assert_eq!(
         names("schedule a"),
         [
@@ -95,7 +93,7 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
         ] {
             assert_eq!(names(query), [expected]);
         }
-        assert_eq!(names("终端"), ["repo terminal", "settings interaction"]);
+        assert_eq!(names("终端"), ["terminal", "settings interaction"]);
         let staging = names("暂存");
         assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
@@ -163,8 +161,8 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
     assert_eq!(
         names(""),
         [
-            "repo", "repos", "cancel", "search", "focus", "zoom", "editor", "tasks", "schedule",
-            "settings", "help", "quit"
+            "repo", "repos", "cancel", "search", "focus", "zoom", "editor", "terminal", "copy",
+            "refresh", "tasks", "schedule", "settings", "help", "quit"
         ]
     );
     for group in ["repo", "repos"] {
@@ -182,7 +180,7 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
         ("branch", "repo branch"),
         ("stash", "repo stash"),
         ("push", "repo push"),
-        ("te", "repo terminal"),
+        ("te", "terminal"),
     ] {
         assert_eq!(matches(query)[0].name, expected);
         assert_eq!(matches(query)[0].completion(), format!("/{expected}"));

@@ -139,14 +139,6 @@ impl View {
     }
 }
 impl crate::Screen {
-    pub(super) fn read_stashes(&mut self, path: std::path::PathBuf) {
-        self.start_repository(
-            path.clone(),
-            i18n::tr!(StashRead),
-            crate::Effect::ReadOnly,
-            move |service, cancel, _| Ok(crate::Outcome::Stashes(service.stashes(&path, &cancel)?)),
-        );
-    }
     pub(super) fn stash_key(&mut self, mut view: Box<View>, key: crossterm::event::KeyEvent) {
         use crossterm::event::KeyCode;
         match view.as_mut() {

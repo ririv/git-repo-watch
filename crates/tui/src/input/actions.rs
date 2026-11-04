@@ -80,12 +80,6 @@ impl Screen {
                     self.poll_browser();
                 }
             }
-            Action::BrowserRefresh => {
-                if let Mode::Browser(session) = &mut self.mode {
-                    session.refresh();
-                    self.poll_browser();
-                }
-            }
             Action::StashPreviewMenu => {
                 self.open_option_menu(crate::command::options::Kind::StashPreview, path, selection)
             }
@@ -136,7 +130,10 @@ impl Screen {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(engine::operations::mutation::Request::Sync, draft);
             }
-            Action::Copy(scope) => self.copy_to_clipboard(scope, selection, path),
+            Action::Copy => {
+                let scope = selection.copy_scope().expect("available copy has a source");
+                self.copy_to_clipboard(scope, selection, path);
+            }
             Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
             Action::Filter(filter) => self.filter_repositories(filter),
@@ -179,50 +176,7 @@ impl Screen {
             }
             Action::InteractionMenu => self.interaction_menu(),
             Action::Interaction(mode) => self.set_interaction(mode),
-            Action::RepositoryRefresh => {
-                if self.repository_list_active() {
-                    if let Err(error) = self.reload(root) {
-                        self.error(i18n::tr!(RefreshFailed), error);
-                    }
-                } else {
-                    self.message = i18n::tr!(RepositoryListOnly).into();
-                }
-            }
-            Action::Refresh => {
-                if let Mode::Browser(session) = &mut self.mode {
-                    session.refresh();
-                    self.poll_browser();
-                    return Ok(false);
-                }
-                if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {
-                    if let Err(error) = self.reload(root) {
-                        self.error(i18n::tr!(RefreshFailed), error);
-                        return Ok(false);
-                    }
-                    self.refresh_workspace();
-                    if let Mode::Branches(view) = &self.mode {
-                        self.read_branches(view.session().snapshot.path.clone());
-                    } else if let Mode::History(view) = &self.mode {
-                        self.open_history(view.session().references.path.clone());
-                    } else if let Some(session) = self.mode.file_session() {
-                        self.read_files(session.snapshot.path.clone());
-                    }
-                    return Ok(false);
-                }
-                self.refresh_overview();
-                if let Mode::Stashes(view) = &self.mode {
-                    self.read_stashes(view.session().snapshot.path.clone());
-                } else if let Mode::Branches(view) = &self.mode {
-                    self.read_branches(view.session().snapshot.path.clone());
-                } else if let Mode::History(view) = &self.mode {
-                    self.open_history(view.session().references.path.clone());
-                } else if let Some(session) = self.mode.file_session() {
-                    let path = session.snapshot.path.clone();
-                    self.read_files(path);
-                } else if let Err(e) = self.reload(root) {
-                    self.error(i18n::tr!(RefreshFailed), e)
-                }
-            }
+            Action::Refresh => self.refresh_current_view(root),
             Action::FileLayoutMenu => {
                 self.open_option_menu(command::options::Kind::FileView, path, selection);
             }
@@ -309,13 +263,16 @@ impl Screen {
             }
             Action::Terminal => {
                 if let Some(path) = path {
+                    let directory = selection
+                        .terminal_target(&path)
+                        .expect("available terminal has a directory");
                     self.start_repository(
                         path.clone(),
                         i18n::tr!(OpenRepositoryTerminal),
                         Effect::Terminal,
                         move |service, cancel, _| {
-                            service.open_terminal(&path, &cancel)?;
-                            Ok(Outcome::TerminalOpened(path))
+                            service.open_terminal(&path, &directory, &cancel)?;
+                            Ok(Outcome::TerminalOpened(directory))
                         },
                     );
                 } else {

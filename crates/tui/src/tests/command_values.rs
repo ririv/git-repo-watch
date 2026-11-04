@@ -33,7 +33,7 @@ fn groups_put_direct_entries_before_deeper_actions_without_hiding_descendants() 
             .unwrap();
         let nested = commands
             .iter()
-            .position(|command| command.name == "repo branch refresh")
+            .position(|command| command.name == "repo diff stage")
             .unwrap();
         assert!(entry < nested, "{name}");
     }

@@ -167,17 +167,3 @@ impl View {
         *self = Self::List(session);
     }
 }
-impl crate::Screen {
-    pub(super) fn read_branches(&mut self, path: std::path::PathBuf) {
-        self.start_repository(
-            path.clone(),
-            i18n::tr!(BranchCatalogRead),
-            crate::Effect::ReadOnly,
-            move |service, cancel, _| {
-                Ok(crate::Outcome::Branches(Box::new(View::List(
-                    Session::new(service.branches(&path, &cancel)?),
-                ))))
-            },
-        );
-    }
-}

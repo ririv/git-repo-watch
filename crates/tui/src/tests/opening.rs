@@ -256,7 +256,7 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
             "# Refreshed document\n\nnew **content**\n",
         )
         .unwrap();
-        command(&mut s, "repo files refresh");
+        command(&mut s, "refresh");
         ready(&mut s);
         for mode in [TextMode::Source, TextMode::Preview] {
             let Some(Document::Text { text, .. }) =

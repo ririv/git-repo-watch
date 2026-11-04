@@ -20,6 +20,10 @@
 - `/editor` opens the selected repository, working file or folder. The menu shows the captured target; historical content, settings and empty lists have no editable target.
 - `/settings editor` lists detected editors. `/settings editor git` follows the current repository's Git editor. You can also enter a command such as `/settings editor code --reuse-window`. This saves the preference without modifying Git or shell configuration.
 - Git resolves `GIT_EDITOR`, `core.editor`, `VISUAL`, `EDITOR`, then its compiled default. GUI editors open independently; terminal editors return to the existing view on exit. Historical file previews do not offer editing.
+## Common local actions
+- `/terminal` opens the selected folder, the containing directory of a selected file, or the repository root in reference views. The menu shows the captured destination.
+- `/refresh` and `Ctrl+R` refresh local data for the current view. Repository lists reload saved reports; file browsing reloads directories and preview; worktree, branches, history and stash lists reread local data. Historical snapshots cannot be refreshed.
+
 
 ## Repository panes
 - Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
@@ -77,14 +81,14 @@
 - Another / with an empty command suffix switches to global commands too; typing //settings from search opens global settings directly.
 - Backspace / Delete removes the selection while retaining any parent; deleting the entire prefix closes commands. Enter or Esc cancels selection and restores the original prefix without running a command. With no prefix selected, Esc closes commands and restores search. Editing never navigates or changes the frozen repository and copy target; reopening captures the current focus.
 - With existing search, Home then / opens commands while retaining search. Slashes inside a search path remain literal text.
-- Historical diffs offer layout and copy operations without worktree staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
+- Historical diffs offer layout options; use global `/copy` for the loaded patch. They do not offer staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
 
 ## Copy the current selection
-- Press `/` in a view and type `copy`. Candidate labels identify the content. There is no global copy group; `/repo copy` copies the selected repository's full path from home.
-- In file lists, `/repo diff copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
-- In a focused diff preview, `/repo diff copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
-- `/repo log copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/repo diff copy`.
-- `/repo branch copy` copies the selected branch name. In operation errors, `/` opens /error and copy copies complete error details.
+- Global `/copy` copies the current selection. Candidate labels identify the content; unavailable selections are disabled.
+- In file lists, `/copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
+- In a focused diff preview, `/copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
+- `/copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/copy`.
+- `/copy` copies the selected branch name. In operation errors, `/copy` copies complete error details.
 - Combined panes follow focus. Failed previews or panes copy their error details. Opening commands freezes the repository and selection; background refresh cannot replace the target.
 - Images, loading, empty and truncated patches report explicit errors. Clipboard writes run independently, report success after the system accepts them and preserve navigation and new drafts.
 - Linux needs X11 or a Wayland session supporting data-control. Content retention after exit depends on the desktop clipboard manager. Error pages accept only copy and quit commands.
@@ -116,7 +120,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - `tracked` saves all staged and unstaged tracked edits, including added files; `all` also includes untracked files. `selected` saves only checked workspace files, including their staged/unstaged edits and chosen new files. Renames include both paths; targets are captured when the command opens. Ignored untracked files are excluded in every mode.
 - The review shows the scope and actual paths. The message is optional and defaults to Git's generated message. Tab moves between the message, Save, and Cancel; Enter confirms the focused control and Esc returns to the command draft. PgUp/PgDn, the wheel, and scrollbars browse the paths. Clicking a button selects it; double-clicking matches Enter. Cancelling saves nothing.
 - `/repo stash apply <stash-id>` restores and retains the entry. `/repo stash pop <stash-id>` removes the entry only after successful restoration. `/repo stash drop <stash-id>` removes it without restoring. Completing these commands from the list fills the selected full object ID for review.
-- `/repo stash copy` copies the selected full object ID; `/repo stash refresh` reloads the list. Restore conflicts are reported as failures and retain the original stash and actual conflict state.
+- `/copy` copies the selected full object ID; `/refresh` reloads the list. Restore conflicts are reported as failures and retain the original stash and actual conflict state.
 - Writes require review and confirmation; returning to edit preserves the draft. HEAD, index, worktree and target references are revalidated. Stash operations also validate reflog order; external changes require a new review.
 
 ## Links and paths
@@ -134,7 +138,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Single-click a directory row to expand or collapse it; a double-click toggles it only once. Single-click files to select them; double-click to focus their preview. Precise-click preferences apply; scrollbar clicks only seek.
 - `Tab` or `/focus` switches between tree and preview; `/zoom` maximizes the focused pane. Narrow windows display the focused pane. Previews support syntax highlighting, images and both scroll axes.
 - Typing searches paths throughout the repository in the background, with an explicit 1,000-match limit. `Esc` clears search before returning to the tree or previous view.
-- `/repo files diff` opens the selected file's changes and preserves the browser when returning. `/repo files refresh` reloads directories and preview; `/repo files copy` copies the selected path.
+- `/repo files diff` opens the selected file's changes and preserves the browser when returning. `/refresh` reloads directories and preview; `/copy` copies the selected path.
 - Two fixed columns at the end of each row describe index and worktree changes: `M` modified, `A` added, `D` deleted, `R` renamed, `T` type changed, `??` untracked, `UU` conflicted.
 - Markdown and SVG open as source by default. Use the command menu to choose source, rendered preview or split. Ordinary files do not offer these commands.
 - `/repo files mode [source|preview]` selects source or rendered preview for the current file. An empty parameter opens one option menu with ✓ on the current value; Tab fills, Enter applies, and Esc cancels. The active mode is muted with a reason. `/repo files layout [single|split]` selects a single pane or split through the same option menu. Choosing the current layout leaves it unchanged. Choosing source or preview from a split opens the corresponding single pane. Each file retains its presentation and separate source/preview scroll positions for the current session.
@@ -163,7 +167,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Tab`/`Shift+Tab` cycles the editor and horizontal actions; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
 - `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Startup and scheduled workflows remain non-forced.
-- `/repo terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
+- `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
 ## Image previews
 - Selecting a PNG, JPEG or WebP in `/repo diff` automatically previews both versions; in commit details, press `Enter` to compare. Content detection does not require an extension.

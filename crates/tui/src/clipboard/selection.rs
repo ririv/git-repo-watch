@@ -105,12 +105,12 @@ pub(crate) enum Selection {
     None,
     Repository,
     Browser {
-        editor: Option<PathBuf>,
+        working: Option<crate::working_target::Target>,
         content: Content,
         opener: Option<crate::browser::opening::OpenTarget>,
     },
     Diff {
-        editor: Option<PathBuf>,
+        working: Option<crate::working_target::Target>,
         content: Content,
         marked: Vec<engine::local::files::Location>,
     },
@@ -121,15 +121,47 @@ pub(crate) enum Selection {
     Error(Content),
 }
 impl Selection {
+    pub fn copy_scope(&self) -> Option<Scope> {
+        Some(match self {
+            Self::None => return None,
+            Self::Repository => Scope::Repository,
+            Self::Browser { .. } => Scope::Browser,
+            Self::Diff { .. } | Self::HistoricalDiff(_) => Scope::Diff,
+            Self::Log(_) => Scope::Log,
+            Self::Branch(_) => Scope::Branch,
+            Self::Stash(_) => Scope::Stash,
+            Self::Error(_) => Scope::Error,
+        })
+    }
+    pub fn terminal_target(&self, root: &Path) -> Option<PathBuf> {
+        match self {
+            Self::Repository
+            | Self::Log(_)
+            | Self::HistoricalDiff(_)
+            | Self::Branch(_)
+            | Self::Stash(_) => Some(root.to_owned()),
+            Self::Browser {
+                working: Some(target),
+                ..
+            }
+            | Self::Diff {
+                working: Some(target),
+                ..
+            } => Some(target.directory(root)),
+            _ => None,
+        }
+    }
     pub fn editor_target(&self, root: &Path) -> Option<PathBuf> {
         match self {
             Self::Repository => Some(root.to_owned()),
             Self::Browser {
-                editor: Some(path), ..
+                working: Some(target),
+                ..
             }
             | Self::Diff {
-                editor: Some(path), ..
-            } => Some(root.join(path)),
+                working: Some(target),
+                ..
+            } => Some(target.path(root)),
             _ => None,
         }
     }
@@ -226,10 +258,7 @@ impl Selection {
     /// Match view capabilities independently of the current selection or operation state.
     pub fn in_scope(&self, action: Action) -> bool {
         if self.is_error() {
-            return matches!(
-                action,
-                Action::Copy(Scope::Error) | Action::Quit | Action::Tasks
-            );
+            return matches!(action, Action::Copy | Action::Quit | Action::Tasks);
         }
         match action {
             Action::PartialSelectMenu | Action::PartialSelect(_) | Action::Discard => {
@@ -246,8 +275,6 @@ impl Selection {
             | Action::BrowserLayout(_)
             | Action::BrowserModeMenu
             | Action::BrowserMode(_) => self.opener().is_some(),
-            Action::Copy(Scope::Repository) => true,
-            Action::Copy(scope) => self.content(scope).is_some(),
             _ => true,
         }
     }
@@ -261,11 +288,14 @@ impl Selection {
                 crate::browser::opening::Presentation::Single(_) => i18n::tr!(FileSingle),
                 crate::browser::opening::Presentation::Split(_) => i18n::tr!(FileSplit),
             }),
-            Action::Copy(Scope::Repository) => Some(Target::RepositoryPath.label()),
-            Action::Copy(scope) => match self.content(scope)? {
-                Content::Text { target, .. } => Some(target.label()),
-                Content::Unavailable(_) => Some(i18n::tr!(CopyUnavailable)),
-            },
+            Action::Copy => Some(match self.copy_scope() {
+                Some(Scope::Repository) => Target::RepositoryPath.label(),
+                Some(scope) => match self.content(scope) {
+                    Some(Content::Text { target, .. }) => target.label(),
+                    _ => i18n::tr!(CopyUnavailable),
+                },
+                None => i18n::tr!(CopyUnavailable),
+            }),
             _ => None,
         }
     }
@@ -296,17 +326,19 @@ impl Screen {
     pub(crate) fn copy_selection(&self) -> Selection {
         match &self.mode {
             Mode::Browser(session) => Selection::Browser {
-                editor: session.selected().map(|entry| entry.path),
+                working: session
+                    .selected()
+                    .map(crate::working_target::Target::browser),
                 content: Content::paths(session.selected().map(|entry| entry.path)),
                 opener: session.open_target(),
             },
             Mode::Files(files) => Selection::Diff {
-                editor: files.editor_path(),
+                working: files.working_target(),
                 content: file_paths(files),
                 marked: marked_paths(files),
             },
             Mode::Changes(session) => Selection::Diff {
-                editor: session.files.editor_path(),
+                working: session.files.working_target(),
                 marked: marked_paths(&session.files),
                 content: match session.focus {
                     changes::Focus::Files => file_paths(&session.files),
@@ -367,8 +399,8 @@ impl Screen {
                     .expect("repository pane has an open workspace");
                 match section {
                     workspace::Section::Worktree => Selection::Diff {
-                        editor: match &session.files {
-                            workspace::Panel::Ready(files) => files.editor_path(),
+                        working: match &session.files {
+                            workspace::Panel::Ready(files) => files.working_target(),
                             _ => None,
                         },
                         content: panel(&session.files, file_paths),

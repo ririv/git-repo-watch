@@ -56,12 +56,7 @@ fn empty_history_keeps_its_commands_disabled_then_enables_them_after_a_commit() 
         wait(&mut s);
         s.paste("/");
         let before = names(&s);
-        for name in [
-            "repo log cherry-pick",
-            "repo log revert",
-            "repo log select",
-            "repo log copy",
-        ] {
+        for name in ["repo log cherry-pick", "repo log revert", "repo log select"] {
             assert!(before.contains(&name), "{before:?}");
         }
         let action = Action::Replay(Kind::CherryPick);
@@ -83,12 +78,12 @@ fn empty_history_keeps_its_commands_disabled_then_enables_them_after_a_commit() 
         assert!(!repo.join(".git/index").exists());
         key(&mut s, KeyCode::Esc);
         support::git(&repo, &["commit", "--allow-empty", "-m", "first"]);
-        command(&mut s, "repo log refresh");
+        command(&mut s, "refresh");
         wait(&mut s);
         s.paste("/");
         assert_eq!(names(&s), before);
         assert!(reason(&s, action).is_none());
-        assert!(reason(&s, Action::Copy(crate::clipboard::Scope::Log)).is_none());
+        assert!(reason(&s, Action::Copy).is_none());
         s.shutdown();
     }
 }

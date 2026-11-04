@@ -158,19 +158,16 @@ impl Screen {
                 }
             }
             Outcome::Opened(content) => self.enter_view(*content, origin),
+            Outcome::ViewRefreshed(snapshot) => {
+                self.mode = origin;
+                self.merge_mutation_view(snapshot);
+                self.poll_changes();
+            }
             Outcome::BrowserDiff { files } => {
                 self.enter_view(navigation::Content::Diff(files), origin);
                 if let Mode::Changes(session) = &mut self.mode {
                     session.focus = crate::changes::Focus::Preview;
                 }
-            }
-            Outcome::Stashes(snapshot) => {
-                let session = match &origin {
-                    Mode::Stashes(view) => view.session().refreshed(snapshot),
-                    _ => crate::stashes::Session::new(snapshot),
-                };
-                self.workspace.save(origin);
-                self.mode = Mode::Stashes(Box::new(crate::stashes::View::List(session)));
             }
             Outcome::StashView(view) => {
                 self.workspace.save(origin);
@@ -216,15 +213,6 @@ impl Screen {
             Outcome::Checked(report) => {
                 self.mode = origin;
                 self.message = i18n::tf!(CheckOneComplete, report.repositories[0].path().display());
-            }
-            Outcome::Branches(mut view) => {
-                if let Mode::Branches(current) = &origin
-                    && let crate::branches::View::List(session) = view.as_mut()
-                {
-                    *session = current.session().refreshed((*session.snapshot).clone());
-                }
-                self.workspace.save(origin);
-                self.mode = Mode::Branches(view);
             }
             Outcome::History(view) => {
                 self.workspace.save(origin);

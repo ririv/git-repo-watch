@@ -31,7 +31,7 @@ fn local_copy(s: &mut Screen) {
         key(s, KeyCode::Esc);
     }
     key(s, KeyCode::Char('/'));
-    s.paste("copy");
+    s.paste("//copy");
     key(s, KeyCode::Enter);
 }
 
@@ -87,16 +87,16 @@ fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views
             s.search_commands()
                 .unwrap()
                 .iter()
-                .filter(|c| matches!(c.action, Action::Copy(_)))
+                .filter(|c| matches!(c.action, Action::Copy))
                 .map(|c| c.name)
                 .collect::<Vec<_>>(),
-            ["repo copy"]
+            ["copy"]
         );
         s.focus(Some("/other/repo".into()));
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
             assert!(
-                text.contains("/repo copy") && text.contains(i18n::tr!(CopyRepositoryPath)),
+                text.contains("/copy") && text.contains(i18n::tr!(CopyRepositoryPath)),
                 "{text}"
             );
         }
@@ -143,7 +143,7 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
     local_copy(&mut s);
     assert_eq!(copied(&mut s, &rx), path);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("copy");
+    s.paste("//copy");
     // 合法的新快照可能在编辑期间改变当前行，复制仍使用原草稿中的选择。
     let Mode::Changes(session) = &mut s.mode else {
         panic!("changes expected")
@@ -193,7 +193,7 @@ fn changes_copy_uses_file_marks_or_the_focused_diff_and_retains_immutable_drafts
     for layout in ["split", "unified", "auto"] {
         command(&mut s, &format!("repo diff layout {layout}"));
         key(&mut s, KeyCode::Char('/'));
-        s.paste("copy");
+        s.paste("//copy");
         let text = render(&mut s, 60, 18);
         assert!(text.contains(i18n::tr!(CopyDiff)), "{text}");
         support::write(
@@ -223,7 +223,7 @@ fn history_and_branch_copy_follow_the_selected_object_and_historical_file() {
     command(&mut s, "repo log");
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
-    s.paste("copy");
+    s.paste("//copy");
     support::git(&f.repo, &["commit", "--allow-empty", "-m", "new head"]);
     key(&mut s, KeyCode::Enter);
     assert_eq!(copied(&mut s, &rx), oid);
@@ -272,14 +272,11 @@ fn errors_have_their_own_context_and_copy_complete_details_without_git_or_config
             scroll: 0,
         };
         key(&mut s, KeyCode::Char('/'));
-        assert_eq!(
-            s.bar.command_input().unwrap().context(),
-            Some(command::Context::Error)
-        );
-        s.paste("copy");
+        assert_eq!(s.bar.command_input().unwrap().context(), None);
+        s.paste("//copy");
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
-            assert!(text.contains("/error") && text.contains("copy"), "{text}");
+            assert!(text.contains("/copy") && text.contains("copy"), "{text}");
         }
         key(&mut s, KeyCode::Enter);
         assert_eq!(copied(&mut s, &rx), detail);
@@ -312,16 +309,16 @@ fn clipboard_worker_keeps_navigation_responsive_and_reports_failures_without_ove
         gate.recv_timeout(Duration::from_secs(8))?;
         anyhow::bail!("clipboard denied")
     });
-    command(&mut s, "repo copy");
+    command(&mut s, "copy");
     assert_eq!(
         rx.recv_timeout(Duration::from_secs(8)).unwrap(),
         "/example/a"
     );
     key(&mut s, KeyCode::Down);
     assert_eq!(s.selected_path(), Some("/example/b".into()));
-    command(&mut s, "repo copy");
+    command(&mut s, "copy");
     assert!(s.message.contains(i18n::tr!(ClipboardBusy)));
-    s.paste("//repo terminal");
+    s.paste("//terminal");
     let draft = s.bar.text();
     release.send(()).unwrap();
     let start = Instant::now();
@@ -444,7 +441,7 @@ fn combined_panes_copy_the_focused_selection_and_keep_loading_or_failure_explici
     s.mode = Mode::Panel(Section::Worktree);
     s.sync_bar();
     key(&mut s, KeyCode::Char('/'));
-    s.paste("copy");
+    s.paste("//copy");
     s.workspace.session_mut().unwrap().files = Panel::Failed("complete panel failure\n中文".into());
     key(&mut s, KeyCode::Enter);
     assert!(s.message.contains(i18n::tr!(CopySelectionLoading)));
@@ -486,7 +483,7 @@ fn background_reads_cannot_replace_an_empty_scoped_command_or_its_copy_selection
         wait(&mut s);
         assert_eq!(s.bar.text(), expected);
         assert!(matches!(s.mode, Mode::Changes(_)));
-        s.paste("copy");
+        s.paste("//copy");
         key(&mut s, KeyCode::Enter);
         assert_eq!(copied(&mut s, &rx), "pending.rs");
     }

@@ -92,7 +92,7 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
                 "{text}"
             );
         }
-        s.paste("repo terminal");
+        s.paste("terminal");
         key(&mut s, KeyCode::Enter);
         assert!(s.search_commands().unwrap().is_empty());
         assert!(s.repository_tasks.is_empty());
@@ -189,7 +189,6 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
             | Action::DiffContextMenu
             | Action::DiffContext(_)
             | Action::DiffLayout(_)
-            | Action::Copy(crate::clipboard::Scope::Diff)
     )));
     s.paste("stage");
     key(&mut s, KeyCode::Enter);
@@ -200,7 +199,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Branches));
-    assert_eq!(s.search_commands().unwrap()[0].name, "repo branch refresh");
+    assert_eq!(s.search_commands().unwrap()[0].name, "repo branch create");
 }
 
 #[test]
@@ -288,7 +287,6 @@ fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_
                 | Action::SortMenu
                 | Action::Sort(_)
                 | Action::RepositorySettings
-                | Action::RepositoryRefresh
         )));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repos");
@@ -332,12 +330,12 @@ fn repository_refresh_only_reloads_cached_reports_and_keeps_other_views_explicit
     command(&mut s, "repo diff");
     wait(&mut s);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "repos refresh");
+    command(&mut s, "refresh");
+    wait(&mut s);
     assert!(matches!(s.mode, Mode::Changes(_)));
-    assert_eq!(s.message, i18n::tr!(RepositoryListOnly));
     assert!(s.repository_tasks.is_empty());
     command(&mut s, "repos");
-    command(&mut s, "repos refresh");
+    command(&mut s, "refresh");
     assert_eq!(s.page, Page::Repositories);
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.repository_tasks.is_empty() && s.check_task.is_none());

@@ -38,12 +38,14 @@ pub(super) struct FileSession {
     folding: Box<folding::Folding>,
 }
 impl FileSession {
-    pub fn editor_path(&self) -> Option<std::path::PathBuf> {
+    pub fn working_target(&self) -> Option<crate::working_target::Target> {
         match &self.cursor {
-            Cursor::Directory { path, .. } => Some(path.clone()),
-            _ => self
-                .current()
-                .map(|change| change.location.name().to_owned()),
+            Cursor::Directory { path, .. } => {
+                Some(crate::working_target::Target::Directory(path.clone()))
+            }
+            _ => self.current().map(|change| {
+                crate::working_target::Target::File(change.location.name().to_owned())
+            }),
         }
     }
 

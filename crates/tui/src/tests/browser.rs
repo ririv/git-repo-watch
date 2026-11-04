@@ -113,7 +113,7 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
             f.repo.join("src/中文 空格/code.ts"),
             "export const refreshed = 3;\n",
         );
-        command(&mut s, "repo files refresh");
+        command(&mut s, "refresh");
         ready(&mut s);
         assert!(text(&mut s).contains("refreshed = 3"));
         s.paste("code.ts");
@@ -335,7 +335,7 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
     ready(&mut s);
     select(&mut s, "output/中文 目录/a.ts");
     write(f.repo.join("output/info.txt"), "new fork\n");
-    command(&mut s, "repo files refresh");
+    command(&mut s, "refresh");
     ready(&mut s);
     assert_eq!(
         session(&mut s).selected().unwrap().path,
@@ -349,7 +349,7 @@ fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
     );
     select(&mut s, "output/中文 目录");
     std::fs::remove_file(f.repo.join("output/info.txt")).unwrap();
-    command(&mut s, "repo files refresh");
+    command(&mut s, "refresh");
     ready(&mut s);
     assert_eq!(
         session(&mut s).selected().unwrap().path,

@@ -19,7 +19,6 @@ pub(crate) enum Context {
     Startup,
     Ai,
     Schedule,
-    Error,
     Files,
     Composition,
 }
@@ -33,11 +32,7 @@ impl Context {
             | Self::Files
             | Self::Composition => Some(Self::Repository),
             Self::Ai | Self::Startup => Some(Self::Settings),
-            Self::Repository
-            | Self::Repositories
-            | Self::Settings
-            | Self::Schedule
-            | Self::Error => None,
+            Self::Repository | Self::Repositories | Self::Settings | Self::Schedule => None,
         }
     }
     pub fn name(self) -> &'static str {
@@ -52,7 +47,6 @@ impl Context {
             Self::Startup => "settings startup",
             Self::Ai => "settings ai",
             Self::Schedule => "schedule",
-            Self::Error => "error",
             Self::Files => "repo files",
             Self::Composition => "repo compose",
         }
@@ -70,7 +64,6 @@ impl Context {
                         | Action::SortMenu
                         | Action::Sort(_)
                         | Action::RepositorySettings
-                        | Action::RepositoryRefresh
                 ))
             && !(self == Self::Diff(DiffContext::History)
                 && matches!(
@@ -80,7 +73,6 @@ impl Context {
                         | Action::PartialSelectMenu
                         | Action::PartialSelect(_)
                         | Action::Discard
-                        | Action::Refresh
                         | Action::FileLayoutMenu
                         | Action::FileLayout(_)
                 ))
@@ -167,7 +159,7 @@ impl Screen {
                     Context::Stash
                 },
             ),
-            Mode::Error { .. } => Some(Context::Error),
+            Mode::Error { .. } => None,
             Mode::Panel(section) => match section {
                 workspace::Section::Worktree => Some(Context::Diff(DiffContext::Worktree)),
                 workspace::Section::History => Some(Context::History),

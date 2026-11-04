@@ -80,9 +80,18 @@ impl Service {
         self.validate_repository(&detail.path, cancel)?;
         local::history::document(detail, change, cancel)
     }
-    pub fn open_terminal(&self, path: &Path, cancel: &Cancel) -> Result<()> {
-        self.validate_repository_access(path, cancel)?;
-        crate::terminal::open(path, cancel)
+    pub fn open_terminal(
+        &self,
+        repository: &Path,
+        directory: &Path,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.validate_repository_access(repository, cancel)?;
+        ensure!(
+            directory.starts_with(repository),
+            i18n::tr!(BrowserInvalidPath)
+        );
+        crate::terminal::open(directory, cancel)
     }
 
     fn validate_repository_access(&self, path: &Path, cancel: &Cancel) -> Result<()> {

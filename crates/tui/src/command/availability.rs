@@ -91,6 +91,16 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            Refresh => crate::view_refresh::Target::current(self)
+                .err()
+                .map(str::to_owned),
+            Terminal
+                if path
+                    .and_then(|root| selection.terminal_target(root))
+                    .is_none() =>
+            {
+                Some(i18n::tr!(TerminalSelectionRequired).into())
+            }
             OpenEditor
                 if path
                     .and_then(|root| selection.editor_target(root))
@@ -128,7 +138,10 @@ impl Screen {
                 }
             }
             Replay(_) if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),
-            Copy(scope) => selection.unavailable(scope, path).map(str::to_owned),
+            Copy => match selection.copy_scope() {
+                Some(scope) => selection.unavailable(scope, path).map(str::to_owned),
+                None => Some(i18n::tr!(CopySelectionRequired).into()),
+            },
             LogMore | LogSelect | LogSelection(_) => match &self.mode {
                 Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)) => {
                     if action == LogMore && view.session().cursor().is_none() {
@@ -171,7 +184,7 @@ impl Screen {
             BrowserLayoutMenu | BrowserLayout(_) if selection.opener().is_none() => {
                 Some(i18n::tr!(CommandRequiresPreviewableFile).into())
             }
-            BrowserRefresh | BrowserDiff if !matches!(self.mode, Mode::Browser(_)) => {
+            BrowserDiff if !matches!(self.mode, Mode::Browser(_)) => {
                 Some(i18n::tr!(CommandRequiresBrowser).into())
             }
             _ => None,
@@ -204,9 +217,16 @@ impl Screen {
         selection: &clipboard::Selection,
     ) -> Option<String> {
         match action {
-            Action::OpenEditor => {
+            Action::Refresh => crate::view_refresh::Target::current(self)
+                .ok()
+                .map(|target| target.label().into()),
+            Action::OpenEditor | Action::Terminal => {
                 let root = path?;
-                let target = selection.editor_target(root)?;
+                let target = match action {
+                    Action::OpenEditor => selection.editor_target(root)?,
+                    Action::Terminal => selection.terminal_target(root)?,
+                    _ => unreachable!(),
+                };
                 let label = match target.strip_prefix(root) {
                     Ok(relative) if !relative.as_os_str().is_empty() => relative,
                     _ => root.file_name().map(Path::new).unwrap_or(root),
@@ -223,10 +243,15 @@ impl Screen {
                     IndexTarget::Lines(count) => i18n::tf!(CommandTargetLines, count = count),
                 })
             }
-            Action::Copy(scope) => selection.amount(scope).map(|amount| match amount {
-                clipboard::Amount::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
-                clipboard::Amount::Commits(count) => i18n::tf!(CommandTargetCommits, count = count),
-            }),
+            Action::Copy => selection
+                .copy_scope()
+                .and_then(|scope| selection.amount(scope))
+                .map(|amount| match amount {
+                    clipboard::Amount::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
+                    clipboard::Amount::Commits(count) => {
+                        i18n::tf!(CommandTargetCommits, count = count)
+                    }
+                }),
             Action::Replay(kind) => Some(i18n::tf!(
                 CommandTargetCommits,
                 count = match kind {

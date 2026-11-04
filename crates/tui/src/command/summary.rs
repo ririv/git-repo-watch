@@ -29,7 +29,6 @@ impl Command {
             Action::Diff => Summary::Diff,
             Action::BrowseFiles => Summary::BrowseFiles,
             Action::BrowserDiff => Summary::BrowserDiff,
-            Action::BrowserRefresh => Summary::BrowserRefresh,
             Action::BrowserLayoutMenu | Action::BrowserLayout(_) => Summary::BrowserLayout,
             Action::BrowserModeMenu => Summary::BrowserMode,
             Action::BrowserMode(crate::browser::opening::TextMode::Source) => {
@@ -90,7 +89,6 @@ impl Command {
             Action::OpenRepository => Summary::OpenRepository,
             Action::Repositories => Summary::Repositories,
             Action::RepositorySettings => Summary::RepositorySettings,
-            Action::RepositoryRefresh => Summary::RepositoryRefresh,
             Action::Add => Summary::Add,
             Action::Remove => Summary::Remove,
             Action::Scan => Summary::Scan,
@@ -113,7 +111,7 @@ impl Command {
             Action::Filter(_) => Summary::FilterMenu,
             Action::Sort(_) => Summary::SortMenu,
             Action::Interaction(_) => Summary::InteractionMenu,
-            Action::Copy(_) => Summary::Copy,
+            Action::Copy => Summary::Copy,
         }
     }
 }

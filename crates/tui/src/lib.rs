@@ -55,7 +55,9 @@ mod task;
 mod task_center;
 mod view;
 mod view_preferences;
+mod view_refresh;
 mod workflow;
+mod working_target;
 mod workspace;
 use anyhow::{Context, Result};
 use command::{Action, Configuration};
@@ -114,8 +116,8 @@ enum Mode {
     },
     Files(FileSession),
     History(Box<history::View>),
-    Branches(Box<branches::View>),
     Stashes(Box<stashes::View>),
+    Branches(Box<branches::View>),
     Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,
@@ -217,9 +219,8 @@ enum Outcome {
     BrowserDiff {
         files: FileSession,
     },
+    ViewRefreshed(mutations::readback::Readback),
     Checked(domain::Report),
-    Branches(Box<branches::View>),
-    Stashes(engine::local::stash::Snapshot),
     StashView(Box<stashes::View>),
     ReplayPrepared {
         preparation: Box<engine::operations::replay::Preparation>,

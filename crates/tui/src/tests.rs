@@ -26,6 +26,7 @@ mod file_icons;
 mod file_path;
 mod file_tree;
 mod focus;
+mod global_actions;
 mod help;
 mod history;
 mod history_actions;
@@ -760,9 +761,9 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         ]);
         s.paste("//te");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/repo terminal");
+        assert_eq!(s.bar.text(), "/terminal");
         assert_eq!(
-            command::matches("repo terminal")
+            command::matches("terminal")
                 .first()
                 .map(|command| command.action),
             Some(Action::Terminal)
@@ -786,7 +787,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
 fn terminal_requires_selection_and_preserves_origin_on_success() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, mut empty) = fixture(vec![]);
-    command(&mut empty, "repo terminal");
+    command(&mut empty, "terminal");
     assert!(matches!(empty.mode, Mode::Browsing));
     assert_eq!(empty.message, "Select a repository first");
     let f = support::Fixture::create();
@@ -1461,7 +1462,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         ["repos check"]
     );
-    assert_eq!(command::matches("repos ").len(), 8);
+    assert_eq!(command::matches("repos ").len(), 7);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
         command::matches("repo check")

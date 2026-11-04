@@ -22,11 +22,19 @@ impl Requested {
     pub fn read(self, service: &Service, path: &Path) -> Result<Readback> {
         // 写操作结束后独立读回实际状态，取消信号不能跳过已经产生的变更。
         let cancel = Cancel::default();
+        self.read_with_cancel(service, path, &cancel)
+    }
+    pub(crate) fn read_with_cancel(
+        self,
+        service: &Service,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<Readback> {
         Ok(match self {
             Self::None => Readback::Unchanged,
-            Self::Files => Readback::Files(service.files(path, &cancel)?),
-            Self::Branches => Readback::Branches(service.branches(path, &cancel)?),
-            Self::Stashes => Readback::Stashes(service.stashes(path, &cancel)?),
+            Self::Files => Readback::Files(service.files(path, cancel)?),
+            Self::Branches => Readback::Branches(service.branches(path, cancel)?),
+            Self::Stashes => Readback::Stashes(service.stashes(path, cancel)?),
         })
     }
 }

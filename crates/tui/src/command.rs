@@ -46,7 +46,6 @@ pub enum Action {
     Diff,
     BrowseFiles,
     BrowserDiff,
-    BrowserRefresh,
     BrowserLayoutMenu,
     BrowserLayout(crate::browser::opening::Layout),
     BrowserModeMenu,
@@ -69,7 +68,7 @@ pub enum Action {
     Filter(crate::repository_list::Filter),
     SortMenu,
     Sort(crate::repository_list::Order),
-    Copy(crate::clipboard::Scope),
+    Copy,
     Commit,
     CommitGenerate,
     Compose(crate::composition::Action),
@@ -91,7 +90,6 @@ pub enum Action {
     OpenRepository,
     Repositories,
     RepositorySettings,
-    RepositoryRefresh,
     Add,
     Remove,
     Scan,
@@ -135,16 +133,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo branch",
         action: Action::Branches,
         description: i18n::Message::BranchCommand,
-    },
-    Command {
-        name: "repo branch refresh",
-        action: Refresh,
-        description: i18n::Message::RefreshContextView,
-    },
-    Command {
-        name: "repo branch copy",
-        action: Copy(crate::clipboard::Scope::Branch),
-        description: i18n::Message::CopyBranchCommand,
     },
     Command {
         name: "repo branch create",
@@ -197,16 +185,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::HistoryMoreCommand,
     },
     Command {
-        name: "repo log refresh",
-        action: Refresh,
-        description: i18n::Message::RefreshContextView,
-    },
-    Command {
-        name: "repo log copy",
-        action: Copy(crate::clipboard::Scope::Log),
-        description: i18n::Message::CopyLogCommand,
-    },
-    Command {
         name: "repo diff",
         action: Diff,
         description: i18n::Message::ChangesOpen,
@@ -247,16 +225,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::PartialDiscard,
     },
     Command {
-        name: "repo diff refresh",
-        action: Refresh,
-        description: i18n::Message::RefreshContextView,
-    },
-    Command {
-        name: "repo diff copy",
-        action: Copy(crate::clipboard::Scope::Diff),
-        description: i18n::Message::CopyDiffCommand,
-    },
-    Command {
         name: "repo diff view",
         action: FileLayoutMenu,
         description: i18n::Message::FilesLayout,
@@ -272,11 +240,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::BrowserDiffDescription,
     },
     Command {
-        name: "repo files refresh",
-        action: BrowserRefresh,
-        description: i18n::Message::BrowserRefreshDescription,
-    },
-    Command {
         name: "repo files layout",
         action: BrowserLayoutMenu,
         description: i18n::Message::FileLayoutCommand,
@@ -285,11 +248,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo files mode",
         action: BrowserModeMenu,
         description: i18n::Message::FileModeCommand,
-    },
-    Command {
-        name: "repo files copy",
-        action: Copy(crate::clipboard::Scope::Browser),
-        description: i18n::Message::CopyFilePaths,
     },
     Command {
         name: "repo commit",
@@ -367,16 +325,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::StashCommand,
     },
     Command {
-        name: "repo stash refresh",
-        action: Refresh,
-        description: i18n::Message::RefreshContextView,
-    },
-    Command {
-        name: "repo stash copy",
-        action: Copy(crate::clipboard::Scope::Stash),
-        description: i18n::Message::StashCopyCommand,
-    },
-    Command {
         name: "repo stash scope",
         action: StashPreviewMenu,
         description: i18n::Message::StashPreviewCommand,
@@ -402,11 +350,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::StashDropCommand,
     },
     Command {
-        name: "repo terminal",
-        action: Terminal,
-        description: i18n::Message::OpenRepositoryTerminal,
-    },
-    Command {
         name: "repo check",
         action: Check,
         description: i18n::Message::CheckSelectedRepository,
@@ -422,11 +365,6 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::CancelBackgroundCheck,
     },
     Command {
-        name: "repo refresh",
-        action: Refresh,
-        description: i18n::Message::ReloadReportOrFileList,
-    },
-    Command {
         name: "repos filter",
         action: FilterMenu,
         description: i18n::Message::RepositoryFilterCommand,
@@ -437,19 +375,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::RepositorySortCommand,
     },
     Command {
-        name: "repos refresh",
-        action: RepositoryRefresh,
-        description: i18n::Message::RefreshRepositoryReport,
-    },
-    Command {
         name: "repos manage",
         action: RepositorySettings,
         description: i18n::Message::RepositoryManagementSettings,
-    },
-    Command {
-        name: "repo copy",
-        action: Copy(crate::clipboard::Scope::Repository),
-        description: i18n::Message::CopyRepositoryCommand,
     },
     Command {
         name: "search",
@@ -470,6 +398,21 @@ pub const COMMANDS: &[Command] = &[
         name: "editor",
         action: OpenEditor,
         description: i18n::Message::ExternalEditorOpen,
+    },
+    Command {
+        name: "terminal",
+        action: Terminal,
+        description: i18n::Message::OpenRepositoryTerminal,
+    },
+    Command {
+        name: "copy",
+        action: Copy,
+        description: i18n::Message::CopySelectionRequired,
+    },
+    Command {
+        name: "refresh",
+        action: Refresh,
+        description: i18n::Message::RefreshContextView,
     },
     Command {
         name: "tasks",
@@ -585,11 +528,6 @@ pub const COMMANDS: &[Command] = &[
         name: "help",
         action: Help,
         description: i18n::Message::ShowHelp,
-    },
-    Command {
-        name: "error copy",
-        action: Copy(crate::clipboard::Scope::Error),
-        description: i18n::Message::CopyErrorCommand,
     },
     Command {
         name: "quit",

@@ -548,7 +548,7 @@ impl Screen {
                     self.activate(
                         Action::Refresh,
                         self.scope_path(),
-                        crate::clipboard::Selection::None,
+                        self.copy_selection(),
                         root,
                     )?;
                     return Ok(BarEvent::Handled);

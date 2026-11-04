@@ -44,7 +44,6 @@ fn every_context_selects_its_last_segment_and_arrows_expand_and_shrink_at_bounda
         Context::Repositories,
         Context::Settings,
         Context::Schedule,
-        Context::Error,
     ] {
         let mut input = Input::new(Some(context));
         assert_eq!(
@@ -331,14 +330,18 @@ fn leaf_replacement_keeps_the_repository_captured_before_selection_changes() {
         tx.send(text)?;
         Ok(())
     });
+    let expected = match &s.mode {
+        Mode::Branches(view) => view.session().selected().unwrap().name.clone(),
+        _ => panic!("branch"),
+    };
     s.focus(Some("/example/other".into()));
-    type_text(&mut s, "copy");
-    assert_eq!(s.bar.text(), "/repo copy");
-    key(&mut s, KeyCode::Enter);
-    assert_eq!(
-        rx.recv_timeout(Duration::from_secs(5)).unwrap(),
-        f.repo.to_str().unwrap()
+    type_text(&mut s, "/copy");
+    assert_eq!(s.bar.text(), "/copy");
+    assert!(
+        matches!(&s.bar, crate::bar::InputBar::Command { path: Some(path), .. } if path == &f.repo)
     );
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), expected);
     assert_eq!(s.selected_path(), Some("/example/other".into()));
     assert!(matches!(s.mode, Mode::Branches(_)));
     assert!(s.repository_tasks.is_empty() && s.check_task.is_none());

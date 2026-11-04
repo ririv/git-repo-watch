@@ -2,6 +2,9 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    RefreshUnavailable,
+    RefreshHistorical,
+    TerminalSelectionRequired,
     ExternalEditorCurrent,
     ExternalEditorOpening,
     ExternalEditorGit,
@@ -1261,6 +1264,20 @@ impl Message {
             }
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
+            }
+            (Self::RefreshUnavailable, Language::English) => {
+                "No local data to refresh in this view"
+            }
+            (Self::RefreshUnavailable, Language::Chinese) => "当前视图没有可刷新的本地数据",
+            (Self::RefreshHistorical, Language::English) => {
+                "Historical snapshots do not need refreshing"
+            }
+            (Self::RefreshHistorical, Language::Chinese) => "历史快照无需刷新",
+            (Self::TerminalSelectionRequired, Language::English) => {
+                "Select a repository, file or folder to open its directory"
+            }
+            (Self::TerminalSelectionRequired, Language::Chinese) => {
+                "请选择仓库、文件或目录以打开终端"
             }
             (Self::ExternalEditorCurrent, Language::English) => "Current setting",
             (Self::ExternalEditorCurrent, Language::Chinese) => "当前配置",
@@ -3527,7 +3544,7 @@ impl Message {
             (Self::OpenRepositoryTerminal, Language::English) => {
                 "Open default terminal in this repository"
             }
-            (Self::OpenRepositoryTerminal, Language::Chinese) => "在当前仓库打开终端",
+            (Self::OpenRepositoryTerminal, Language::Chinese) => "在当前目录打开终端",
             (Self::RepositoryTerminalOpened, Language::English) => "Opened terminal: {}",
             (Self::RepositoryTerminalOpened, Language::Chinese) => "已打开终端：{}",
             (Self::TerminalDirectoryMissing, Language::English) => {

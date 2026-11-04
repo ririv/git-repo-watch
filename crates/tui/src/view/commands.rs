@@ -222,7 +222,7 @@ fn render_menu(
             let description = match command.action {
                 Action::Stage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialStage),
                 Action::Unstage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialUnstage),
-                Action::Copy(_) => selection
+                Action::Copy => selection
                     .annotation(command.action)
                     .expect("copy target label"),
                 _ => command.summary().text(),
