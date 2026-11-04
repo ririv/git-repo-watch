@@ -30,6 +30,7 @@ mod review;
 mod schedule;
 mod settings;
 mod shell;
+pub(crate) mod stash_save;
 mod stashes;
 mod tasks;
 mod text_editor;

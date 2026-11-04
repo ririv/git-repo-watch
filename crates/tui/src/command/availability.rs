@@ -53,7 +53,7 @@ impl Screen {
                     | Sync
                     | Stashes
                     | StashSave
-                    | StashSaveAll
+                    | StashSaveMode(_)
                     | StashApply
                     | StashPop
                     | StashDrop
@@ -88,6 +88,11 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            StashSaveMode(crate::stash_save::Scope::Selected)
+                if selection.marked_file_count() == 0 =>
+            {
+                Some(i18n::tr!(StashSelectFiles).into())
+            }
             ComposeOrderMenu
             | Compose(crate::composition::Action::Up | crate::composition::Action::Down) => {
                 match &self.mode {
@@ -185,6 +190,10 @@ impl Screen {
         selection: &clipboard::Selection,
     ) -> Option<String> {
         match action {
+            Action::StashSaveMode(crate::stash_save::Scope::Selected) => Some(i18n::tf!(
+                CommandTargetFiles,
+                count = selection.marked_file_count()
+            )),
             Action::Stage | Action::Unstage => {
                 self.index_target(action).ok().map(|target| match target {
                     IndexTarget::Files(count) => i18n::tf!(CommandTargetFiles, count = count),

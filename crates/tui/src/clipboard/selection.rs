@@ -107,7 +107,10 @@ pub(crate) enum Selection {
         content: Content,
         opener: Option<crate::browser::opening::OpenTarget>,
     },
-    Diff(Content),
+    Diff {
+        content: Content,
+        marked: Vec<engine::local::files::Location>,
+    },
     HistoricalDiff(Content),
     Log(CommitSelection),
     Branch(Content),
@@ -142,7 +145,7 @@ impl Selection {
         match (self, scope) {
             (Self::Browser { content, .. }, Scope::Browser) => Some(content),
             (Self::Log(selection), Scope::Log) => Some(selection.content()),
-            (Self::Diff(content), Scope::Diff)
+            (Self::Diff { content, .. }, Scope::Diff)
             | (Self::HistoricalDiff(content), Scope::Diff)
             | (Self::Branch(content), Scope::Branch)
             | (Self::Stash(content), Scope::Stash)
@@ -162,6 +165,27 @@ impl Selection {
     }
     pub fn is_error(&self) -> bool {
         matches!(self, Self::Error(_))
+    }
+    pub fn marked_file_count(&self) -> usize {
+        match self {
+            Self::Diff { marked, .. } => marked
+                .iter()
+                .map(|location| location.name())
+                .collect::<BTreeSet<_>>()
+                .len(),
+            _ => 0,
+        }
+    }
+    pub fn marked_files(&self) -> Vec<PathBuf> {
+        match self {
+            Self::Diff { marked, .. } => marked
+                .iter()
+                .flat_map(|location| location.paths().into_iter().map(Path::to_owned))
+                .collect::<BTreeSet<_>>()
+                .into_iter()
+                .collect(),
+            _ => vec![],
+        }
     }
     pub fn opener(&self) -> Option<&crate::browser::opening::OpenTarget> {
         match self {
@@ -193,7 +217,7 @@ impl Selection {
         }
         match action {
             Action::PartialSelectMenu | Action::PartialSelect(_) | Action::Discard => {
-                matches!(self, Self::Diff(_))
+                matches!(self, Self::Diff { .. })
             }
             Action::LogSelect | Action::LogSelection(_) => {
                 matches!(
@@ -259,21 +283,27 @@ impl Screen {
                 content: Content::paths(session.selected().map(|entry| entry.path)),
                 opener: session.open_target(),
             },
-            Mode::Files(files) => Selection::Diff(file_paths(files)),
-            Mode::Changes(session) => Selection::Diff(match session.focus {
-                changes::Focus::Files => file_paths(&session.files),
-                changes::Focus::Preview => match &session.preview {
-                    changes::Preview::Empty => Content::Unavailable(Unavailable::Empty),
-                    changes::Preview::Directory { path, .. } => {
-                        Content::paths(std::iter::once(path.clone()))
-                    }
-                    changes::Preview::Loading(_) => Content::Unavailable(Unavailable::Loading),
-                    changes::Preview::Failed { error, .. } => {
-                        Content::text(Target::Error, error.clone())
-                    }
-                    changes::Preview::Ready { content, .. } => Content::document(content),
+            Mode::Files(files) => Selection::Diff {
+                content: file_paths(files),
+                marked: marked_paths(files),
+            },
+            Mode::Changes(session) => Selection::Diff {
+                marked: marked_paths(&session.files),
+                content: match session.focus {
+                    changes::Focus::Files => file_paths(&session.files),
+                    changes::Focus::Preview => match &session.preview {
+                        changes::Preview::Empty => Content::Unavailable(Unavailable::Empty),
+                        changes::Preview::Directory { path, .. } => {
+                            Content::paths(std::iter::once(path.clone()))
+                        }
+                        changes::Preview::Loading(_) => Content::Unavailable(Unavailable::Loading),
+                        changes::Preview::Failed { error, .. } => {
+                            Content::text(Target::Error, error.clone())
+                        }
+                        changes::Preview::Ready { content, .. } => Content::document(content),
+                    },
                 },
-            }),
+            },
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(session) => log(session),
                 history::View::Commit(commit) => Selection::Log(CommitSelection::Selected {
@@ -310,9 +340,13 @@ impl Screen {
                     .session()
                     .expect("repository pane has an open workspace");
                 match section {
-                    workspace::Section::Worktree => {
-                        Selection::Diff(panel(&session.files, file_paths))
-                    }
+                    workspace::Section::Worktree => Selection::Diff {
+                        content: panel(&session.files, file_paths),
+                        marked: match &session.files {
+                            workspace::Panel::Ready(files) => marked_paths(files),
+                            _ => vec![],
+                        },
+                    },
                     workspace::Section::History => match &session.history {
                         workspace::Panel::Ready(session) => log(session),
                         other => Selection::Log(CommitSelection::Unavailable(panel(other, commit))),
@@ -380,4 +414,15 @@ fn log(session: &history::Session) -> Selection {
         },
         None => CommitSelection::Unavailable(Content::Unavailable(Unavailable::Empty)),
     })
+}
+
+fn marked_paths(files: &crate::FileSession) -> Vec<engine::local::files::Location> {
+    files
+        .snapshot
+        .changes
+        .iter()
+        .enumerate()
+        .filter(|(index, _)| files.selected.contains(index))
+        .map(|(_, change)| change.location.clone())
+        .collect()
 }

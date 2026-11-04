@@ -100,7 +100,9 @@
 - 同步预览在底部单行显示实际阶段；后台任务详情单独展示阶段耗时，失败原因保持独立。
 - `/repo sync` 更新远程状态，预览当前分支需要的快进拉取或推送，确认后执行；已同步时直接提示。分叉时提示先合并或 rebase；未配置远程或远程上游时提示当前无法同步，不记为仓库失败。结果在后台任务中查看。
 - `/repo stash` 打开独立列表；↑↓选择、Enter 查看详情、←/Esc 返回。进入后 `/` 使用 /repo stash 上下文，列表可搜索消息和对象 ID。
-- `/repo stash save <message>` 保存已跟踪变更；`/repo stash save-all <message>` 也包含未跟踪文件，均不包含忽略文件。
+- `/repo stash save [tracked|all|selected]` 保存改动。不填参数时显示选项菜单，Tab 补全、Enter 选择；`selected` 显示勾选文件数，没有勾选时置灰。
+- `tracked` 保存整个仓库已跟踪文件的暂存、未暂存改动，也包含已经 git add 的新文件；`all` 额外包含未跟踪文件。`selected` 仅保存工作区勾选文件的暂存、未暂存改动及所选新文件，重命名同时处理旧、新路径；目标取打开命令时的勾选快照。三种均不包含未跟踪的忽略文件。
+- 保存页显示范围与实际路径；说明可留空，使用 Git 默认说明。Tab 切换说明、保存、取消；Enter 确认当前项，Esc 返回原命令；PgUp/PgDn、滚轮和滚动条查看文件列表。按钮单击选择，双击与 Enter 一致。取消不保存改动。
 - `/repo stash apply <stash-id>` 恢复并保留；`/repo stash pop <stash-id>` 恢复成功后删除；`/repo stash drop <stash-id>` 只删除，不恢复。选中列表项后补全这些命令会填入其完整对象 ID，仍需确认。
 - stash 参数候选显示索引、短 ID 和说明，可按说明或 ID 筛选；Tab 填入完整对象 ID，Enter 或点击候选预览操作，确认后才修改仓库。
 - `/repo stash copy` 复制选中 stash 的完整对象 ID；`/repo stash refresh` 刷新列表。恢复发生冲突时报告失败，保留原 stash 与实际冲突状态。

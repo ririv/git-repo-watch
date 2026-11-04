@@ -35,7 +35,9 @@ impl Section {
         match mode {
             Mode::Panel(section) => Some(*section),
             Mode::Branches(_) => Some(Self::Branches),
-            Mode::Files(_) | Mode::Changes(_) | Mode::CommitMessage { .. } => Some(Self::Worktree),
+            Mode::Files(_) | Mode::Changes(_) | Mode::StashSave(_) | Mode::CommitMessage { .. } => {
+                Some(Self::Worktree)
+            }
             Mode::History(_) => Some(Self::History),
             Mode::Busy(pending) => Self::focused(&pending.origin),
             Mode::Error { origin, .. } => Self::focused(origin),
@@ -140,6 +142,7 @@ impl Workspace {
             Mode::History(view) if view.session().references.path == session.path => {
                 session.history = Panel::Ready(view.session().clone())
             }
+            Mode::StashSave(session) => self.save(*session.origin),
             Mode::Confirm {
                 operation:
                     crate::Confirmation::Partial { origin, .. }

@@ -32,7 +32,7 @@ pub enum Action {
     Sync,
     Stashes,
     StashSave,
-    StashSaveAll,
+    StashSaveMode(crate::stash_save::Scope),
     StashApply,
     StashPop,
     StashDrop,
@@ -376,11 +376,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo stash save",
         action: StashSave,
         description: i18n::Message::StashSaveCommand,
-    },
-    Command {
-        name: "repo stash save-all",
-        action: StashSaveAll,
-        description: i18n::Message::StashSaveAllCommand,
     },
     Command {
         name: "repo stash apply",

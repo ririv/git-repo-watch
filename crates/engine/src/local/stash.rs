@@ -5,8 +5,9 @@ use super::{
 };
 use crate::cancel::Cancel;
 use anyhow::{Result, ensure};
-use git2::{Oid, StashFlags, StatusOptions};
-use serde::{Deserialize, Serialize};
+use git2::Oid;
+mod save;
+pub use save::{Message, SaveMode, SavePlan, SelectedFiles};
 use std::path::{Path, PathBuf};
 
 #[derive(Debug, Clone)]
@@ -44,12 +45,6 @@ pub fn read(path: &Path, cancel: &Cancel) -> Result<Snapshot> {
         entries: result,
     })
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SaveMode {
-    Tracked,
-    IncludeUntracked,
-}
 #[derive(Debug, Clone, Copy)]
 pub enum Restore {
     Apply,
@@ -57,19 +52,14 @@ pub enum Restore {
 }
 #[derive(Debug, Clone)]
 pub enum Request {
-    Save { mode: SaveMode, message: String },
+    Save { mode: SaveMode, message: Message },
     Apply(Oid),
     Pop(Oid),
     Drop(Oid),
 }
 #[derive(Debug, Clone)]
 pub enum Plan {
-    Save {
-        path: PathBuf,
-        mode: SaveMode,
-        message: String,
-        guard: Guard,
-    },
+    Save(SavePlan),
     Restore {
         path: PathBuf,
         entry: Entry,
@@ -86,7 +76,8 @@ pub enum Plan {
 impl Plan {
     pub fn path(&self) -> &Path {
         match self {
-            Self::Save { path, .. } | Self::Restore { path, .. } | Self::Drop { path, .. } => path,
+            Self::Save(plan) => &plan.path,
+            Self::Restore { path, .. } | Self::Drop { path, .. } => path,
         }
     }
 }
@@ -96,26 +87,7 @@ pub fn prepare(path: &Path, request: Request, cancel: &Cancel) -> Result<Plan> {
     cancel.check()?;
     match request {
         Request::Save { mode, message } => {
-            ensure!(
-                !message.trim().is_empty() && !message.contains('\0'),
-                i18n::tr!(MutationStashMessageRequired)
-            );
-            Position::read(&repo)?.oid()?;
-            repo.signature()?;
-            let mut options = StatusOptions::new();
-            options
-                .include_untracked(mode == SaveMode::IncludeUntracked)
-                .recurse_untracked_dirs(true);
-            ensure!(
-                !repo.statuses(Some(&mut options))?.is_empty(),
-                i18n::tr!(MutationNothingToStash)
-            );
-            Ok(Plan::Save {
-                path: path.into(),
-                mode,
-                message,
-                guard: Guard::capture(path, cancel)?,
-            })
+            Ok(Plan::Save(save::prepare(path, mode, message, cancel)?))
         }
         request => {
             let oid = match request {
@@ -153,25 +125,12 @@ pub fn prepare(path: &Path, request: Request, cancel: &Cancel) -> Result<Plan> {
         }
     }
 }
-pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Oid> {
+pub fn execute(git: &crate::transport::Git, plan: &Plan, cancel: &Cancel) -> Result<Oid> {
     cancel.check()?;
     let mut repo = open(plan.path())?;
     idle(&repo)?;
     match plan {
-        Plan::Save {
-            path,
-            mode,
-            message,
-            guard,
-        } => {
-            guard.validate(path, cancel)?;
-            let signature = repo.signature()?;
-            let flags = match mode {
-                SaveMode::Tracked => StashFlags::empty(),
-                SaveMode::IncludeUntracked => StashFlags::INCLUDE_UNTRACKED,
-            };
-            Ok(repo.stash_save(&signature, message, Some(flags))?)
-        }
+        Plan::Save(plan) => plan.execute(git, cancel),
         Plan::Restore {
             path,
             entry,

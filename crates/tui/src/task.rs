@@ -176,7 +176,14 @@ impl Screen {
                 self.replay_prepared(*preparation, draft, origin)
             }
             Outcome::MutationPrepared { plan, draft } => {
-                if let Some(notice) = plan.notice() {
+                if let engine::operations::mutation::Plan::Stash(
+                    engine::local::stash::Plan::Save(plan),
+                ) = *plan
+                {
+                    self.mode = Mode::StashSave(Box::new(crate::stash_save::Session::new(
+                        plan, origin, draft,
+                    )));
+                } else if let Some(notice) = plan.notice() {
                     self.mode = origin;
                     self.message = notice.into();
                 } else {

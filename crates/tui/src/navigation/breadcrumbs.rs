@@ -27,6 +27,7 @@ pub(crate) struct Crumb {
 }
 pub(super) fn repository(mode: &Mode) -> Option<&Path> {
     match mode {
+        Mode::StashSave(session) => Some(&session.plan.path),
         Mode::CompositionWaiting(waiting) => Some(&waiting.path),
         Mode::Composition(session) => Some(&session.prepared.snapshot.path),
         Mode::History(view) => Some(&view.session().references.path),
@@ -134,6 +135,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
         Mode::PushConfirm { .. } | Mode::PushTarget(_) => {
             push(i18n::tr!(PushCurrentBranch).into(), Level::Page)
         }
+        Mode::StashSave(_) => push(i18n::tr!(StashSaveCommand).into(), Level::Page),
         Mode::Confirm { .. } => push(i18n::tr!(ConfirmOperation).into(), Level::Page),
         _ => {}
     }

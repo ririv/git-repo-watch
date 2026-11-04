@@ -194,6 +194,9 @@ enum Content<'a> {
     Layout {
         selected: crate::diff::Preference,
     },
+    StashActions {
+        session: &'a crate::stash_save::Session,
+    },
     CommitActions {
         draft: &'a crate::commit_form::Draft,
     },
@@ -471,6 +474,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             Mode::PromptEditor(_) | Mode::Workflow(_) => {
                 unreachable!("the editor has a compact footer")
             }
+            Mode::StashSave(session) => (
+                i18n::tr!(ConfirmOperationAlt),
+                Content::StashActions { session },
+                i18n::tr!(StashSaveHint),
+            ),
             Mode::CommitMessage { editor, .. } => (
                 i18n::tr!(ConfirmOperationAlt),
                 Content::CommitActions { draft: editor },
@@ -581,13 +589,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         title.to_owned()
     };
-    let active = !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
+    let active = !matches!(mode, Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Message)
+        && !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
         && matches!(
             content,
             Content::CommandEntry
                 | Content::Editable { .. }
                 | Content::Choices { .. }
                 | Content::CommitActions { .. }
+                | Content::StashActions { .. }
                 | Content::Layout { .. }
         );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
@@ -691,6 +701,26 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     Paragraph::new(Span::styled(
                         label,
                         if selected == preference {
+                            Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
+                        } else {
+                            Style::default().fg(Color::Gray)
+                        },
+                    )),
+                    area,
+                );
+            }
+        }
+        Content::StashActions { session } => {
+            for (area, choice) in super::stash_save::actions(inner) {
+                let label = if choice == confirmation::Choice::Execute {
+                    i18n::tr!(ActionSave)
+                } else {
+                    i18n::tr!(ActionCancel)
+                };
+                frame.render_widget(
+                    Paragraph::new(Span::styled(
+                        format!(" {label} "),
+                        if session.focus == crate::stash_save::Focus::Actions(choice) {
                             Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
                         } else {
                             Style::default().fg(Color::Gray)

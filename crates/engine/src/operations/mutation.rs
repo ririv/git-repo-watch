@@ -166,9 +166,9 @@ impl Plan {
                     commit: p.commit().to_string(),
                 },
             },
-            Self::Stash(stash::Plan::Save { mode, message, .. }) => Action::SaveStash {
-                mode: *mode,
-                message: message.clone(),
+            Self::Stash(stash::Plan::Save(plan)) => Action::SaveStash {
+                mode: plan.mode.clone(),
+                message: plan.message.input().into(),
             },
             Self::Stash(stash::Plan::Restore {
                 entry,
@@ -248,9 +248,9 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
             })
         }
         Plan::Stash(p) => {
-            let oid = stash::execute(p, cancel)?.to_string();
+            let oid = stash::execute(git, p, cancel)?.to_string();
             Ok(match p {
-                stash::Plan::Save { .. } => Change::SavedStash { oid },
+                stash::Plan::Save(_) => Change::SavedStash { oid },
                 stash::Plan::Restore {
                     action: stash::Restore::Apply,
                     ..

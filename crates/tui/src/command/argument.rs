@@ -20,8 +20,6 @@ pub enum ArgumentAction {
     Add,
     BranchCreate,
     BranchSwitch,
-    StashSave,
-    StashSaveAll,
     StashApply,
     StashPop,
     StashDrop,
@@ -55,8 +53,6 @@ impl ArgumentAction {
             Self::Add => Action::Add,
             Self::BranchCreate => Action::BranchCreate,
             Self::BranchSwitch => Action::BranchSwitch,
-            Self::StashSave => Action::StashSave,
-            Self::StashSaveAll => Action::StashSaveAll,
             Self::StashApply => Action::StashApply,
             Self::StashPop => Action::StashPop,
             Self::StashDrop => Action::StashDrop,
@@ -101,7 +97,6 @@ impl ArgumentAction {
             Self::AiModel => "[<model>|default]",
             Self::AiPrompt => "<text>",
             Self::BranchCreate | Self::BranchSwitch => "<name>",
-            Self::StashSave | Self::StashSaveAll => "<message>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
         ArgumentSyntax::Input(open)
@@ -110,7 +105,6 @@ impl ArgumentAction {
         match self {
             Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
-            Self::StashSave | Self::StashSaveAll => i18n::tr!(StashMessageHint),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::Interval => i18n::tr!(DurationArgumentHint),
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
@@ -160,7 +154,7 @@ impl ArgumentAction {
                     .ok()
                     .context(i18n::tr!(ExpandedPathNotUtf8))
             }
-            Self::BranchCreate | Self::BranchSwitch | Self::StashSave | Self::StashSaveAll => {
+            Self::BranchCreate | Self::BranchSwitch => {
                 ensure!(!value.contains('\0'), "NUL is not allowed");
                 Ok(value.into())
             }
@@ -254,8 +248,7 @@ impl Action {
             Self::Add => Some(ArgumentAction::Add),
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
-            Self::StashSave => Some(ArgumentAction::StashSave),
-            Self::StashSaveAll => Some(ArgumentAction::StashSaveAll),
+            Self::StashSave => Some(ArgumentAction::Option(super::options::Kind::StashSave)),
             Self::StashApply => Some(ArgumentAction::StashApply),
             Self::StashPop => Some(ArgumentAction::StashPop),
             Self::StashDrop => Some(ArgumentAction::StashDrop),

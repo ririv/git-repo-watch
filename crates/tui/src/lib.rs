@@ -46,6 +46,7 @@ mod scrollbar;
 mod search;
 mod settings;
 mod spinner;
+mod stash_save;
 mod stashes;
 mod task;
 mod task_center;
@@ -94,6 +95,7 @@ enum Page {
 }
 #[derive(Debug)]
 enum Mode {
+    StashSave(Box<stash_save::Session>),
     Management(Box<management::Session>),
     Workflow(Box<workflow::Session>),
     PromptEditor(Box<prompt_editor::Session>),

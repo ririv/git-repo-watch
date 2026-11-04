@@ -157,13 +157,16 @@ pub(super) fn render_options(
             spans.push(Span::raw(
                 " ".repeat(gap.min(width.saturating_sub(name_width))),
             ));
+            let description = match availability.label() {
+                Some(reason) => reason.to_owned(),
+                None => match screen.command_target(option.value.action(), selection) {
+                    Some(count) => format!("{} · {count}", option.description.text()),
+                    None => option.description.text().into(),
+                },
+            };
             let description = crate::horizontal::clip(
                 &Line::from(Span::styled(
-                    safe(
-                        availability
-                            .label()
-                            .unwrap_or_else(|| option.description.text()),
-                    ),
+                    safe(&description),
                     if enabled {
                         Style::default()
                     } else {

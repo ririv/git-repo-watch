@@ -89,6 +89,9 @@ impl Screen {
             self.history_actions_key(KeyEvent::new(code, KeyModifiers::NONE));
             return Ok(true);
         }
+        if let Some(changed) = self.stash_save_mouse(event, root)? {
+            return Ok(changed);
+        }
         let precise = self.config.mouse.precise_click;
         if self.bar.is_plain()
             && let Mode::CommitMessage {

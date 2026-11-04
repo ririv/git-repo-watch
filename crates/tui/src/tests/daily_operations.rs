@@ -58,9 +58,13 @@ fn stash_context_prefills_selected_identity_and_retains_selection_after_apply() 
     support::write(f.repo.join("tracked"), "changed\n");
     support::write(f.repo.join("未跟踪 file"), "new\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "repo stash save-all 保存当前工作");
+    command(&mut s, "repo stash save all");
     wait(&mut s);
-    accept(&mut s);
+    assert!(matches!(s.mode, Mode::StashSave(_)));
+    s.paste("保存当前工作");
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
     assert!(support::git(&f.repo, &["status", "--porcelain"]).is_empty());
     command(&mut s, "repo stash");
     wait(&mut s);

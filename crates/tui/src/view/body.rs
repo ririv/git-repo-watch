@@ -38,6 +38,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &mut screen.graphics,
             &mut screen.pointer,
         ),
+        Mode::StashSave(session) => stash_save::render(frame, area, session, &mut screen.pointer),
         Mode::Stashes(view) => stashes::render(frame, area, view, &mut screen.pointer),
         Mode::Branches(view) => branches::render(frame, area, view, &mut screen.pointer),
         Mode::History(view) => history::render(

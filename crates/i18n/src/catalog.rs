@@ -309,6 +309,19 @@ pub enum Message {
     StashTitle,
     StashRead,
     StashCommand,
+    StashSaveIncomplete,
+    StashSelectFiles,
+    StashInvalidPath,
+    StashInvalidMessage,
+    StashSelectionChanged,
+    StashScopeTracked,
+    StashScopeAll,
+    StashScopeSelected,
+    StashScopeLabel,
+    StashFilesCount,
+    StashMessageOptional,
+    StashDefaultMessage,
+    StashSaveHint,
     StashSaveCommand,
     StashSaveAllCommand,
     StashApplyCommand,
@@ -2154,8 +2167,52 @@ impl Message {
                 "Browse saved work and manage the selected stash"
             }
             (Self::StashCommand, Language::Chinese) => "浏览并管理保存的工作",
-            (Self::StashSaveCommand, Language::English) => "Save tracked changes with a message",
-            (Self::StashSaveCommand, Language::Chinese) => "填写消息并保存已跟踪文件的变更",
+            (Self::StashSaveIncomplete, Language::English) => {
+                "Stash {oid} was created, but saving did not complete; inspect the workspace and index"
+            }
+            (Self::StashSaveIncomplete, Language::Chinese) => {
+                "已生成 stash {oid}，保存尚未完成，请查看工作区与暂存区的实际状态"
+            }
+            (Self::StashSelectFiles, Language::English) => {
+                "Select files using the workspace checkboxes first"
+            }
+            (Self::StashSelectFiles, Language::Chinese) => "请先在工作区勾选文件",
+            (Self::StashInvalidPath, Language::English) => {
+                "Stash paths must be repository-relative files"
+            }
+            (Self::StashInvalidPath, Language::Chinese) => "保存路径必须是仓库内的相对文件路径",
+            (Self::StashInvalidMessage, Language::English) => {
+                "The stash message cannot contain NUL"
+            }
+            (Self::StashInvalidMessage, Language::Chinese) => "保存说明不能包含 NUL 字符",
+            (Self::StashSelectionChanged, Language::English) => {
+                "Selected files have changed; reopen the stash review"
+            }
+            (Self::StashSelectionChanged, Language::Chinese) => {
+                "勾选文件的状态已变化，请重新打开保存"
+            }
+            (Self::StashScopeTracked, Language::English) => "All tracked changes",
+            (Self::StashScopeTracked, Language::Chinese) => "全部已跟踪改动",
+            (Self::StashScopeAll, Language::English) => "All changes, including untracked files",
+            (Self::StashScopeAll, Language::Chinese) => "全部改动，包含未跟踪文件",
+            (Self::StashScopeSelected, Language::English) => "Checked files",
+            (Self::StashScopeSelected, Language::Chinese) => "勾选文件",
+            (Self::StashScopeLabel, Language::English) => "Stash scope",
+            (Self::StashScopeLabel, Language::Chinese) => "保存范围",
+            (Self::StashFilesCount, Language::English) => "Files · {count}",
+            (Self::StashFilesCount, Language::Chinese) => "文件 · {count}",
+            (Self::StashMessageOptional, Language::English) => "Message · optional",
+            (Self::StashMessageOptional, Language::Chinese) => "保存说明 · 可留空",
+            (Self::StashDefaultMessage, Language::English) => "Use the default Git message",
+            (Self::StashDefaultMessage, Language::Chinese) => "使用 Git 默认说明",
+            (Self::StashSaveHint, Language::English) => {
+                "Tab Focus · Enter Confirm · Esc Back · PgUp/PgDn Scroll"
+            }
+            (Self::StashSaveHint, Language::Chinese) => {
+                "Tab 切换 · Enter 确认 · Esc 返回 · PgUp/PgDn 滚动"
+            }
+            (Self::StashSaveCommand, Language::English) => "Choose changes to stash",
+            (Self::StashSaveCommand, Language::Chinese) => "选择并保存当前改动",
             (Self::StashSaveAllCommand, Language::English) => "Save tracked and untracked changes",
             (Self::StashSaveAllCommand, Language::Chinese) => "保存已跟踪和未跟踪变更",
             (Self::StashApplyCommand, Language::English) => "Restore a stash and retain its entry",
@@ -5193,6 +5250,18 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (StashSaveIncomplete $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Stash {oid} was created, but saving did not complete; inspect the workspace and index" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("已生成 stash {oid}，保存尚未完成，请查看工作区与暂存区的实际状态" $(, $($args)*)?),
+        }
+    };
+    (StashFilesCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Files · {count}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("文件 · {count}" $(, $($args)*)?),
+        }
+    };
     (CommandTargetFiles $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("{count} files" $(, $($args)*)?),

@@ -55,6 +55,7 @@ mod scrollbars;
 mod search;
 mod settings_design;
 mod startup;
+mod stash_save;
 mod sync_progress;
 mod task_center;
 mod task_feedback;

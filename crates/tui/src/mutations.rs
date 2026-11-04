@@ -21,14 +21,6 @@ impl ArgumentAction {
                 },
                 name: value.into(),
             },
-            Self::StashSave | Self::StashSaveAll => Request::Stash(stash::Request::Save {
-                mode: if self == Self::StashSave {
-                    stash::SaveMode::Tracked
-                } else {
-                    stash::SaveMode::IncludeUntracked
-                },
-                message: value.into(),
-            }),
             Self::StashApply => Request::Stash(stash::Request::Apply(value.parse()?)),
             Self::StashPop => Request::Stash(stash::Request::Pop(value.parse()?)),
             Self::StashDrop => Request::Stash(stash::Request::Drop(value.parse()?)),
@@ -43,14 +35,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Replay(plan) => plan.title(),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
-        Plan::Stash(stash::Plan::Save {
-            mode: stash::SaveMode::Tracked,
-            ..
-        }) => i18n::tr!(StashSaveCommand),
-        Plan::Stash(stash::Plan::Save {
-            mode: stash::SaveMode::IncludeUntracked,
-            ..
-        }) => i18n::tr!(StashSaveAllCommand),
+        Plan::Stash(stash::Plan::Save(_)) => i18n::tr!(StashSaveCommand),
         Plan::Stash(stash::Plan::Restore {
             action: stash::Restore::Apply,
             ..
@@ -109,7 +94,7 @@ pub(crate) fn review(plan: &Plan) -> String {
                 }
             }
         }
-        Plan::Stash(stash::Plan::Save { message, .. }) => message.clone(),
+        Plan::Stash(stash::Plan::Save(plan)) => crate::stash_save::review(plan),
         Plan::Stash(stash::Plan::Restore { entry, .. }) => {
             format!("{}\n{}", entry.oid, entry.message)
         }

@@ -15,6 +15,9 @@ impl Screen {
         self.clicks.reset();
         self.drag = None;
         match &mut self.mode {
+            Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Message => {
+                session.message.insert(text);
+            }
             Mode::PushTarget(session) => session.insert(text),
             Mode::Composition(session) => match &mut session.state {
                 crate::composition::State::Editing(editor) => {
@@ -143,6 +146,13 @@ impl Screen {
             self.generate_commit_message();
             return Ok(false);
         }
+        if matches!(self.mode, Mode::StashSave(_)) {
+            let Mode::StashSave(session) = self.take_mode() else {
+                unreachable!()
+            };
+            self.stash_save_key(session, key);
+            return Ok(false);
+        }
         if self.focus_key(key) {
             return Ok(false);
         }
@@ -156,6 +166,7 @@ impl Screen {
         }
         let mode = self.take_mode();
         match mode {
+            Mode::StashSave(session) => self.stash_save_key(session, key),
             Mode::Management(session) => self.management_key(session, key),
             Mode::PushTarget(session) => self.push_target_key(session, key),
             Mode::CompositionWaiting(waiting) => self.composition_waiting_key(waiting, key),

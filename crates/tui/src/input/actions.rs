@@ -85,6 +85,10 @@ impl Screen {
                     self.poll_browser();
                 }
             }
+            Action::StashSave => {
+                self.open_option_menu(command::options::Kind::StashSave, path, selection)
+            }
+            Action::StashSaveMode(scope) => self.prepare_stash_save(scope, path, selection),
             Action::Stashes => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Stashes, path);

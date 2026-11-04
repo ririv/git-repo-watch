@@ -6,6 +6,10 @@ use std::{collections::BTreeMap, ffi::OsString, path::Path, time::Duration};
 pub struct Git {
     pub timeout: Duration,
 }
+pub(crate) enum RepositoryStash {
+    Tracked,
+    IncludeUntracked,
+}
 pub(crate) enum PushMode {
     FastForward,
     Create,
@@ -159,6 +163,103 @@ impl Git {
         args.extend(commits.iter().map(|oid| OsString::from(oid.to_string())));
         self.run_replay(path, args, cancel)
     }
+    pub(crate) fn save_stash(
+        &self,
+        path: &Path,
+        mode: RepositoryStash,
+        message: Option<&str>,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.stash_command(path, &stash_arguments(mode, message), None, cancel)?;
+        Ok(())
+    }
+    pub(crate) fn clean_stashed_files(
+        &self,
+        plan: &crate::local::stash::SavePlan,
+        index: &Path,
+        base: &git2::Index,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let (tracked, added): (Vec<_>, Vec<_>) = plan
+            .files
+            .iter()
+            .partition(|path| base.get_path(path, 0).is_some());
+        let run = |mut args: Vec<OsString>, paths: Vec<&std::path::PathBuf>| -> Result<()> {
+            args.push("--".into());
+            args.extend(paths.into_iter().map(|path| {
+                let mut value = OsString::from(":(top,literal)");
+                value.push(path.as_os_str());
+                value
+            }));
+            self.stash_command(&plan.path, &args, Some(index), cancel)?;
+            Ok(())
+        };
+        if !tracked.is_empty() {
+            run(
+                strings(&[
+                    "restore",
+                    "--source",
+                    &plan.head_oid().to_string(),
+                    "--worktree",
+                ]),
+                tracked,
+            )?;
+        }
+        if !added.is_empty() {
+            run(strings(&["clean", "--force", "-d", "-x"]), added)?;
+        }
+        Ok(())
+    }
+    fn stash_command(
+        &self,
+        path: &Path,
+        args: &[OsString],
+        index: Option<&Path>,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let repo = crate::local::open(path)?;
+        let worktree = repo.workdir().context(i18n::tr!(RepositoryHasNoWorktree))?;
+        let current = repo.index()?;
+        let index = index
+            .or_else(|| current.path())
+            .context(i18n::tr!(StashInvalidPath))?;
+        // 显式绑定仓库、对象库和索引，避免启动环境中的 Git 上下文改变写入目标。
+        let mut environment = vec![
+            (
+                OsString::from("GIT_DIR"),
+                repo.path().as_os_str().to_owned(),
+            ),
+            (
+                "GIT_COMMON_DIR".into(),
+                repo.commondir().as_os_str().to_owned(),
+            ),
+            ("GIT_WORK_TREE".into(), worktree.as_os_str().to_owned()),
+            ("GIT_INDEX_FILE".into(), index.as_os_str().to_owned()),
+            (
+                "GIT_OBJECT_DIRECTORY".into(),
+                repo.commondir().join("objects").into_os_string(),
+            ),
+            ("GIT_NAMESPACE".into(), "".into()),
+        ];
+        for name in [
+            "GIT_LITERAL_PATHSPECS",
+            "GIT_GLOB_PATHSPECS",
+            "GIT_NOGLOB_PATHSPECS",
+            "GIT_ICASE_PATHSPECS",
+        ] {
+            environment.push((name.into(), "0".into()));
+        }
+        process::run_with_environment(
+            Path::new("/usr/bin/git"),
+            args,
+            Some(worktree),
+            cancel,
+            self.timeout,
+            &environment,
+        )?
+        .success("git stash")?;
+        Ok(())
+    }
     pub fn commit(&self, path: &Path, message: &str, cancel: &Cancel) -> Result<()> {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())
@@ -279,4 +380,15 @@ impl Git {
 }
 fn strings(args: &[&str]) -> Vec<OsString> {
     args.iter().map(OsString::from).collect()
+}
+
+fn stash_arguments(mode: RepositoryStash, message: Option<&str>) -> Vec<OsString> {
+    let mut args = strings(&["stash", "push"]);
+    if matches!(mode, RepositoryStash::IncludeUntracked) {
+        args.push("--include-untracked".into());
+    }
+    if let Some(message) = message {
+        args.extend(strings(&["--message", message]));
+    }
+    args
 }

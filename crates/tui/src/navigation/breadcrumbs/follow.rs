@@ -97,6 +97,7 @@ impl Screen {
             self.mode = match self.take_mode() {
                 Mode::Error { origin, .. } => *origin,
                 Mode::CompositionWaiting(waiting) => *waiting.origin,
+                Mode::StashSave(session) => *session.origin,
                 Mode::Confirm { operation, .. } => match operation {
                     crate::Confirmation::Partial { origin, .. }
                     | crate::Confirmation::Remove { origin, .. }

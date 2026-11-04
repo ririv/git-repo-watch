@@ -10,6 +10,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    StashSave,
     DiffSelection,
     LogSelection,
     Filter,
@@ -31,6 +32,7 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
     LogSelection(crate::history::SelectionAction),
     Filter(Filter),
@@ -58,6 +60,21 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::StashSave(crate::stash_save::Scope::Tracked),
+        token: "tracked",
+        description: M::StashScopeTracked,
+    },
+    Option {
+        value: Value::StashSave(crate::stash_save::Scope::All),
+        token: "all",
+        description: M::StashScopeAll,
+    },
+    Option {
+        value: Value::StashSave(crate::stash_save::Scope::Selected),
+        token: "selected",
+        description: M::StashScopeSelected,
+    },
     Option {
         value: Value::FileLayout(crate::browser::opening::Layout::Single),
         token: "single",
@@ -297,6 +314,7 @@ const OPTIONS: &[Option] = &[
 impl Value {
     pub fn action(self) -> Action {
         match self {
+            Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
             Self::Filter(value) => Action::Filter(value),
@@ -324,6 +342,7 @@ impl Value {
     }
     fn kind(self) -> Kind {
         match self {
+            Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
             Self::Filter(_) => Kind::Filter,
@@ -348,6 +367,7 @@ impl Value {
 impl Kind {
     pub fn action(self) -> Action {
         match self {
+            Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
             Self::Filter => Action::FilterMenu,
@@ -378,7 +398,7 @@ impl Kind {
         Some(match self {
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
             Self::LogSelection => return None,
-            Self::ComposeOrder => return None,
+            Self::ComposeOrder | Self::StashSave => return None,
             Self::DiffHeader => Value::DiffHeader(screen.diff_header),
             Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),
             Self::FileLayout => {

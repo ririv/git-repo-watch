@@ -402,6 +402,7 @@ impl Screen {
                     _ => return false,
                 },
                 ScrollTarget::Text => match &mut self.mode {
+                    Mode::StashSave(session) => session.scroll = offset,
                     Mode::Workflow(session) => session.scroll = offset,
                     Mode::CompositionWaiting(waiting) => match &mut waiting.state {
                         crate::composition::waiting::State::Failed { scroll, .. } => {

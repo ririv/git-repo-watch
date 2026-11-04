@@ -265,7 +265,7 @@ fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_m
 }
 
 #[test]
-fn consolidated_groups_remove_duplicate_commands_without_changing_stash_entries() {
+fn consolidated_groups_keep_one_command_for_each_fixed_option_set() {
     for removed in [
         "repo files toggle",
         "repo files split",
@@ -280,13 +280,15 @@ fn consolidated_groups_remove_duplicate_commands_without_changing_stash_entries(
                 .any(|command| command.name == removed)
         );
     }
-    for name in ["repo stash save", "repo stash save-all"] {
-        let entry = command::COMMANDS
+    assert!(
+        !command::COMMANDS
             .iter()
-            .find(|command| command.name == name)
-            .unwrap();
-        assert_eq!(entry.usage(), format!("{name} <message>"));
-    }
+            .any(|command| command.name == "repo stash save-all")
+    );
+    assert_eq!(
+        command::options::Kind::StashSave.command().usage(),
+        "repo stash save [tracked|all|selected]"
+    );
 }
 
 #[test]

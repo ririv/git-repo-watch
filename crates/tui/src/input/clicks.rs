@@ -14,6 +14,10 @@ const INTERVAL: Duration = Duration::from_millis(400);
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Identity {
     Task(String),
+    StashSave {
+        repository: PathBuf,
+        choice: crate::confirmation::Choice,
+    },
     Composition {
         repository: PathBuf,
         unit: String,
