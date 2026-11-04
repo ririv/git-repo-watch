@@ -245,12 +245,14 @@ mod tests {
 
     fn ready(lines: usize) -> Entry {
         Entry::Ready(Arc::from(
-            *crate::diff::prepare_inline_history(
+            *crate::diff::prepare_inline_comparison(
                 Document::Notice(
                     "a long historical line for wrapping and scrolling\n".repeat(lines),
                 ),
-                Base::Empty,
-                Oid::ZERO_SHA1,
+                crate::diff::Comparison::History {
+                    before: Base::Empty,
+                    after: Oid::ZERO_SHA1,
+                },
                 &Cancel::default(),
             )
             .unwrap(),

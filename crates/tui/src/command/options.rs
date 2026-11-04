@@ -10,6 +10,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    StashPreview,
     StashSave,
     DiffSelection,
     LogSelection,
@@ -32,6 +33,7 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    StashPreview(engine::local::stash::preview::Scope),
     StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
     LogSelection(crate::history::SelectionAction),
@@ -60,6 +62,21 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::StashPreview(engine::local::stash::preview::Scope::All),
+        token: "all",
+        description: M::StashPreviewAll,
+    },
+    Option {
+        value: Value::StashPreview(engine::local::stash::preview::Scope::Staged),
+        token: "staged",
+        description: M::StashPreviewStaged,
+    },
+    Option {
+        value: Value::StashPreview(engine::local::stash::preview::Scope::Unstaged),
+        token: "unstaged",
+        description: M::StashPreviewUnstaged,
+    },
     Option {
         value: Value::StashSave(crate::stash_save::Scope::Tracked),
         token: "tracked",
@@ -314,6 +331,7 @@ const OPTIONS: &[Option] = &[
 impl Value {
     pub fn action(self) -> Action {
         match self {
+            Self::StashPreview(scope) => Action::StashPreview(scope),
             Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
@@ -342,6 +360,7 @@ impl Value {
     }
     fn kind(self) -> Kind {
         match self {
+            Self::StashPreview(_) => Kind::StashPreview,
             Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
@@ -367,6 +386,7 @@ impl Value {
 impl Kind {
     pub fn action(self) -> Action {
         match self {
+            Self::StashPreview => Action::StashPreviewMenu,
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
@@ -396,6 +416,13 @@ impl Kind {
     }
     pub fn current(self, screen: &Screen) -> std::option::Option<Value> {
         Some(match self {
+            Self::StashPreview => {
+                let inspect = screen.mode.inspection()?;
+                let crate::inspection::Source::Stash(detail) = &inspect.detail else {
+                    return None;
+                };
+                Value::StashPreview(detail.scope)
+            }
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
             Self::LogSelection => return None,
             Self::ComposeOrder | Self::StashSave => return None,

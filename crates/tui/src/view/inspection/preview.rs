@@ -1,12 +1,12 @@
 //! All visible file sections share one clipped, styled viewport and scrollbar.
 use super::*;
-use crate::{diff::VisualRow, history::review::Rows};
+use crate::{diff::VisualRow, inspection::review::Rows};
 use engine::local::{files::Location, history::Kind};
 
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    commit: &mut Commit,
+    commit: &mut Session,
     options: crate::diff::Options,
     hits: &mut crate::pointer::Map,
 ) {
@@ -23,12 +23,8 @@ pub(super) fn render(
         .arrange(&indices, selected, inner, options, &hits.links.paths);
     if indices.is_empty() {
         frame.render_widget(
-            Paragraph::new(if commit.query.is_empty() {
-                i18n::tr!(HistoryNoChanges)
-            } else {
-                i18n::tr!(HistoryNoFilesMatch)
-            })
-            .style(Style::default().fg(MUTED)),
+            Paragraph::new(commit.detail.empty_message(&commit.query))
+                .style(Style::default().fg(MUTED)),
             inner,
         );
         return;
@@ -42,7 +38,7 @@ pub(super) fn render(
         if section.start + section.height() <= offset || section.start >= end {
             continue;
         }
-        let change = &commit.detail.changes[section.file];
+        let change = commit.detail.change(section.file);
         if section.start >= offset {
             let y = inner.y + (section.start - offset) as u16;
             let path = match &change.location {
@@ -76,7 +72,7 @@ pub(super) fn render(
                 .iter()
                 .position(|file| *file == section.file)
                 .expect("displayed file");
-            hits.item(header, crate::pointer::Target::HistoryFiles, index);
+            hits.item(header, crate::pointer::Target::InspectionFiles, index);
         }
         let first = offset.saturating_sub(section.start + 1);
         let last = section
@@ -134,13 +130,13 @@ pub(super) fn render(
         inner,
         review.layout.maximum(),
         offset,
-        crate::pointer::ScrollTarget::HistoryReview,
+        crate::pointer::ScrollTarget::InspectionReview,
     );
     review.horizontal.render_on_border(
         frame,
         area,
         inner.x + review.layout.gutter_width().min(inner.width.into()) as u16..inner.right(),
         hits,
-        crate::pointer::ScrollTarget::HistoryReviewHorizontal,
+        crate::pointer::ScrollTarget::InspectionReviewHorizontal,
     );
 }

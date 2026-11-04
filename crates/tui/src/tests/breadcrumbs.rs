@@ -148,10 +148,12 @@ fn branch_and_stash_details_are_nested_and_single_back_restores_their_lists() {
         assert_eq!(list.len(), 2);
         assert!(list[1].contains(&crate::view::name(&f.repo)));
         key(&mut s, KeyCode::Enter);
+        wait(&mut s);
         assert_eq!(labels(&s).len(), 3);
         click_crumb(&mut s, Destination::Current(parent));
         assert_eq!(labels(&s), list);
         key(&mut s, KeyCode::Enter);
+        wait(&mut s);
         key(&mut s, KeyCode::Esc);
         assert_eq!(labels(&s), list);
         key(&mut s, KeyCode::Esc);

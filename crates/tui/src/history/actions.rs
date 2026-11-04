@@ -17,25 +17,6 @@ impl Screen {
             self.message = format!("{error:#}");
         }
     }
-    pub(crate) fn poll_history_review(&mut self) -> bool {
-        let Mode::History(view) = &mut self.mode else {
-            return false;
-        };
-        let View::Commit(commit) = view.as_mut() else {
-            return false;
-        };
-        let Some(area) = self.body_area else {
-            return false;
-        };
-        if crate::view::history::detail::areas(area, commit)
-            .iter()
-            .any(|(_, focus)| *focus == Focus::Preview)
-        {
-            commit.review.poll(&self.service)
-        } else {
-            false
-        }
-    }
     pub(crate) fn open_history(&mut self, path: PathBuf) {
         self.start_repository(
             path.clone(),
@@ -107,7 +88,9 @@ impl Screen {
         let View::Commit(commit) = view.as_ref() else {
             return;
         };
-        let detail = &commit.detail;
+        let crate::inspection::Source::Commit(detail) = &commit.inspect.detail else {
+            unreachable!("history commit source")
+        };
         if detail.parents.len() < 2 {
             return;
         }
@@ -149,27 +132,16 @@ impl Screen {
                 return;
             }
         };
-        let Some(change) = commit
-            .files
-            .selected()
-            .and_then(|index| commit.rows().get(index).map(|change| (*change).clone()))
-        else {
+        let Some(index) = commit.inspect.selected_index() else {
             self.message = i18n::tr!(HistoryNoChanges).into();
             return;
         };
         self.start_repository(
-            commit.detail.path.clone(),
+            commit.inspect.detail.path().to_owned(),
             i18n::tr!(HistoryReadDiff),
             Effect::ReadOnly,
             move |service, cancel, _| {
-                let document = service.history_diff(&commit.detail, &change, &cancel)?;
-                let content = crate::document::prepare_history(
-                    &change.location.display(),
-                    document,
-                    commit.detail.base,
-                    commit.detail.oid,
-                    &cancel,
-                )?;
+                let content = commit.inspect.prepare_file(&service, index, &cancel)?;
                 Ok(Outcome::History(Box::new(View::Diff {
                     commit: Box::new(commit),
                     content,

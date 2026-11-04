@@ -158,6 +158,14 @@ fn static_pages_and_read_only_details_use_the_same_command_entry() {
             command(&mut s, entry);
             wait(&mut s);
             key(&mut s, KeyCode::Enter);
+            wait(&mut s);
+            if entry == "repo stash" {
+                assert_eq!(
+                    s.search_support(),
+                    Support::Both(crate::search::Mode::Filter)
+                );
+                key(&mut s, KeyCode::BackTab);
+            }
             commands_only(&mut s);
             key(&mut s, KeyCode::Esc);
             assert!(matches!(s.bar, InputBar::Search(_)));

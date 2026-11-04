@@ -52,6 +52,8 @@ impl Screen {
                     | Pull
                     | Sync
                     | Stashes
+                    | StashPreviewMenu
+                    | StashPreview(_)
                     | StashSave
                     | StashSaveMode(_)
                     | StashApply
@@ -88,6 +90,9 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            StashPreviewMenu | StashPreview(_) if !matches!(&self.mode, Mode::Stashes(view) if matches!(view.as_ref(), crate::stashes::View::Detail { .. })) => {
+                Some(i18n::tr!(StashPreviewRequiresDetail).into())
+            }
             StashSaveMode(crate::stash_save::Scope::Selected)
                 if selection.marked_file_count() == 0 =>
             {

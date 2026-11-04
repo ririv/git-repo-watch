@@ -25,6 +25,7 @@ mod graphics;
 mod history;
 mod horizontal;
 mod input;
+mod inspection;
 mod interaction;
 mod layout_picker;
 mod links;
@@ -217,6 +218,7 @@ enum Outcome {
     Checked(domain::Report),
     Branches(Box<branches::View>),
     Stashes(engine::local::stash::Snapshot),
+    StashView(Box<stashes::View>),
     ReplayPrepared {
         preparation: Box<engine::operations::replay::Preparation>,
         draft: bar::CommandDraft,

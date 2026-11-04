@@ -55,11 +55,13 @@ python3 examples/playground/create.py --case cherry-pick-conflict
 python3 examples/playground/create.py --case submodule
 python3 examples/playground/create.py --case cherry-pick-batch
 python3 examples/playground/create.py --case diff-metadata
+python3 examples/playground/create.py --case stash-preview
 ```
 
 | `--case` | 初始状态与用途 |
 | --- | --- |
 | `workspace` | 默认场景：同一文件既已暂存又有继续编辑，另有重命名、删除、中文及空格路径、未跟踪文件、忽略文件和 stash |
+| `stash-preview` | 一份含原暂存、原未暂存、未跟踪文字／图片／二进制内容的 stash；当前索引与工作区另有不同内容，用于核对预览来源 |
 | `diff-metadata` | 同一仓库包含普通修改、可执行权限、符号链接类型变化、增删、重命名、复制、二进制内容和末尾换行对照；改动均已暂存并另存历史标签 |
 | `clean` | 干净且与上游同步，适合从历史中手动执行 cherry-pick、revert 和普通提交 |
 | `ahead` | 当前分支 ↑1 ↓0，适合推送和同步确认 |
@@ -83,6 +85,24 @@ python3 examples/playground/create.py --case diff-metadata
 ## 批量拣选演练
 
 `cherry-pick-batch` 的 `feature/batch` 有三条提交，分别带 `example/batch-1`、`example/batch-2`、`example/batch-3` 标签，均未合入当前 `main`。在历史图执行 `/repo log select` 进入选择模式，用 `Space` 或 `Shift+↑↓` 勾选三条“批量演练”提交后按 `Enter` 打开操作菜单，选择“拣选所选提交”后预览，预览将按 1、2、3 排列；第二条修改第一条新增的文件，可验证提交依赖和实际执行顺序。
+
+## Stash 内容预览演练
+
+```sh
+python3 examples/playground/create.py --case stash-preview
+```
+
+按生成器打印的命令启动，执行 `/repo stash`，选择“预览演练”并按 Enter。宽屏下应看到顶部说明、左侧文件与右侧连续差异；选择 `src/config.ts` 时预览定位到该文件，Enter 打开完整 diff，Esc 返回原选择。切窄窗口后，保留说明与文件列表，通过 Enter 查看差异。
+
+详情中执行 `/scope` 打开范围菜单，可选 `all`、`staged`、`unstaged`；也可使用完整命令 `/repo stash scope staged`。`src/config.ts` 应分别显示基准到“保存时工作区内容”、基准到“保存时暂存内容”、暂存到工作区的差异，任何范围都不应显示“当前索引内容”或“当前工作区内容”。
+
+- `stash/暂存后改回.ts`：最终工作区与基准相同，在 `all` 下没有差异；`staged`、`unstaged` 可分别查看暂存和改回的内容。
+- `stash/中文 新文件.md`：未跟踪文件，应出现在 `all`、`unstaged` 下；可搜索中文或使用定位模式逐项查找。
+- `stash/未跟踪图片.png`：Enter 进入图片预览。
+- `stash/二进制.dat`：显示二进制提示。
+- `docs/旧名称.md → docs/新名称.md` 和 `docs/待删除.md`：查看重命名与删除。
+
+查看前后可以执行 `git status --short` 与 `git stash list`，结果应相同。该场景使用独立的 GW 配置，不启用启动检查和定时任务。
 
 ## 文件头元信息演练
 

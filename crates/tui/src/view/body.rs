@@ -39,7 +39,20 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &mut screen.pointer,
         ),
         Mode::StashSave(session) => stash_save::render(frame, area, session, &mut screen.pointer),
-        Mode::Stashes(view) => stashes::render(frame, area, view, &mut screen.pointer),
+        Mode::Stashes(view) => stashes::render(
+            frame,
+            area,
+            view,
+            crate::diff::Options {
+                layout: screen.diff_preference,
+                header: screen.diff_header,
+                context: screen.diff_context,
+                wrap: screen.config.text_wrap,
+            },
+            screen.config.file_icons.into(),
+            &mut screen.graphics,
+            &mut screen.pointer,
+        ),
         Mode::Branches(view) => branches::render(frame, area, view, &mut screen.pointer),
         Mode::History(view) => history::render(
             frame,

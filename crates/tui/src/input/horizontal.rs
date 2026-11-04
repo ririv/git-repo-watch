@@ -18,6 +18,13 @@ impl Screen {
         self.horizontal_scroll(delta)
     }
     pub(super) fn horizontal_scroll(&mut self, delta: isize) -> bool {
+        if let Some(inspect) = self.mode.inspection_mut() {
+            if inspect.focus == crate::inspection::Focus::Preview {
+                inspect.review.horizontal.advance(delta);
+                return true;
+            }
+            return false;
+        }
         let content = match &mut self.mode {
             Mode::Browser(session) => {
                 match session.focus {
@@ -35,16 +42,16 @@ impl Screen {
                     _ => return true,
                 }
             }
+            Mode::Stashes(view) => match view.as_mut() {
+                crate::stashes::View::Diff { content, .. } => content,
+                _ => return false,
+            },
             Mode::History(view) => match view.as_mut() {
                 history::View::Graph(session) => {
                     session.horizontal.advance(delta);
                     return true;
                 }
                 history::View::Diff { content, .. } => content,
-                history::View::Commit(commit) if commit.focus == history::Focus::Preview => {
-                    commit.review.horizontal.advance(delta);
-                    return true;
-                }
                 history::View::Commit(_) => return false,
             },
             _ => return false,

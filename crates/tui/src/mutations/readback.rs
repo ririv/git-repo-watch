@@ -63,24 +63,19 @@ pub(crate) fn merge_mode(mode: &mut Mode, readback: Readback) {
         (Readback::Stashes(snapshot), Mode::Stashes(view))
             if view.session().snapshot.path == snapshot.path =>
         {
-            let session = view.session().refreshed(snapshot);
-            **view = match view.as_ref() {
-                stashes::View::Detail { entry, scroll, .. } => match session
-                    .snapshot
-                    .entries
-                    .iter()
-                    .find(|e| e.oid == entry.oid)
-                    .cloned()
-                {
-                    Some(entry) => stashes::View::Detail {
-                        session,
-                        entry,
-                        scroll: *scroll,
-                    },
-                    None => stashes::View::List(session),
-                },
-                stashes::View::List(_) => stashes::View::List(session),
-            };
+            let selected = view.selected().map(|entry| entry.oid);
+            let next = view.session().refreshed(snapshot);
+            if selected
+                .is_some_and(|oid| next.snapshot.entries.iter().any(|entry| entry.oid == oid))
+            {
+                match view.as_mut() {
+                    stashes::View::List(session)
+                    | stashes::View::Detail { session, .. }
+                    | stashes::View::Diff { session, .. } => *session = next,
+                }
+            } else {
+                **view = stashes::View::List(next);
+            }
         }
         (Readback::Branches(snapshot), Mode::Branches(view))
             if view.session().snapshot.path == snapshot.path =>

@@ -10,14 +10,21 @@ fn graph(s: &Screen) -> &crate::history::Session {
     session
 }
 
-fn detail(s: &Screen) -> &crate::history::Commit {
+fn detail(s: &Screen) -> &crate::inspection::Session {
     let Mode::History(view) = &s.mode else {
         panic!("{:?}", s.mode)
     };
     let crate::history::View::Commit(commit) = view.as_ref() else {
         panic!("{view:?}")
     };
-    commit
+    &commit.inspect
+}
+
+fn source(s: &Screen) -> &engine::local::history::Detail {
+    let crate::inspection::Source::Commit(source) = &detail(s).detail else {
+        panic!("commit")
+    };
+    source
 }
 
 fn merged() -> support::Fixture {
@@ -114,10 +121,10 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         let selected = graph(&s).selected().unwrap().oid;
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
-        assert_eq!(detail(&s).detail.oid, selected);
-        assert_eq!(detail(&s).detail.parents.len(), 2);
+        assert_eq!(detail(&s).detail.oid(), selected);
+        assert_eq!(source(&s).parents.len(), 2);
         assert_eq!(
-            detail(&s).detail.changes[0].location.name(),
+            source(&s).changes[0].location.name(),
             std::path::Path::new("feature.ts")
         );
         for (width, height) in [(60, 18), (120, 30), (180, 36)] {
@@ -143,8 +150,11 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
             };
             let labels = content.labels();
             assert_eq!(labels.1, selected.to_string()[..12]);
+            let crate::inspection::Source::Commit(source) = &commit.inspect.detail else {
+                panic!("commit")
+            };
             assert!(matches!(
-                commit.detail.base,
+                source.base,
                 engine::local::history::Base::Commit(_)
             ));
             let mut terminal = Terminal::new(TestBackend::new(width, 36)).unwrap();
@@ -173,12 +183,15 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
         key(&mut s, KeyCode::Tab);
         wait(&mut s);
         let commit = detail(&s);
+        let crate::inspection::Source::Commit(source) = &commit.detail else {
+            panic!("commit")
+        };
         assert_eq!(
-            commit.detail.base,
-            engine::local::history::Base::Commit(commit.detail.parents[1])
+            source.base,
+            engine::local::history::Base::Commit(source.parents[1])
         );
         assert_eq!(
-            commit.detail.changes[0].location.name(),
+            source.changes[0].location.name(),
             std::path::Path::new("main.ts")
         );
         key(&mut s, KeyCode::Esc);
@@ -327,7 +340,7 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
-    assert!(detail(&s).detail.changes.is_empty());
+    assert!(source(&s).changes.is_empty());
     assert!(render(&mut s, 100, 28).contains(i18n::tr!(HistoryNoChanges)));
     key(&mut s, KeyCode::Esc);
     let oid = graph(&s).selected().unwrap().oid;

@@ -125,7 +125,7 @@ impl Screen {
             Mode::Management(session) => session.query.clone(),
             Mode::Browser(session) => session.input_query().to_owned(),
             Mode::History(view) => view.query().to_owned(),
-            Mode::Stashes(view) => view.session().query.clone(),
+            Mode::Stashes(view) => view.query().to_owned(),
             Mode::Branches(view) => view.session().query.clone(),
             Mode::Files(files) => files.query.clone(),
             Mode::Changes(session) => session.files.query.clone(),

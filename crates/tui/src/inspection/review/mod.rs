@@ -1,8 +1,8 @@
 //! A logical file anchor keeps a continuous review stable while files load or rows reflow.
 mod layout;
 mod load;
+use super::Source;
 use crate::Service;
-use engine::local::history::Detail;
 pub(crate) use layout::{Layout, Rows};
 use std::sync::{Arc, Mutex};
 
@@ -20,7 +20,7 @@ pub(crate) struct Review {
     followed: Option<usize>,
 }
 impl Review {
-    pub fn new(detail: Arc<Detail>) -> Self {
+    pub fn new(detail: Source) -> Self {
         Self {
             bundle: Arc::new(Mutex::new(load::Bundle::new(detail))),
             layout: Layout::default(),

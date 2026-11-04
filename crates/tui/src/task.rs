@@ -132,7 +132,7 @@ impl Screen {
             | self.poll_repository_tasks(root)
             | self.poll_browser()
             | self.poll_commit_message()
-            | self.poll_history_review()
+            | self.poll_inspection()
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();
@@ -171,6 +171,10 @@ impl Screen {
                 };
                 self.workspace.save(origin);
                 self.mode = Mode::Stashes(Box::new(crate::stashes::View::List(session)));
+            }
+            Outcome::StashView(view) => {
+                self.workspace.save(origin);
+                self.mode = Mode::Stashes(view);
             }
             Outcome::ReplayPrepared { preparation, draft } => {
                 self.replay_prepared(*preparation, draft, origin)

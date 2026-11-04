@@ -46,6 +46,25 @@ impl Service {
         self.validate_repository(path, cancel)?;
         local::stash::read(path, cancel)
     }
+    pub fn stash_detail(
+        &self,
+        path: &Path,
+        entry: &local::stash::Entry,
+        scope: local::stash::preview::Scope,
+        cancel: &Cancel,
+    ) -> Result<local::stash::preview::Detail> {
+        self.validate_repository(path, cancel)?;
+        local::stash::preview::read(path, entry, scope, cancel)
+    }
+    pub fn stash_diff(
+        &self,
+        detail: &local::stash::preview::Detail,
+        index: usize,
+        cancel: &Cancel,
+    ) -> Result<local::files::patch::Document> {
+        self.validate_repository(&detail.path, cancel)?;
+        local::stash::preview::document(detail, index, cancel)
+    }
     pub fn prepare_mutation(&self, path: &Path, request: Request, cancel: &Cancel) -> Result<Plan> {
         self.prepare_mutation_observed(path, request, cancel, &mut |_| Ok(()))
     }

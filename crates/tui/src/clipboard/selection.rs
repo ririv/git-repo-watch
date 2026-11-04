@@ -307,13 +307,14 @@ impl Screen {
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(session) => log(session),
                 history::View::Commit(commit) => Selection::Log(CommitSelection::Selected {
-                    oid: commit.detail.oid,
+                    oid: commit.inspect.detail.oid(),
                     marked: commit.graph.picks(),
                     content: Content::paths(
                         commit
+                            .inspect
                             .files
                             .selected()
-                            .and_then(|i| commit.rows().get(i).copied())
+                            .and_then(|i| commit.inspect.rows().get(i).copied())
                             .map(|change| change.location.name().to_owned()),
                     ),
                 }),
@@ -321,6 +322,12 @@ impl Screen {
                     Selection::HistoricalDiff(Content::document(content))
                 }
             },
+            Mode::Stashes(view) if matches!(view.as_ref(), crate::stashes::View::Diff { .. }) => {
+                let crate::stashes::View::Diff { content, .. } = view.as_ref() else {
+                    unreachable!()
+                };
+                Selection::HistoricalDiff(Content::document(content))
+            }
             Mode::Stashes(view) => Selection::Stash(match view.selected() {
                 Some(entry) => Content::text(Target::Stash, entry.oid.to_string()),
                 None => Content::Unavailable(Unavailable::Empty),

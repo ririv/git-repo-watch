@@ -111,6 +111,7 @@ pub(super) enum Comparison {
     Staged,
     Working,
     Conflict,
+    Stash(engine::local::stash::preview::Layer),
     History {
         before: engine::local::history::Base,
         after: engine::local::history::Oid,
@@ -122,6 +123,10 @@ impl Comparison {
             Self::Staged => ("HEAD".into(), i18n::tr!(Index).into()),
             Self::Working => (i18n::tr!(Index).into(), i18n::tr!(Worktree).into()),
             Self::Conflict => ("HEAD".into(), i18n::tr!(ReplayConflictWorktree).into()),
+            Self::Stash(layer) => {
+                let (before, after) = layer.labels();
+                (before.into(), after.into())
+            }
             Self::History { before, after } => (
                 match before {
                     engine::local::history::Base::Empty => i18n::tr!(HistoryRoot).into(),
@@ -403,18 +408,12 @@ pub(super) fn prepare_history(
     )
 }
 
-pub(crate) fn prepare_inline_history(
+pub(crate) fn prepare_inline_comparison(
     document: Document,
-    before: engine::local::history::Base,
-    after: engine::local::history::Oid,
+    comparison: Comparison,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
-    prepare_rows(
-        build::Heading::Inline,
-        document,
-        Comparison::History { before, after },
-        cancel,
-    )
+    prepare_rows(build::Heading::Inline, document, comparison, cancel)
 }
 
 pub(super) fn prepare_comparison(

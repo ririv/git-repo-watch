@@ -3,12 +3,9 @@ use crate::{diff, preview};
 use anyhow::Result;
 use engine::{
     cancel::Cancel,
-    local::{
-        files::{
-            Area,
-            patch::{Document, Source},
-        },
-        history::Base,
+    local::files::{
+        Area,
+        patch::{Document, Source},
     },
 };
 
@@ -50,21 +47,7 @@ pub(super) fn prepare(
     };
     prepare_with(title, document, comparison, cancel)
 }
-pub(super) fn prepare_history(
-    title: &str,
-    document: Document,
-    before: Base,
-    after: engine::local::history::Oid,
-    cancel: &Cancel,
-) -> Result<Box<View>> {
-    prepare_with(
-        title,
-        document,
-        diff::Comparison::History { before, after },
-        cancel,
-    )
-}
-fn prepare_with(
+pub(crate) fn prepare_with(
     title: &str,
     document: Document,
     comparison: diff::Comparison,
@@ -88,7 +71,7 @@ fn prepare_with(
     let text = match comparison {
         diff::Comparison::Staged => diff::prepare(title, document, Area::Staged, cancel)?,
         diff::Comparison::Working => diff::prepare(title, document, Area::Unstaged, cancel)?,
-        diff::Comparison::Conflict => {
+        diff::Comparison::Conflict | diff::Comparison::Stash(_) => {
             diff::prepare_comparison(title, document, comparison, cancel)?
         }
         diff::Comparison::History { before, after } => {

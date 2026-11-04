@@ -13,6 +13,7 @@ pub(crate) enum Level {
     Commit,
     Branches,
     Stashes,
+    StashEntry,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Destination {
@@ -99,12 +100,16 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
                 history::View::Diff { commit, .. } => Some(commit.as_ref()),
             };
             if let Some(commit) = commit {
-                push(commit.detail.oid.to_string()[..8].into(), Level::Commit);
+                push(
+                    commit.inspect.detail.oid().to_string()[..8].into(),
+                    Level::Commit,
+                );
                 if matches!(view.as_ref(), history::View::Diff { .. }) {
                     let change = commit
+                        .inspect
                         .files
                         .selected()
-                        .and_then(|index| commit.rows().get(index).copied())
+                        .and_then(|index| commit.inspect.rows().get(index).copied())
                         .expect("historical diff has a selected change");
                     push(
                         change.location.name().to_string_lossy().into_owned(),
@@ -119,8 +124,24 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
             }
         }
         Mode::Stashes(view) => {
-            if let stashes::View::Detail { entry, .. } = view.as_ref() {
-                push(format!("stash@{{{}}}", entry.index), Level::Page);
+            if !matches!(view.as_ref(), stashes::View::List(_))
+                && let Some(entry) = view.selected()
+            {
+                push(format!("stash@{{{}}}", entry.index), Level::StashEntry);
+                if let stashes::View::Diff { inspect, .. } = view.as_ref()
+                    && let Some(index) = inspect.selected_index()
+                {
+                    push(
+                        inspect
+                            .detail
+                            .change(index)
+                            .location
+                            .name()
+                            .to_string_lossy()
+                            .into_owned(),
+                        Level::Page,
+                    );
+                }
             }
         }
         Mode::Changes(_) if !matches!(page, Page::View(View::Diff)) => {

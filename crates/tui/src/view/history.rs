@@ -1,7 +1,7 @@
 //! Responsive commit graph, metadata preview and per-parent historical file views.
-pub(crate) mod detail;
 pub(super) mod menu;
 mod pixels;
+use super::metadata::{field, time};
 use super::*;
 use crate::history::{Session, View};
 use crate::search::highlight::{self, Emphasis};
@@ -25,28 +25,13 @@ pub(super) fn render(
             hits,
             name(&session.references.path),
         ),
-        View::Commit(commit) => detail::render(frame, area, commit, preference, icons, hits),
+        View::Commit(commit) => {
+            super::inspection::render(frame, area, &mut commit.inspect, preference, icons, hits)
+        }
         View::Diff {
             content, scroll, ..
         } => super::document::render(frame, area, content, scroll, preference, graphics, hits),
     }
-}
-
-fn time(seconds: i64) -> String {
-    match chrono::DateTime::from_timestamp(seconds, 0) {
-        Some(time) => time
-            .with_timezone(&chrono::Local)
-            .format("%Y-%m-%d %H:%M:%S")
-            .to_string(),
-        None => format!("{}: {seconds}", i18n::tr!(HistoryInvalidTime)),
-    }
-}
-
-fn field(key: &str, value: impl Into<String>) -> Line<'static> {
-    Line::from(vec![
-        Span::styled(format!("{key}: "), Style::default().fg(MUTED)),
-        Span::raw(safe(&value.into())),
-    ])
 }
 
 fn labels(references: &References, entry: &Entry) -> Vec<Span<'static>> {

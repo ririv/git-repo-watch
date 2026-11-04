@@ -88,6 +88,15 @@ class PlaygroundTests(unittest.TestCase):
                         self.assertEqual(repo.run("rev-parse", "HEAD"), manifest["refs"]["example/newline-base"])
                         self.assertNotEqual(manifest["refs"]["example/newline-changes"], manifest["head"])
                         self.assertEqual(repo.run("rev-list", "--left-right", "--count", "HEAD...@{upstream}"), "0\t0")
+                    elif case == Case.STASH_PREVIEW:
+                        self.assertIn("MM src/config.ts", repo.run("status", "--porcelain=v1"))
+                        self.assertIn("预览演练", repo.run("stash", "list"))
+                        self.assertEqual(len(repo.run("rev-list", "--parents", "-n", "1", "stash@{0}").split()), 4)
+                        self.assertIn("保存时工作区内容", repo.run("show", "stash@{0}:src/config.ts"))
+                        self.assertIn("保存时暂存内容", repo.run("show", "stash@{0}^2:src/config.ts"))
+                        self.assertIn("只在原暂存区存在", repo.run("show", "stash@{0}^2:stash/暂存后改回.ts"))
+                        self.assertIn("保存时的未跟踪内容", repo.run("show", "stash@{0}^3:stash/中文 新文件.md"))
+                        self.assertIn("stash/未跟踪图片.png", repo.run("-c", "core.quotePath=false", "ls-tree", "-r", "--name-only", "stash@{0}^3"))
                     elif case == Case.CHERRY_PICK_BATCH:
                         self.assertEqual(repo.run("status", "--porcelain=v1"), "")
                         self.assertEqual(repo.run("rev-list", "--count", "example/base..feature/batch"), "3")
@@ -113,7 +122,7 @@ class PlaygroundTests(unittest.TestCase):
 
     def test_history_is_reproducible_across_output_directories(self):
         with tempfile.TemporaryDirectory() as temporary:
-            for case in [Case.CLEAN, Case.SUBMODULE, Case.DIFF_METADATA]:
+            for case in [Case.CLEAN, Case.SUBMODULE, Case.DIFF_METADATA, Case.STASH_PREVIEW]:
                 with self.subTest(case=case):
                     roots = [generate(Path(temporary) / (case.value + name), case) for name in ["one", "two"]]
                     manifests = [json.loads((root / "manifest.json").read_text(encoding="utf-8")) for root in roots]

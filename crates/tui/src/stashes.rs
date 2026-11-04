@@ -102,27 +102,38 @@ pub(super) enum View {
     List(Session),
     Detail {
         session: Session,
-        entry: Entry,
+        inspect: crate::inspection::Session,
+    },
+    Diff {
+        session: Session,
+        inspect: Box<crate::inspection::Session>,
+        content: Box<crate::document::View>,
         scroll: usize,
     },
 }
 impl View {
     pub fn session(&self) -> &Session {
         match self {
-            Self::List(session) | Self::Detail { session, .. } => session,
+            Self::List(session) | Self::Detail { session, .. } | Self::Diff { session, .. } => {
+                session
+            }
         }
     }
     pub fn selected(&self) -> Option<&Entry> {
+        self.session().selected()
+    }
+    pub fn query(&self) -> &str {
         match self {
-            Self::List(session) => session.selected(),
-            Self::Detail { entry, .. } => Some(entry),
+            Self::List(session) => &session.query,
+            Self::Detail { inspect, .. } => &inspect.query,
+            Self::Diff { inspect, .. } => &inspect.query,
         }
     }
     pub fn search(&mut self, query: String) {
-        if self.session().query != query {
-            let mut session = self.session().clone();
-            session.search(query);
-            *self = Self::List(session);
+        match self {
+            Self::List(session) => session.search(query),
+            Self::Detail { inspect, .. } => inspect.search(query),
+            Self::Diff { .. } => {}
         }
     }
 }
@@ -152,25 +163,101 @@ impl crate::Screen {
                     .state
                     .select((!session.rows().is_empty()).then_some(0)),
                 KeyCode::End => session.state.select(session.rows().len().checked_sub(1)),
-                KeyCode::Enter | KeyCode::Right => {
-                    if let Some(entry) = session.selected().cloned() {
-                        *view = View::Detail {
-                            session: session.clone(),
-                            entry,
-                            scroll: 0,
-                        };
-                    }
+                KeyCode::Enter | KeyCode::Right if session.selected().is_some() => {
+                    self.mode = crate::Mode::Stashes(view);
+                    self.open_stash_detail(engine::local::stash::preview::Scope::All);
+                    return;
                 }
                 _ => {}
             },
-            View::Detail {
-                session, scroll, ..
+            View::Detail { .. } if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) => {
+                self.mode = crate::Mode::Stashes(view);
+                self.cycle_pane(key.code == KeyCode::BackTab);
+                self.sync_bar();
+                return;
+            }
+            View::Detail { session, inspect } => match inspect.key(key) {
+                crate::inspection::Input::Back => *view = View::List(session.clone()),
+                crate::inspection::Input::Open => {
+                    self.mode = crate::Mode::Stashes(view);
+                    self.show_stash_diff();
+                    return;
+                }
+                crate::inspection::Input::Stay => {}
+            },
+            View::Diff {
+                session,
+                inspect,
+                scroll,
+                ..
             } => match key.code {
-                KeyCode::Esc | KeyCode::Left => *view = View::List(session.clone()),
+                KeyCode::Esc => {
+                    *view = View::Detail {
+                        session: session.clone(),
+                        inspect: (**inspect).clone(),
+                    }
+                }
                 _ => crate::input::scroll_key(scroll, key),
             },
         }
         self.mode = crate::Mode::Stashes(view);
         self.sync_bar();
+    }
+}
+
+impl crate::Screen {
+    pub(crate) fn open_stash_detail(&mut self, scope: engine::local::stash::preview::Scope) {
+        let crate::Mode::Stashes(view) = &self.mode else {
+            return;
+        };
+        let session = view.session().clone();
+        let Some(entry) = view.selected().cloned() else {
+            return;
+        };
+        let previous = self.mode.inspection().cloned();
+        self.start_repository(
+            session.snapshot.path.clone(),
+            i18n::tr!(StashRead),
+            crate::Effect::ReadOnly,
+            move |service, cancel, _| {
+                let detail = crate::inspection::Source::Stash(std::sync::Arc::new(
+                    service.stash_detail(&session.snapshot.path, &entry, scope, &cancel)?,
+                ));
+                let inspect = match previous {
+                    Some(previous) => previous.with_detail(detail),
+                    None => crate::inspection::Session::new(detail),
+                };
+                Ok(crate::Outcome::StashView(Box::new(View::Detail {
+                    session,
+                    inspect,
+                })))
+            },
+        );
+    }
+    fn show_stash_diff(&mut self) {
+        let crate::Mode::Stashes(view) = &self.mode else {
+            return;
+        };
+        let View::Detail { session, inspect } = view.as_ref() else {
+            return;
+        };
+        let Some(index) = inspect.selected_index() else {
+            return;
+        };
+        let (session, inspect) = (session.clone(), inspect.clone());
+        self.start_repository(
+            session.snapshot.path.clone(),
+            i18n::tr!(HistoryReadDiff),
+            crate::Effect::ReadOnly,
+            move |service, cancel, _| {
+                let content = inspect.prepare_file(&service, index, &cancel)?;
+                Ok(crate::Outcome::StashView(Box::new(View::Diff {
+                    session,
+                    inspect: Box::new(inspect),
+                    content,
+                    scroll: 0,
+                })))
+            },
+        );
     }
 }

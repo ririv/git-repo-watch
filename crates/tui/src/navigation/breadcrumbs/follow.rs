@@ -68,6 +68,18 @@ impl Screen {
             }
             Level::Branches => self.open_breadcrumb_view(View::Branches),
             Level::Stashes => self.open_breadcrumb_view(View::Stashes),
+            Level::StashEntry => {
+                if let Mode::Stashes(view) = &self.mode
+                    && let crate::stashes::View::Diff {
+                        session, inspect, ..
+                    } = view.as_ref()
+                {
+                    self.mode = Mode::Stashes(Box::new(crate::stashes::View::Detail {
+                        session: session.clone(),
+                        inspect: (**inspect).clone(),
+                    }));
+                }
+            }
         }
         self.sync_bar();
     }

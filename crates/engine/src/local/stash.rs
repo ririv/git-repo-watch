@@ -6,6 +6,7 @@ use super::{
 use crate::cancel::Cancel;
 use anyhow::{Result, ensure};
 use git2::Oid;
+pub mod preview;
 mod save;
 pub use save::{Message, SaveMode, SavePlan, SelectedFiles};
 use std::path::{Path, PathBuf};

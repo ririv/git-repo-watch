@@ -213,8 +213,11 @@ fn branches_and_stashes_locate_multiple_matches_and_details_do_not_search_hidden
     key(&mut s, KeyCode::Up);
     assert_eq!(stash(&s), first);
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.search_support(), Support::Unavailable);
-    s.paste("hidden");
+    wait(&mut s);
+    assert_eq!(s.search_support(), Support::Both(SearchMode::Filter));
+    s.paste("stash.txt");
+    assert_eq!(s.mode.inspection().unwrap().query, "stash.txt");
+    key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), "中文");
     assert_eq!(s.search_support(), Support::Both(SearchMode::Locate));
@@ -359,8 +362,8 @@ fn historical_files_support_both_modes_and_diff_returns_to_the_original_query() 
     let crate::history::View::Commit(commit) = view.as_ref() else {
         panic!()
     };
-    assert_eq!(commit.rows().len(), 3);
-    let selected = commit.files.selected();
+    assert_eq!(commit.inspect.rows().len(), 3);
+    let selected = commit.inspect.files.selected();
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(s.search_support(), Support::Unavailable);
@@ -378,7 +381,7 @@ fn historical_files_support_both_modes_and_diff_returns_to_the_original_query() 
     let crate::history::View::Commit(commit) = view.as_ref() else {
         panic!()
     };
-    assert_eq!(commit.files.selected(), selected);
+    assert_eq!(commit.inspect.files.selected(), selected);
 }
 
 #[test]
@@ -411,7 +414,7 @@ fn changing_a_merge_parent_keeps_the_file_search_mode_and_query() {
         panic!()
     };
     assert_eq!(
-        commit.rows()[0].location.name(),
+        commit.inspect.rows()[0].location.name(),
         std::path::Path::new("main.txt")
     );
 }

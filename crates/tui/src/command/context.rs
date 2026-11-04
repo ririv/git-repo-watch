@@ -160,7 +160,13 @@ impl Screen {
                 _ => Context::History,
             }),
             Mode::Branches(_) => Some(Context::Branches),
-            Mode::Stashes(_) => Some(Context::Stash),
+            Mode::Stashes(view) => Some(
+                if matches!(view.as_ref(), crate::stashes::View::Diff { .. }) {
+                    Context::Diff(DiffContext::History)
+                } else {
+                    Context::Stash
+                },
+            ),
             Mode::Error { .. } => Some(Context::Error),
             Mode::Panel(section) => match section {
                 workspace::Section::Worktree => Some(Context::Diff(DiffContext::Worktree)),

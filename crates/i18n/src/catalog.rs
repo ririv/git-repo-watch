@@ -306,6 +306,23 @@ pub enum Message {
     SyncPushReview,
     SyncPulled,
     SyncPushed,
+    StashPreviewEmpty,
+    StashPreviewNoMatch,
+    StashPreviewAll,
+    StashPreviewStaged,
+    StashPreviewUnstaged,
+    StashPreviewScope,
+    StashBase,
+    StashSavedWorktree,
+    StashSavedIndex,
+    StashAbsent,
+    StashSavedUntracked,
+    StashInvalidStructure,
+    StashPreviewCommand,
+    StashPreviewRequiresDetail,
+    StashPreviewHint,
+    StashDiffHint,
+    StashWrappedDiffHint,
     StashTitle,
     StashRead,
     StashCommand,
@@ -2158,6 +2175,56 @@ impl Message {
             }
             (Self::SyncPushed, Language::Chinese) => {
                 "同步完成：已推送 {branch} 的 {commits} 个提交\n远程：{remote}/{reference}\n提交：{oid}"
+            }
+            (Self::StashPreviewEmpty, Language::English) => "No file changes in this scope",
+            (Self::StashPreviewEmpty, Language::Chinese) => "该范围没有文件改动",
+            (Self::StashPreviewNoMatch, Language::English) => "No matching files",
+            (Self::StashPreviewNoMatch, Language::Chinese) => "没有匹配的文件",
+            (Self::StashPreviewAll, Language::English) => "All saved changes",
+            (Self::StashPreviewAll, Language::Chinese) => "全部改动",
+            (Self::StashPreviewStaged, Language::English) => "Saved staged changes",
+            (Self::StashPreviewStaged, Language::Chinese) => "原暂存改动",
+            (Self::StashPreviewUnstaged, Language::English) => "Saved unstaged changes",
+            (Self::StashPreviewUnstaged, Language::Chinese) => "原未暂存改动",
+            (Self::StashPreviewScope, Language::English) => "View scope",
+            (Self::StashPreviewScope, Language::Chinese) => "查看范围",
+            (Self::StashBase, Language::English) => "Stash base",
+            (Self::StashBase, Language::Chinese) => "保存基准",
+            (Self::StashSavedWorktree, Language::English) => "Saved worktree",
+            (Self::StashSavedWorktree, Language::Chinese) => "保存时工作区",
+            (Self::StashSavedIndex, Language::English) => "Saved index",
+            (Self::StashSavedIndex, Language::Chinese) => "保存时暂存区",
+            (Self::StashAbsent, Language::English) => "Absent",
+            (Self::StashAbsent, Language::Chinese) => "不存在",
+            (Self::StashSavedUntracked, Language::English) => "Saved untracked file",
+            (Self::StashSavedUntracked, Language::Chinese) => "保存时未跟踪文件",
+            (Self::StashInvalidStructure, Language::English) => {
+                "The selected object is not a supported Git stash"
+            }
+            (Self::StashInvalidStructure, Language::Chinese) => "所选对象不是支持的 Git stash 结构",
+            (Self::StashPreviewCommand, Language::English) => "Choose the saved changes to inspect",
+            (Self::StashPreviewCommand, Language::Chinese) => "选择查看的保存内容",
+            (Self::StashPreviewRequiresDetail, Language::English) => {
+                "Open a stash to choose its view scope"
+            }
+            (Self::StashPreviewRequiresDetail, Language::Chinese) => "请先打开一份 stash 的内容",
+            (Self::StashDiffHint, Language::English) => {
+                "↑↓ scroll · ←→ pan · Esc stash details · /repo diff layout"
+            }
+            (Self::StashDiffHint, Language::Chinese) => {
+                "↑↓滚动 · ←→平移 · Esc 返回 · /repo diff layout 布局"
+            }
+            (Self::StashWrappedDiffHint, Language::English) => {
+                "↑↓ scroll · Esc stash details · /repo diff layout"
+            }
+            (Self::StashWrappedDiffHint, Language::Chinese) => {
+                "↑↓滚动 · Esc 返回 · /repo diff layout 布局"
+            }
+            (Self::StashPreviewHint, Language::English) => {
+                "↑↓ files · Enter diff · Tab panes · Esc back"
+            }
+            (Self::StashPreviewHint, Language::Chinese) => {
+                "↑↓文件 · Enter 差异 · Tab 面板 · Esc 返回"
             }
             (Self::StashTitle, Language::English) => "Stashes",
             (Self::StashTitle, Language::Chinese) => "暂存工作",

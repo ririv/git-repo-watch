@@ -1,9 +1,24 @@
 //! Message text leads; identities and parent comparison remain available in the same panel.
 use super::*;
+use crate::inspection::Source;
+use crate::view::metadata::{field, time};
 use engine::local::history::{Base, Message};
 
-fn metadata(commit: &Commit) -> Vec<Line<'static>> {
-    let detail = &commit.detail;
+fn metadata(commit: &Session) -> Vec<Line<'static>> {
+    match &commit.detail {
+        Source::Commit(detail) => commit_metadata(detail),
+        Source::Stash(detail) => vec![
+            field(i18n::tr!(HistoryTime), time(detail.entry.time)),
+            field(i18n::tr!(HistoryHash), detail.entry.oid.to_string()),
+            field(i18n::tr!(StashPreviewScope), detail.scope.label()),
+            field(
+                i18n::tr!(StashBase),
+                detail.base.to_string()[..12].to_owned(),
+            ),
+        ],
+    }
+}
+fn commit_metadata(detail: &engine::local::history::Detail) -> Vec<Line<'static>> {
     let comparison = match detail.base {
         Base::Empty => format!(
             "{} → {}",
@@ -57,8 +72,8 @@ fn metadata(commit: &Commit) -> Vec<Line<'static>> {
     lines.push(field(i18n::tr!(HistoryCompare), comparison));
     lines
 }
-fn contents(commit: &Commit, inner: Rect) -> Vec<(Rect, Text<'static>)> {
-    let mut message: Vec<_> = multiline(commit.detail.message.text())
+fn contents(commit: &Session, inner: Rect) -> Vec<(Rect, Text<'static>)> {
+    let mut message: Vec<_> = multiline(commit.detail.message())
         .lines()
         .enumerate()
         .map(|(index, line)| {
@@ -69,7 +84,8 @@ fn contents(commit: &Commit, inner: Rect) -> Vec<(Rect, Text<'static>)> {
             }
         })
         .collect();
-    if matches!(commit.detail.message, Message::Truncated(_)) {
+    if matches!(&commit.detail, Source::Commit(detail) if matches!(detail.message, Message::Truncated(_)))
+    {
         message.push(Line::styled(
             i18n::tr!(HistoryTruncated),
             Style::default().fg(WARN),
@@ -87,7 +103,7 @@ fn contents(commit: &Commit, inner: Rect) -> Vec<(Rect, Text<'static>)> {
         vec![(inner, Text::from(message))]
     }
 }
-pub(super) fn desired_height(commit: &Commit, width: u16) -> u16 {
+pub(super) fn desired_height(commit: &Session, width: u16) -> u16 {
     let width = width.saturating_sub(2);
     if width == 0 {
         return 0;
@@ -107,10 +123,10 @@ pub(super) fn desired_height(commit: &Commit, width: u16) -> u16 {
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    commit: &mut Commit,
+    commit: &mut Session,
     hits: &mut crate::pointer::Map,
 ) {
-    let border = block(i18n::tr!(HistoryMessage));
+    let border = block(commit.detail.message_title());
     let inner = border.inner(area);
     frame.render_widget(border, area);
     if inner.is_empty() {
@@ -137,6 +153,6 @@ pub(super) fn render(
         inner,
         lines.saturating_sub(inner.height.into()),
         commit.scroll,
-        crate::pointer::ScrollTarget::HistoryMessage,
+        crate::pointer::ScrollTarget::InspectionMessage,
     );
 }

@@ -85,6 +85,10 @@ impl Screen {
                     self.poll_browser();
                 }
             }
+            Action::StashPreviewMenu => {
+                self.open_option_menu(crate::command::options::Kind::StashPreview, path, selection)
+            }
+            Action::StashPreview(scope) => self.open_stash_detail(scope),
             Action::StashSave => {
                 self.open_option_menu(command::options::Kind::StashSave, path, selection)
             }

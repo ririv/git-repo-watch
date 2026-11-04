@@ -1,5 +1,8 @@
 use super::*;
-use crate::history::{Commit, Focus, View, review::Rows};
+use crate::{
+    history::{Focus, View},
+    inspection::{Session as Commit, review::Rows},
+};
 use crossterm::event::MouseEventKind::{ScrollDown, ScrollUp};
 
 fn detail(s: &Screen) -> &Commit {
@@ -9,7 +12,7 @@ fn detail(s: &Screen) -> &Commit {
     let View::Commit(commit) = view.as_ref() else {
         panic!("commit view")
     };
-    commit
+    &commit.inspect
 }
 fn detail_mut(s: &mut Screen) -> &mut Commit {
     let Mode::History(view) = &mut s.mode else {
@@ -18,7 +21,7 @@ fn detail_mut(s: &mut Screen) -> &mut Commit {
     let View::Commit(commit) = view.as_mut() else {
         panic!("commit view")
     };
-    commit
+    &mut commit.inspect
 }
 fn open(f: &support::Fixture) -> (tempfile::TempDir, Screen) {
     let (home, mut s) = fixture(vec![f.repo.clone()]);
@@ -32,7 +35,7 @@ fn loaded(s: &mut Screen) {
     let start = Instant::now();
     loop {
         render(s, 160, 40);
-        s.poll_history_review();
+        s.poll_inspection();
         if detail(s).review.loaded() {
             break;
         }
@@ -78,7 +81,7 @@ fn all_files_stream_into_one_review_and_selection_scrolls_without_changing_git_s
                 .iter()
                 .all(|section| matches!(section.rows, Rows::Ready(_)))
         );
-        let areas = view::history::detail::areas(s.body_area.unwrap(), commit);
+        let areas = view::inspection::areas(s.body_area.unwrap(), commit);
         let message = areas
             .iter()
             .find(|(_, focus)| *focus == Focus::Message)
@@ -138,10 +141,10 @@ fn narrow_views_skip_preview_loading_and_resize_preserves_the_file_selection() {
     let f = files(3, "Compact commit");
     let (_home, mut s) = open(&f);
     render(&mut s, 60, 18);
-    let areas = view::history::detail::areas(s.body_area.unwrap(), detail(&s));
+    let areas = view::inspection::areas(s.body_area.unwrap(), detail(&s));
     assert_eq!(areas.len(), 2);
     assert!(areas.iter().all(|(_, focus)| *focus != Focus::Preview));
-    assert!(!s.poll_history_review());
+    assert!(!s.poll_inspection());
     key(&mut s, KeyCode::Down);
     loaded(&mut s);
     assert_eq!(detail(&s).files.selected(), Some(1));
@@ -192,7 +195,7 @@ fn wheel_focus_zoom_and_full_file_navigation_are_scoped_to_their_panels() {
     );
     let (_home, mut s) = open(&f);
     loaded(&mut s);
-    let areas = view::history::detail::areas(s.body_area.unwrap(), detail(&s));
+    let areas = view::inspection::areas(s.body_area.unwrap(), detail(&s));
     let preview = areas
         .iter()
         .find(|(_, focus)| *focus == Focus::Preview)
@@ -224,7 +227,7 @@ fn wheel_focus_zoom_and_full_file_navigation_are_scoped_to_their_panels() {
     command(&mut s, "zoom");
     render(&mut s, 160, 40);
     assert_eq!(
-        view::history::detail::areas(s.body_area.unwrap(), detail(&s)).len(),
+        view::inspection::areas(s.body_area.unwrap(), detail(&s)).len(),
         1
     );
     key(&mut s, KeyCode::Esc);
@@ -257,9 +260,12 @@ fn changing_merge_parent_replaces_every_preview_with_the_selected_comparison() {
     key(&mut s, KeyCode::Tab);
     wait(&mut s);
     loaded(&mut s);
+    let crate::inspection::Source::Commit(source) = &detail(&s).detail else {
+        panic!("commit")
+    };
     assert_eq!(
-        detail(&s).detail.base,
-        engine::local::history::Base::Commit(detail(&s).detail.parents[1])
+        source.base,
+        engine::local::history::Base::Commit(source.parents[1])
     );
     let text = render(&mut s, 160, 40);
     assert!(

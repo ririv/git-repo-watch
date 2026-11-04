@@ -283,13 +283,7 @@ impl Screen {
                 Mode::Changes(session) => Some(session.focus),
                 _ => None,
             };
-            let history_focus_before = match &self.mode {
-                Mode::History(view) => match view.as_ref() {
-                    crate::history::View::Commit(commit) => Some(commit.focus),
-                    _ => None,
-                },
-                _ => None,
-            };
+            let inspection_focus_before = self.mode.inspection().map(|inspect| inspect.focus);
             if self.history_actions().is_none() && !self.pointer_focus(event) {
                 self.clicks.reset();
                 return Ok(false);
@@ -362,14 +356,7 @@ impl Screen {
             }
             self.clicks.reset();
             return Ok(before != crate::workspace::Section::focused(&self.mode)
-                || history_focus_before
-                    != match &self.mode {
-                        Mode::History(view) => match view.as_ref() {
-                            crate::history::View::Commit(commit) => Some(commit.focus),
-                            _ => None,
-                        },
-                        _ => None,
-                    }
+                || inspection_focus_before != self.mode.inspection().map(|inspect| inspect.focus)
                 || focus_before
                     != match &self.mode {
                         Mode::Changes(session) => Some(session.focus),
@@ -555,21 +542,19 @@ impl Screen {
         if matches!(self.mode, Mode::Management(_)) {
             return self.body_area.is_some_and(|area| area.contains(point));
         }
-        if let Mode::History(view) = &mut self.mode
-            && let crate::history::View::Commit(commit) = view.as_mut()
-        {
+        if let Some(inspect) = self.mode.inspection_mut() {
             let Some(focus) = self.body_area.and_then(|area| {
-                crate::view::history::detail::areas(area, commit)
+                crate::view::inspection::areas(area, inspect)
                     .into_iter()
                     .find(|(area, _)| area.contains(point))
                     .map(|(_, focus)| focus)
             }) else {
                 return false;
             };
-            if focus != commit.focus && !self.config.mouse.select_pane {
+            if focus != inspect.focus && !self.config.mouse.select_pane {
                 return false;
             }
-            commit.focus = focus;
+            inspect.focus = focus;
             return true;
         }
         if matches!(self.mode, Mode::CompositionWaiting(_)) {

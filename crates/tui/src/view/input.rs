@@ -232,14 +232,27 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         },
         Mode::Stashes(view) => match view.as_ref() {
             crate::stashes::View::List(_) => i18n::tr!(StashHint),
-            crate::stashes::View::Detail { .. } => i18n::tr!(PgdnScrollEscBackCommands),
+            crate::stashes::View::Detail { inspect, .. } => match inspect.focus {
+                crate::inspection::Focus::Files => i18n::tr!(StashPreviewHint),
+                crate::inspection::Focus::Message => i18n::tr!(PgdnScrollEscBackCommands),
+                crate::inspection::Focus::Preview => i18n::tr!(HistoryReviewInputHint),
+            },
+            crate::stashes::View::Diff { content, .. }
+                if matches!(content.as_ref(), crate::document::View::Images(_)) =>
+            {
+                i18n::tr!(ImageInputHint)
+            }
+            crate::stashes::View::Diff { .. } if screen.config.text_wrap => {
+                i18n::tr!(StashWrappedDiffHint)
+            }
+            crate::stashes::View::Diff { .. } => i18n::tr!(StashDiffHint),
         },
         Mode::History(view) => match view.as_ref() {
             crate::history::View::Graph(session) if session.selection.active() => {
                 i18n::tr!(HistorySelectionHint)
             }
             crate::history::View::Graph(_) => i18n::tr!(HistoryInputHint),
-            crate::history::View::Commit(commit) => match commit.focus {
+            crate::history::View::Commit(commit) => match commit.inspect.focus {
                 crate::history::Focus::Files => i18n::tr!(HistoryCommitInputHint),
                 crate::history::Focus::Message => i18n::tr!(PgdnScrollEscBackCommands),
                 crate::history::Focus::Preview => i18n::tr!(HistoryReviewInputHint),

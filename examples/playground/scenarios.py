@@ -5,6 +5,8 @@ from submodules import attach
 from metadata import prepare as metadata
 
 
+from stash_preview import create as stash_preview
+
 class Case(Enum):
     WORKSPACE = "workspace"
     CLEAN = "clean"
@@ -17,6 +19,7 @@ class Case(Enum):
     SUBMODULE = "submodule"
     CHERRY_PICK_BATCH = "cherry-pick-batch"
     DIFF_METADATA = "diff-metadata"
+    STASH_PREVIEW = "stash-preview"
 
     def __str__(self):
         return self.value
@@ -97,4 +100,5 @@ APPLY = {
     Case.SUBMODULE: attach,
     Case.CHERRY_PICK_BATCH: cherry_pick_batch,
     Case.DIFF_METADATA: metadata,
+    Case.STASH_PREVIEW: stash_preview,
 }

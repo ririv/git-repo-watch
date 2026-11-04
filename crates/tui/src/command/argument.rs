@@ -248,6 +248,9 @@ impl Action {
             Self::Add => Some(ArgumentAction::Add),
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
+            Self::StashPreviewMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::StashPreview))
+            }
             Self::StashSave => Some(ArgumentAction::Option(super::options::Kind::StashSave)),
             Self::StashApply => Some(ArgumentAction::StashApply),
             Self::StashPop => Some(ArgumentAction::StashPop),

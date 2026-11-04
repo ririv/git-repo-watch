@@ -1,6 +1,7 @@
 //! One bounded channel streams immutable file diffs; saved views share the same reader.
+use crate::inspection::Source;
 use crate::{Service, diff, loading::Feedback, spinner::Spinner};
-use engine::{cancel::Cancel, local::history::Detail};
+use engine::cancel::Cancel;
 use std::{
     sync::{Arc, mpsc},
     thread,
@@ -38,15 +39,15 @@ impl Reader {
 }
 #[derive(Debug)]
 pub(super) struct Bundle {
-    detail: Arc<Detail>,
+    detail: Source,
     pub entries: Vec<Entry>,
     state: State,
     feedback: Feedback<()>,
     animation: Spinner,
 }
 impl Bundle {
-    pub fn new(detail: Arc<Detail>) -> Self {
-        let count = detail.changes.len();
+    pub fn new(detail: Source) -> Self {
+        let count = detail.len();
         Self {
             detail,
             entries: vec![Entry::Pending; count],
@@ -77,17 +78,16 @@ impl Bundle {
             let language = i18n::language();
             let handle = thread::spawn(move || {
                 let _language = i18n::using(language);
-                for (index, change) in detail.changes.iter().enumerate() {
+                for index in 0..detail.len() {
                     if worker_cancel.is_cancelled() {
                         break;
                     }
-                    let result = service
-                        .history_diff(&detail, change, &worker_cancel)
+                    let result = detail
+                        .document(&service, index, &worker_cancel)
                         .and_then(|document| {
-                            diff::prepare_inline_history(
+                            diff::prepare_inline_comparison(
                                 document,
-                                detail.base,
-                                detail.oid,
+                                detail.comparison(index),
                                 &worker_cancel,
                             )
                         })

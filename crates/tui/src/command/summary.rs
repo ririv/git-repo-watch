@@ -19,6 +19,7 @@ impl Command {
             Action::Pull => Summary::Pull,
             Action::Sync => Summary::Sync,
             Action::Stashes => Summary::Stashes,
+            Action::StashPreviewMenu | Action::StashPreview(_) => Summary::StashPreview,
             Action::StashSave | Action::StashSaveMode(_) => Summary::StashSave,
             Action::StashApply => Summary::StashApply,
             Action::StashPop => Summary::StashPop,

@@ -144,11 +144,9 @@ impl Screen {
                             *session.state.offset_mut() = offset;
                         }
                     }
-                    Target::HistoryFiles => {
-                        if let Mode::History(view) = &mut self.mode
-                            && let history::View::Commit(commit) = view.as_mut()
-                        {
-                            *commit.files.offset_mut() = offset;
+                    Target::InspectionFiles => {
+                        if let Some(inspect) = self.mode.inspection_mut() {
+                            *inspect.files.offset_mut() = offset;
                         }
                     }
                     Target::Settings => self.scroll = offset,
@@ -296,18 +294,20 @@ impl Screen {
                     },
                     _ => return false,
                 },
-                Target::History | Target::HistoryFiles => match &mut self.mode {
-                    Mode::History(view) => match (view.as_mut(), target) {
-                        (history::View::Graph(session), Target::History)
-                            if index < session.records.len() =>
-                        {
+                Target::InspectionFiles => {
+                    let Some(inspect) = self.mode.inspection_mut() else {
+                        return false;
+                    };
+                    if index >= inspect.rows().len() {
+                        return false;
+                    }
+                    inspect.files.select(Some(index));
+                }
+                Target::History => match &mut self.mode {
+                    Mode::History(view) => match view.as_mut() {
+                        history::View::Graph(session) if index < session.records.len() => {
                             session.selection.settle();
-                            session.state.select(Some(index))
-                        }
-                        (history::View::Commit(commit), Target::HistoryFiles)
-                            if index < commit.rows().len() =>
-                        {
-                            commit.files.select(Some(index))
+                            session.state.select(Some(index));
                         }
                         _ => return false,
                     },
@@ -339,26 +339,19 @@ impl Screen {
                 }
                 ScrollTarget::HistoryActions => return self.seek_history_action(offset),
                 ScrollTarget::Overview if self.page == Page::Detail => self.scroll = offset,
-                ScrollTarget::HistoryMessage => match &mut self.mode {
-                    Mode::History(view) => match view.as_mut() {
-                        history::View::Commit(commit) => commit.scroll = offset,
-                        _ => return false,
-                    },
-                    _ => return false,
-                },
-                ScrollTarget::HistoryReview | ScrollTarget::HistoryReviewHorizontal => {
-                    match &mut self.mode {
-                        Mode::History(view) => match view.as_mut() {
-                            history::View::Commit(commit) => match target {
-                                ScrollTarget::HistoryReview => commit.review.seek(offset),
-                                ScrollTarget::HistoryReviewHorizontal => {
-                                    commit.review.horizontal.seek(offset)
-                                }
-                                _ => unreachable!(),
-                            },
-                            _ => return false,
-                        },
-                        _ => return false,
+                ScrollTarget::InspectionMessage
+                | ScrollTarget::InspectionReview
+                | ScrollTarget::InspectionReviewHorizontal => {
+                    let Some(inspect) = self.mode.inspection_mut() else {
+                        return false;
+                    };
+                    match target {
+                        ScrollTarget::InspectionMessage => inspect.scroll = offset,
+                        ScrollTarget::InspectionReview => inspect.review.seek(offset),
+                        ScrollTarget::InspectionReviewHorizontal => {
+                            inspect.review.horizontal.seek(offset)
+                        }
+                        _ => unreachable!(),
                     }
                 }
                 ScrollTarget::HistoryHorizontal => match &mut self.mode {
@@ -372,6 +365,12 @@ impl Screen {
                     let (content, scroll) = match &mut self.mode {
                         Mode::Changes(session) => match &mut session.preview {
                             changes::Preview::Ready {
+                                content, scroll, ..
+                            } => (content, scroll),
+                            _ => return false,
+                        },
+                        Mode::Stashes(view) => match view.as_mut() {
+                            stashes::View::Diff {
                                 content, scroll, ..
                             } => (content, scroll),
                             _ => return false,
@@ -413,10 +412,6 @@ impl Screen {
                     Mode::PromptEditor(session) => session.editor.scroll = offset,
                     Mode::Branches(view) => match view.as_mut() {
                         branches::View::Detail { scroll, .. } => *scroll = offset,
-                        _ => return false,
-                    },
-                    Mode::Stashes(view) => match view.as_mut() {
-                        stashes::View::Detail { scroll, .. } => *scroll = offset,
                         _ => return false,
                     },
                     Mode::Composition(session) => session.scroll = offset,

@@ -3,10 +3,10 @@ mod files;
 mod message;
 mod preview;
 use super::*;
-use crate::history::{Commit, Focus};
+use crate::inspection::{Focus, Session};
 use crate::workspace::Arrangement;
 
-pub(crate) fn areas(area: Rect, commit: &Commit) -> Vec<(Rect, Focus)> {
+pub(crate) fn areas(area: Rect, commit: &Session) -> Vec<(Rect, Focus)> {
     if commit.arrangement == Arrangement::Maximized {
         return vec![(area, commit.focus)];
     }
@@ -35,7 +35,7 @@ pub(crate) fn areas(area: Rect, commit: &Commit) -> Vec<(Rect, Focus)> {
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    commit: &mut Commit,
+    commit: &mut Session,
     options: crate::diff::Options,
     icons: crate::file_icons::Display,
     hits: &mut crate::pointer::Map,

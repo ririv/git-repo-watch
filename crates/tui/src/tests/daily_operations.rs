@@ -96,6 +96,7 @@ fn stash_context_prefills_selected_identity_and_retains_selection_after_apply() 
         "new\n"
     );
     key(&mut s, KeyCode::Enter);
+    wait(&mut s);
     assert!(
         matches!(&s.mode,Mode::Stashes(v) if matches!(v.as_ref(),crate::stashes::View::Detail{..}))
     );

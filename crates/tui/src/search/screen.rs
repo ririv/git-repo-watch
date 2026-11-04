@@ -25,12 +25,15 @@ impl Screen {
             },
             Mode::Stashes(view) => match view.as_ref() {
                 stashes::View::List(session) => Support::Both(session.search_mode),
-                stashes::View::Detail { .. } => Support::Unavailable,
+                stashes::View::Detail { inspect, .. } if inspect.focus == history::Focus::Files => {
+                    Support::Both(inspect.search_mode)
+                }
+                _ => Support::Unavailable,
             },
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(_) => Support::Locate,
-                history::View::Commit(commit) if commit.focus == history::Focus::Files => {
-                    Support::Both(commit.search_mode)
+                history::View::Commit(commit) if commit.inspect.focus == history::Focus::Files => {
+                    Support::Both(commit.inspect.search_mode)
                 }
                 history::View::Commit(_) | history::View::Diff { .. } => Support::Unavailable,
             },
@@ -81,14 +84,14 @@ impl Screen {
                     session.set_search_mode(mode);
                 }
             }
-            Mode::Stashes(view) => {
-                if let stashes::View::List(session) = view.as_mut() {
-                    session.set_search_mode(mode);
-                }
-            }
+            Mode::Stashes(view) => match view.as_mut() {
+                stashes::View::List(session) => session.set_search_mode(mode),
+                stashes::View::Detail { inspect, .. } => inspect.set_search_mode(mode),
+                _ => {}
+            },
             Mode::History(view) => {
                 if let history::View::Commit(commit) = view.as_mut() {
-                    commit.set_search_mode(mode);
+                    commit.inspect.set_search_mode(mode);
                 }
             }
             _ => {}
@@ -146,18 +149,30 @@ impl Screen {
                     session.state.select(Some(index));
                 }
             }
-            Mode::Stashes(view) => {
-                if let stashes::View::List(session) = view.as_mut()
-                    && let Some(index) = session.matches().step(session.state.selected(), backwards)
-                {
-                    session.state.select(Some(index));
+            Mode::Stashes(view) => match view.as_mut() {
+                stashes::View::List(session) => {
+                    if let Some(index) = session.matches().step(session.state.selected(), backwards)
+                    {
+                        session.state.select(Some(index));
+                    }
                 }
-            }
+                stashes::View::Detail { inspect, .. } => {
+                    if let Some(index) = inspect.matches().step(inspect.files.selected(), backwards)
+                    {
+                        inspect.files.select(Some(index));
+                    }
+                }
+                _ => {}
+            },
             Mode::History(view) => match view.as_mut() {
                 history::View::Graph(session) => session.next_match(backwards),
                 history::View::Commit(commit) => {
-                    if let Some(index) = commit.matches().step(commit.files.selected(), backwards) {
-                        commit.files.select(Some(index));
+                    if let Some(index) = commit
+                        .inspect
+                        .matches()
+                        .step(commit.inspect.files.selected(), backwards)
+                    {
+                        commit.inspect.files.select(Some(index));
                     }
                 }
                 history::View::Diff { .. } => {}
@@ -178,7 +193,10 @@ impl Screen {
             Mode::Browsing | Mode::Management(_) => i18n::tr!(SearchTargetRepositories),
             Mode::Browser(_) | Mode::Files(_) | Mode::Changes(_) => i18n::tr!(SearchTargetFiles),
             Mode::Branches(_) => i18n::tr!(SearchTargetBranches),
-            Mode::Stashes(_) => i18n::tr!(SearchTargetStashes),
+            Mode::Stashes(view) if matches!(view.as_ref(), stashes::View::List(_)) => {
+                i18n::tr!(SearchTargetStashes)
+            }
+            Mode::Stashes(_) => i18n::tr!(SearchTargetFiles),
             Mode::History(view) if matches!(view.as_ref(), history::View::Graph(_)) => {
                 i18n::tr!(SearchTargetCommits)
             }
@@ -199,10 +217,18 @@ impl Screen {
                 Mode::Files(files) => (files.matches(), files.cursor.index()),
                 Mode::Changes(session) => (session.files.matches(), session.files.cursor.index()),
                 Mode::Branches(view) => (view.session().matches(), view.session().state.selected()),
-                Mode::Stashes(view) => (view.session().matches(), view.session().state.selected()),
+                Mode::Stashes(view) => match view.as_ref() {
+                    stashes::View::List(session) => (session.matches(), session.state.selected()),
+                    stashes::View::Detail { inspect, .. } => {
+                        (inspect.matches(), inspect.files.selected())
+                    }
+                    _ => unreachable!(),
+                },
                 Mode::History(view) => match view.as_ref() {
                     history::View::Graph(session) => (session.matches(), session.state.selected()),
-                    history::View::Commit(commit) => (commit.matches(), commit.files.selected()),
+                    history::View::Commit(commit) => {
+                        (commit.inspect.matches(), commit.inspect.files.selected())
+                    }
                     history::View::Diff { .. } => unreachable!(),
                 },
                 _ => unreachable!(),

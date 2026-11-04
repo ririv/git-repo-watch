@@ -5,7 +5,7 @@ use engine::local::{files::Location, history::Kind};
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    commit: &mut Commit,
+    commit: &mut Session,
     icons: crate::file_icons::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -18,13 +18,9 @@ pub(super) fn render(
     frame.render_widget(border, area);
     if rows.is_empty() {
         frame.render_widget(
-            Paragraph::new(if commit.query.is_empty() {
-                i18n::tr!(HistoryNoChanges)
-            } else {
-                i18n::tr!(HistoryNoFilesMatch)
-            })
-            .wrap(Wrap { trim: false })
-            .style(Style::default().fg(MUTED)),
+            Paragraph::new(commit.detail.empty_message(&commit.query))
+                .wrap(Wrap { trim: false })
+                .style(Style::default().fg(MUTED)),
             inner,
         );
     } else {
@@ -68,7 +64,7 @@ pub(super) fn render(
             inner,
             &(0..count).collect::<Vec<_>>(),
             commit.files.offset(),
-            crate::pointer::Target::HistoryFiles,
+            crate::pointer::Target::InspectionFiles,
         );
     }
 }

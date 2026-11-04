@@ -168,23 +168,24 @@ impl Screen {
                 }),
                 _ => None,
             },
-            Target::History | Target::HistoryFiles => match &self.mode {
-                Mode::History(view) => match (view.as_ref(), target) {
-                    (history::View::Graph(session), Target::History) => Some(Identity::Commit {
+            Target::InspectionFiles => {
+                let inspect = self.mode.inspection()?;
+                Some(Identity::HistoryFile {
+                    repository: inspect.detail.path().to_owned(),
+                    commit: inspect.detail.oid().to_string(),
+                    location: inspect
+                        .rows()
+                        .get(inspect.files.selected()?)?
+                        .location
+                        .clone(),
+                })
+            }
+            Target::History => match &self.mode {
+                Mode::History(view) => match view.as_ref() {
+                    history::View::Graph(session) => Some(Identity::Commit {
                         repository: session.references.path.clone(),
                         oid: session.selected()?.oid.to_string(),
                     }),
-                    (history::View::Commit(commit), Target::HistoryFiles) => {
-                        Some(Identity::HistoryFile {
-                            repository: commit.detail.path.clone(),
-                            commit: commit.detail.oid.to_string(),
-                            location: commit
-                                .rows()
-                                .get(commit.files.selected()?)?
-                                .location
-                                .clone(),
-                        })
-                    }
                     _ => None,
                 },
                 _ => None,

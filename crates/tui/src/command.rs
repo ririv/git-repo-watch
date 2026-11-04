@@ -31,6 +31,8 @@ pub enum Action {
     Pull,
     Sync,
     Stashes,
+    StashPreviewMenu,
+    StashPreview(engine::local::stash::preview::Scope),
     StashSave,
     StashSaveMode(crate::stash_save::Scope),
     StashApply,
@@ -371,6 +373,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo stash copy",
         action: Copy(crate::clipboard::Scope::Stash),
         description: i18n::Message::StashCopyCommand,
+    },
+    Command {
+        name: "repo stash scope",
+        action: StashPreviewMenu,
+        description: i18n::Message::StashPreviewCommand,
     },
     Command {
         name: "repo stash save",

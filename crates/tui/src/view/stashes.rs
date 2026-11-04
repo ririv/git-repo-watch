@@ -25,21 +25,18 @@ pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     view: &mut View,
+    options: crate::diff::Options,
+    icons: crate::file_icons::Display,
+    graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
     match view {
-        View::Detail {
-            session,
-            entry,
-            scroll,
-        } => review::text_view(
-            frame,
-            area,
-            &details(session, entry),
-            scroll,
-            i18n::tr!(StashTitle),
-            hits,
-        ),
+        View::Detail { inspect, .. } => {
+            super::inspection::render(frame, area, inspect, options, icons, hits)
+        }
+        View::Diff {
+            content, scroll, ..
+        } => super::document::render(frame, area, content, scroll, options, graphics, hits),
         View::List(session) => {
             let areas = if area.width >= 100 {
                 let parts =
