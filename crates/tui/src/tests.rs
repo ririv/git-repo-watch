@@ -21,6 +21,7 @@ mod diff;
 mod diff_context;
 mod diff_header;
 mod double_click;
+mod external_editor;
 mod file_icons;
 mod file_path;
 mod file_tree;
@@ -120,6 +121,7 @@ fn screen(service: Service) -> Screen {
         exit_sequence: Default::default(),
         clipboard: Default::default(),
         link_opener: Default::default(),
+        external_editor: Default::default(),
         commit_generator: Default::default(),
         commit_draft_id: 0,
         repository_viewport,
@@ -174,6 +176,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: Default::default(),
+            editor: Default::default(),
             ai: Default::default(),
         })
         .unwrap();
@@ -1444,6 +1447,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             "settings wrap",
             "settings interaction",
             "settings ai",
+            "settings editor",
             "settings startup enabled",
             "settings ai agent",
             "settings ai model",

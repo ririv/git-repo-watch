@@ -227,7 +227,7 @@ fn render_menu(
                     .expect("copy target label"),
                 _ => command.summary().text(),
             };
-            let value = screen.command_target(command.action, selection)
+            let value = screen.command_target(command.action, path.as_deref(), selection)
                 .or_else(|| repository_list::annotation(command.action, screen))
                 .or_else(|| layout_picker::annotation(command.action, screen, body))
                 .or_else(|| settings::annotation(command.action, screen))

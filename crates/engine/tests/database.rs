@@ -645,6 +645,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         file_icons: true,
         view: Default::default(),
         mouse: Default::default(),
+        editor: Default::default(),
         ai: Default::default(),
         ..engine::state::Config::default()
     };

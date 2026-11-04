@@ -38,6 +38,15 @@ pub(super) struct FileSession {
     folding: Box<folding::Folding>,
 }
 impl FileSession {
+    pub fn editor_path(&self) -> Option<std::path::PathBuf> {
+        match &self.cursor {
+            Cursor::Directory { path, .. } => Some(path.clone()),
+            _ => self
+                .current()
+                .map(|change| change.location.name().to_owned()),
+        }
+    }
+
     pub fn new(snapshot: Files) -> Self {
         let cursor = if snapshot.changes.is_empty() {
             Cursor::Empty

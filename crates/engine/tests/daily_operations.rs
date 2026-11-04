@@ -30,6 +30,7 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: Default::default(),
+            editor: Default::default(),
             ai: Default::default(),
         })
         .unwrap();

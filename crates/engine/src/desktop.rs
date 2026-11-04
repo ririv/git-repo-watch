@@ -161,10 +161,22 @@ pub fn launch(target: &Target, cancel: &Cancel) -> Result<Launch> {
     launch_using(program, target)
 }
 fn launch_using(program: &Path, target: &Target) -> Result<Launch> {
+    launch_command(program, &[target.argument()], None, target.label())
+}
+pub(crate) fn launch_command(
+    program: &Path,
+    arguments: &[OsString],
+    directory: Option<&Path>,
+    target: String,
+) -> Result<Launch> {
     let error = tempfile::tempfile()?;
     // 桌面应用接管后可能长期驻留，不复用 Git 命令的进程组终止与超时回收。
-    let child = Command::new(program)
-        .arg(target.argument())
+    let mut command = Command::new(program);
+    if let Some(directory) = directory {
+        command.current_dir(directory);
+    }
+    let child = command
+        .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(error.try_clone()?)
@@ -172,7 +184,7 @@ fn launch_using(program: &Path, target: &Target) -> Result<Launch> {
         .spawn()
         .with_context(|| i18n::tf!(UnableToStart, program.display()))?;
     Ok(Launch {
-        target: target.label(),
+        target,
         child,
         error,
     })

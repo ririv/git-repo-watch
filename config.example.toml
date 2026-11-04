@@ -21,6 +21,8 @@ check_on_startup = true
 
 # 文件文本预览和 diff 自动换行；关闭时使用横向滚动。
 text_wrap = false
+# git 沿用 GIT_EDITOR、core.editor、VISUAL、EDITOR 及 Git 的默认编辑器。
+editor = "git"
 
 # 文件列表显示类型图标，需要终端支持 Nerd Font 字形。
 file_icons = true

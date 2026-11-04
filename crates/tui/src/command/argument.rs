@@ -17,6 +17,7 @@ impl ArgumentSyntax {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ArgumentAction {
+    Editor,
     Add,
     BranchCreate,
     BranchSwitch,
@@ -50,6 +51,7 @@ impl ArgumentAction {
     }
     pub fn action(self) -> Action {
         match self {
+            Self::Editor => Action::EditorSetting,
             Self::Add => Action::Add,
             Self::BranchCreate => Action::BranchCreate,
             Self::BranchSwitch => Action::BranchSwitch,
@@ -80,6 +82,7 @@ impl ArgumentAction {
     }
     pub fn syntax(self) -> ArgumentSyntax {
         let open = match self {
+            Self::Editor => "[git|<editor-command>]",
             Self::Add => "<path>",
             Self::Scan => "<path> [--exclude <path>…]",
             Self::Interval => "<duration>",
@@ -103,6 +106,7 @@ impl ArgumentAction {
     }
     pub fn hint(self) -> &'static str {
         match self {
+            Self::Editor => i18n::tr!(ExternalEditorHint),
             Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
@@ -123,6 +127,7 @@ impl ArgumentAction {
             i18n::tf!(MissingCommandArgument, self.placeholder())
         );
         match self {
+            Self::Editor => Ok(engine::editor::Preference::try_from(value.to_owned())?.value()),
             Self::Option(kind) => {
                 let value = kind.parse(value)?;
                 Ok(kind
@@ -262,6 +267,7 @@ impl Action {
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
             Self::StartupCheck => Some(ArgumentAction::StartupCheck),
+            Self::EditorSetting => Some(ArgumentAction::Editor),
             Self::AiAgent => Some(ArgumentAction::AiAgent),
             Self::AiModel => Some(ArgumentAction::AiModel),
             Self::AiPrompt => Some(ArgumentAction::AiPrompt),

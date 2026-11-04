@@ -19,6 +19,10 @@ fn click(s: &mut Screen, x: u16, y: u16) {
     }
 }
 fn item_position(s: &mut Screen, target: crate::pointer::Target, index: usize) -> (u16, u16) {
+    if target == crate::pointer::Target::Settings {
+        s.setting_selected = index;
+        s.settings_focus = None;
+    }
     render(s, 120, 32);
     for y in 0..32 {
         for x in 0..120 {

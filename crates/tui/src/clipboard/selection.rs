@@ -103,11 +103,14 @@ impl CommitSelection {
 pub(crate) enum Selection {
     #[default]
     None,
+    Repository,
     Browser {
+        editor: Option<PathBuf>,
         content: Content,
         opener: Option<crate::browser::opening::OpenTarget>,
     },
     Diff {
+        editor: Option<PathBuf>,
         content: Content,
         marked: Vec<engine::local::files::Location>,
     },
@@ -118,6 +121,19 @@ pub(crate) enum Selection {
     Error(Content),
 }
 impl Selection {
+    pub fn editor_target(&self, root: &Path) -> Option<PathBuf> {
+        match self {
+            Self::Repository => Some(root.to_owned()),
+            Self::Browser {
+                editor: Some(path), ..
+            }
+            | Self::Diff {
+                editor: Some(path), ..
+            } => Some(root.join(path)),
+            _ => None,
+        }
+    }
+
     pub fn unavailable(&self, scope: Scope, path: Option<&Path>) -> Option<&'static str> {
         if scope == Scope::Repository {
             return path.is_none().then(|| i18n::tr!(SelectARepositoryFirst));
@@ -280,14 +296,17 @@ impl Screen {
     pub(crate) fn copy_selection(&self) -> Selection {
         match &self.mode {
             Mode::Browser(session) => Selection::Browser {
+                editor: session.selected().map(|entry| entry.path),
                 content: Content::paths(session.selected().map(|entry| entry.path)),
                 opener: session.open_target(),
             },
             Mode::Files(files) => Selection::Diff {
+                editor: files.editor_path(),
                 content: file_paths(files),
                 marked: marked_paths(files),
             },
             Mode::Changes(session) => Selection::Diff {
+                editor: session.files.editor_path(),
                 marked: marked_paths(&session.files),
                 content: match session.focus {
                     changes::Focus::Files => file_paths(&session.files),
@@ -348,6 +367,10 @@ impl Screen {
                     .expect("repository pane has an open workspace");
                 match section {
                     workspace::Section::Worktree => Selection::Diff {
+                        editor: match &session.files {
+                            workspace::Panel::Ready(files) => files.editor_path(),
+                            _ => None,
+                        },
                         content: panel(&session.files, file_paths),
                         marked: match &session.files {
                             workspace::Panel::Ready(files) => marked_paths(files),
@@ -361,8 +384,14 @@ impl Screen {
                     workspace::Section::Branches => {
                         Selection::Branch(panel(&session.branches, branch))
                     }
-                    workspace::Section::Overview => Selection::None,
+                    workspace::Section::Overview => Selection::Repository,
                 }
+            }
+            Mode::Management(_) => Selection::Repository,
+            Mode::Browsing
+                if matches!(self.page, crate::Page::Repositories | crate::Page::Detail) =>
+            {
+                Selection::Repository
             }
             _ => Selection::None,
         }

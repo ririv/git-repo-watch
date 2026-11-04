@@ -405,14 +405,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 ) && screen.command_reader.visible()
                 {
                     i18n::tr!(ReadingCommandCandidates)
-                } else if matches!(
-                    bar,
-                    crate::bar::InputBar::Command {
-                        menu: command::completion::Menu::Values(_),
-                        ..
+                } else if let crate::bar::InputBar::Command {
+                    menu: command::completion::Menu::Values(values),
+                    ..
+                } = bar
+                {
+                    match values.kind {
+                        command::values::Kind::Editor => i18n::tr!(OptionCompletionHint),
+                        _ => i18n::tr!(ValueCompletionHint),
                     }
-                ) {
-                    i18n::tr!(ValueCompletionHint)
                 } else if matches!(
                     bar,
                     crate::bar::InputBar::Command {

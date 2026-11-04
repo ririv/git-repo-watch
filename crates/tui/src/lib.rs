@@ -17,6 +17,7 @@ mod confirmation;
 mod diff;
 mod document;
 mod editor;
+mod external_editor;
 mod file_icons;
 mod files;
 mod flow;
@@ -261,6 +262,7 @@ struct Screen {
     exit_sequence: input::interrupt::Sequence,
     clipboard: clipboard::Writer,
     link_opener: links::Opener,
+    external_editor: external_editor::Controller,
     commit_generator: commit_message::Generator,
     commit_draft_id: u64,
     repository_viewport: ratatui::widgets::TableState,
@@ -329,6 +331,7 @@ impl Screen {
             exit_sequence: Default::default(),
             clipboard: Default::default(),
             link_opener: Default::default(),
+            external_editor: Default::default(),
             commit_generator: Default::default(),
             commit_draft_id: 0,
             repository_viewport,
@@ -476,33 +479,48 @@ impl Screen {
     }
 }
 
-struct TerminalGuard(engine::state::InteractionMode);
+enum TerminalGuard {
+    Active(engine::state::InteractionMode),
+    Suspended(engine::state::InteractionMode),
+}
 impl TerminalGuard {
     fn enter(mode: engine::state::InteractionMode) -> Result<Self> {
         enable_raw_mode()?;
-        let guard = Self(mode);
+        let guard = Self::Active(mode);
         execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
         interaction::apply(mode, &mut io::stdout())?;
         Ok(guard)
     }
     fn sync(&mut self, mode: engine::state::InteractionMode) -> Result<()> {
-        if self.0 != mode {
+        let (Self::Active(current) | Self::Suspended(current)) = self;
+        if *current != mode {
             interaction::apply(mode, &mut io::stdout())?;
-            self.0 = mode;
+            *current = mode;
         }
         Ok(())
+    }
+    fn editor(&mut self, plan: &engine::editor::Plan) -> Result<Result<()>> {
+        let mode = match self {
+            Self::Active(mode) | Self::Suspended(mode) => *mode,
+        };
+        *self = Self::Suspended(mode);
+        let result = engine::editor::terminal::run(plan);
+        *self = Self::enter(mode)?;
+        Ok(result)
     }
 }
 impl Drop for TerminalGuard {
     fn drop(&mut self) {
-        let _ = disable_raw_mode();
-        let _ = execute!(
-            io::stdout(),
-            DisableBracketedPaste,
-            DisableMouseCapture,
-            LeaveAlternateScreen,
-            crossterm::cursor::Show
-        );
+        if matches!(self, Self::Active(_)) {
+            let _ = disable_raw_mode();
+            let _ = execute!(
+                io::stdout(),
+                DisableBracketedPaste,
+                DisableMouseCapture,
+                LeaveAlternateScreen,
+                crossterm::cursor::Show
+            );
+        }
     }
 }
 pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
@@ -549,6 +567,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.poll_clipboard()
                 | screen.poll_command_completion()
                 | screen.poll_links()
+                | screen.poll_external_editor()
                 | screen.poll_interaction()
                 | screen.poll_view_preferences()
                 | screen.poll_tasks()
@@ -558,6 +577,17 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.graphics.poll();
             let changed =
                 changed | screen.overview.poll(&screen.service) | screen.overview.animate();
+            if let Some(plan) = screen.external_editor.take_terminal() {
+                let result = guard.editor(&plan)?;
+                screen.message = match result {
+                    Ok(()) => i18n::tf!(ExternalEditorOpened, plan.target.display()),
+                    Err(error) => format!("{}: {error:#}", i18n::tr!(ExternalEditorFailed)),
+                };
+                terminal.clear()?;
+                screen.graphics = graphics::Display::detect();
+                link_output = Default::default();
+                dirty = true;
+            }
             guard.sync(screen.config.interaction_mode)?;
             if dirty || changed {
                 let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;

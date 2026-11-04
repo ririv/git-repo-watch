@@ -90,6 +90,7 @@ TUI 运行时通过 macOS FSEvents／Linux inotify 观察已管理仓库及当�
 - `schedule_anchor`：可选的时间基准表，包含 `source`（`automatic` 或 `explicit`）和 `at`（本地日期时间，例如 `2026-10-23T00:00:00`）。缺省时首次启用会自动生成并保存；修改间隔、重启、重复安装、停用后再启用都会沿用已有基准。
 - `repositories`：仓库根目录列表，包括通过 `.git` 文件关联的工作区与子模块。
 - `push_policy`：定时任务的自动推送策略；`disabled` 只检查，`fast_forward` 允许受控自动推送。
+- `editor`：默认 `"git"`，通过当前仓库的 `git var GIT_EDITOR` 解析编辑器，沿用 `GIT_EDITOR → core.editor → VISUAL → EDITOR → Git 编译期默认值`。也可保存检测到的编辑器标识（如 `"code"`、`"cursor"`、`"nvim"`）或带参数的命令（如 `"code --reuse-window"`）。通过 `/settings editor` 选择，候选在后台检测 PATH 和 macOS 常用应用目录；不会修改 shell 或 Git 配置。
 - `max_concurrency`：并发检查上限，1 至 32。旧配置缺少该字段时保持兼容，默认 4。
 
 ```sh
@@ -700,3 +701,10 @@ AI 只返回已有改动块的分组、顺序和各条提交说明，不生成�
 `/repos filter [all|problems|…]`、`/repos sort [priority|name|…]`、`/repo diff view [tree|flat]`、`/repo diff layout [auto|split|unified]`、`/search [filter|locate]` 和 `/settings interaction [interactive|text]`、`/settings startup enabled [true|false]`、`/schedule autopush [disabled|fast_forward]` 和 `/settings ai agent [codex|claude]` 各自只有一个命令入口，选项属于参数，不再占用主命令列表。方括号表示可选的固定选项，如 `[选项|选项]`；自由输入用 `<path>`、`<name>` 等类型提示；选项根据菜单的实际可用宽度显示，放得下时完整列出，放不下时在完整选项后以 `|…]` 省略，缩放终端会重新计算；说明和当前值仍保留空间，完整范围始终可在参数菜单中查看。像 `[<model>|default]` 表示可输入任意模型名，也可使用特殊值 `default`。输入命令后的空格会自动展开参数候选，显示参数名、独立说明和当前值标记；可按参数名前缀或中英文说明筛选，名称匹配优先。`↑↓` 选择，`Tab` 只补全，`Enter` 应用，`Esc` 收起候选，再按一次关闭命令。鼠标点击候选直接应用。
 
 完整输入如 `/repos filter failed` 仍然直接生效，非法值明确报错，不改变设置。`/repo diff layout` 不带参数时保留横向选择器；所有固定选项共用参数菜单；目录继续使用目录补全。启动检查和自动推送策略选中后先进入配置确认框，取消不写入；AI 工具选中后沿用原有直接保存方式，AI 关闭时不显示工具候选。
+
+## 外部编辑器
+
+- `/editor` 用编辑器打开当前选中的对象：仓库列表和概览打开仓库目录，文件浏览与工作区差异打开选中的文件或目录。菜单显示目标；目标在命令草稿建立时捕获。历史内容、设置页或空列表没有可编辑对象时，该命令置灰。编辑器配置仍通过 `/settings editor` 修改。
+- `/settings editor` 列出跟随 Git 和本机检测到的编辑器；`/settings editor git` 恢复跟随 Git，`/settings editor code` 选择 VS Code，也可直接输入 `/settings editor code --reuse-window` 这样的命令。偏好保存到 TOML，菜单和设置页显示当前选择。
+- 编辑器命令遵循 Git 的 POSIX shell 约定，支持引号、`~`、环境变量和启动参数；文件路径作为独立参数传入。只有显式打开时才执行命令，检测和修改偏好不会启动编辑器。
+- GUI 编辑器独立打开；终端编辑器接管当前终端，退出后恢复界面、焦点和视口。`--wait` 等明确要求等待的命令同样会等待编辑器结束。打开失败时显示错误，不自动更换编辑器。

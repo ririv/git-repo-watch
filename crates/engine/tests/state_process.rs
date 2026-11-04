@@ -114,6 +114,7 @@ fn intervals_and_schema_boundaries() {
         interaction_mode: Default::default(),
         view: Default::default(),
         mouse: Default::default(),
+        editor: Default::default(),
         ai: Default::default(),
     };
     assert!(c.validate().is_ok());

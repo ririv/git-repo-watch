@@ -159,10 +159,12 @@ pub(super) fn render_options(
             ));
             let description = match availability.label() {
                 Some(reason) => reason.to_owned(),
-                None => match screen.command_target(option.value.action(), selection) {
-                    Some(count) => format!("{} · {count}", option.description.text()),
-                    None => option.description.text().into(),
-                },
+                None => {
+                    match screen.command_target(option.value.action(), path.as_deref(), selection) {
+                        Some(count) => format!("{} · {count}", option.description.text()),
+                        None => option.description.text().into(),
+                    }
+                }
             };
             let description = crate::horizontal::clip(
                 &Line::from(Span::styled(

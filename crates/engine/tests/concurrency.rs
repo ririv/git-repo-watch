@@ -34,6 +34,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: Default::default(),
+            editor: Default::default(),
             ai: Default::default(),
         })
         .unwrap();

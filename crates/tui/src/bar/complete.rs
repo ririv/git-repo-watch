@@ -19,7 +19,7 @@ impl Screen {
         *menu = Menu::Loading(request);
         self.message.clear();
     }
-    pub(super) fn refresh_value_candidates(&mut self) {
+    pub(crate) fn refresh_value_candidates(&mut self) {
         let InputBar::Command {
             input, menu, path, ..
         } = &mut self.bar
@@ -30,10 +30,10 @@ impl Screen {
         let kind = command::argument_input(editor.text.strip_prefix('/').expect("command slash"))
             .filter(|(_, raw)| editor.cursor >= editor.text.len() - raw.len())
             .and_then(|(argument, _)| Kind::for_argument(argument));
-        let Some((kind, path)) = kind.zip(path.as_ref()) else {
+        let Some(kind) = kind.filter(|kind| *kind == Kind::Editor || path.is_some()) else {
             if matches!(
                 menu,
-                Menu::Values(_) | Menu::Loading(Request::Values { .. })
+                Menu::Values(_) | Menu::Loading(Request::Values { .. } | Request::Editors { .. })
             ) {
                 *menu = Menu::Commands;
             }
@@ -45,9 +45,13 @@ impl Screen {
         {
             return;
         }
-        let request = Request::Values {
-            kind,
-            path: path.clone(),
+        let request = if kind == Kind::Editor {
+            Request::Editors { path: path.clone() }
+        } else {
+            Request::Values {
+                kind,
+                path: path.clone().expect("repository parameter"),
+            }
         };
         if matches!(menu, Menu::Loading(current) if *current == request) {
             return;
@@ -96,7 +100,15 @@ impl Screen {
             }
             Ok(Output::Values { kind, entries }) => {
                 *menu = match Candidates::new(kind, entries, input) {
-                    Some(values) => Menu::Values(values),
+                    Some(mut values) => {
+                        if kind == Kind::Editor
+                            && command::argument_input(&input.query())
+                                .is_some_and(|(_, raw)| raw.trim().is_empty())
+                        {
+                            values.select_token(&self.config.editor.value());
+                        }
+                        Menu::Values(values)
+                    }
                     None => Menu::Commands,
                 };
             }

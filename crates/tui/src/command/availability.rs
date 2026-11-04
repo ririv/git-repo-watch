@@ -68,6 +68,7 @@ impl Screen {
                     | ComposeOrderMenu
                     | Push
                     | Terminal
+                    | OpenEditor
                     | Check
                     | Remove
                     | Replay(_)
@@ -90,6 +91,13 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            OpenEditor
+                if path
+                    .and_then(|root| selection.editor_target(root))
+                    .is_none() =>
+            {
+                Some(i18n::tr!(ExternalEditorSelectionRequired).into())
+            }
             StashPreviewMenu | StashPreview(_) if !matches!(&self.mode, Mode::Stashes(view) if matches!(view.as_ref(), crate::stashes::View::Detail { .. })) => {
                 Some(i18n::tr!(StashPreviewRequiresDetail).into())
             }
@@ -192,9 +200,19 @@ impl Screen {
     pub(crate) fn command_target(
         &self,
         action: Action,
+        path: Option<&Path>,
         selection: &clipboard::Selection,
     ) -> Option<String> {
         match action {
+            Action::OpenEditor => {
+                let root = path?;
+                let target = selection.editor_target(root)?;
+                let label = match target.strip_prefix(root) {
+                    Ok(relative) if !relative.as_os_str().is_empty() => relative,
+                    _ => root.file_name().map(Path::new).unwrap_or(root),
+                };
+                Some(label.display().to_string())
+            }
             Action::StashSaveMode(crate::stash_save::Scope::Selected) => Some(i18n::tf!(
                 CommandTargetFiles,
                 count = selection.marked_file_count()

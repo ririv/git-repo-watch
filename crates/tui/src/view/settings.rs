@@ -3,6 +3,9 @@ mod general;
 use super::*;
 use crate::settings::Item;
 pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
+    if action == Action::EditorSetting {
+        return Some(screen.config.editor.label());
+    }
     if action == Action::ScheduleEnabledMenu {
         return Some(
             match screen.snapshot.registration {

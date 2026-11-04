@@ -78,6 +78,8 @@ impl Command {
             Action::AiPrompt => Summary::AiPrompt,
             Action::Push => Summary::Push,
             Action::Terminal => Summary::Terminal,
+            Action::OpenEditor => Summary::ExternalEditorOpen,
+            Action::EditorSetting => Summary::ExternalEditorSetting,
             Action::Check => Summary::Check,
             Action::CheckAll => Summary::CheckAll,
             Action::CancelCheck => Summary::CancelCheck,

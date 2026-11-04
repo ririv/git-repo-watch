@@ -11,6 +11,7 @@ use std::{path::PathBuf, sync::Arc};
 pub(crate) enum Request {
     Directory { editor: Editor, home: PathBuf },
     Values { kind: Kind, path: PathBuf },
+    Editors { path: Option<PathBuf> },
 }
 #[derive(Debug)]
 pub(crate) enum Output {
@@ -61,6 +62,40 @@ impl Loader {
 }
 fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<Output> {
     match request {
+        Request::Editors { path } => {
+            let root = path.as_deref().unwrap_or(service.scheduler.user_home());
+            let environment = engine::editor::Environment::capture(service.scheduler.user_home());
+            let current = service.store.config()?.editor;
+            let mut entries = engine::editor::detect(&service.git, root, &environment, cancel)?
+                .into_iter()
+                .map(|entry| Choice {
+                    token: entry.preference.value(),
+                    label: if entry.preference == current {
+                        format!("✓ {}", entry.label)
+                    } else {
+                        entry.label
+                    },
+                    description: entry.detail,
+                })
+                .collect::<Vec<_>>();
+            if !entries.iter().any(|entry| entry.token == current.value()) {
+                entries.insert(
+                    0,
+                    Choice {
+                        token: current.value(),
+                        label: format!("✓ {}", current.label()),
+                        description: i18n::tr!(ExternalEditorCurrent).into(),
+                    },
+                );
+            }
+            Ok(Output::Values {
+                kind: Kind::Editor,
+                entries,
+            })
+        }
+        Request::Values {
+            kind: Kind::Editor, ..
+        } => unreachable!("editor request has an optional repository"),
         Request::Directory { mut editor, home } => {
             let menu = super::path::complete_cancellable(&mut editor, &home, cancel)?;
             Ok(Output::Directory { editor, menu })

@@ -30,6 +30,7 @@ impl Default for Config {
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: MouseConfig::default(),
+            editor: Default::default(),
             ai: Default::default(),
         }
     }
@@ -67,6 +68,8 @@ pub struct Config {
     pub view: super::view::Preferences,
     #[serde(default)]
     pub mouse: MouseConfig,
+    #[serde(default)]
+    pub editor: crate::editor::Preference,
     #[serde(default, alias = "commit_message")]
     pub ai: crate::ai::Config,
 }
@@ -152,7 +155,7 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 11] = [
+const FIELDS: [&str; 12] = [
     "interval_seconds",
     "repositories",
     "startup_actions",
@@ -164,6 +167,7 @@ const FIELDS: [&str; 11] = [
     "chinese_command_trigger",
     "schedule_anchor",
     "interaction_mode",
+    "editor",
 ];
 #[derive(Debug, Clone, Serialize)]
 #[serde(tag = "status", rename_all = "snake_case")]
@@ -205,6 +209,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         if matches!(
             key,
             "interaction_mode"
+                | "editor"
                 | "text_wrap"
                 | "file_icons"
                 | "startup_actions"

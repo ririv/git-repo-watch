@@ -5,12 +5,14 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    Editor,
     Branch,
     Stash,
 }
 impl Kind {
     pub fn for_argument(argument: ArgumentAction) -> Option<Self> {
         match argument {
+            ArgumentAction::Editor => Some(Self::Editor),
             ArgumentAction::BranchSwitch => Some(Self::Branch),
             ArgumentAction::StashApply | ArgumentAction::StashPop | ArgumentAction::StashDrop => {
                 Some(Self::Stash)
@@ -67,14 +69,27 @@ impl Candidates {
             .filter(|(_, entry)| {
                 entry.token.to_lowercase().contains(&needle)
                     || entry.label.to_lowercase().contains(&needle)
-                    || entry.description.to_lowercase().contains(&needle)
+                    || (self.kind != Kind::Editor
+                        && entry.description.to_lowercase().contains(&needle))
             })
             .map(|(index, _)| index)
             .collect();
-        self.selected = previous
-            .and_then(|entry| self.options.iter().position(|index| *index == entry))
+        let exact = (self.kind == Kind::Editor)
+            .then(|| {
+                self.options
+                    .iter()
+                    .position(|index| self.entries[*index].token.to_lowercase() == needle)
+            })
+            .flatten();
+        self.selected = exact
+            .or_else(|| {
+                previous.and_then(|entry| self.options.iter().position(|index| *index == entry))
+            })
             .or_else(|| (!self.options.is_empty()).then_some(0));
         self.command = editor.text[..start].into();
+        if self.kind == Kind::Editor && self.options.is_empty() {
+            return None;
+        }
         Some(())
     }
     pub fn entries(&self) -> impl Iterator<Item = &Choice> {
@@ -92,6 +107,15 @@ impl Candidates {
             self.selected = Some(
                 (index + if backwards { self.options.len() - 1 } else { 1 }) % self.options.len(),
             );
+        }
+    }
+    pub fn select_token(&mut self, token: &str) {
+        if let Some(index) = self
+            .options
+            .iter()
+            .position(|index| self.entries[*index].token == token)
+        {
+            self.selected = Some(index);
         }
     }
     pub fn choose(&self) -> Option<Editor> {

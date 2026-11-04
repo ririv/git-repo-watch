@@ -369,6 +369,7 @@ impl Screen {
         self.command_reader.clear();
         self.clipboard.shutdown();
         self.link_opener.shutdown();
+        self.external_editor.shutdown();
         self.commit_generator.shutdown();
         self.interaction_save.shutdown();
         for task in self.repository_tasks.values() {

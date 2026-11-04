@@ -11,6 +11,7 @@ enum Group {
     Input,
     Pointer,
     Ai,
+    Tools,
 }
 impl Group {
     fn title(self) -> &'static str {
@@ -21,6 +22,7 @@ impl Group {
             Self::Input => i18n::tr!(SettingsInput),
             Self::Pointer => i18n::tr!(MouseSettings),
             Self::Ai => i18n::tr!(Ai),
+            Self::Tools => i18n::tr!(ExternalEditorTools),
         }
     }
 }
@@ -39,6 +41,12 @@ struct Entry {
 impl Entry {
     fn new(item: Item, screen: &Screen) -> Self {
         let (group, label, hint, value) = match item {
+            Item::Command(Action::EditorSetting) => (
+                Group::Tools,
+                i18n::tr!(ExternalEditorSetting),
+                i18n::tr!(ExternalEditorHint),
+                Value::Text(screen.config.editor.label()),
+            ),
             Item::Command(Action::Concurrency) => (
                 Group::Checks,
                 i18n::tr!(SettingsConcurrency),

@@ -118,6 +118,7 @@ pub enum ConfigEdit {
     Mouse(state::MouseSetting, bool),
     Interaction(state::InteractionMode),
     View(state::view::Edit),
+    Editor(crate::editor::Preference),
     AiEnabled(bool),
     AiAgent(crate::ai::Agent),
     AiModel {

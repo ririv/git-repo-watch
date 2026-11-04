@@ -8,6 +8,7 @@ pub mod desktop;
 pub mod directories;
 pub mod discovery;
 pub mod domain;
+pub mod editor;
 pub mod executor;
 pub mod local;
 pub mod notify;

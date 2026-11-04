@@ -218,7 +218,10 @@ impl Screen {
             } else if !matches!(
                 menu,
                 command::completion::Menu::Values(_)
-                    | command::completion::Menu::Loading(command::loader::Request::Values { .. })
+                    | command::completion::Menu::Loading(
+                        command::loader::Request::Values { .. }
+                            | command::loader::Request::Editors { .. }
+                    )
             ) {
                 *menu = Default::default();
             }
@@ -269,7 +272,7 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         if key.code == KeyCode::Enter
-            && matches!(&self.bar, InputBar::Command { input, menu: command::completion::Menu::Loading(command::loader::Request::Values { .. }), .. }
+            && matches!(&self.bar, InputBar::Command { input, menu: command::completion::Menu::Loading(command::loader::Request::Values { .. } | command::loader::Request::Editors { .. }), .. }
                 if command::argument_input(&input.query()).is_some_and(|(argument, value)| !value.trim().is_empty() && argument.parse(value, self.service.scheduler.user_home()).is_ok()))
         {
             if let InputBar::Command { menu, .. } = &mut self.bar {
@@ -462,6 +465,9 @@ impl Screen {
                             return Ok(BarEvent::Handled);
                         }
                         match argument.parse(value, self.service.scheduler.user_home()) {
+                            Ok(value) if argument == command::ArgumentAction::Editor => {
+                                self.select_editor(value.try_into()?);
+                            }
                             Ok(value) if argument == command::ArgumentAction::AiAgent => {
                                 self.select_agent(value.parse()?);
                             }

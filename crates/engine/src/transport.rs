@@ -23,6 +23,15 @@ impl Default for Git {
     }
 }
 impl Git {
+    /// Resolve the editor through system Git, including repository-specific configuration.
+    pub fn editor(&self, path: &Path, cancel: &Cancel) -> Result<String> {
+        let data = self.run(path, strings(&["var", "GIT_EDITOR"]), cancel)?;
+        Ok(std::str::from_utf8(&data)?
+            .strip_suffix('\n')
+            .context(i18n::tr!(ExternalEditorInvalid))?
+            .to_owned())
+    }
+
     fn run(&self, path: &Path, args: Vec<OsString>, cancel: &Cancel) -> Result<Vec<u8>> {
         process::run(
             Path::new("/usr/bin/git"),

@@ -16,6 +16,11 @@
 - Single-click an item to select it; double-click to perform its Enter action, keeping existing confirmations. Scrollbar clicks only seek. Titles and blank space never activate Enter. Disabling precise clicks also disables double-clicks.
 - With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.
 
+## External editors
+- `/editor` opens the selected repository, working file or folder. The menu shows the captured target; historical content, settings and empty lists have no editable target.
+- `/settings editor` lists detected editors. `/settings editor git` follows the current repository's Git editor. You can also enter a command such as `/settings editor code --reuse-window`. This saves the preference without modifying Git or shell configuration.
+- Git resolves `GIT_EDITOR`, `core.editor`, `VISUAL`, `EDITOR`, then its compiled default. GUI editors open independently; terminal editors return to the existing view on exit. Historical file previews do not offer editing.
+
 ## Repository panes
 - Breadcrumbs start at Repositories. Opening a child view adds a level. Click an ancestor to return with selection and search preserved; this is disabled during command editing or confirmation.
 - Focusing a pane adds one level; switching panes replaces it. Maximizing adds no level. Back at a pane root returns to the repository root, then to the home page.

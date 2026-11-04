@@ -123,7 +123,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(!items.contains(&crate::settings::Item::Command(Action::AiSettings)));
         command(&mut s, "settings ai");
         assert_eq!(s.history.len(), depth);
-        let text = render(&mut s, 140, 48);
+        let text = render(&mut s, 140, 60);
         for label in [
             i18n::tr!(AiEnabled),
             i18n::tr!(AgentChoice),

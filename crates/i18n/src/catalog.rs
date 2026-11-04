@@ -2,6 +2,22 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    ExternalEditorCurrent,
+    ExternalEditorOpening,
+    ExternalEditorGit,
+    ExternalEditorInvalid,
+    ExternalEditorDetectionFailed,
+    ExternalEditorMissing,
+    ExternalEditorNoFolders,
+    ExternalEditorNeedsTerminal,
+    ExternalEditorFailed,
+    ExternalEditorOpen,
+    ExternalEditorSetting,
+    ExternalEditorHint,
+    ExternalEditorSelectionRequired,
+    ExternalEditorOpened,
+    ExternalEditorTools,
+
     LocalObservationFailed,
     PartialSelectRequired,
     PartialChanged,
@@ -1246,6 +1262,56 @@ impl Message {
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
             }
+            (Self::ExternalEditorCurrent, Language::English) => "Current setting",
+            (Self::ExternalEditorCurrent, Language::Chinese) => "当前配置",
+            (Self::ExternalEditorOpening, Language::English) => "An editor is already opening",
+            (Self::ExternalEditorOpening, Language::Chinese) => "正在打开编辑器",
+            (Self::ExternalEditorGit, Language::English) => "Follow Git",
+            (Self::ExternalEditorGit, Language::Chinese) => "跟随 Git",
+            (Self::ExternalEditorInvalid, Language::English) => {
+                "Editor command must be nonempty, at most 4096 bytes and contain no NUL."
+            }
+            (Self::ExternalEditorInvalid, Language::Chinese) => {
+                "编辑器命令不能为空，最多 4096 字节，且不能包含 NUL。"
+            }
+            (Self::ExternalEditorDetectionFailed, Language::English) => {
+                "Unable to detect installed editors"
+            }
+            (Self::ExternalEditorDetectionFailed, Language::Chinese) => "检测编辑器失败",
+            (Self::ExternalEditorMissing, Language::English) => "Editor not found: {0}",
+            (Self::ExternalEditorMissing, Language::Chinese) => "未找到编辑器：{0}",
+            (Self::ExternalEditorNoFolders, Language::English) => {
+                "This editor cannot open folders. Choose a code editor in /settings editor."
+            }
+            (Self::ExternalEditorNoFolders, Language::Chinese) => {
+                "这个编辑器不支持打开目录，请在 /settings editor 中选择代码编辑器。"
+            }
+            (Self::ExternalEditorNeedsTerminal, Language::English) => {
+                "This editor needs an interactive terminal"
+            }
+            (Self::ExternalEditorNeedsTerminal, Language::Chinese) => "这个编辑器需要交互式终端",
+            (Self::ExternalEditorFailed, Language::English) => "Editor exited unsuccessfully",
+            (Self::ExternalEditorFailed, Language::Chinese) => "编辑器异常退出",
+            (Self::ExternalEditorOpen, Language::English) => "Open selection in editor",
+            (Self::ExternalEditorOpen, Language::Chinese) => "用编辑器打开当前选择",
+            (Self::ExternalEditorSetting, Language::English) => "Editor",
+            (Self::ExternalEditorSetting, Language::Chinese) => "编辑器",
+            (Self::ExternalEditorHint, Language::English) => {
+                "Follow Git, choose an installed editor, or enter an editor command with arguments."
+            }
+            (Self::ExternalEditorHint, Language::Chinese) => {
+                "跟随 Git、选择已安装的编辑器，或输入带参数的编辑器命令。"
+            }
+            (Self::ExternalEditorSelectionRequired, Language::English) => {
+                "Select a repository, working file or folder"
+            }
+            (Self::ExternalEditorSelectionRequired, Language::Chinese) => {
+                "请选择仓库、工作区文件或目录"
+            }
+            (Self::ExternalEditorOpened, Language::English) => "Opened in editor: {0}",
+            (Self::ExternalEditorOpened, Language::Chinese) => "已用编辑器打开：{0}",
+            (Self::ExternalEditorTools, Language::English) => "External tools",
+            (Self::ExternalEditorTools, Language::Chinese) => "外部工具",
             (Self::LocalObservationFailed, Language::English) => "Local refresh failed · {0}: {1}",
             (Self::LocalObservationFailed, Language::Chinese) => "本地刷新失败 · {0}：{1}",
             (Self::PartialSelectRequired, Language::English) => {
@@ -5320,6 +5386,8 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (ExternalEditorOpened $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Opened in editor: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("已用编辑器打开：{0}" $(, $($args)*)?), } };
+    (ExternalEditorMissing $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Editor not found: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("未找到编辑器：{0}" $(, $($args)*)?), } };
     (LocalObservationFailed $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Local refresh failed · {0}: {1}" $(, $($args)*)?),

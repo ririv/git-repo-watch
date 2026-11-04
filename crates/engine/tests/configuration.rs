@@ -219,6 +219,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         file_icons: true,
         view: Default::default(),
         mouse: Default::default(),
+        editor: Default::default(),
         ai: Default::default(),
         ..Config::default()
     };

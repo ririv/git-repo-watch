@@ -50,6 +50,7 @@ impl Configuration {
             .collect::<Vec<_>>();
         if self == Self::General {
             items.push(Item::FileIcons);
+            items.push(Item::Command(Action::EditorSetting));
         }
         if self == Self::General && i18n::language() == i18n::Language::Chinese {
             items.push(Item::ChineseCommandTrigger);

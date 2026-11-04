@@ -79,6 +79,8 @@ pub enum Action {
     AiPrompt,
     Push,
     Terminal,
+    OpenEditor,
+    EditorSetting,
     Check,
     CheckAll,
     CancelCheck,
@@ -465,6 +467,11 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::PaneZoomCommand,
     },
     Command {
+        name: "editor",
+        action: OpenEditor,
+        description: i18n::Message::ExternalEditorOpen,
+    },
+    Command {
         name: "tasks",
         action: Tasks,
         description: i18n::Message::Tasks,
@@ -543,6 +550,11 @@ pub const COMMANDS: &[Command] = &[
         name: "settings ai",
         action: AiSettings,
         description: i18n::Message::AiSettings,
+    },
+    Command {
+        name: "settings editor",
+        action: EditorSetting,
+        description: i18n::Message::ExternalEditorSetting,
     },
     Command {
         name: "settings ai agent",

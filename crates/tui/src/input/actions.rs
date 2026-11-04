@@ -29,6 +29,7 @@ impl Screen {
             editor.restore();
         }
         match action {
+            Action::OpenEditor => self.open_in_editor(path, &selection),
             Action::LogSelect => self.mark_history(history::SelectionAction::Start),
             Action::LogSelection(action) => self.mark_history(action),
             Action::Compose(action) => self.compose_action(action, path),
