@@ -29,6 +29,7 @@ mod inspection;
 mod interaction;
 mod layout_picker;
 mod links;
+mod live;
 mod loading;
 mod markdown;
 mod multiline_editor;
@@ -289,6 +290,7 @@ struct Screen {
     repository_errors: BTreeMap<PathBuf, String>,
     view_revision: u64,
     updates: BTreeMap<PathBuf, checks::Update>,
+    live: live::State,
     overview: overview::Overview,
     replay: replay::Cache,
     workspace: workspace::Workspace,
@@ -356,6 +358,7 @@ impl Screen {
             repository_errors: BTreeMap::new(),
             view_revision: 0,
             updates: BTreeMap::new(),
+            live: live::State::start(),
             overview: Default::default(),
             replay: Default::default(),
             workspace: Default::default(),
@@ -540,6 +543,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
             let changed = schedule_changed
                 | screen.poll(&root)
                 | screen.poll_check()
+                | screen.poll_live()
                 | screen.poll_workspace()
                 | screen.poll_changes()
                 | screen.poll_clipboard()

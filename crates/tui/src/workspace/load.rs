@@ -35,7 +35,6 @@ pub(super) struct Loader {
     queued: Option<PathBuf>,
 }
 impl Loader {
-    #[cfg(test)]
     pub fn pending(&self) -> bool {
         self.reader.is_some() || self.queued.is_some()
     }

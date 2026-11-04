@@ -67,6 +67,7 @@ impl FileSession {
             .map(|(_, change)| (change.area, change.location.clone()))
             .collect::<Vec<_>>();
         let mut next = Self::new(snapshot);
+        next.offsets = self.offsets;
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
         next.folding = self.folding.clone();

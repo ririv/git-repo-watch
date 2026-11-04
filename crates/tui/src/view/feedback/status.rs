@@ -61,6 +61,9 @@ fn activities(screen: &Screen) -> Vec<Notice> {
         ))];
     }
     let mut notices = Vec::new();
+    if let Some(error) = screen.live.error() {
+        notices.push(Notice::Failure(error));
+    }
     if let Mode::Busy(pending) = &screen.mode {
         match pending.state {
             TaskState::Cancelling => notices.push(Notice::Cancelling(format!(

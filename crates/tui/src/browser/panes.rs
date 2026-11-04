@@ -154,6 +154,19 @@ impl Snapshot {
     }
 }
 impl Panes {
+    pub fn invalidate(&mut self) {
+        let previous = self.snapshot();
+        for pane in [&mut self.source, &mut self.rendered] {
+            if let Some(mut key) = pane.preview.key().cloned() {
+                pane.reader.clear();
+                pane.revision += 1;
+                key.revision = pane.revision;
+                pane.preview = Preview::Loading(key);
+            }
+        }
+        self.feedback.begin(previous, Instant::now());
+    }
+
     fn snapshot(&self) -> Option<Snapshot> {
         // 仍在静默等待时沿用原快照，避免快速连按将中间文件的半成品展示出来。
         if self.feedback.quiet() {

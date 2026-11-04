@@ -24,6 +24,7 @@ crossterm = "0.29"
 ctrlc = "3"
 git2 = { version = "0.21", default-features = false, features = ["vendored-libgit2"] }
 libc = "0.2"
+notify = { version = "8.2.1", default-features = false, features = ["macos_fsevent"] }
 pulldown-cmark = { version = "0.13", default-features = false }
 ratatui = { version = "0.30", features = ["unstable-rendered-line-info"] }
 ratatui-image = { version = "11.1", default-features = false, features = ["crossterm"] }

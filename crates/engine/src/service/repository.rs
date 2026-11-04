@@ -1,6 +1,6 @@
 //! Locked single-repository operations and manual journals.
 use super::*;
-pub(super) struct RepositoryLock {
+pub(crate) struct RepositoryLock {
     _repository: Lock,
     _slot: Lock,
 }
@@ -99,7 +99,7 @@ impl Service {
         local::open(path)?;
         Ok(())
     }
-    pub(super) fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<RepositoryLock> {
+    pub(crate) fn repository_lock(&self, path: &Path, cancel: &Cancel) -> Result<RepositoryLock> {
         self.repository_lock_observed(path, cancel, &mut |_| Ok(()))
     }
     pub(super) fn repository_lock_observed(

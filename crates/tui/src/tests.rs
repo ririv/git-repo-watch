@@ -35,6 +35,7 @@ mod input_surface;
 mod interrupt;
 mod layout_picker;
 mod links;
+mod live;
 mod mouse;
 mod navigation;
 mod opening;
@@ -148,6 +149,7 @@ fn screen(service: Service) -> Screen {
         repository_errors: BTreeMap::new(),
         view_revision: 0,
         updates: BTreeMap::new(),
+        live: Default::default(),
         overview: Default::default(),
         replay: Default::default(),
         workspace: Default::default(),

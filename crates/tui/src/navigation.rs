@@ -64,6 +64,12 @@ pub(crate) struct Visit {
     repository: Option<PathBuf>,
 }
 impl Visit {
+    pub(crate) fn observe(&mut self, readback: &crate::mutations::readback::Readback) {
+        crate::live::merge::mode(&mut self.mode, readback);
+    }
+    pub(crate) fn observe_history(&mut self, graph: &history::Session) {
+        crate::live::merge::history_mode(&mut self.mode, graph);
+    }
     pub(crate) fn complete_composition(
         &mut self,
         path: &std::path::Path,

@@ -81,6 +81,7 @@ impl Session {
     pub fn refreshed(&self, snapshot: Snapshot) -> Self {
         let current = self.selected().map(|entry| entry.oid);
         let mut next = Self::new(snapshot);
+        next.state = self.state;
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
         let selected = next

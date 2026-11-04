@@ -102,6 +102,7 @@ impl Screen {
             .get(&path)
             .is_none_or(|old| update.order() > old.order())
         {
+            self.live.invalidate(&path);
             self.repository_errors.remove(&path);
             self.updates.insert(path, update);
         }
@@ -139,6 +140,11 @@ impl Screen {
         ))
     }
     pub(crate) fn result_for(&self, path: &std::path::Path) -> Option<&RepositoryResult> {
+        self.live
+            .result(path)
+            .or_else(|| self.stored_result_for(path))
+    }
+    pub(crate) fn stored_result_for(&self, path: &std::path::Path) -> Option<&RepositoryResult> {
         if let Some(update) = self.latest_update(path) {
             return Some(&update.result);
         }

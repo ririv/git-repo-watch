@@ -54,6 +54,12 @@ impl Selection {
             Self::Browsing | Self::Range { .. } | Self::Actions(_) => unreachable!(),
         }
     }
+    pub fn retain(&mut self, mut keep: impl FnMut(&Oid) -> bool) {
+        self.settle();
+        if let Self::Selecting(marked) = self {
+            marked.retain(|oid| keep(oid));
+        }
+    }
     pub fn settle(&mut self) {
         if matches!(self, Self::Range { .. }) {
             self.begin();

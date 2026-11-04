@@ -8,6 +8,8 @@
 
 - Display → File icons controls type icons in the browser, worktree, and commit file lists. It is enabled by default and saved as `file_icons`. Nerd Font glyph support is required; disabling icons preserves tree indentation and browser name alignment.
 
+- External saves, staging, commits and branch changes automatically refresh local views. Native file observation failures appear in the footer. Refreshing does not contact remotes or run worktree operations.
+
 ## Mouse & Trackpad
 - `Ctrl+G` toggles Interactive / Text selection; global `/settings interaction` opens choices (`//settings interaction` from a context). `/settings interaction interactive` and `/settings interaction text` switch directly. The preference persists across restarts and is also in Settings. Text selection releases pointer input to the terminal for selection, Copy and context menus; application clicks, scrolling and dragging are disabled without changing pointer preferences. Keyboard navigation, typing, paste and commands remain active; Esc goes back, Ctrl+C uses the input-clearing and exit-confirmation rules above. Display updates and background tasks continue.
 - General settings has a Mouse & Trackpad group with independent precise-click, scrolling, and pane-selection toggles. All default to on and apply immediately after saving.

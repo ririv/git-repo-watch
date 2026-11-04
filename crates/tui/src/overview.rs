@@ -58,6 +58,14 @@ pub(super) struct Overview {
     reader: Option<Reader>,
 }
 impl Overview {
+    pub fn observe(&mut self, snapshot: Snapshot) {
+        if self.content.path() == Some(&snapshot.path) {
+            if let Some(reader) = &self.reader {
+                reader.cancel.cancel();
+            }
+            self.content = Content::Ready(Box::new(snapshot));
+        }
+    }
     pub fn open(&mut self, path: PathBuf, service: &Arc<Service>) {
         if let Some(reader) = &self.reader {
             reader.cancel.cancel();

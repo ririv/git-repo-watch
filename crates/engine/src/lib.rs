@@ -11,6 +11,7 @@ pub mod domain;
 pub mod executor;
 pub mod local;
 pub mod notify;
+pub mod observation;
 pub mod operations;
 pub mod paths;
 pub mod process;

@@ -29,7 +29,7 @@ impl Session {
                 *value = Contents::Unloaded;
             }
         }
-        self.panes.clear();
+        self.panes.invalidate();
         if !self.query.is_empty() {
             self.search_reader.clear();
             self.search = Search::Loading(self.query.clone());

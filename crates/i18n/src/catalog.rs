@@ -2,6 +2,7 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    LocalObservationFailed,
     PartialSelectRequired,
     PartialChanged,
     PartialSelectionConflict,
@@ -1245,6 +1246,8 @@ impl Message {
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
             }
+            (Self::LocalObservationFailed, Language::English) => "Local refresh failed · {0}: {1}",
+            (Self::LocalObservationFailed, Language::Chinese) => "本地刷新失败 · {0}：{1}",
             (Self::PartialSelectRequired, Language::English) => {
                 "Select a hunk or lines in the diff preview first"
             }
@@ -5317,6 +5320,12 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (LocalObservationFailed $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Local refresh failed · {0}: {1}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("本地刷新失败 · {0}：{1}" $(, $($args)*)?),
+        }
+    };
     (StashSaveIncomplete $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Stash {oid} was created, but saving did not complete; inspect the workspace and index" $(, $($args)*)?),

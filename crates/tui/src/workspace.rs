@@ -95,6 +95,41 @@ pub(super) struct Workspace {
     loader: load::Loader,
 }
 impl Workspace {
+    pub fn loading(&self) -> bool {
+        self.loader.pending()
+    }
+    pub fn observe(&mut self, readback: &crate::mutations::readback::Readback) {
+        use crate::mutations::readback::Readback;
+        let Some(session) = self.session_mut() else {
+            return;
+        };
+        match readback {
+            Readback::Files(files) if files.path == session.path => {
+                session.files = Panel::Ready(match &session.files {
+                    Panel::Ready(current) => current.refreshed(files.clone()),
+                    _ => FileSession::new(files.clone()),
+                });
+            }
+            Readback::Branches(branches) if branches.path == session.path => {
+                session.branches = Panel::Ready(match &session.branches {
+                    Panel::Ready(current) => current.refreshed(branches.clone()),
+                    _ => crate::branches::Session::new(branches.clone()),
+                });
+            }
+            _ => {}
+        }
+    }
+    pub fn observe_history(&mut self, graph: &history::Session) {
+        let Some(session) = self.session_mut() else {
+            return;
+        };
+        if session.path == graph.references.path {
+            session.history = Panel::Ready(match &session.history {
+                Panel::Ready(current) => current.refreshed(graph.clone()),
+                _ => graph.clone(),
+            });
+        }
+    }
     #[cfg(test)]
     pub fn pending(&self) -> bool {
         self.loader.pending()

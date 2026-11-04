@@ -50,6 +50,30 @@ impl Session {
             .select((!session.records.is_empty()).then_some(0));
         Ok(session)
     }
+    pub fn refreshed(&self, mut next: Self) -> Self {
+        let selected = self.selected().map(|entry| entry.oid);
+        next.query = self.query.clone();
+        next.horizontal = self.horizontal.clone();
+        next.selection = self.selection.clone();
+        next.selection
+            .retain(|oid| next.records.iter().any(|record| record.entry.oid == *oid));
+        next.state = self.state;
+        next.state.select(
+            selected
+                .and_then(|oid| {
+                    next.records
+                        .iter()
+                        .position(|record| record.entry.oid == oid)
+                })
+                .or_else(|| {
+                    next.records
+                        .len()
+                        .checked_sub(1)
+                        .map(|last| self.state.selected().unwrap_or(0).min(last))
+                }),
+        );
+        next
+    }
     pub fn append(&mut self, page: Page, cancel: &Cancel) -> Result<()> {
         ensure!(
             Arc::ptr_eq(&self.references, &page.references),
