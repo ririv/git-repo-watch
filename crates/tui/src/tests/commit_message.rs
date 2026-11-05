@@ -505,21 +505,22 @@ fn streaming_preview_and_horizontal_actions_are_separate_and_cancellation_restor
         s.paste(" /literal/path");
         key(&mut s, KeyCode::Enter);
         s.paste("正文新行");
-        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::BackTab);
         s.paste("/review");
         key(&mut s, KeyCode::Char('/'));
         assert!(s.bar.is_plain());
         assert!(
-            matches!(&s.mode,Mode::CommitMessage { editor,.. } if editor.text()=="original message /literal/path\n正文新行")
+            matches!(&s.mode,Mode::CommitMessage { editor,.. } if editor.text()=="original message /literal/path\n正文新行/review/")
         );
+        key(&mut s, KeyCode::BackTab);
         key(&mut s, KeyCode::Enter);
         assert!(
-            matches!(&s.mode,Mode::CommitMessage { editor,.. } if editor.submitting() && editor.text()=="original message /literal/path\n正文新行")
+            matches!(&s.mode,Mode::CommitMessage { editor,.. } if editor.submitting() && editor.text()=="original message /literal/path\n正文新行/review/")
         );
         wait_generation(&mut s);
         assert_eq!(
             support::git(&f.repo, &["log", "-1", "--format=%B"]),
-            "original message /literal/path\n正文新行"
+            "original message /literal/path\n正文新行/review/"
         );
         s.shutdown();
     }
@@ -601,28 +602,32 @@ fn horizontal_actions_support_keyboard_navigation_and_hide_generation_when_ai_is
     let text = render(&mut s, 100, 28);
     assert!(!text.contains(i18n::tr!(CommitRegenerateAction)));
     key(&mut s, KeyCode::Tab);
+    assert_eq!(selected(&s), None);
+    key(&mut s, KeyCode::BackTab);
+    assert_eq!(selected(&s), Some(Action::Edit(EditAction::Commit)));
+    key(&mut s, KeyCode::Tab);
     assert_eq!(selected(&s), Some(Action::Edit(EditAction::Commit)));
     key(&mut s, KeyCode::Right);
     assert_eq!(selected(&s), Some(Action::Edit(EditAction::Return)));
-    key(&mut s, KeyCode::Left);
-    assert_eq!(selected(&s), Some(Action::Edit(EditAction::Commit)));
     key(&mut s, KeyCode::BackTab);
     assert_eq!(selected(&s), None);
     key(&mut s, KeyCode::BackTab);
-    assert_eq!(selected(&s), Some(Action::Edit(EditAction::Return)));
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::Esc);
     assert_eq!(selected(&s), None);
-    key(&mut s, KeyCode::Tab);
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(selected(&s), Some(Action::Edit(EditAction::Return)));
-    key(&mut s, KeyCode::Up);
+    key(&mut s, KeyCode::BackTab);
+    s.key(
+        KeyEvent::new(KeyCode::Char('X'), KeyModifiers::SHIFT),
+        &Cancel::default(),
+    )
+    .unwrap();
     assert_eq!(selected(&s), None);
+    assert!(matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text().ends_with('X')));
+    key(&mut s, KeyCode::Backspace);
     s.paste("保留");
     s.config.ai.enabled = true;
-    key(&mut s, KeyCode::Tab);
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(selected(&s), Some(Action::Edit(EditAction::Return)));
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
+    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Right);
     assert_eq!(selected(&s), Some(Action::Edit(EditAction::Regenerate)));
     key(&mut s, KeyCode::Enter);
     assert!(s.commit_generator.running());
@@ -632,7 +637,7 @@ fn horizontal_actions_support_keyboard_navigation_and_hide_generation_when_ai_is
     assert!(
         matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text().ends_with("正文保留") && editor.focused())
     );
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Right);
     key(&mut s, KeyCode::Enter);
     assert!(matches!(s.mode, Mode::Browsing));
@@ -692,10 +697,10 @@ fn a_changed_index_rejects_direct_commit_and_returns_an_editable_draft() {
     s.paste("fix: preserved message\n\n完整正文");
     support::write(f.repo.join("staged.txt"), "changed after preview\n");
     support::git(&f.repo, &["add", "staged.txt"]);
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Enter);
     assert!(matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.submitting()));
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
     wait_generation(&mut s);
     assert!(
         matches!(&s.mode, Mode::Error { origin, .. } if matches!(origin.as_ref(),
@@ -734,7 +739,7 @@ fn submitting_locks_the_snapshot_and_ignored_editing_keys_do_not_block_completio
     command(&mut s, "repo commit");
     wait_generation(&mut s);
     s.paste("feat: confirmed snapshot\n\n正文");
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Enter);
     let start = Instant::now();
     while !f.repo.join(".git/commit-started").exists() {
@@ -743,7 +748,7 @@ fn submitting_locks_the_snapshot_and_ignored_editing_keys_do_not_block_completio
     }
     s.paste("forbidden edit");
     key(&mut s, KeyCode::Char('x'));
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Up);
     control(&mut s, 's');
     control(&mut s, 'r');

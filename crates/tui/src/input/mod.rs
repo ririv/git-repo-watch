@@ -10,6 +10,7 @@ mod mouse;
 mod navigation;
 mod panes;
 mod precise;
+mod replay;
 pub(crate) mod scroll;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 fn ctrl_c(key: KeyEvent) -> bool {

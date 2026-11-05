@@ -2,6 +2,8 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    BranchFilter,
+    HistoryParent,
     ExternalEditorOpen,
     ExternalEditorSetting,
     BrowserLayout,
@@ -159,6 +161,10 @@ impl CommandSummary {
 
             (Self::Tasks, Language::English) => "Background tasks and history",
             (Self::Tasks, Language::Chinese) => "后台任务和历史记录",
+            (Self::BranchFilter, Language::English) => "Filter branches",
+            (Self::BranchFilter, Language::Chinese) => "筛选分支",
+            (Self::HistoryParent, Language::English) => "Compare next parent",
+            (Self::HistoryParent, Language::Chinese) => "切换比较父提交",
             (Self::Branches, Language::English) => "Browse branches",
             (Self::Branches, Language::Chinese) => "浏览分支",
             (Self::BranchCreate, Language::English) => "Create branch",

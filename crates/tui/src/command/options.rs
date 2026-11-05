@@ -14,6 +14,7 @@ pub(crate) enum Kind {
     StashSave,
     DiffSelection,
     LogSelection,
+    BranchFilter,
     Filter,
     Sort,
     FileView,
@@ -37,6 +38,7 @@ pub(crate) enum Value {
     StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
     LogSelection(crate::history::SelectionAction),
+    BranchFilter(crate::branches::Filter),
     Filter(Filter),
     Sort(Order),
     FileView(Layout),
@@ -62,6 +64,21 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::BranchFilter(crate::branches::Filter::All),
+        token: "all",
+        description: M::BranchAll,
+    },
+    Option {
+        value: Value::BranchFilter(crate::branches::Filter::Local),
+        token: "local",
+        description: M::BranchLocal,
+    },
+    Option {
+        value: Value::BranchFilter(crate::branches::Filter::Remote),
+        token: "remote",
+        description: M::BranchRemote,
+    },
     Option {
         value: Value::StashPreview(engine::local::stash::preview::Scope::All),
         token: "all",
@@ -335,6 +352,7 @@ impl Value {
             Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
+            Self::BranchFilter(value) => Action::BranchFilter(value),
             Self::Filter(value) => Action::Filter(value),
             Self::Sort(value) => Action::Sort(value),
             Self::FileView(value) => Action::FileLayout(value),
@@ -364,6 +382,7 @@ impl Value {
             Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
+            Self::BranchFilter(_) => Kind::BranchFilter,
             Self::Filter(_) => Kind::Filter,
             Self::Sort(_) => Kind::Sort,
             Self::FileView(_) => Kind::FileView,
@@ -390,6 +409,7 @@ impl Kind {
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
+            Self::BranchFilter => Action::BranchFilterMenu,
             Self::Filter => Action::FilterMenu,
             Self::Sort => Action::SortMenu,
             Self::FileView => Action::FileLayoutMenu,
@@ -431,6 +451,10 @@ impl Kind {
             Self::FileLayout => {
                 Value::FileLayout(screen.bar.selection()?.opener()?.presentation.layout())
             }
+            Self::BranchFilter => match &screen.mode {
+                crate::Mode::Branches(view) => Value::BranchFilter(view.session().filter),
+                _ => return None,
+            },
             Self::Filter => Value::Filter(screen.filter),
             Self::Sort => Value::Sort(screen.order),
             Self::FileView => Value::FileView(screen.file_layout),

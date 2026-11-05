@@ -162,7 +162,7 @@ fn all_and_tracked_ignore_checks_and_blank_message_uses_git_default() {
         wait(&mut s);
         assert!(review(&s).plan.files.contains(&PathBuf::from("second")));
         assert!(review(&s).message.text.is_empty());
-        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::BackTab);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(
@@ -294,6 +294,43 @@ fn long_stash_reviews_support_wheel_and_scrollbar_drag_without_moving_the_messag
             .unwrap()
             .entries
             .is_empty()
+    );
+    s.shutdown();
+}
+
+#[test]
+fn stash_save_shift_tab_changes_mode_without_losing_text_and_tab_never_saves() {
+    let f = support::Fixture::create();
+    f.commit("draft.txt", "base\n");
+    support::write(f.repo.join("draft.txt"), "changed\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo stash save tracked");
+    wait(&mut s);
+    s.paste("draft 中文");
+    let before = (s.body_area, s.input_area);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    key(&mut s, KeyCode::BackTab);
+    assert!(matches!(
+        review(&s).focus,
+        crate::stash_save::Focus::Actions(_)
+    ));
+    key(&mut s, KeyCode::Tab);
+    assert!(matches!(
+        review(&s).focus,
+        crate::stash_save::Focus::Actions(_)
+    ));
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(review(&s).message.text, "draft 中文");
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    key(&mut s, KeyCode::BackTab);
+    s.paste(" 继续编辑");
+    assert_eq!(review(&s).message.text, "draft 中文 继续编辑");
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    assert_eq!((s.body_area, s.input_area), before);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("draft.txt")).unwrap(),
+        "changed\n"
     );
     s.shutdown();
 }

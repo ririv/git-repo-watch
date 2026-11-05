@@ -8,6 +8,10 @@ pub(crate) enum Surface {
     #[default]
     Plain,
     Prefix(Rect),
+    Recovery {
+        area: Rect,
+        selected: engine::operations::replay::Control,
+    },
     Confirmation {
         area: Rect,
         choice: Choice,
@@ -17,7 +21,9 @@ impl Surface {
     fn area(&self) -> Option<Rect> {
         match *self {
             Self::Plain => None,
-            Self::Prefix(area) | Self::Confirmation { area, .. } => Some(area),
+            Self::Prefix(area) | Self::Recovery { area, .. } | Self::Confirmation { area, .. } => {
+                Some(area)
+            }
         }
     }
     pub fn update(&mut self, frame: &mut Frame, next: Self) {

@@ -365,6 +365,8 @@ fn a_batch_conflict_opens_files_and_clicking_skip_runs_the_remaining_commits() {
                 ))
             ))
     );
+    key(&mut s, KeyCode::BackTab);
+    render(&mut s, 140, 38);
     let point = (0..38)
         .flat_map(|y| (0..140).map(move |x| ratatui::layout::Position::new(x, y)))
         .find(|point| {
@@ -489,6 +491,7 @@ fn an_empty_commit_pause_keeps_the_recovery_actions_in_the_changes_view() {
     assert!(
         matches!(s.replay_state(&f.repo), Some(State::Active(active)) if active.conflicts.is_empty() && active.remaining().len() == 1)
     );
+    key(&mut s, KeyCode::BackTab);
     let text = render(&mut s, 120, 30);
     assert!(text.contains(i18n::tr!(ReplaySkipShort)), "{text}");
     command(&mut s, "repo skip");

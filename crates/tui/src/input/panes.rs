@@ -5,7 +5,13 @@ use crate::{
 };
 
 impl Screen {
+    #[cfg(test)]
     pub(crate) fn cycle_pane(&mut self, backwards: bool) {
+        self.cycle_test_pane(backwards);
+        self.sync_plain_bar();
+    }
+    #[cfg(test)]
+    fn cycle_test_pane(&mut self, backwards: bool) {
         let wide = self
             .body_area
             .is_some_and(|area| area.width >= 100 && area.height >= 10);

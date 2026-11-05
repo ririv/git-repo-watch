@@ -80,10 +80,6 @@ impl Screen {
                     (KeyCode::Right, KeyModifiers::NONE) => {
                         session.selection = session.selection.towards(Direction::Right)
                     }
-                    (KeyCode::Tab, KeyModifiers::NONE) => {
-                        session.selection = session.selection.advance(false)
-                    }
-                    (KeyCode::BackTab, _) => session.selection = session.selection.advance(true),
                     (KeyCode::Enter, KeyModifiers::NONE) => {
                         let section = session.selection;
                         self.switch_repository_section(section);

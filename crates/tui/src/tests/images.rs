@@ -67,7 +67,10 @@ fn working_and_staged_images_decode_exact_snapshots_render_pixels_and_cleanup_on
         key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Files(_)));
         render(&mut s, 120, 28);
-        key(&mut s, KeyCode::Tab);
+        let Mode::Files(files) = &mut s.mode else {
+            panic!("file list")
+        };
+        files.switch_group(s.file_layout);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(

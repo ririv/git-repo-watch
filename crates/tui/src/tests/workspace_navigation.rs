@@ -52,7 +52,7 @@ fn repository_root_arrows_select_equal_panes_without_operating_their_content() {
         }
         assert!(render(&mut s, 160, 36).contains(i18n::tr!(RepositoryPanesHint)));
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.workspace.session().unwrap().selection, Section::Worktree);
+        assert_eq!(s.workspace.session().unwrap().selection, Section::Branches);
         key(&mut s, KeyCode::BackTab);
         assert_eq!(s.workspace.session().unwrap().selection, Section::Branches);
         key(&mut s, KeyCode::Esc);

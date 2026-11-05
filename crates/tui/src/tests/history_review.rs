@@ -257,7 +257,7 @@ fn changing_merge_parent_replaces_every_preview_with_the_selected_comparison() {
     let (_home, mut s) = open(&f);
     loaded(&mut s);
     assert!(render(&mut s, 160, 40).contains("unique_feature"));
-    key(&mut s, KeyCode::Tab);
+    command(&mut s, "repo log parent");
     wait(&mut s);
     loaded(&mut s);
     let crate::inspection::Source::Commit(source) = &detail(&s).detail else {

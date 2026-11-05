@@ -10,7 +10,7 @@ use std::{
 
 pub(super) enum Event {
     Branches(Result<crate::branches::Session, String>),
-    Files(Result<FileSession, String>),
+    Files(Result<Box<FileSession>, String>),
     History(Result<Box<history::View>, String>),
 }
 #[derive(Debug, Clone, Copy)]
@@ -63,6 +63,7 @@ impl Loader {
             let files = service
                 .files(&task_path, &task_cancel)
                 .map(FileSession::new)
+                .map(Box::new)
                 .map_err(|error| format!("{error:#}"));
             let _ = tx.send(Event::Files(files));
             if task_cancel.is_cancelled() {

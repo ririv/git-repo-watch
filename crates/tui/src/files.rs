@@ -34,6 +34,7 @@ pub(super) struct FileSession {
     pub offsets: [usize; 2],
     pub selected: BTreeSet<usize>,
     pub query: String,
+    pub recovery: crate::replay::controls::Focus,
     pub search_mode: crate::search::Mode,
     folding: Box<folding::Folding>,
 }
@@ -61,6 +62,7 @@ impl FileSession {
             offsets: [0; 2],
             selected: BTreeSet::new(),
             query: String::new(),
+            recovery: Default::default(),
             search_mode: Default::default(),
             folding: Default::default(),
         }
@@ -78,6 +80,10 @@ impl FileSession {
             .map(|(_, change)| (change.area, change.location.clone()))
             .collect::<Vec<_>>();
         let mut next = Self::new(snapshot);
+        next.recovery = self.recovery.refreshed(
+            &self.snapshot.operation.state,
+            &next.snapshot.operation.state,
+        );
         next.offsets = self.offsets;
         next.query = self.query.clone();
         next.search_mode = self.search_mode;

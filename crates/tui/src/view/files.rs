@@ -12,74 +12,8 @@ pub(super) fn render(
 ) {
     session.set_layout(options.layout);
     let border = block(title.to_owned());
-    let mut inner = border.inner(area);
+    let inner = border.inner(area);
     frame.render_widget(border, area);
-    if let engine::operations::replay::State::Active(active) = &session.snapshot.operation.state {
-        let parts = Layout::vertical([Constraint::Length(3), Constraint::Min(0)]).split(inner);
-        frame.render_widget(
-            Paragraph::new(vec![
-                Line::styled(
-                    format!(
-                        "{} · {}",
-                        active.kind.label(),
-                        &active.commit.to_string()[..12]
-                    ),
-                    Style::default().fg(WARN).bold(),
-                ),
-                Line::styled(
-                    format!(
-                        "{}: {} · {}: {}",
-                        i18n::tr!(ReplayConflictsShort),
-                        active.conflicts.len(),
-                        i18n::tr!(ReplayRemainingShort),
-                        active.remaining().len()
-                    ),
-                    Style::default().fg(if active.conflicts.is_empty() {
-                        GOOD
-                    } else {
-                        BAD
-                    }),
-                ),
-            ]),
-            parts[0],
-        );
-        let buttons = Layout::horizontal([
-            Constraint::Percentage(34),
-            Constraint::Percentage(33),
-            Constraint::Percentage(33),
-        ])
-        .split(Rect::new(
-            parts[0].x,
-            parts[0].y.saturating_add(2),
-            parts[0].width,
-            parts[0].height.saturating_sub(2).min(1),
-        ));
-        for (button, control) in buttons.iter().zip([
-            engine::operations::replay::Control::Continue,
-            engine::operations::replay::Control::Skip,
-            engine::operations::replay::Control::Abort,
-        ]) {
-            let enabled = control != engine::operations::replay::Control::Continue
-                || active.conflicts.is_empty();
-            let label = match control {
-                engine::operations::replay::Control::Continue => i18n::tr!(ReplayContinueShort),
-                engine::operations::replay::Control::Skip => i18n::tr!(ReplaySkipShort),
-                engine::operations::replay::Control::Abort => i18n::tr!(ReplayAbortShort),
-            };
-            frame.render_widget(
-                Paragraph::new(format!("[{label}]")).style(Style::default().fg(if enabled {
-                    ACCENT
-                } else {
-                    MUTED
-                })),
-                *button,
-            );
-            if enabled {
-                hits.button(*button, crate::pointer::Action::ReplayControl(control));
-            }
-        }
-        inner = parts[1];
-    }
     let mut offsets = session.offsets;
     let rows = session.rows();
     let projected = session.entries(options.layout);

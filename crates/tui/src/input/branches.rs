@@ -27,9 +27,6 @@ impl Screen {
                     .state
                     .select((!session.rows().is_empty()).then_some(0)),
                 KeyCode::End => session.state.select(session.rows().len().checked_sub(1)),
-                KeyCode::Tab | KeyCode::BackTab => {
-                    session.filter_next(key.code == KeyCode::BackTab)
-                }
                 KeyCode::Enter | KeyCode::Right if session.selected().is_some() => {
                     let entry =
                         std::sync::Arc::new(session.selected().expect("selected branch").clone());

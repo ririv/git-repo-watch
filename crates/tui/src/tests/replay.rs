@@ -252,8 +252,10 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     assert!(available(&mut s, "repo skip"));
     assert!(available(&mut s, "repo abort"));
     assert!(!available(&mut s, "repo log cherry-pick"));
+    key(&mut s, KeyCode::BackTab);
     let text = render(&mut s, 140, 38);
     assert!(text.contains(i18n::tr!(ReplayContinueShort)), "{text}");
+    key(&mut s, KeyCode::Esc);
     assert!(text.contains(i18n::tr!(ReplayConflictWorktree)), "{text}");
     assert!(text.contains("<<<<<<<"), "{text}");
     support::write(f.repo.join("conflict.txt"), "resolved\n");

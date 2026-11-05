@@ -8,6 +8,9 @@ impl Screen {
         self.config.chinese_command_trigger && i18n::language() == i18n::Language::Chinese
     }
     pub(crate) fn at_command_entry(&self) -> bool {
+        if self.focused_replay_control().is_some() || self.history_actions().is_some() {
+            return true;
+        }
         match &self.bar {
             InputBar::CommandsOnly => true,
             InputBar::Search(editor) => {

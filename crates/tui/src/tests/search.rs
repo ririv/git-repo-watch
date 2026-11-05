@@ -331,7 +331,7 @@ fn locating_files_does_not_take_arrows_from_focus_mode_or_the_diff_preview() {
     );
     key(&mut s, KeyCode::Down);
     assert_eq!(s.mode.file_session().unwrap().cursor, cursor);
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     key(&mut s, KeyCode::Down);
     assert_ne!(s.mode.file_session().unwrap().cursor, cursor);
     assert_eq!(s.bar.text(), "match");
@@ -402,7 +402,7 @@ fn changing_a_merge_parent_keeps_the_file_search_mode_and_query() {
     wait(&mut s);
     s.paste("txt");
     change_mode(&mut s, "locate");
-    key(&mut s, KeyCode::Tab);
+    command(&mut s, "repo log parent");
     wait(&mut s);
     assert_eq!(s.search_support(), Support::Both(SearchMode::Locate));
     assert_eq!(s.bar.text(), "txt");

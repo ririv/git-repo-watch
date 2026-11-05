@@ -58,16 +58,30 @@ impl Screen {
         true
     }
     pub(crate) fn history_actions_key(&mut self, key: KeyEvent) -> bool {
+        if self.history_actions().is_some()
+            && matches!(
+                key.code,
+                KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete
+            )
+        {
+            let command = self.command_trigger_key(key).code == KeyCode::Char('/');
+            self.close_history_actions();
+            if command {
+                self.open_command_bar();
+                return true;
+            }
+            return false;
+        }
         let Some(menu) = self.history_actions_mut() else {
             return false;
         };
         let input = match key.code {
-            KeyCode::Esc => PointerInput::Close,
-            KeyCode::Up | KeyCode::BackTab => {
+            KeyCode::Esc | KeyCode::BackTab => PointerInput::Close,
+            KeyCode::Up => {
                 menu.advance(-1);
                 PointerInput::Stay
             }
-            KeyCode::Down | KeyCode::Tab => {
+            KeyCode::Down => {
                 menu.advance(1);
                 PointerInput::Stay
             }

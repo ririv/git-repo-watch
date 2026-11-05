@@ -200,6 +200,10 @@ enum Content<'a> {
     CommitActions {
         draft: &'a crate::commit_form::Draft,
     },
+    Recovery {
+        selected: engine::operations::replay::Control,
+        enabled: [bool; 3],
+    },
     Choices {
         choice: confirmation::Choice,
         execute: &'static str,
@@ -208,6 +212,9 @@ enum Content<'a> {
 }
 
 fn browsing_hint(screen: &Screen) -> &'static str {
+    if screen.focused_replay_control().is_some() {
+        return i18n::tr!(ReplayControlsHint);
+    }
     match input_mode(screen) {
         Mode::Browsing => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),
@@ -341,6 +348,19 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             i18n::tr!(HistoryActionsTitle),
             Content::Locked(i18n::tf!(HistoryActionsCount, count = menu.count())),
             i18n::tr!(HistoryActionsHint),
+        )
+    } else if let Some(selected) = screen.focused_replay_control() {
+        let (_, operation) = screen
+            .replay_controls()
+            .expect("focused recovery operation");
+        (
+            i18n::tr!(ReplayControlsTitle),
+            Content::Recovery {
+                selected,
+                enabled: crate::replay::controls::ACTIONS
+                    .map(|control| crate::replay::controls::enabled(operation, control)),
+            },
+            i18n::tr!(ReplayControlsHint),
         )
     } else if let crate::bar::InputBar::Layout { selected, .. } = bar {
         (
@@ -593,7 +613,17 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     };
     let task_hint = task_hint(screen);
     let hint = task_hint.unwrap_or(hint);
-    let show_cursor = task_hint.is_none();
+    let hint = if task_hint.is_none()
+        && (bar.is_plain() || matches!(bar, crate::bar::InputBar::Command { .. }))
+        && (screen.replay_controls().is_some()
+            || matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active() && !session.picks().is_empty())))
+        && screen.focused_replay_control().is_none()
+    {
+        format!("{} · {hint}", i18n::tr!(ReplayControlsEntryHint))
+    } else {
+        hint.to_owned()
+    };
+    let show_cursor = task_hint.is_none() && screen.focused_replay_control().is_none();
     let title = if matches!(bar, crate::bar::InputBar::Search(_))
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
@@ -610,6 +640,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             Content::CommandEntry
                 | Content::Editable { .. }
                 | Content::Choices { .. }
+                | Content::Recovery { .. }
                 | Content::CommitActions { .. }
                 | Content::StashActions { .. }
                 | Content::Layout { .. }
@@ -626,8 +657,46 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         .title_style(Style::default().fg(accent))
         .border_style(Style::default().fg(accent))
         .style(input_style);
-    if area.height >= 3 && !title.trim().is_empty() {
-        block = block.title(format!(" {} ", title.trim()));
+    if area.height >= 3 {
+        let recovery = screen
+            .replay_controls()
+            .filter(|_| bar.is_plain() && screen.focus_mode == crate::focus::State::Inactive);
+        if let Some((_, operation)) = recovery {
+            let mut spans = vec![Span::raw(if title.trim().is_empty() {
+                format!(" {}", operation.kind.label())
+            } else {
+                format!(" {} · {}", title.trim(), operation.kind.label())
+            })];
+            if area.width >= 90 {
+                spans.push(Span::styled(
+                    format!(" · {}", &operation.commit.to_string()[..8]),
+                    Style::default().fg(MUTED),
+                ));
+            }
+            spans.push(Span::styled(
+                format!(
+                    " · {}: {}",
+                    i18n::tr!(ReplayConflictsShort),
+                    operation.conflicts.len()
+                ),
+                Style::default().fg(if operation.conflicts.is_empty() {
+                    GOOD
+                } else {
+                    BAD
+                }),
+            ));
+            spans.push(Span::styled(
+                format!(
+                    " · {}: {} ",
+                    i18n::tr!(ReplayRemainingShort),
+                    operation.remaining().len()
+                ),
+                Style::default().fg(MUTED),
+            ));
+            block = block.title(Line::from(spans));
+        } else if !title.trim().is_empty() {
+            block = block.title(format!(" {} ", title.trim()));
+        }
     }
     let inner = block.inner(area);
     frame.render_widget(block, area);
@@ -724,6 +793,20 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 );
             }
         }
+        Content::Recovery { selected, enabled } => {
+            surface = Surface::Recovery {
+                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
+                selected,
+            };
+            super::replay::controls::render(
+                frame,
+                inner,
+                selected,
+                enabled,
+                &mut screen.pointer,
+                INPUT_ACCENT,
+            );
+        }
         Content::StashActions { session } => {
             for (area, choice) in super::stash_save::actions(inner) {
                 let label = if choice == confirmation::Choice::Execute {
@@ -797,7 +880,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         ),
     }
     screen.input_surface.update(frame, surface);
-    render_hint(frame, hint_area, hint);
+    render_hint(frame, hint_area, &hint);
 }
 fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {
     let hint_area = footer_text_area(area);

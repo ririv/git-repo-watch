@@ -134,6 +134,7 @@ impl FileSession {
         }
         .unwrap_or(Cursor::Empty);
     }
+    #[cfg(test)]
     pub fn switch_group(&mut self, layout: Layout) {
         let group = self.group();
         for (index, rows) in self.entries(layout).iter().enumerate() {

@@ -27,11 +27,6 @@ impl Screen {
                 self.sync_bar();
                 return;
             }
-        } else if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) {
-            session.focus = match session.focus {
-                Focus::Files => Focus::Preview,
-                Focus::Preview => Focus::Files,
-            };
         } else if session.focus == Focus::Files {
             let files = &mut session.files;
             match key.code {

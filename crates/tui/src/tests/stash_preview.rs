@@ -248,8 +248,8 @@ fn narrow_inspection_defers_inline_loading_and_mouse_focus_and_full_file_navigat
     s.scroll_input = Default::default();
     assert!(wheel(&mut s, ScrollDown, preview.x + 2, preview.y + 2));
     assert_eq!(s.mode.inspection().unwrap().focus, Focus::Preview);
-    key(&mut s, KeyCode::Tab);
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
+    s.cycle_pane(false);
     assert_eq!(s.mode.inspection().unwrap().focus, Focus::Files);
     click(&mut s, files.x + 2, files.y + 1);
     assert_eq!(s.mode.inspection().unwrap().files.selected(), Some(0));

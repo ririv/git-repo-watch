@@ -335,12 +335,6 @@ impl Screen {
                 _ => {}
             },
             State::Browsing => match key.code {
-                KeyCode::Tab | KeyCode::BackTab => {
-                    session.focus = match session.focus {
-                        Focus::Commits => Focus::Units,
-                        Focus::Units => Focus::Commits,
-                    }
-                }
                 KeyCode::Up | KeyCode::Down => {
                     if session.focus == Focus::Commits {
                         let next = if key.code == KeyCode::Up {

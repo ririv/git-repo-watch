@@ -174,9 +174,9 @@ fn file_filter_source_and_rendered_content_keep_independent_queries_in_split_mod
     render(&mut s, 100, 24);
     ready(&mut s);
     assert!(s.search_title().contains("1/1"));
-    key(&mut s, KeyCode::BackTab);
+    s.cycle_pane(true);
     assert_eq!(s.bar.text(), "**needle phrase**");
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     assert_eq!(s.bar.text(), "needle phrase");
     for (width, height) in [(150, 32), (58, 20), (24, 14), (150, 32)] {
         render(&mut s, width, height);

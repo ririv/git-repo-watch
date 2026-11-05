@@ -26,6 +26,8 @@ pub enum Action {
     Focus,
     Zoom,
     Branches,
+    BranchFilterMenu,
+    BranchFilter(crate::branches::Filter),
     BranchCreate,
     BranchSwitch,
     Fetch,
@@ -53,6 +55,7 @@ pub enum Action {
     BrowserMode(crate::browser::opening::TextMode),
     Log,
     LogMore,
+    LogParent,
     LogSelect,
     LogSelection(crate::history::SelectionAction),
     Replay(engine::operations::replay::Kind),
@@ -144,6 +147,11 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::BranchCommand,
     },
     Command {
+        name: "repo branch filter",
+        action: BranchFilterMenu,
+        description: i18n::Message::BranchFilterCommand,
+    },
+    Command {
         name: "repo branch create",
         action: BranchCreate,
         description: i18n::Message::BranchCreateCommand,
@@ -187,6 +195,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo abort",
         action: ReplayControl(engine::operations::replay::Control::Abort),
         description: i18n::Message::ReplayAbort,
+    },
+    Command {
+        name: "repo log parent",
+        action: LogParent,
+        description: i18n::Message::HistoryParentCommand,
     },
     Command {
         name: "repo log more",

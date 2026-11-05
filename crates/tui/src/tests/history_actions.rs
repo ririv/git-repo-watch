@@ -88,7 +88,7 @@ fn enter_opens_actions_without_preparing_a_mutation_and_cancel_preserves_marks_a
         }
     }
     s.paste("//quit");
-    assert_eq!(s.bar.editor().text, "txt");
+    assert_eq!(s.bar.editor().text, "/quit");
     key(&mut s, KeyCode::Esc);
     assert!(s.history_actions().is_none());
     assert_eq!(marks(&s), [first.clone(), second.clone()]);

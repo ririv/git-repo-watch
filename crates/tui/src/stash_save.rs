@@ -47,12 +47,10 @@ impl Session {
             draft,
         }
     }
-    pub fn tab(&mut self, reverse: bool) {
-        use confirmation::Choice::{Execute, Return};
-        self.focus = match (self.focus, reverse) {
-            (Focus::Message, false) | (Focus::Actions(Return), true) => Focus::Actions(Execute),
-            (Focus::Actions(Execute), false) | (Focus::Message, true) => Focus::Actions(Return),
-            _ => Focus::Message,
+    pub fn toggle_mode(&mut self) {
+        self.focus = match self.focus {
+            Focus::Message => Focus::Actions(confirmation::Choice::Execute),
+            Focus::Actions(_) => Focus::Message,
         };
     }
 }
@@ -116,12 +114,15 @@ impl Screen {
     }
     pub(crate) fn stash_save_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
         match key.code {
+            KeyCode::Esc if matches!(session.focus, Focus::Actions(_)) => {
+                session.focus = Focus::Message
+            }
             KeyCode::Esc => {
                 self.cancel_stash_save(*session);
                 return;
             }
-            KeyCode::Tab => session.tab(false),
-            KeyCode::BackTab => session.tab(true),
+            KeyCode::BackTab => session.toggle_mode(),
+            KeyCode::Tab => {}
             KeyCode::PageUp => session.scroll = session.scroll.saturating_sub(10),
             KeyCode::PageDown => session.scroll = session.scroll.saturating_add(10),
             KeyCode::Enter => match session.focus {
@@ -145,6 +146,10 @@ impl Screen {
                 } else {
                     confirmation::Choice::Return
                 });
+            }
+            KeyCode::Char(_) if matches!(session.focus, Focus::Actions(_)) => {
+                session.focus = Focus::Message;
+                session.message.key(key);
             }
             _ if session.focus == Focus::Message => session.message.key(key),
             _ => {}

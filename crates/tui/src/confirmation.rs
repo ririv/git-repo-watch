@@ -17,12 +17,6 @@ impl Choice {
         match key {
             KeyCode::Left => *self = Self::Execute,
             KeyCode::Right => *self = Self::Return,
-            KeyCode::Tab | KeyCode::BackTab => {
-                *self = match self {
-                    Self::Execute => Self::Return,
-                    Self::Return => Self::Execute,
-                }
-            }
             KeyCode::Enter => {
                 return match self {
                     Self::Execute => Input::Execute,
@@ -45,10 +39,10 @@ mod tests {
         assert!(matches!(choice.input(KeyCode::Right), Input::Pending));
         assert_eq!(choice, Choice::Return);
         assert!(matches!(choice.input(KeyCode::Enter), Input::Return));
-        choice.input(KeyCode::Tab);
+        choice.input(KeyCode::Left);
         assert_eq!(choice, Choice::Execute);
         assert!(matches!(choice.input(KeyCode::Enter), Input::Execute));
-        choice.input(KeyCode::BackTab);
+        choice.input(KeyCode::Right);
         assert_eq!(choice, Choice::Return);
         choice.input(KeyCode::Left);
         assert_eq!(choice, Choice::Execute);

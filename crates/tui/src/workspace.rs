@@ -14,6 +14,7 @@ pub(super) enum Section {
     History,
 }
 impl Section {
+    #[cfg(test)]
     pub const ALL: [Self; 4] = [
         Self::Overview,
         Self::Branches,
@@ -54,6 +55,7 @@ impl Section {
             _ => self,
         }
     }
+    #[cfg(test)]
     pub fn advance(self, backwards: bool) -> Self {
         let index = Self::ALL
             .iter()
@@ -319,7 +321,7 @@ impl Screen {
                         session.branches = Panel::Failed(error);
                     }
                 },
-                load::Event::Files(result) => match result {
+                load::Event::Files(result) => match result.map(|files| *files) {
                     Ok(files)
                         if self.page == Page::Detail
                             && matches!(&self.mode, Mode::Changes(current) if current.files.snapshot.path == path) =>

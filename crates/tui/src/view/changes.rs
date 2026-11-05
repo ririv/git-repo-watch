@@ -90,7 +90,7 @@ pub(super) fn render(
                 }
             }
         }
-        if focus == session.focus {
+        if focus == session.focus && session.files.recovery.selected().is_none() {
             highlight_border(frame, area);
         }
     }

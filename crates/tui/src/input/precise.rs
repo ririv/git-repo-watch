@@ -7,6 +7,9 @@ use crate::{
 
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
+        if !matches!(action, Action::ReplayControl(_)) {
+            self.close_replay_controls();
+        }
         match action {
             Action::DiffLine(id) => {
                 let Mode::Changes(session) = &mut self.mode else {
@@ -65,14 +68,7 @@ impl Screen {
                 self.mark_history(history::SelectionAction::Toggle);
             }
             Action::ReplayControl(control) => {
-                let Some(path) = self.scope_path() else {
-                    return false;
-                };
-                let draft = self.mutation_draft(crate::Action::ReplayControl(control), Some(path));
-                self.prepare_mutation(
-                    engine::operations::mutation::Request::ReplayControl(control),
-                    draft,
-                );
+                self.preview_replay_control(control);
             }
             Action::RepositoryMenu(menu) => {
                 if !self.repository_list_active() {

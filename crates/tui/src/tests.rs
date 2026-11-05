@@ -49,6 +49,7 @@ mod prefix_segments;
 mod prefix_selection;
 mod preview_loading;
 mod push;
+mod recovery_controls;
 mod replay;
 mod replay_batch;
 mod repository_list;
@@ -217,9 +218,8 @@ fn open_files(s: &mut Screen) {
     }
 }
 fn focus_next(s: &mut Screen) {
-    command(s, "focus");
-    key(s, KeyCode::Tab);
-    key(s, KeyCode::Enter);
+    s.cycle_pane(false);
+    s.sync_plain_bar();
 }
 fn zoom(s: &mut Screen) {
     command(s, "zoom");
@@ -424,8 +424,8 @@ fn file_selection_commit_and_push_through_command_bar() {
         assert!(matches!(s.mode, Mode::CommitMessage { .. }));
         s.paste("通过命令栏提交");
         let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+        key(&mut s, KeyCode::BackTab);
         key(&mut s, KeyCode::Tab);
-        key(&mut s, KeyCode::Char('y'));
         key(&mut s, KeyCode::Right);
         assert!(
             matches!(&s.mode, Mode::CommitMessage { editor, .. } if editor.text() == "通过命令栏提交")

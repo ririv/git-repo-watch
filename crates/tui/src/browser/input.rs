@@ -14,8 +14,6 @@ impl Screen {
                     return;
                 }
             }
-            KeyCode::Tab => session.cycle_focus(false),
-            KeyCode::BackTab => session.cycle_focus(true),
             KeyCode::Up if session.focus == Focus::Tree => session.advance(-1),
             KeyCode::Down if session.focus == Focus::Tree => session.advance(1),
             KeyCode::PageUp if session.focus == Focus::Tree => session.advance(-10),

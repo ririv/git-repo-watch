@@ -6,16 +6,32 @@ use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
         self.exit_sequence.reset();
-        if self.tasks.session.open()
-            || self.focus_mode == crate::focus::State::Selecting
-            || self.history_actions().is_some()
-        {
+        if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
             return;
         }
         self.clicks.reset();
         self.drag = None;
+        if matches!(self.bar, crate::bar::InputBar::Layout { .. }) {
+            self.restore_layout_input();
+        }
+        if self.history_actions().is_some() {
+            let command = self.command_trigger_text(text).starts_with('/');
+            self.close_history_actions();
+            if command {
+                self.open_command_bar();
+            }
+        }
+
+        if self.command_trigger_text(text).starts_with('/') {
+            if self.close_replay_controls() {
+                self.open_command_bar();
+            }
+        } else {
+            self.resume_replay_search();
+        }
         match &mut self.mode {
-            Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Message => {
+            Mode::StashSave(session) => {
+                session.focus = crate::stash_save::Focus::Message;
                 session.message.insert(text);
             }
             Mode::PushTarget(session) => session.insert(text),
@@ -36,7 +52,8 @@ impl Screen {
                     Err(error) => format!("{error:#}"),
                 };
             }
-            Mode::CommitMessage { editor, .. } if editor.focused() && self.bar.is_plain() => {
+            Mode::CommitMessage { editor, .. } if self.bar.is_plain() => {
+                editor.focus(crate::commit_form::Focus::Message);
                 if let Some(editor) = editor.editable()
                     && editor.insert(text).is_err()
                 {
@@ -44,8 +61,11 @@ impl Screen {
                 }
             }
             Mode::CommitMessage { .. } => {}
-            Mode::Management(_)
-            | Mode::Browsing
+            Mode::Management(session) => {
+                session.focus = crate::management::Focus::List;
+                self.bar_paste(text);
+            }
+            Mode::Browsing
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
@@ -71,7 +91,9 @@ impl Screen {
         self.drag = None;
         if ctrl_c(key) {
             self.view_revision += 1;
-            if !self.tasks.session.open() && self.close_history_actions() {
+            if !self.tasks.session.open()
+                && (self.close_history_actions() || self.close_replay_controls())
+            {
                 return Ok(false);
             }
             return Ok(self.interrupt_key(key));
@@ -123,6 +145,19 @@ impl Screen {
         ) {
             self.scroll_input.keyboard(std::time::Instant::now());
         }
+        if self.bar.is_plain()
+            && matches!(
+                key.code,
+                KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete
+            )
+            && let Mode::Management(session) = &mut self.mode
+        {
+            session.focus = crate::management::Focus::List;
+        }
+        if self.replay_controls_key(key) {
+            self.sync_plain_bar();
+            return Ok(false);
+        }
         if self.focus_mode == crate::focus::State::Inactive && self.locate_key(key) {
             return Ok(false);
         }
@@ -163,6 +198,26 @@ impl Screen {
             crate::bar::BarEvent::Handled => return Ok(false),
             crate::bar::BarEvent::Quit => return Ok(true),
             crate::bar::BarEvent::Pass => {}
+        }
+        let text_editor = matches!(self.mode, Mode::PromptEditor(_))
+            || matches!(&self.mode, Mode::Composition(session) if matches!(session.state, crate::composition::State::Editing(_)));
+        if key.code == KeyCode::Tab && !text_editor {
+            return Ok(false);
+        }
+        if key.code == KeyCode::BackTab
+            && matches!(
+                self.mode,
+                Mode::Browsing
+                    | Mode::Panel(_)
+                    | Mode::Browser(_)
+                    | Mode::Files(_)
+                    | Mode::Changes(_)
+                    | Mode::Branches(_)
+                    | Mode::Stashes(_)
+                    | Mode::Composition(_)
+            )
+        {
+            return Ok(false);
         }
         let mode = self.take_mode();
         match mode {
@@ -294,8 +349,13 @@ impl Screen {
                             session.selection.settle();
                             session.state.select(session.records.len().checked_sub(1));
                         }
-                        KeyCode::Tab => session.next_match(false),
-                        KeyCode::BackTab => session.next_match(true),
+                        KeyCode::BackTab
+                            if session.selection.active() && !session.picks().is_empty() =>
+                        {
+                            self.mode = Mode::History(view);
+                            self.open_history_actions();
+                            return Ok(false);
+                        }
                         KeyCode::Enter if session.selection.active() => {
                             self.mode = Mode::History(view);
                             self.open_history_actions();
@@ -308,28 +368,20 @@ impl Screen {
                         }
                         _ => {}
                     },
-                    history::View::Commit(commit) => {
-                        if key.code == KeyCode::Tab {
-                            self.mode = Mode::History(view);
-                            self.cycle_history_parent();
+                    history::View::Commit(commit) => match commit.inspect.key(key) {
+                        crate::inspection::Input::Back => {
+                            self.mode =
+                                Mode::History(Box::new(history::View::Graph(commit.graph.clone())));
+                            self.sync_bar();
                             return Ok(false);
                         }
-                        match commit.inspect.key(key) {
-                            crate::inspection::Input::Back => {
-                                self.mode = Mode::History(Box::new(history::View::Graph(
-                                    commit.graph.clone(),
-                                )));
-                                self.sync_bar();
-                                return Ok(false);
-                            }
-                            crate::inspection::Input::Open => {
-                                self.mode = Mode::History(view);
-                                self.show_history_diff();
-                                return Ok(false);
-                            }
-                            crate::inspection::Input::Stay => {}
+                        crate::inspection::Input::Open => {
+                            self.mode = Mode::History(view);
+                            self.show_history_diff();
+                            return Ok(false);
                         }
-                    }
+                        crate::inspection::Input::Stay => {}
+                    },
                     history::View::Diff { commit, scroll, .. } => match key.code {
                         KeyCode::Esc | KeyCode::Left => {
                             self.mode =
@@ -413,7 +465,6 @@ impl Screen {
                         }
                         return Ok(false);
                     }
-                    KeyCode::Tab => session.switch_group(self.file_layout),
                     KeyCode::Up => session.move_cursor(-1, self.file_layout),
                     KeyCode::Down => session.move_cursor(1, self.file_layout),
                     KeyCode::Home => session.edge(false, self.file_layout),
@@ -439,6 +490,9 @@ impl Screen {
             } => {
                 match key.code {
                     KeyCode::Esc if editor.generating() => self.commit_generator.cancel(),
+                    KeyCode::Esc if !editor.focused() => {
+                        editor.focus(crate::commit_form::Focus::Message)
+                    }
                     KeyCode::Esc => {
                         if matches!(self.page, Page::View(_)) {
                             self.return_to_view();
@@ -448,9 +502,7 @@ impl Screen {
                     }
                     KeyCode::PageDown => scroll = scroll.saturating_add(10),
                     KeyCode::PageUp => scroll = scroll.saturating_sub(10),
-                    KeyCode::Tab | KeyCode::BackTab => {
-                        editor.tab(key.code == KeyCode::BackTab, self.config.ai.enabled);
-                    }
+                    KeyCode::BackTab => editor.toggle_mode(),
                     KeyCode::Left | KeyCode::Right if !editor.focused() => {
                         editor.step(key.code == KeyCode::Left, self.config.ai.enabled);
                     }
@@ -475,6 +527,19 @@ impl Screen {
                         };
                         self.submit_commit();
                         return Ok(false);
+                    }
+                    KeyCode::Char(_)
+                        if !editor.focused()
+                            && !key
+                                .modifiers
+                                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
+                    {
+                        editor.focus(crate::commit_form::Focus::Message);
+                        if let Some(editor) = editor.editable()
+                            && editor.key(key).is_err()
+                        {
+                            self.message = i18n::tr!(AgentMessageInvalid).into();
+                        }
                     }
                     _ if editor.focused() => {
                         if let Some(editor) = editor.editable()

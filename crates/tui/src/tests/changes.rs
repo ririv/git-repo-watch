@@ -187,7 +187,7 @@ fn combined_view_previews_exact_sides_and_keeps_both_groups_visible_after_naviga
             crate::workspace::Arrangement::Maximized
         );
         key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         assert_eq!(review(&s).focus, Focus::Files);
         key(&mut s, KeyCode::Esc);
         assert!(matches!(s.mode, Mode::Browsing));

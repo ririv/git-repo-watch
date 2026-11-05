@@ -95,23 +95,12 @@ impl Draft {
             self.focus(Focus::Actions(action));
         }
     }
-    pub fn tab(&mut self, backwards: bool, ai: bool) {
-        let actions = self.actions(ai);
-        let current = self
-            .selected()
-            .and_then(|selected| actions.iter().position(|action| *action == selected));
-        let next = match (current, backwards) {
-            (None, false) => Some(0),
-            (None, true) => Some(actions.len() - 1),
-            (Some(0), true) => None,
-            (Some(index), false) if index + 1 == actions.len() => None,
-            (Some(index), true) => Some(index - 1),
-            (Some(index), false) => Some(index + 1),
-        };
-        if let Some(index) = next {
-            self.select(actions[index]);
-        } else {
-            self.focus(Focus::Message);
+    pub fn toggle_mode(&mut self) {
+        if let Self::Editing { focus, .. } = self {
+            *focus = match *focus {
+                Focus::Message => Focus::Actions(EditAction::Commit),
+                Focus::Actions(_) => Focus::Message,
+            };
         }
     }
     pub fn step(&mut self, backwards: bool, ai: bool) {

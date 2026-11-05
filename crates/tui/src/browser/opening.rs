@@ -201,6 +201,7 @@ impl Session {
             self.sync_preview();
         }
     }
+    #[cfg(test)]
     pub fn cycle_focus(&mut self, reverse: bool) {
         let modes = self.presentation().modes();
         let current = match self.focus {

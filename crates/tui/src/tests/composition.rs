@@ -233,7 +233,7 @@ fn plan_order_merge_split_and_reassignment_keep_every_unit_once() {
     assert!(
         matches!(&s.mode, Mode::Composition(session) if session.prepared.plan.commits.len() == 1 && session.ids().len() == 2)
     );
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     command(&mut s, "repo compose split");
     assert!(
         matches!(&s.mode, Mode::Composition(session) if session.prepared.plan.commits.len() == 2)

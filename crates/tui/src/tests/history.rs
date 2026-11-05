@@ -180,7 +180,7 @@ fn merge_details_switch_parent_and_open_colored_historical_diff_without_worktree
             matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
         );
         key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Tab);
+        command(&mut s, "repo log parent");
         wait(&mut s);
         let commit = detail(&s);
         let crate::inspection::Source::Commit(source) = &commit.detail else {
@@ -214,9 +214,9 @@ fn search_locates_hash_subject_author_and_refs_without_hiding_graph_nodes() {
     let count = graph(&s).records.len();
     s.paste("feature");
     let first = graph(&s).selected().unwrap().oid;
-    key(&mut s, KeyCode::Tab);
+    key(&mut s, KeyCode::Down);
     assert_ne!(graph(&s).selected().unwrap().oid, first);
-    key(&mut s, KeyCode::BackTab);
+    key(&mut s, KeyCode::Up);
     assert_eq!(graph(&s).selected().unwrap().oid, first);
     assert_eq!(graph(&s).records.len(), count);
     key(&mut s, KeyCode::Esc);

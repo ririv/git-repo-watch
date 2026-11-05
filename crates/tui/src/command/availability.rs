@@ -91,6 +91,12 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            BranchFilterMenu | BranchFilter(_) if !matches!(&self.mode, Mode::Branches(view) if matches!(view.as_ref(), crate::branches::View::List(_))) => {
+                Some(i18n::tr!(BranchFilterRequiresView).into())
+            }
+            LogParent if !matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(commit) if matches!(&commit.inspect.detail, crate::inspection::Source::Commit(detail) if detail.parents.len() > 1))) => {
+                Some(i18n::tr!(HistoryParentRequiresMerge).into())
+            }
             Refresh => crate::view_refresh::Target::current(self)
                 .err()
                 .map(str::to_owned),

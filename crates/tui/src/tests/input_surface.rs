@@ -14,12 +14,7 @@ fn confirmation_selection_clears_stale_background_from_button_gaps() {
         for width in [60, 100, 180] {
             let mut terminal = Terminal::new(TestBackend::new(width, 28)).unwrap();
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
-            for next in [
-                KeyCode::Right,
-                KeyCode::Left,
-                KeyCode::Tab,
-                KeyCode::BackTab,
-            ] {
+            for next in [KeyCode::Right, KeyCode::Left, KeyCode::Right, KeyCode::Left] {
                 let inner = view::input::content_area(s.input_area.unwrap());
                 let gap = (
                     inner.x
@@ -164,7 +159,7 @@ fn static_pages_and_read_only_details_use_the_same_command_entry() {
                     s.search_support(),
                     Support::Both(crate::search::Mode::Filter)
                 );
-                key(&mut s, KeyCode::BackTab);
+                s.cycle_pane(true);
             }
             commands_only(&mut s);
             key(&mut s, KeyCode::Esc);
@@ -184,10 +179,11 @@ fn preview_focus_uses_supported_input_and_keeps_list_queries_for_keyboard_and_po
     command(&mut s, "repo diff");
     wait(&mut s);
     s.paste("tracked");
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     commands_only(&mut s);
     assert_eq!(s.mode.file_session().unwrap().query, "tracked");
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
+    s.sync_plain_bar();
     assert_eq!(s.bar.text(), "tracked");
     render(&mut s, 160, 32);
     let Mode::Changes(session) = &s.mode else {

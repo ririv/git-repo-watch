@@ -36,8 +36,7 @@ fn branch_command_lists_filters_and_inspects_real_branches_without_changing_the_
         assert!(matches!(&s.mode,Mode::Branches(view) if matches!(view.as_ref(),View::Detail{..})));
         assert!(render(&mut s, 120, 32).contains("refs/heads/中文实验"));
         key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Tab);
-        key(&mut s, KeyCode::Tab);
+        command(&mut s, "repo branch filter remote");
         assert!(
             matches!(&s.mode,Mode::Branches(view) if view.session().filter==BranchFilter::Remote)
         );
@@ -64,7 +63,7 @@ fn four_panes_share_focus_fullscreen_and_preserved_branch_filters() {
     assert_eq!(Section::focused(&s.mode), Some(Section::Overview));
     focus_next(&mut s);
     assert_eq!(Section::of(&s.mode), Section::Branches);
-    key(&mut s, KeyCode::Tab);
+    command(&mut s, "repo branch filter local");
     for (width, height) in [(60, 18), (140, 32), (200, 50)] {
         let text = render(&mut s, width, height);
         assert_eq!(s.workspace_areas.len(), 4);
@@ -126,4 +125,35 @@ fn branch_refresh_observes_external_changes_and_drafts_survive_passive_loading()
     assert!(
         matches!(&s.mode,Mode::Branches(view) if view.session().snapshot.entries.iter().any(|entry|entry.name=="new-branch"))
     );
+}
+
+#[test]
+fn branch_filter_options_complete_without_saving_and_apply_only_on_enter() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo branch");
+    wait(&mut s);
+    command(&mut s, "repo branch filter");
+    assert_eq!(super::options::choices(&s).options.len(), 3);
+    assert_eq!(
+        super::options::choices(&s).current,
+        Some(crate::command::options::Value::BranchFilter(
+            BranchFilter::All
+        ))
+    );
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Tab);
+    assert!(s.bar.text().ends_with("filter local"));
+    assert!(matches!(&s.mode, Mode::Branches(view) if view.session().filter == BranchFilter::All));
+    key(&mut s, KeyCode::Enter);
+    assert!(
+        matches!(&s.mode, Mode::Branches(view) if view.session().filter == BranchFilter::Local)
+    );
+    for code in [KeyCode::Tab, KeyCode::BackTab] {
+        key(&mut s, code);
+        assert!(
+            matches!(&s.mode, Mode::Branches(view) if view.session().filter == BranchFilter::Local)
+        );
+    }
+    s.shutdown();
 }

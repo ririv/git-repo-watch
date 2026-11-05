@@ -108,7 +108,14 @@ fn focus_mode_applies_to_diff_and_file_browser_splits_at_both_layouts() {
             },
         );
         assert_eq!(session(&mut s).presentation().active(), TextMode::Preview);
-        key(&mut s, KeyCode::BackTab);
+        key(
+            &mut s,
+            if width == 160 {
+                KeyCode::Left
+            } else {
+                KeyCode::Up
+            },
+        );
         assert_eq!(session(&mut s).presentation().active(), TextMode::Source);
         key(&mut s, KeyCode::Left);
         assert_eq!(session(&mut s).focus, crate::browser::Focus::Tree);

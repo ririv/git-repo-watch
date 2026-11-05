@@ -201,7 +201,10 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_survives_restart
     command(&mut s, "repo diff layout split");
     assert!(matches!(s.mode, Mode::Browsing));
     open_files(&mut s);
-    key(&mut s, KeyCode::Tab);
+    let Mode::Files(files) = &mut s.mode else {
+        panic!("file list")
+    };
+    files.switch_group(s.file_layout);
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);

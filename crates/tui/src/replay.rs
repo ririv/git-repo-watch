@@ -1,4 +1,5 @@
 //! Commit replay commands retain their source selection and native recovery state.
+pub(crate) mod controls;
 use crate::{Action, Confirmation, Effect, Mode, Outcome, Screen, bar::CommandDraft};
 use engine::{
     local::history::Oid,

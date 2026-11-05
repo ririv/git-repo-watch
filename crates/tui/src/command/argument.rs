@@ -227,6 +227,9 @@ impl Action {
                 Some(ArgumentAction::Option(super::options::Kind::DiffSelection))
             }
             Self::LogSelect => Some(ArgumentAction::Option(super::options::Kind::LogSelection)),
+            Self::BranchFilterMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::BranchFilter))
+            }
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
             Self::WrapMenu => Some(ArgumentAction::Option(super::options::Kind::TextWrap)),

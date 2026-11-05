@@ -50,7 +50,7 @@ fn partial_hunk_staging_and_unstaging_preserve_file_contents_and_focus() {
         );
         assert!(matches!(&s.mode, Mode::Changes(session) if session.focus == Focus::Preview));
         key(&mut s, KeyCode::Esc);
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         // 区域切换仍通过文件列表，预览中的空格使用当前暂存层。
         if let Mode::Changes(session) = &mut s.mode {
             session.files.switch_group(s.file_layout);

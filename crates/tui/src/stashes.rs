@@ -163,12 +163,6 @@ impl crate::Screen {
                 }
                 _ => {}
             },
-            View::Detail { .. } if matches!(key.code, KeyCode::Tab | KeyCode::BackTab) => {
-                self.mode = crate::Mode::Stashes(view);
-                self.cycle_pane(key.code == KeyCode::BackTab);
-                self.sync_bar();
-                return;
-            }
             View::Detail { session, inspect } => match inspect.key(key) {
                 crate::inspection::Input::Back => *view = View::List(session.clone()),
                 crate::inspection::Input::Open => {

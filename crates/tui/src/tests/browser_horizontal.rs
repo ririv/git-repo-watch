@@ -87,11 +87,11 @@ fn long_unicode_names_scroll_with_pinned_status_and_draggable_tracks_then_clamp_
     );
     key(&mut s, KeyCode::Left);
     assert_eq!(session(&mut s).horizontal.offset(), 0);
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     assert_eq!(session(&mut s).focus, Focus::Preview);
     key(&mut s, KeyCode::Right);
     assert_eq!(session(&mut s).pane().position.horizontal.offset(), 0);
-    key(&mut s, KeyCode::BackTab);
+    s.cycle_pane(true);
     assert_eq!(session(&mut s).focus, Focus::Tree);
     let end = *track(&s, area).last().unwrap();
     assert_eq!(end.x, area.right() - 5);

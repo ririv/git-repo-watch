@@ -41,6 +41,18 @@ impl Screen {
             Action::CommitGenerate if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 self.generate_commit_message()
             }
+            Action::BranchFilterMenu => {
+                self.open_option_menu(command::options::Kind::BranchFilter, path, selection)
+            }
+            Action::BranchFilter(filter) => {
+                if let Mode::Branches(view) = &mut self.mode
+                    && let branches::View::List(session) = view.as_mut()
+                {
+                    session.set_filter(filter);
+                }
+                self.sync_bar();
+            }
+            Action::LogParent => self.cycle_history_parent(),
             Action::SearchMenu => self.search_menu(),
             Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),

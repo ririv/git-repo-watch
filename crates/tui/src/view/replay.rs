@@ -1,4 +1,5 @@
 //! Explicit mainline selection for replaying a merge commit.
+pub(super) mod controls;
 use super::*;
 use engine::operations::replay::Candidate;
 pub(super) fn parents(

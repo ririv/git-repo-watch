@@ -80,6 +80,9 @@ impl Screen {
             return Ok(false);
         }
         self.view_revision += 1;
+        if wheel {
+            self.close_replay_controls();
+        }
         if wheel && self.history_actions().is_some() {
             let code = match event.kind {
                 MouseEventKind::ScrollUp => KeyCode::Up,
@@ -93,6 +96,21 @@ impl Screen {
             return Ok(changed);
         }
         let precise = self.config.mouse.precise_click;
+        if click
+            && self.focused_replay_control().is_some()
+            && self
+                .input_area
+                .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
+        {
+            if precise
+                && let Some(crate::pointer::Hit::Button(crate::pointer::Action::ReplayControl(
+                    control,
+                ))) = self.pointer.hit(Position::new(event.column, event.row))
+            {
+                self.preview_replay_control(control);
+            }
+            return Ok(precise);
+        }
         if self.bar.is_plain()
             && let Mode::CommitMessage {
                 plan,

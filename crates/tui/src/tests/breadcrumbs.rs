@@ -192,7 +192,7 @@ fn configuration_and_help_follow_the_same_enter_and_return_path() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "settings");
     let settings = labels(&s);
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     assert_eq!(labels(&s), settings);
     command(&mut s, "schedule");
     assert_eq!(labels(&s).len(), settings.len() + 1);

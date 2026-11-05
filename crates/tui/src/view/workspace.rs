@@ -31,7 +31,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
-        if Some(section) == focused {
+        if Some(section) == focused && screen.focused_replay_control().is_none() {
             highlight_border(frame, pane_area);
         } else if focused.is_none() && section == selected {
             highlight_border_with(frame, pane_area, input::active_accent(screen));

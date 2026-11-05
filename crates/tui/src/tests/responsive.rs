@@ -193,7 +193,7 @@ fn repository_views_and_confirmation_render_across_tiny_sizes_without_mutating_g
         assert_eq!(s.config.repositories, vec![f.repo.clone()]);
         std::fs::create_dir(home.path().join("中文目录")).unwrap();
         s.paste(&format!("//repos add {}/", home.path().display()));
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         for (width, height) in [(48, 15), (24, 8), (1, 1), (0, 0)] {
             draw(&mut s, width, height);
         }

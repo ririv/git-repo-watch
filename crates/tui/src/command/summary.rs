@@ -13,6 +13,8 @@ impl Command {
             Action::Focus => Summary::PaneFocus,
             Action::Zoom => Summary::PaneZoom,
             Action::Branches => Summary::Branches,
+            Action::BranchFilterMenu | Action::BranchFilter(_) => Summary::BranchFilter,
+            Action::LogParent => Summary::HistoryParent,
             Action::BranchCreate => Summary::BranchCreate,
             Action::BranchSwitch => Summary::BranchSwitch,
             Action::Fetch => Summary::Fetch,

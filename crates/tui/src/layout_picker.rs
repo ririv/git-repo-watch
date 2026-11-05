@@ -7,7 +7,7 @@ use crossterm::event::{KeyCode, KeyEvent};
 
 impl Screen {
     pub(crate) fn empty_layout_picker_key(&mut self, key: KeyEvent) -> bool {
-        if !matches!(key.code, KeyCode::Enter | KeyCode::Tab) {
+        if !matches!(key.code, KeyCode::Enter | KeyCode::BackTab) {
             return false;
         }
         let InputBar::Command {
@@ -15,21 +15,32 @@ impl Screen {
             path,
             selection,
             selected,
+            repository,
             ..
         } = &self.bar
         else {
             return false;
         };
-        if !crate::command::argument_input(&input.query()).is_some_and(|(argument, value)| {
-            argument.options() == Some(crate::command::options::Kind::DiffLayout)
-                && value.trim().is_empty()
-        }) {
+        if input.prefix_selected() {
+            return false;
+        }
+        let argument =
+            crate::command::argument_input(&input.query()).is_some_and(|(argument, value)| {
+                argument.options() == Some(crate::command::options::Kind::DiffLayout)
+                    && (value.trim().is_empty() || key.code == KeyCode::BackTab)
+            });
+        let selected_layout = key.code == KeyCode::BackTab
+            && self
+                .search_commands()
+                .and_then(|commands| commands.get(*selected).copied())
+                .is_some_and(|command| command.action == crate::Action::DiffLayoutMenu);
+        if !argument && !selected_layout {
             return false;
         }
         let draft = CommandDraft {
             input: input.clone(),
             path: path.clone(),
-            repository: self.capture_repository(path.as_deref()),
+            repository: repository.clone(),
             selection: selection.clone(),
             return_to: crate::bar::ReturnTo::Command,
         };
@@ -49,34 +60,42 @@ impl Screen {
             return false;
         };
         match key.code {
-            KeyCode::Left | KeyCode::BackTab => *selected = selected.advance(true),
-            KeyCode::Right | KeyCode::Tab => *selected = selected.advance(false),
+            KeyCode::Left => *selected = selected.advance(true),
+            KeyCode::Right => *selected = selected.advance(false),
             KeyCode::Enter => {
                 let preference = *selected;
                 self.set_diff_layout(preference);
                 self.sync_bar();
                 self.message = i18n::tf!(DiffLayoutSelected, preference.label());
             }
-            KeyCode::Esc => {
-                let InputBar::Layout {
-                    draft,
-                    command_cursor,
-                    ..
-                } = std::mem::take(&mut self.bar)
-                else {
-                    unreachable!()
-                };
-                self.bar = InputBar::Command {
-                    input: draft.input,
-                    path: draft.path,
-                    selection: draft.selection,
-                    repository: draft.repository,
-                    selected: command_cursor,
-                    menu: Default::default(),
-                };
+            KeyCode::Esc | KeyCode::BackTab => {
+                self.restore_layout_input();
+            }
+            KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete => {
+                self.restore_layout_input();
+                return false;
             }
             _ => {}
         }
         true
+    }
+    pub(crate) fn restore_layout_input(&mut self) {
+        let InputBar::Layout {
+            draft,
+            command_cursor,
+            ..
+        } = std::mem::take(&mut self.bar)
+        else {
+            unreachable!()
+        };
+        self.bar = InputBar::Command {
+            input: draft.input,
+            path: draft.path,
+            selection: draft.selection,
+            repository: draft.repository,
+            selected: command_cursor,
+            menu: Default::default(),
+        };
+        self.refresh_option_candidates();
     }
 }

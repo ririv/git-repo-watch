@@ -178,9 +178,9 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
             .get_mut(TextMode::Preview)
             .position
             .scroll = 9;
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         assert_eq!(session(&mut s).focus, Focus::Tree);
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         assert_eq!(session(&mut s).presentation().active(), TextMode::Source);
         key(&mut s, KeyCode::Down);
         assert_eq!(
@@ -191,13 +191,13 @@ fn split_keeps_two_documents_and_independent_viewports_across_focus_refresh_and_
             session(&mut s).panes.get(TextMode::Preview).position.scroll,
             9
         );
-        key(&mut s, KeyCode::Tab);
+        s.cycle_pane(false);
         key(&mut s, KeyCode::Down);
         assert_eq!(
             session(&mut s).panes.get(TextMode::Preview).position.scroll,
             10
         );
-        key(&mut s, KeyCode::BackTab);
+        s.cycle_pane(true);
         assert_eq!(session(&mut s).presentation().active(), TextMode::Source);
         command(&mut s, "repo files layout");
         assert_eq!(

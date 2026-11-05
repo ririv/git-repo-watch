@@ -84,7 +84,7 @@ fn scan_reviews_before_adding_and_exclusions_do_not_survive_the_request() {
                 assert!(text.contains("new-b"), "{text}");
             }
         }
-        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::BackTab);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         let paths = s.service.store.config().unwrap().repositories;

@@ -207,7 +207,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     wait(&mut s);
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Branches));
-    assert_eq!(s.search_commands().unwrap()[0].name, "repo branch create");
+    assert_eq!(s.search_commands().unwrap()[0].name, "repo branch filter");
 }
 
 #[test]

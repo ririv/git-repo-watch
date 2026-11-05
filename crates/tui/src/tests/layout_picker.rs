@@ -34,20 +34,20 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
             }
         ));
         assert_eq!(s.diff_preference, Preference::Unified);
-        s.paste("ignored paste");
+        key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff lay");
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.bar.text(), "/repo diff lay");
         assert!(matches!(s.bar, InputBar::Command { .. }));
         assert!(matches!(&s.mode,Mode::Changes(session) if session.files.query==query));
         key(&mut s, KeyCode::Enter);
-        key(&mut s, KeyCode::BackTab);
+        key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Split);
         assert_eq!(s.bar.editor().text, query);
         assert!(matches!(&s.mode,Mode::Changes(session) if session.files.query==query));
         command(&mut s, "repo diff layout");
-        key(&mut s, KeyCode::Tab);
+        key(&mut s, KeyCode::Right);
         key(&mut s, KeyCode::Right);
         assert!(matches!(
             s.bar,
@@ -228,4 +228,27 @@ fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_thei
             "{text}"
         );
     }
+}
+
+#[test]
+fn shift_tab_layout_mode_restores_the_parameter_draft_and_typing_resumes_input() {
+    let (_home, mut s) = fixture(vec![]);
+    s.paste("//repo diff layout sp");
+    let draft = s.bar.text();
+    key(&mut s, KeyCode::BackTab);
+    assert!(matches!(s.bar, InputBar::Layout { .. }));
+    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.diff_preference, Preference::Auto);
+    key(&mut s, KeyCode::BackTab);
+    assert!(matches!(s.bar, InputBar::Command { .. }));
+    assert_eq!(s.bar.text(), draft);
+    key(&mut s, KeyCode::BackTab);
+    s.paste("lit");
+    assert_eq!(s.bar.text(), "/repo diff layout split");
+    assert!(matches!(s.bar, InputBar::Command { .. }));
+    assert_eq!(s.diff_preference, Preference::Auto);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.diff_preference, Preference::Split);
+    s.shutdown();
 }

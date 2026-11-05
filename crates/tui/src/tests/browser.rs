@@ -191,7 +191,7 @@ fn search_reaches_unopened_directories_and_pointer_selection_uses_the_rendered_t
     );
     assert_eq!(session(&mut s).focus, Focus::Preview);
     key(&mut s, KeyCode::Esc);
-    key(&mut s, KeyCode::Tab);
+    s.cycle_pane(false);
     assert_eq!(session(&mut s).focus, Focus::Preview);
     key(&mut s, KeyCode::Esc);
     assert_eq!(session(&mut s).focus, Focus::Tree);

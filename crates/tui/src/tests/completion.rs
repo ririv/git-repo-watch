@@ -117,7 +117,7 @@ fn directory_candidates_share_the_full_width_panel_in_both_languages_and_scroll_
             assert!(!rendered.contains("目录 08/"));
             assert_eq!(rendered.lines().count(), height as usize);
         }
-        key(&mut s, KeyCode::BackTab);
+        key(&mut s, KeyCode::Up);
         let rendered = render(&mut s, 100, 28);
         assert!(rendered.contains("目录 11/"));
         assert!(rendered.contains(i18n::tr!(DirectoryCompletionHint)));

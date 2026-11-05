@@ -12,7 +12,7 @@ pub(crate) enum ReturnTo {
     Command,
     View,
 }
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct CommandDraft {
     pub input: command::Input,
     pub path: Option<PathBuf>,
@@ -382,7 +382,7 @@ impl Screen {
                         *menu = Default::default();
                         self.message.clear();
                     }
-                    KeyCode::Up | KeyCode::BackTab => candidates.advance(true),
+                    KeyCode::Up => candidates.advance(true),
                     KeyCode::Down => candidates.advance(false),
                     KeyCode::Enter | KeyCode::Tab => {
                         let execute = key.code == KeyCode::Enter && values_menu;
@@ -674,7 +674,7 @@ impl Screen {
         }
         Ok(BarEvent::Pass)
     }
-    fn open_command_bar(&mut self) {
+    pub(crate) fn open_command_bar(&mut self) {
         self.bar = InputBar::Command {
             input: command::Input::new(self.command_context()),
             selected: 0,

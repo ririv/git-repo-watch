@@ -18,13 +18,6 @@ impl Filter {
             Self::Remote => i18n::tr!(BranchRemote),
         }
     }
-    fn next(self, backwards: bool) -> Self {
-        match (self, backwards) {
-            (Self::All, false) | (Self::Remote, true) => Self::Local,
-            (Self::Local, false) | (Self::All, true) => Self::Remote,
-            (Self::Remote, false) | (Self::Local, true) => Self::All,
-        }
-    }
 }
 #[derive(Debug, Clone)]
 pub(super) struct Session {
@@ -128,8 +121,8 @@ impl Session {
         );
         next
     }
-    pub fn filter_next(&mut self, backwards: bool) {
-        self.filter = self.filter.next(backwards);
+    pub fn set_filter(&mut self, filter: Filter) {
+        self.filter = filter;
         self.state.select((!self.rows().is_empty()).then_some(0));
     }
     pub fn advance(&mut self, delta: isize) {

@@ -164,12 +164,9 @@ impl Screen {
             return;
         }
         match key.code {
-            KeyCode::Up | KeyCode::BackTab => session.selected = session.selected.saturating_sub(1),
+            KeyCode::Up => session.selected = session.selected.saturating_sub(1),
             KeyCode::Down => {
                 session.selected = (session.selected + 1).min(session.request.remotes().count() - 1)
-            }
-            KeyCode::Tab => {
-                session.selected = (session.selected + 1) % session.request.remotes().count()
             }
             KeyCode::Enter => {
                 let remote = session

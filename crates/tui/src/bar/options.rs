@@ -101,7 +101,7 @@ impl Screen {
                     *menu = Menu::Commands;
                 }
             }
-            KeyCode::Up | KeyCode::BackTab => candidates.advance(true),
+            KeyCode::Up => candidates.advance(true),
             KeyCode::Down => candidates.advance(false),
             KeyCode::Tab => {
                 if let Some(editor) = candidates.choose() {

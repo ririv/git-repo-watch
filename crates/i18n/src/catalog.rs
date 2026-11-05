@@ -2,6 +2,10 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    BranchFilterCommand,
+    BranchFilterRequiresView,
+    HistoryParentCommand,
+    HistoryParentRequiresMerge,
     CommandTargetReadingBranch,
     CommandTargetBranchFailed,
     RefreshUnavailable,
@@ -68,6 +72,9 @@ pub enum Message {
 
     ReplayPaused,
     ReplayBatchAtLeastTwo,
+    ReplayControlsTitle,
+    ReplayControlsHint,
+    ReplayControlsEntryHint,
     ReplayContinueShort,
     ReplaySkipShort,
     ReplayAbortShort,
@@ -1368,16 +1375,16 @@ impl Message {
             (Self::PartialUnstage, Language::English) => "Unstage selected changes",
             (Self::PartialUnstage, Language::Chinese) => "取消暂存所选变更",
             (Self::PartialHunkHint, Language::English) => {
-                "↑↓ hunks · /select lines · Space stage/unstage · Tab files"
+                "↑↓ hunks · /select lines · Space stage/unstage · /focus files"
             }
             (Self::PartialHunkHint, Language::Chinese) => {
-                "↑↓选块 · /select 切换行 · Space 暂存/取消 · Tab 文件"
+                "↑↓选块 · /select 切换行 · Space 暂存/取消 · /focus 文件"
             }
             (Self::PartialLineHint, Language::English) => {
-                "↑↓ lines · Shift+↑↓ range · Space stage/unstage · Tab files"
+                "↑↓ lines · Shift+↑↓ range · Space stage/unstage · /focus files"
             }
             (Self::PartialLineHint, Language::Chinese) => {
-                "↑↓选行 · Shift+↑↓扩选 · Space 暂存/取消 · Tab 文件"
+                "↑↓选行 · Shift+↑↓扩选 · Space 暂存/取消 · /focus 文件"
             }
             (Self::ManageRemove, Language::English) => "Remove",
             (Self::ManageRemove, Language::Chinese) => "移除",
@@ -1402,18 +1409,18 @@ impl Message {
             (Self::ScanEmptySelection, Language::English) => "Select repositories to add",
             (Self::ScanEmptySelection, Language::Chinese) => "请勾选要添加的仓库",
             (Self::ScanHint, Language::English) => {
-                "Space/Ins mark · Ctrl+A all · Tab actions · Enter select · Esc back"
+                "Space/Ins mark · Ctrl+A all · Shift+Tab options · Enter select · Esc back"
             }
             (Self::ScanHint, Language::Chinese) => {
-                "Space/Ins 勾选 · Ctrl+A 全选 · Tab 操作 · Enter 确认 · Esc 返回"
+                "Space/Ins 勾选 · Ctrl+A 全选 · Shift+Tab 选项 · Enter 确认 · Esc 返回"
             }
             (Self::ManageHint, Language::English) => "↑↓ select · / commands · Esc back",
             (Self::ManageHint, Language::Chinese) => "↑↓选择 · / 命令 · Esc 返回",
             (Self::ScanActionsHint, Language::English) => {
-                "←→ actions · Enter run · Tab list · Esc back"
+                "←→ actions · Enter run · Shift+Tab input · Esc back"
             }
             (Self::ScanActionsHint, Language::Chinese) => {
-                "←→选择操作 · Enter 执行 · Tab 返回列表 · Esc 返回"
+                "←→选择操作 · Enter 执行 · Shift+Tab 输入 · Esc 返回"
             }
             (Self::ScanTemporaryExclusions, Language::English) => "Skipped for this scan",
             (Self::ScanTemporaryExclusions, Language::Chinese) => "本次跳过",
@@ -1438,10 +1445,10 @@ impl Message {
             (Self::PushTargetBranch, Language::English) => "Remote branch",
             (Self::PushTargetBranch, Language::Chinese) => "目标分支",
             (Self::PushTargetHint, Language::English) => {
-                "↑↓ / Tab remote · Edit branch · Enter publish · Esc back"
+                "↑↓ remote · Edit branch · Enter publish · Esc back"
             }
             (Self::PushTargetHint, Language::Chinese) => {
-                "↑↓ / Tab 选择远程 · 输入分支名 · Enter 发布 · Esc 返回"
+                "↑↓ 选择远程 · 输入分支名 · Enter 发布 · Esc 返回"
             }
             (Self::PushForceTitle, Language::English) => "Force push",
             (Self::PushForceTitle, Language::Chinese) => "强制推送",
@@ -1513,15 +1520,37 @@ impl Message {
             (Self::HistoryActionsCount, Language::English) => "Selected commits: {count}",
             (Self::HistoryActionsCount, Language::Chinese) => "已选 {count} 条提交",
             (Self::HistoryActionsHint, Language::English) => {
-                "↑↓ / Tab choose · Enter confirm · Esc back"
+                "↑↓ choose · Enter confirm · Shift+Tab input · Esc back"
             }
             (Self::HistoryActionsHint, Language::Chinese) => {
-                "↑↓ / Tab 选择 · Enter 确认 · Esc 返回"
+                "↑↓ 选择 · Enter 确认 · Shift+Tab 输入 · Esc 返回"
             }
             (Self::ReplayBatchAtLeastTwo, Language::English) => {
                 "Select at least two commits for a batch"
             }
             (Self::ReplayBatchAtLeastTwo, Language::Chinese) => "批量拣选至少需要两条提交",
+            (Self::BranchFilterCommand, Language::English) => {
+                "Filter all, local or remote branches"
+            }
+            (Self::BranchFilterCommand, Language::Chinese) => "筛选全部、本地或远程分支",
+            (Self::BranchFilterRequiresView, Language::English) => "Open the branch list first",
+            (Self::BranchFilterRequiresView, Language::Chinese) => "请先打开分支列表",
+            (Self::HistoryParentCommand, Language::English) => {
+                "Switch the comparison to the next merge parent"
+            }
+            (Self::HistoryParentCommand, Language::Chinese) => "切换到合并提交的下一个比较父提交",
+            (Self::HistoryParentRequiresMerge, Language::English) => "Open a merge commit first",
+            (Self::HistoryParentRequiresMerge, Language::Chinese) => "请先打开合并提交详情",
+            (Self::ReplayControlsTitle, Language::English) => "Recovery actions",
+            (Self::ReplayControlsTitle, Language::Chinese) => "操作恢复",
+            (Self::ReplayControlsHint, Language::English) => {
+                "←→ select · Enter review · Shift+Tab input · Esc back"
+            }
+            (Self::ReplayControlsHint, Language::Chinese) => {
+                "←→选择 · Enter 预览 · Shift+Tab 输入 · Esc 返回"
+            }
+            (Self::ReplayControlsEntryHint, Language::English) => "Shift+Tab: switch mode",
+            (Self::ReplayControlsEntryHint, Language::Chinese) => "Shift+Tab 切换模式",
             (Self::ReplayContinueShort, Language::English) => "Continue",
             (Self::ReplayContinueShort, Language::Chinese) => "继续",
             (Self::ReplaySkipShort, Language::English) => "Skip",
@@ -1691,10 +1720,10 @@ impl Message {
             (Self::ComposeDone, Language::English) => "Commit composition completed",
             (Self::ComposeDone, Language::Chinese) => "编排提交已完成",
             (Self::ComposeHint, Language::English) => {
-                "↑↓ select · Tab pane · Enter edit message · / commands · Esc back"
+                "↑↓ select · /focus pane · Enter edit message · / commands · Esc back"
             }
             (Self::ComposeHint, Language::Chinese) => {
-                "↑↓ 选择 · Tab 面板 · Enter 编辑说明 · / 命令 · Esc 返回"
+                "↑↓ 选择 · /focus 面板 · Enter 编辑说明 · / 命令 · Esc 返回"
             }
             (Self::ComposeEditHint, Language::English) => {
                 "Enter newline · Ctrl+S save · Esc discard"
@@ -1722,10 +1751,10 @@ impl Message {
                 "↑↓ 选择 · Tab 补全 · Enter 预览 · Esc 收起"
             }
             (Self::DiffLayoutEntryHint, Language::English) => {
-                "Enter/Tab choose layout · Type to complete a value · Esc close"
+                "Enter/Shift+Tab choose layout · Type to complete a value · Esc close"
             }
             (Self::DiffLayoutEntryHint, Language::Chinese) => {
-                "Enter/Tab 选择布局 · 输入参数补全 · Esc 关闭"
+                "Enter/Shift+Tab 选择布局 · 输入参数补全 · Esc 关闭"
             }
             (Self::CommandRequiresHistory, Language::English) => "Open commit history first",
             (Self::CommandRequiresHistory, Language::Chinese) => "请先打开提交历史",
@@ -1808,16 +1837,16 @@ impl Message {
             (Self::PaneReadHint, Language::English) => "Enter reload · ←/Esc back · / commands",
             (Self::PaneReadHint, Language::Chinese) => "Enter重新读取 · ←/Esc返回 · /命令",
             (Self::BrowserPreviewHint, Language::English) => {
-                "↑↓ scroll · ←→ pan · Tab panes · Esc files · / commands"
+                "↑↓ scroll · ←→ pan · /focus panes · Esc files · / commands"
             }
             (Self::BrowserPreviewHint, Language::Chinese) => {
-                "↑↓滚动 · ←→平移 · Tab面板 · Esc文件 · /命令"
+                "↑↓滚动 · ←→平移 · /focus面板 · Esc文件 · /命令"
             }
             (Self::DiffPreviewInputHint, Language::English) => {
-                "↑↓ scroll · ←→ pan · Tab files · Esc back · / commands"
+                "↑↓ scroll · ←→ pan · /focus files · Esc back · / commands"
             }
             (Self::DiffPreviewInputHint, Language::Chinese) => {
-                "↑↓滚动 · ←→平移 · Tab文件 · Esc返回 · /命令"
+                "↑↓滚动 · ←→平移 · /focus文件 · Esc返回 · /命令"
             }
             (Self::AgentStreamIncomplete, Language::English) => {
                 "Agent stream ended without a completed message."
@@ -1836,16 +1865,16 @@ impl Message {
                 "说明只读 · Enter / Ctrl+R / Esc 取消生成"
             }
             (Self::CommitEditingHint, Language::English) => {
-                "Enter newline · Tab actions · Ctrl+S commit · Esc back"
+                "Enter newline · Shift+Tab options · Ctrl+S commit · Esc back"
             }
             (Self::CommitEditingHint, Language::Chinese) => {
-                "Enter 换行 · Tab 操作栏 · Ctrl+S 提交 · Esc 返回"
+                "Enter 换行 · Shift+Tab 选项 · Ctrl+S 提交 · Esc 返回"
             }
             (Self::CommitActionsHint, Language::English) => {
-                "←→ select · Tab focus · Enter confirm · ↑ edit · Esc back"
+                "←→ select · Enter confirm · Shift+Tab input · Esc back"
             }
             (Self::CommitActionsHint, Language::Chinese) => {
-                "←→ 选择 · Tab 切换 · Enter 确认 · ↑ 编辑 · Esc 返回"
+                "←→ 选择 · Enter 确认 · Shift+Tab 输入 · Esc 返回"
             }
             (Self::CommitRegenerateAction, Language::English) => "Regenerate",
             (Self::CommitRegenerateAction, Language::Chinese) => "重新生成",
@@ -1899,11 +1928,9 @@ impl Message {
             (Self::PaneFocusTitle, Language::English) => "Focus mode",
             (Self::PaneFocusTitle, Language::Chinese) => "聚焦模式",
             (Self::PaneFocusHint, Language::English) => {
-                "Arrows focus · Tab cycle · Enter/Esc finish · / commands"
+                "Arrows focus · Enter/Esc finish · / commands"
             }
-            (Self::PaneFocusHint, Language::Chinese) => {
-                "方向键聚焦 · Tab轮换 · Enter/Esc结束 · /命令"
-            }
+            (Self::PaneFocusHint, Language::Chinese) => "方向键聚焦 · Enter/Esc结束 · /命令",
 
             (Self::PaneFocusCommand, Language::English) => "Enter pane focus mode",
             (Self::PaneFocusCommand, Language::Chinese) => "进入面板聚焦模式",
@@ -2094,10 +2121,10 @@ impl Message {
             (Self::AgentCancelled, Language::English) => "Generation cancelled; draft retained.",
             (Self::AgentCancelled, Language::Chinese) => "已取消生成，保留原草稿。",
             (Self::AgentHint, Language::English) => {
-                "Enter ↵ · Tab actions · Ctrl+S commit · Ctrl+R redo · Esc"
+                "Enter ↵ · Shift+Tab options · Ctrl+S commit · Ctrl+R redo · Esc"
             }
             (Self::AgentHint, Language::Chinese) => {
-                "Enter 换行 · Tab 操作 · Ctrl+S 提交 · Ctrl+R 生成 · Esc"
+                "Enter 换行 · Shift+Tab 选项 · Ctrl+S 提交 · Ctrl+R 生成 · Esc"
             }
             (Self::AgentRunningHint, Language::English) => {
                 "Generating… Ctrl+R cancel · Ctrl+J newline · Enter review · Esc return"
@@ -2313,10 +2340,10 @@ impl Message {
                 "↑↓滚动 · Esc 返回 · /repo diff layout 布局"
             }
             (Self::StashPreviewHint, Language::English) => {
-                "↑↓ files · Enter diff · Tab panes · Esc back"
+                "↑↓ files · Enter diff · /focus panes · Esc back"
             }
             (Self::StashPreviewHint, Language::Chinese) => {
-                "↑↓文件 · Enter 差异 · Tab 面板 · Esc 返回"
+                "↑↓文件 · Enter 差异 · /focus 面板 · Esc 返回"
             }
             (Self::StashTitle, Language::English) => "Stashes",
             (Self::StashTitle, Language::Chinese) => "暂存工作",
@@ -2365,10 +2392,10 @@ impl Message {
             (Self::StashDefaultMessage, Language::English) => "Use the default Git message",
             (Self::StashDefaultMessage, Language::Chinese) => "使用 Git 默认说明",
             (Self::StashSaveHint, Language::English) => {
-                "Tab Focus · Enter Confirm · Esc Back · PgUp/PgDn Scroll"
+                "Shift+Tab mode · ←→ select · Enter confirm · Esc Back · PgUp/PgDn Scroll"
             }
             (Self::StashSaveHint, Language::Chinese) => {
-                "Tab 切换 · Enter 确认 · Esc 返回 · PgUp/PgDn 滚动"
+                "Shift+Tab 模式 · ←→选择 · Enter 确认 · Esc 返回 · PgUp/PgDn 滚动"
             }
             (Self::StashSaveCommand, Language::English) => "Choose changes to stash",
             (Self::StashSaveCommand, Language::Chinese) => "选择并保存当前改动",
@@ -2877,9 +2904,11 @@ impl Message {
             (Self::LayoutPickerTitle, Language::English) => "Diff layout",
             (Self::LayoutPickerTitle, Language::Chinese) => "差异布局",
             (Self::LayoutPickerHint, Language::English) => {
-                "←→ / Tab choose · Enter apply · Esc back"
+                "←→ choose · Enter apply · Shift+Tab input · Esc back"
             }
-            (Self::LayoutPickerHint, Language::Chinese) => "←→ / Tab 选择 · Enter 应用 · Esc 返回",
+            (Self::LayoutPickerHint, Language::Chinese) => {
+                "←→选择 · Enter 应用 · Shift+Tab 输入 · Esc 返回"
+            }
             (Self::LayoutVisible, Language::English) => "showing",
             (Self::LayoutVisible, Language::Chinese) => "当前",
             (Self::LayoutCurrent, Language::English) => "Current",
@@ -2914,16 +2943,16 @@ impl Message {
                 "暂存只能选择未暂存文件，取消暂存只能选择已暂存文件；请核对勾选区域"
             }
             (Self::DirectoryInputHint, Language::English) => {
-                "Enter fold/unfold · Space/Ins mark · Tab focus · Esc back"
+                "Enter fold/unfold · Space/Ins mark · /focus panes · Esc back"
             }
             (Self::DirectoryInputHint, Language::Chinese) => {
-                "Enter 展开/收起 · Space/Ins 勾选 · Tab 切换 · Esc 返回"
+                "Enter 展开/收起 · Space/Ins 勾选 · /focus 切换 · Esc 返回"
             }
             (Self::ChangesInputHint, Language::English) => {
-                "↑↓ navigate · ←→ pan preview · Tab focus · //zoom maximize · Esc back"
+                "↑↓ navigate · ←→ pan preview · /focus panes · //zoom maximize · Esc back"
             }
             (Self::ChangesInputHint, Language::Chinese) => {
-                "↑↓选择/滚动 · ←→平移预览 · Tab切换 · //zoom放大 · Esc返回"
+                "↑↓选择/滚动 · ←→平移预览 · /focus切换 · //zoom放大 · Esc返回"
             }
 
             (Self::RepositoryTaskCompleted, Language::English) => "{0} · Completed: {1}",
@@ -3052,9 +3081,11 @@ impl Message {
             (Self::BranchSearch, Language::English) => "Search branches",
             (Self::BranchSearch, Language::Chinese) => "搜索分支",
             (Self::BranchHint, Language::English) => {
-                "↑↓ Select · Enter Details · Tab Filter · Esc Back"
+                "↑↓ select · Enter details · /repo branch filter · Esc back"
             }
-            (Self::BranchHint, Language::Chinese) => "↑↓选择 · Enter 详情 · Tab 筛选 · Esc 返回",
+            (Self::BranchHint, Language::Chinese) => {
+                "↑↓选择 · Enter 详情 · /repo branch filter · Esc 返回"
+            }
             (Self::BranchReference, Language::English) => "Reference",
             (Self::BranchReference, Language::Chinese) => "引用",
             (Self::BranchLocalRefs, Language::English) => "Upstream comparison uses local refs",
@@ -3109,10 +3140,10 @@ impl Message {
             (Self::OverviewCheck, Language::English) => "Last remote check",
             (Self::OverviewCheck, Language::Chinese) => "上轮远程检查",
             (Self::RepositoryPanesHint, Language::English) => {
-                "Arrows/Tab select pane · Enter focus · ← at left edge/Esc home · / commands"
+                "Arrows select pane · Enter focus · ← at left edge/Esc home · / commands"
             }
             (Self::RepositoryPanesHint, Language::Chinese) => {
-                "方向键/Tab 选择面板 · Enter 聚焦 · ←左边界/Esc 首页 · / 命令"
+                "方向键选择面板 · Enter 聚焦 · ←左边界/Esc 首页 · / 命令"
             }
             (Self::OverviewInputHint, Language::English) => {
                 "↑↓ Scroll · ←/Esc Back · Ctrl+R Refresh · / Commands"
@@ -3242,10 +3273,10 @@ impl Message {
                 "↑↓选择 · ←→ 横向滚动 · Enter详情 · Esc返回"
             }
             (Self::HistoryCommitInputHint, Language::English) => {
-                "↑↓ files · Enter diff · Tab parent · /focus panes · Esc back"
+                "↑↓ files · Enter diff · /repo log parent · /focus panes · Esc back"
             }
             (Self::HistoryCommitInputHint, Language::Chinese) => {
-                "↑↓文件 · Enter 差异 · Tab 父提交 · /focus 面板 · Esc 返回"
+                "↑↓文件 · Enter 差异 · /repo log parent · /focus 面板 · Esc 返回"
             }
             (Self::HistoryReviewInputHint, Language::English) => {
                 "↑↓ scroll · ←→ pan · Enter file diff · /focus panes · Esc back"
@@ -4804,10 +4835,10 @@ impl Message {
             (Self::BooleanArgumentRequired, Language::English) => "Expected true or false",
             (Self::BooleanArgumentRequired, Language::Chinese) => "请输入 true 或 false",
             (Self::BrowserWrappedPreviewHint, Language::English) => {
-                "↑↓ scroll · Tab panes · Esc files · / commands"
+                "↑↓ scroll · /focus panes · Esc files · / commands"
             }
             (Self::BrowserWrappedPreviewHint, Language::Chinese) => {
-                "↑↓滚动 · Tab面板 · Esc文件 · /命令"
+                "↑↓滚动 · /focus面板 · Esc文件 · /命令"
             }
             (Self::HistoryWrappedDiffHint, Language::English) => {
                 "↑↓ scroll · Esc commit · /repo diff layout"
@@ -4816,16 +4847,16 @@ impl Message {
                 "↑↓滚动 · Esc提交详情 · /repo diff layout 布局"
             }
             (Self::WrappedChangesInputHint, Language::English) => {
-                "↑↓ navigate · Tab focus · //zoom maximize · Esc back"
+                "↑↓ navigate · /focus panes · //zoom maximize · Esc back"
             }
             (Self::WrappedChangesInputHint, Language::Chinese) => {
-                "↑↓选择/滚动 · Tab切换 · //zoom放大 · Esc返回"
+                "↑↓选择/滚动 · /focus切换 · //zoom放大 · Esc返回"
             }
             (Self::WrappedDiffPreviewHint, Language::English) => {
-                "↑↓ scroll · Tab files · Esc back · / commands"
+                "↑↓ scroll · /focus files · Esc back · / commands"
             }
             (Self::WrappedDiffPreviewHint, Language::Chinese) => {
-                "↑↓滚动 · Tab文件 · Esc返回 · /命令"
+                "↑↓滚动 · /focus文件 · Esc返回 · /命令"
             }
             (Self::FileIcons, Language::English) => "File icons",
             (Self::FileIcons, Language::Chinese) => "文件图标",
@@ -4968,10 +4999,10 @@ impl Message {
             }
             (Self::BrowserPlaceholder, Language::Chinese) => "搜索仓库文件路径，或输入 / 查看命令",
             (Self::BrowserHint, Language::English) => {
-                "↑↓ select · ←→ pan · Enter open/toggle · Tab panes · //zoom maximize · Esc back"
+                "↑↓ select · ←→ pan · Enter open/toggle · /focus panes · //zoom maximize · Esc back"
             }
             (Self::BrowserHint, Language::Chinese) => {
-                "↑↓选择 · ←→横移 · Enter 打开/折叠 · Tab 面板 · /zoom 放大 · Esc 返回"
+                "↑↓选择 · ←→横移 · Enter 打开/折叠 · /focus 面板 · /zoom 放大 · Esc 返回"
             }
             (Self::BrowserLoading, Language::English) => "Loading directory…",
             (Self::BrowserLoading, Language::Chinese) => "正在读取目录…",
@@ -5212,10 +5243,10 @@ impl Message {
                 "←→ 移动光标 · ↑↓ 浏览 · Esc 清空 · / 命令"
             }
             (Self::SelectSpaceInsMarkCtrlAAll, Language::English) => {
-                "→/Enter diff · ←/Esc back · Space/Ins mark · Tab area"
+                "→/Enter diff · ←/Esc back · Space/Ins mark · /focus panes"
             }
             (Self::SelectSpaceInsMarkCtrlAAll, Language::Chinese) => {
-                "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选 · Tab 区域"
+                "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选 · /focus 面板"
             }
             (Self::ScrollEscFilesCommands, Language::English) => {
                 "↑↓ scroll · ←/Esc files · /repo diff layout"
@@ -5317,15 +5348,13 @@ impl Message {
             (Self::UpstreamRemoteFetchSkipped, Language::Chinese) => {
                 "上游远程 {} 被 skipFetchAll 配置跳过"
             }
-            (Self::ConfirmSelectHint, Language::English) => {
-                "←→ / Tab select · Enter confirm · Esc back"
-            }
-            (Self::ConfirmSelectHint, Language::Chinese) => "←→ / Tab 切换 · Enter 确认 · Esc 返回",
+            (Self::ConfirmSelectHint, Language::English) => "←→ select · Enter confirm · Esc back",
+            (Self::ConfirmSelectHint, Language::Chinese) => "←→选择 · Enter 确认 · Esc 返回",
             (Self::ConfirmReviewHint, Language::English) => {
-                "←→ / Tab select · Enter confirm · Esc back · PgUp/PgDn review"
+                "←→ select · Enter confirm · Esc back · PgUp/PgDn review"
             }
             (Self::ConfirmReviewHint, Language::Chinese) => {
-                "←→ / Tab 切换 · Enter 确认 · Esc 返回 · PgUp/PgDn 查看"
+                "←→选择 · Enter 确认 · Esc 返回 · PgUp/PgDn 查看"
             }
             (Self::ActionCommit, Language::English) => "Commit",
             (Self::ActionCommit, Language::Chinese) => "提交",

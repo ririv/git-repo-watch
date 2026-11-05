@@ -51,6 +51,11 @@ impl Screen {
         }
     }
     pub(crate) fn management_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
+        if key.code == KeyCode::Esc && session.focus != Focus::List {
+            session.focus = Focus::List;
+            self.mode = Mode::Management(session);
+            return;
+        }
         if key.code == KeyCode::Esc {
             self.mode = Mode::Management(session);
             self.return_to_view();
@@ -77,14 +82,12 @@ impl Screen {
                         session.toggle(index);
                     }
                 }
-                (Focus::List, KeyCode::Tab | KeyCode::BackTab)
+                (Focus::List, KeyCode::BackTab)
                     if matches!(session.source, Source::Scan { .. }) =>
                 {
                     session.focus = Focus::Actions(0)
                 }
-                (Focus::Actions(_), KeyCode::Up | KeyCode::Tab | KeyCode::BackTab) => {
-                    session.focus = Focus::List
-                }
+                (Focus::Actions(_), KeyCode::Up | KeyCode::BackTab) => session.focus = Focus::List,
                 (Focus::Actions(index), KeyCode::Left)
                     if matches!(session.source, Source::Scan { .. }) =>
                 {

@@ -86,8 +86,6 @@ impl Screen {
         }
         match (key.code, key.modifiers) {
             (KeyCode::Enter | KeyCode::Esc, _) => self.focus_mode = State::Inactive,
-            (KeyCode::Tab, KeyModifiers::NONE) => self.cycle_pane(false),
-            (KeyCode::BackTab, _) => self.cycle_pane(true),
             (KeyCode::Up, KeyModifiers::NONE) => self.move_pane(Direction::Up),
             (KeyCode::Left, KeyModifiers::NONE) => self.move_pane(Direction::Left),
             (KeyCode::Down, KeyModifiers::NONE) => self.move_pane(Direction::Down),
