@@ -1,4 +1,5 @@
 //! File snapshots; index mutation and diff rendering are separate capabilities.
+pub mod conflict;
 mod diff;
 pub(crate) use diff::{match_location, scope};
 pub(crate) mod index;

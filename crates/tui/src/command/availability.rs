@@ -91,6 +91,22 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            ConflictView(crate::conflict::DisplayMode::Pair(target)) if matches!(&self.mode, Mode::Changes(session) if matches!(&session.preview,crate::changes::Preview::Ready {content,..} if matches!(content.as_ref(),crate::document::View::Conflict(_)))) =>
+            {
+                let Mode::Changes(session) = &self.mode else {
+                    unreachable!()
+                };
+                let crate::changes::Preview::Ready { content, .. } = &session.preview else {
+                    unreachable!()
+                };
+                let crate::document::View::Conflict(view) = content.as_ref() else {
+                    unreachable!()
+                };
+                view.pairs.reason(target).map(str::to_owned)
+            }
+            ConflictMenu | ConflictView(_) if !matches!(&self.mode, Mode::Changes(session) if matches!(&session.preview, crate::changes::Preview::Ready {content,..} if matches!(content.as_ref(), crate::document::View::Conflict(_)))) => {
+                Some(i18n::tr!(ConflictFileRequired).into())
+            }
             BranchFilterMenu | BranchFilter(_) if !matches!(&self.mode, Mode::Branches(view) if matches!(view.as_ref(), crate::branches::View::List(_))) => {
                 Some(i18n::tr!(BranchFilterRequiresView).into())
             }

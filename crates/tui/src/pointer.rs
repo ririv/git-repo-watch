@@ -31,6 +31,8 @@ pub(crate) enum ScrollTarget {
     CommitMessage,
     Overview,
     Diff,
+    Conflict(crate::conflict::Focus),
+    ConflictHorizontal(crate::conflict::Focus),
     InspectionMessage,
     InspectionReview,
     InspectionReviewHorizontal,

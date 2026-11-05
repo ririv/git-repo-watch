@@ -6,12 +6,12 @@ use highlight::{Highlighted, Limit};
 use std::num::NonZeroU32;
 
 #[derive(Clone, Copy)]
-pub(super) enum Side {
+pub(crate) enum Side {
     Old,
     New,
 }
 
-pub(super) enum Paint {
+pub(crate) enum Paint {
     Absent,
     Source(highlight::Source),
     Omitted(SourceOmission),
@@ -45,7 +45,7 @@ impl Paint {
     }
 }
 
-pub(super) fn prepare(
+pub(crate) fn prepare(
     source: &Source,
     requested: &BTreeSet<NonZeroU32>,
     patch: &[PatchLine],
@@ -93,7 +93,7 @@ fn content(text: &str) -> &str {
     text.strip_suffix('\r').unwrap_or(text)
 }
 
-pub(super) fn spans(
+pub(crate) fn spans(
     text: &str,
     highlighted: Option<&Highlighted>,
     base: Style,

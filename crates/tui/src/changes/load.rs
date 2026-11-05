@@ -72,22 +72,37 @@ impl Loader {
                             &document,
                             &task_cancel,
                         ));
-                    let mut content = document::prepare_change(
-                        &change.location.display(),
-                        document,
-                        change,
-                        &task_cancel,
-                    )?;
-                    if let document::View::Text(view) = content.as_mut() {
-                        view.interaction = match &editing {
-                            super::edit::State::Ready(_) => {
-                                crate::diff::Interaction::Editable(None)
-                            }
-                            super::edit::State::Unavailable(_) => {
-                                crate::diff::Interaction::ReadOnly
-                            }
-                        };
-                    }
+                    let content = if change.kind == 'U' {
+                        let snapshot = service.conflict(&request.snapshot, change, &task_cancel)?;
+                        let pairs = crate::conflict::pair::Pairs::prepare(
+                            &snapshot,
+                            &document,
+                            &task_cancel,
+                        )?;
+                        let result =
+                            crate::conflict::result::View::prepare(document, change, &task_cancel)?;
+                        Box::new(document::View::Conflict(Box::new(
+                            crate::conflict::View::prepare(snapshot, result, pairs, &task_cancel)?,
+                        )))
+                    } else {
+                        let mut content = document::prepare_change(
+                            &change.location.display(),
+                            document,
+                            change,
+                            &task_cancel,
+                        )?;
+                        if let document::View::Text(view) = content.as_mut() {
+                            view.interaction = match &editing {
+                                super::edit::State::Ready(_) => {
+                                    crate::diff::Interaction::Editable(None)
+                                }
+                                super::edit::State::Unavailable(_) => {
+                                    crate::diff::Interaction::ReadOnly
+                                }
+                            };
+                        }
+                        content
+                    };
                     Ok(Review { content, editing })
                 })
                 .map_err(|error| format!("{error:#}"));

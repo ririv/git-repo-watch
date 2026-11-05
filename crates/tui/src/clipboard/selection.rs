@@ -16,6 +16,7 @@ pub(crate) enum Unavailable {
     Truncated,
     NoPatch,
     InvalidPath,
+    ConflictVersions,
 }
 impl Unavailable {
     fn message(self) -> &'static str {
@@ -26,6 +27,7 @@ impl Unavailable {
             Self::Truncated => i18n::tr!(CopyDiffTruncated),
             Self::NoPatch => i18n::tr!(CopyDiffRequired),
             Self::InvalidPath => i18n::tr!(CopyPathNotUtf8),
+            Self::ConflictVersions => i18n::tr!(CopyConflictUnavailable),
         }
     }
 }
@@ -58,6 +60,26 @@ impl Content {
     }
     fn document(content: &document::View) -> Self {
         match content {
+            document::View::Conflict(view) => match view.focus() {
+                crate::conflict::Focus::Compare => match view.active_comparison() {
+                    engine::local::files::conflict::Comparison::Text(_) => {
+                        Self::text(Target::Conflict, view.export())
+                    }
+                    _ => Self::Unavailable(Unavailable::ConflictVersions),
+                },
+                crate::conflict::Focus::Result => match &view.result.content {
+                    crate::conflict::result::Content::Source {
+                        body: crate::conflict::Body::Text { source, .. },
+                        ..
+                    } => Self::text(Target::ConflictResult, source.clone()),
+                    crate::conflict::result::Content::Source { .. } => {
+                        Self::Unavailable(Unavailable::ConflictVersions)
+                    }
+                    crate::conflict::result::Content::Document(document) => {
+                        Self::document(document)
+                    }
+                },
+            },
             document::View::Images(_) => Self::Unavailable(Unavailable::Image),
             document::View::Text(view) => match &view.export {
                 diff::Export::Complete(text) if text.is_empty() => {
@@ -261,7 +283,11 @@ impl Selection {
             return matches!(action, Action::Copy | Action::Quit | Action::Tasks);
         }
         match action {
-            Action::PartialSelectMenu | Action::PartialSelect(_) | Action::Discard => {
+            Action::PartialSelectMenu
+            | Action::PartialSelect(_)
+            | Action::Discard
+            | Action::ConflictMenu
+            | Action::ConflictView(_) => {
                 matches!(self, Self::Diff { .. })
             }
             Action::LogSelect | Action::LogSelection(_) => {

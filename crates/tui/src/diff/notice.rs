@@ -5,9 +5,9 @@ use ratatui::{
     text::{Line, Span},
 };
 
-pub(super) const NO_NEWLINE: &str = "⊖";
+pub(crate) const NO_NEWLINE: &str = "⊖";
 
-pub(super) fn ending(gutter: usize) -> crate::links::Line {
+pub(crate) fn ending(gutter: usize) -> crate::links::Line {
     Line::from(vec![
         Span::raw(" ".repeat(gutter)),
         Span::styled(NO_NEWLINE, Style::default().fg(Color::LightRed)),

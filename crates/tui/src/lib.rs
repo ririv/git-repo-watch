@@ -14,6 +14,7 @@ mod commit_form;
 mod commit_message;
 mod composition;
 mod confirmation;
+mod conflict;
 mod diff;
 mod document;
 mod editor;

@@ -316,6 +316,10 @@ fn browsing_hint(screen: &Screen) -> &'static str {
                     crate::changes::edit::Granularity::Line => i18n::tr!(PartialLineHint),
                 }
             }
+            crate::changes::Focus::Preview if matches!(&session.preview, crate::changes::Preview::Ready {content,..} if matches!(content.as_ref(), crate::document::View::Conflict(_))) =>
+            {
+                i18n::tr!(ConflictInputHint)
+            }
             crate::changes::Focus::Preview if screen.config.text_wrap => {
                 i18n::tr!(WrappedDiffPreviewHint)
             }

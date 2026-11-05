@@ -13,6 +13,7 @@ mod commands;
 pub(crate) mod commit;
 mod completion;
 pub(crate) mod composition;
+pub(crate) mod conflict;
 mod diff;
 mod document;
 mod feedback;

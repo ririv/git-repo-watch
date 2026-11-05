@@ -19,8 +19,8 @@ mod layout;
 mod layout_tests;
 #[cfg(test)]
 mod newline_tests;
-mod notice;
-mod source;
+pub(crate) mod notice;
+pub(crate) mod source;
 #[cfg(test)]
 mod tests;
 mod text;

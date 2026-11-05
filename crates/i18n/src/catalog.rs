@@ -2,6 +2,31 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    CopyConflictUnavailable,
+    CopyConflictVersions,
+    CopyConflictResult,
+    ConflictIncludeBase,
+    ConflictCompareCurrent,
+    ConflictCompareIncoming,
+    ConflictCompareResult,
+    ConflictOverview,
+    ConflictCompareSides,
+    ConflictCompareLeftResult,
+    ConflictCompareResultRight,
+    ConflictInputHint,
+    ConflictBase,
+    ConflictCurrent,
+    ConflictIncoming,
+    ConflictFileRequired,
+    ConflictCompare,
+    ConflictResult,
+    ConflictViewCommand,
+    ConflictStage,
+    ConflictAbsent,
+    ConflictEmpty,
+    ConflictLineLimit,
+    ConflictNonText,
+    ConflictResultHint,
     BranchFilterCommand,
     BranchFilterRequiresView,
     HistoryParentCommand,
@@ -1266,6 +1291,72 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::CopyConflictUnavailable, Language::Chinese) => "冲突版本无法完整读取为文本",
+            (Self::CopyConflictUnavailable, Language::English) => {
+                "Conflict versions cannot be read completely as text"
+            }
+            (Self::ConflictCompareCurrent, Language::Chinese) => "基础和左（当前）",
+            (Self::ConflictCompareCurrent, Language::English) => "Base and left (current)",
+            (Self::ConflictCompareIncoming, Language::Chinese) => "基础和右（传入）",
+            (Self::ConflictCompareIncoming, Language::English) => "Base and right (incoming)",
+            (Self::ConflictCompareResult, Language::Chinese) => "基础和结果",
+            (Self::ConflictCompareResult, Language::English) => "Base and result",
+            (Self::ConflictCompareSides, Language::Chinese) => "左（当前）和右（传入）",
+            (Self::ConflictCompareSides, Language::English) => {
+                "Left (current) and right (incoming)"
+            }
+            (Self::ConflictCompareLeftResult, Language::Chinese) => "左（当前）和结果",
+            (Self::ConflictCompareLeftResult, Language::English) => "Left (current) and result",
+            (Self::ConflictCompareResultRight, Language::Chinese) => "结果和右（传入）",
+            (Self::ConflictCompareResultRight, Language::English) => "Result and right (incoming)",
+            (Self::CopyConflictResult, Language::Chinese) => "复制工作区结果源码",
+            (Self::CopyConflictResult, Language::English) => "Copy working result source",
+            (Self::ConflictIncludeBase, Language::Chinese) => "包含基础版本",
+            (Self::ConflictIncludeBase, Language::English) => "Include base",
+            (Self::ConflictOverview, Language::Chinese) => "左、右和结果",
+            (Self::ConflictOverview, Language::English) => "Left, right and result",
+            (Self::CopyConflictVersions, Language::Chinese) => "复制冲突版本",
+            (Self::CopyConflictVersions, Language::English) => "Copy conflict versions",
+            (Self::ConflictInputHint, Language::Chinese) => {
+                "↑↓滚动 · ←→平移 · //focus 切换区域 · /editor 编辑 · Esc 返回"
+            }
+            (Self::ConflictInputHint, Language::English) => {
+                "↑↓ scroll · ←→ pan · //focus panes · /editor edit · Esc back"
+            }
+            (Self::ConflictBase, Language::Chinese) => "基础",
+            (Self::ConflictBase, Language::English) => "Base",
+            (Self::ConflictCurrent, Language::Chinese) => "左（当前）",
+            (Self::ConflictCurrent, Language::English) => "Left (current)",
+            (Self::ConflictIncoming, Language::Chinese) => "右（传入）",
+            (Self::ConflictIncoming, Language::English) => "Right (incoming)",
+            (Self::ConflictFileRequired, Language::Chinese) => "请先选择冲突文件",
+            (Self::ConflictFileRequired, Language::English) => "Select a conflicted file first",
+            (Self::ConflictCompare, Language::Chinese) => "版本比较",
+            (Self::ConflictCompare, Language::English) => "Input comparison",
+            (Self::ConflictResult, Language::Chinese) => "工作区结果",
+            (Self::ConflictResult, Language::English) => "Worktree result",
+            (Self::ConflictViewCommand, Language::Chinese) => "冲突版本显示",
+            (Self::ConflictViewCommand, Language::English) => "Conflict versions",
+            (Self::ConflictStage, Language::Chinese) => "索引阶段",
+            (Self::ConflictStage, Language::English) => "Index stage",
+            (Self::ConflictAbsent, Language::Chinese) => "此版本没有该文件",
+            (Self::ConflictAbsent, Language::English) => "File absent in this version",
+            (Self::ConflictEmpty, Language::Chinese) => "空文件",
+            (Self::ConflictEmpty, Language::English) => "Empty file",
+            (Self::ConflictLineLimit, Language::Chinese) => "文本比较超过 50,000 行上限",
+            (Self::ConflictLineLimit, Language::English) => {
+                "Text comparison exceeds the 50,000-line limit"
+            }
+            (Self::ConflictNonText, Language::Chinese) => "此版本无法完整读取为文本",
+            (Self::ConflictNonText, Language::English) => {
+                "This version is not plain text; line comparison is unavailable"
+            }
+            (Self::ConflictResultHint, Language::Chinese) => {
+                "包含基础：/repo diff conflict include-base · 编辑：/editor"
+            }
+            (Self::ConflictResultHint, Language::English) => {
+                "Base: /repo diff conflict include-base · Edit: /editor"
+            }
             (Self::SearchTargetContent, Language::English) => "content",
             (Self::SearchTargetContent, Language::Chinese) => "内容",
             (Self::ContentSearchPlaceholder, Language::English) => {

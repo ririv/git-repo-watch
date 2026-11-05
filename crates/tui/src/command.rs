@@ -47,6 +47,8 @@ pub enum Action {
     PartialSelect(crate::changes::edit::Granularity),
     Discard,
     Diff,
+    ConflictMenu,
+    ConflictView(crate::conflict::DisplayMode),
     BrowseFiles,
     BrowserDiff,
     BrowserLayoutMenu,
@@ -250,6 +252,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff view",
         action: FileLayoutMenu,
         description: i18n::Message::FilesLayout,
+    },
+    Command {
+        name: "repo diff conflict",
+        action: ConflictMenu,
+        description: i18n::Message::ConflictViewCommand,
     },
     Command {
         name: "repo files",

@@ -256,7 +256,8 @@ fn render_menu(
                 })
             } else { None }
                 .or(target)
-                .or_else(|| match (&screen.mode, command.action) { (Mode::Branches(view), Action::BranchFilterMenu) => Some(view.session().filter.title().into()), _ => None })
+                .or_else(|| match (&screen.mode, command.action) { (Mode::Branches(view), Action::BranchFilterMenu) => Some(view.session().filter.title().into()),
+                    (Mode::Changes(session), Action::ConflictMenu) => match &session.preview { crate::changes::Preview::Ready { content,..} => match content.as_ref() { crate::document::View::Conflict(view) => Some(view.mode.label().into()), _ => None }, _ => None }, _ => None })
                 .or_else(|| repository_list::annotation(command.action, screen))
                 .or_else(|| layout_picker::annotation(command.action, screen, body))
                 .or_else(|| settings::annotation(command.action, screen))

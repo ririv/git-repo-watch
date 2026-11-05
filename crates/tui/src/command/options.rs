@@ -10,6 +10,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    Conflict,
     StashPreview,
     StashSave,
     DiffSelection,
@@ -34,6 +35,7 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    Conflict(crate::conflict::DisplayMode),
     StashPreview(engine::local::stash::preview::Scope),
     StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
@@ -64,6 +66,58 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Overview),
+        token: "overview",
+        description: M::ConflictOverview,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::IncludeBase),
+        token: "include-base",
+        description: M::ConflictIncludeBase,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::BaseCurrent,
+        )),
+        token: "base-left",
+        description: M::ConflictCompareCurrent,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::BaseIncoming,
+        )),
+        token: "base-right",
+        description: M::ConflictCompareIncoming,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::BaseResult,
+        )),
+        token: "base-result",
+        description: M::ConflictCompareResult,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::CurrentIncoming,
+        )),
+        token: "left-right",
+        description: M::ConflictCompareSides,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::CurrentResult,
+        )),
+        token: "left-result",
+        description: M::ConflictCompareLeftResult,
+    },
+    Option {
+        value: Value::Conflict(crate::conflict::DisplayMode::Pair(
+            crate::conflict::pair::Pair::ResultIncoming,
+        )),
+        token: "result-right",
+        description: M::ConflictCompareResultRight,
+    },
     Option {
         value: Value::BranchFilter(crate::branches::Filter::All),
         token: "all",
@@ -349,6 +403,7 @@ impl Value {
     pub fn action(self) -> Action {
         match self {
             Self::StashPreview(scope) => Action::StashPreview(scope),
+            Self::Conflict(value) => Action::ConflictView(value),
             Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
@@ -379,6 +434,7 @@ impl Value {
     fn kind(self) -> Kind {
         match self {
             Self::StashPreview(_) => Kind::StashPreview,
+            Self::Conflict(_) => Kind::Conflict,
             Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
@@ -406,6 +462,7 @@ impl Kind {
     pub fn action(self) -> Action {
         match self {
             Self::StashPreview => Action::StashPreviewMenu,
+            Self::Conflict => Action::ConflictMenu,
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
@@ -453,6 +510,16 @@ impl Kind {
             }
             Self::BranchFilter => match &screen.mode {
                 crate::Mode::Branches(view) => Value::BranchFilter(view.session().filter),
+                _ => return None,
+            },
+            Self::Conflict => match &screen.mode {
+                crate::Mode::Changes(session) => match &session.preview {
+                    crate::changes::Preview::Ready { content, .. } => match content.as_ref() {
+                        crate::document::View::Conflict(view) => Value::Conflict(view.mode),
+                        _ => return None,
+                    },
+                    _ => return None,
+                },
                 _ => return None,
             },
             Self::Filter => Value::Filter(screen.filter),

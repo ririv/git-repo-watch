@@ -23,6 +23,8 @@ pub(crate) enum Target {
     Branch,
     Stash,
     Diff,
+    Conflict,
+    ConflictResult,
     Error,
 }
 impl Target {
@@ -34,6 +36,8 @@ impl Target {
             Self::Stash => i18n::tr!(StashObject),
             Self::Branch => i18n::tr!(CopyBranch),
             Self::Diff => i18n::tr!(CopyDiff),
+            Self::Conflict => i18n::tr!(CopyConflictVersions),
+            Self::ConflictResult => i18n::tr!(CopyConflictResult),
             Self::Error => i18n::tr!(CopyError),
         }
     }

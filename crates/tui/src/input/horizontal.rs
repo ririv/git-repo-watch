@@ -1,5 +1,5 @@
 //! Route horizontal scrolling without stealing editor or confirmation keys.
-use crate::{Mode, Screen, changes, document, history};
+use crate::{Mode, Screen, changes, history};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl Screen {
@@ -56,8 +56,8 @@ impl Screen {
             },
             _ => return false,
         };
-        if let document::View::Text(view) = content.as_mut() {
-            view.horizontal.advance(delta);
+        if let Some(horizontal) = content.horizontal() {
+            horizontal.advance(delta);
         }
         // 图片仍按窗口适配；同一预览中的左右键不会触发导航。
         true

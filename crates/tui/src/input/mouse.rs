@@ -298,7 +298,16 @@ impl Screen {
                 _ => None,
             };
             let focus_before = match &self.mode {
-                Mode::Changes(session) => Some(session.focus),
+                Mode::Changes(session) => Some((
+                    session.focus,
+                    match &session.preview {
+                        crate::changes::Preview::Ready { content, .. } => match content.as_ref() {
+                            crate::document::View::Conflict(view) => Some(view.focus()),
+                            _ => None,
+                        },
+                        _ => None,
+                    },
+                )),
                 _ => None,
             };
             let inspection_focus_before = self.mode.inspection().map(|inspect| inspect.focus);
@@ -377,7 +386,18 @@ impl Screen {
                 || inspection_focus_before != self.mode.inspection().map(|inspect| inspect.focus)
                 || focus_before
                     != match &self.mode {
-                        Mode::Changes(session) => Some(session.focus),
+                        Mode::Changes(session) => Some((
+                            session.focus,
+                            match &session.preview {
+                                crate::changes::Preview::Ready { content, .. } => {
+                                    match content.as_ref() {
+                                        crate::document::View::Conflict(view) => Some(view.focus()),
+                                        _ => None,
+                                    }
+                                }
+                                _ => None,
+                            },
+                        )),
                         _ => None,
                     }
                 || browser_focus_before
@@ -652,6 +672,28 @@ impl Screen {
                     return false;
                 }
                 session.focus = focus;
+            }
+            if focus == crate::changes::Focus::Preview {
+                let preview = self.body_area.and_then(|area| {
+                    crate::view::changes::areas(area, session)
+                        .into_iter()
+                        .find_map(|(area, focus)| {
+                            (focus == crate::changes::Focus::Preview).then_some(area)
+                        })
+                });
+                if let Some(area) = preview
+                    && let crate::changes::Preview::Ready {
+                        content, scroll, ..
+                    } = &mut session.preview
+                    && let crate::document::View::Conflict(view) = content.as_mut()
+                    && let Some(next) = crate::view::conflict::focus_at(area, view.mode, point)
+                    && next != view.focus()
+                {
+                    if !self.config.mouse.select_pane {
+                        return false;
+                    }
+                    view.select(next, scroll);
+                }
             }
         } else if self.page == Page::Detail && crate::workspace::Workspace::is_root(&self.mode) {
             let section = self

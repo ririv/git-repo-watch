@@ -1,6 +1,6 @@
 //! Apply selections from rendered hit regions without executing repository operations.
 use crate::{
-    Mode, Page, Screen, branches, changes, document, history,
+    Mode, Page, Screen, branches, changes, history,
     pointer::{Action, ScrollTarget, Target},
     stashes,
 };
@@ -357,6 +357,36 @@ impl Screen {
                     },
                     _ => return false,
                 },
+                ScrollTarget::Conflict(focus) | ScrollTarget::ConflictHorizontal(focus) => {
+                    let Mode::Changes(session) = &mut self.mode else {
+                        return false;
+                    };
+                    let changes::Preview::Ready {
+                        content, scroll, ..
+                    } = &mut session.preview
+                    else {
+                        return false;
+                    };
+                    let crate::document::View::Conflict(view) = content.as_mut() else {
+                        return false;
+                    };
+                    if (session.focus != changes::Focus::Preview || view.focus() != focus)
+                        && !self.config.mouse.select_pane
+                    {
+                        return false;
+                    }
+                    session.focus = changes::Focus::Preview;
+                    view.select(focus, scroll);
+                    match target {
+                        ScrollTarget::Conflict(_) => *scroll = offset,
+                        ScrollTarget::ConflictHorizontal(_) => {
+                            if let Some(horizontal) = content.horizontal() {
+                                horizontal.seek(offset);
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 ScrollTarget::Diff | ScrollTarget::DiffHorizontal => {
                     let (content, scroll) = match &mut self.mode {
                         Mode::Changes(session) => match &mut session.preview {
@@ -381,9 +411,9 @@ impl Screen {
                     };
                     match target {
                         ScrollTarget::Diff => *scroll = offset,
-                        ScrollTarget::DiffHorizontal => match content.as_mut() {
-                            document::View::Text(view) => view.horizontal.seek(offset),
-                            _ => return false,
+                        ScrollTarget::DiffHorizontal => match content.horizontal() {
+                            Some(view) => view.seek(offset),
+                            None => return false,
                         },
                         _ => unreachable!(),
                     }

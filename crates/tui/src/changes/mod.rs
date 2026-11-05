@@ -65,7 +65,7 @@ pub(super) struct Session {
 struct Bookmark {
     path: std::path::PathBuf,
     selection: Option<edit::Bookmark>,
-    reading: Option<crate::diff::Position>,
+    reading: Option<crate::document::Position>,
 }
 impl Session {
     pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
@@ -96,11 +96,9 @@ impl Session {
                     edit::State::Ready(editing) => Some(editing.bookmark()),
                     _ => None,
                 },
-                reading: match content.as_ref() {
-                    document::View::Text(view) => view.position(*scroll),
-                    _ => None,
-                },
+                reading: content.position(*scroll),
             }),
+            Preview::Loading(_) => self.bookmark.take(),
             _ => None,
         };
         self.files = self.files.refreshed(snapshot);
@@ -163,6 +161,7 @@ impl Session {
         {
             self.preview = match result {
                 Ok(mut review) => {
+                    let mut scroll = 0;
                     if let Some(bookmark) = self.bookmark.take()
                         && key.change.location.name() == bookmark.path
                     {
@@ -171,17 +170,15 @@ impl Session {
                         {
                             editing.restore(&selection);
                         }
-                        if let (Some(reading), document::View::Text(view)) =
-                            (bookmark.reading, review.content.as_mut())
-                        {
-                            view.restore_position(reading);
+                        if let Some(reading) = bookmark.reading {
+                            review.content.restore_position(reading, &mut scroll);
                         }
                     }
                     Preview::Ready {
                         key,
                         content: review.content,
                         editing: review.editing,
-                        scroll: 0,
+                        scroll,
                     }
                 }
                 Err(error) => Preview::Failed { key, error },

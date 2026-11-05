@@ -89,7 +89,7 @@ fn keyboard_cycles_content_and_actions_without_scrolling_or_changing_files() {
         action_row
             > text
                 .lines()
-                .position(|line| line.contains("<<<<<<<"))
+                .position(|line| line.contains("incoming"))
                 .unwrap(),
         "{text}"
     );

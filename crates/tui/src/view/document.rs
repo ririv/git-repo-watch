@@ -25,6 +25,9 @@ pub(super) fn render(
     hits: &mut crate::pointer::Map,
 ) {
     match view {
+        View::Conflict(view) => {
+            super::conflict::render(frame, area, view, scroll, preference, graphics, hits)
+        }
         View::Text(text) => diff::render(frame, area, text, scroll, preference, hits),
         View::Images(images) => {
             let border = block(i18n::tr!(ImagePreview));

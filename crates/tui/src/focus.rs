@@ -42,7 +42,16 @@ impl Screen {
             },
             Mode::Changes(session) => match session.focus {
                 crate::changes::Focus::Files => i18n::tr!(Worktree),
-                crate::changes::Focus::Preview => i18n::tr!(FileDiff),
+                crate::changes::Focus::Preview => match &session.preview {
+                    crate::changes::Preview::Ready { content, .. } => match content.as_ref() {
+                        crate::document::View::Conflict(view) => match view.focus() {
+                            crate::conflict::Focus::Compare => i18n::tr!(ConflictCompare),
+                            crate::conflict::Focus::Result => i18n::tr!(ConflictResult),
+                        },
+                        _ => i18n::tr!(FileDiff),
+                    },
+                    _ => i18n::tr!(FileDiff),
+                },
             },
             Mode::Browsing if self.page == Page::Detail => self
                 .workspace
@@ -125,11 +134,28 @@ impl Screen {
             Mode::Changes(session) => {
                 use crate::changes::Focus::{Files, Preview};
                 if let Some(area) = self.body_area {
-                    session.focus = match (session.focus, direction, area.width >= 110) {
-                        (Files, Right, true) | (Files, Down, false) => Preview,
-                        (Preview, Left, true) | (Preview, Up, false) => Files,
-                        _ => session.focus,
-                    };
+                    let wide = area.width >= 110;
+                    if session.focus == Preview
+                        && let crate::changes::Preview::Ready {
+                            content, scroll, ..
+                        } = &mut session.preview
+                        && let crate::document::View::Conflict(view) = content.as_mut()
+                    {
+                        use crate::conflict::Focus::{Compare, Result};
+                        match (direction, view.focus()) {
+                            (Left, _) if wide => session.focus = Files,
+                            (Up, Result) => view.select(Compare, scroll),
+                            (Up, Compare) if !wide => session.focus = Files,
+                            (Down, Compare) => view.select(Result, scroll),
+                            _ => {}
+                        }
+                    } else {
+                        session.focus = match (session.focus, direction, wide) {
+                            (Files, Right, true) | (Files, Down, false) => Preview,
+                            (Preview, Left, true) | (Preview, Up, false) => Files,
+                            _ => session.focus,
+                        };
+                    }
                 }
             }
             Mode::Browser(session) => {

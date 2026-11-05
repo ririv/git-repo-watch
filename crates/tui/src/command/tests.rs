@@ -16,6 +16,7 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff header",
         "repo diff discard",
         "repo diff view",
+        "repo diff conflict",
     ];
     for input in ["di", "repo diff", "  diff"] {
         assert_eq!(&names(input)[..expected.len()], expected);

@@ -2,6 +2,7 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    Conflict,
     BranchFilter,
     HistoryParent,
     ExternalEditorOpen,
@@ -108,6 +109,8 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::Conflict, Language::Chinese) => "冲突版本显示",
+            (Self::Conflict, Language::English) => "Conflict versions",
             (Self::ExternalEditorOpen, Language::English) => "Open in editor",
             (Self::ExternalEditorOpen, Language::Chinese) => "用编辑器打开",
             (Self::ExternalEditorSetting, Language::English) => "Choose editor",

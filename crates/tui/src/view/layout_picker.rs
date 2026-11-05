@@ -34,9 +34,7 @@ pub(super) fn summary(screen: &Screen, body: Rect) -> String {
     }
 }
 fn effective(view: &document::View, area: Rect, preference: Preference) -> Option<DiffLayout> {
-    let document::View::Text(text) = view else {
-        return None;
-    };
+    let text = view.text()?;
     let width = area.width.saturating_sub(2);
     let layout = text.selected_layout(width, preference);
     (width >= text.minimum_width(layout)).then_some(layout)

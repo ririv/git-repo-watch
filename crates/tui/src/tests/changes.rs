@@ -68,6 +68,7 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff header",
                 "repo diff discard",
                 "repo diff view",
+                "repo diff conflict",
             ]
         );
         assert_eq!(

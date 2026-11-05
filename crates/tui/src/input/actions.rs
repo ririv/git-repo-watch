@@ -41,6 +41,20 @@ impl Screen {
             Action::CommitGenerate if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 self.generate_commit_message()
             }
+            Action::ConflictMenu => {
+                self.open_option_menu(command::options::Kind::Conflict, path, selection)
+            }
+            Action::ConflictView(mode) => {
+                if let Mode::Changes(session) = &mut self.mode
+                    && let crate::changes::Preview::Ready {
+                        content, scroll, ..
+                    } = &mut session.preview
+                    && let crate::document::View::Conflict(view) = content.as_mut()
+                {
+                    view.set_mode(mode, scroll);
+                }
+                self.sync_bar();
+            }
             Action::BranchFilterMenu => {
                 self.open_option_menu(command::options::Kind::BranchFilter, path, selection)
             }

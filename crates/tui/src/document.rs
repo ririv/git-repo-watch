@@ -13,6 +13,7 @@ use engine::{
 pub(super) enum View {
     Text(Box<diff::View>),
     Images(Box<preview::View>),
+    Conflict(Box<crate::conflict::View>),
 }
 impl View {
     #[cfg(test)]
@@ -20,6 +21,50 @@ impl View {
         match self {
             Self::Text(view) => view.labels(),
             Self::Images(view) => view.labels.clone(),
+            Self::Conflict(_) => (
+                i18n::tr!(ConflictCurrent).into(),
+                i18n::tr!(ConflictIncoming).into(),
+            ),
+        }
+    }
+}
+#[derive(Debug)]
+pub(crate) enum Position {
+    Diff(diff::Position),
+    Conflict(crate::conflict::Position),
+}
+impl View {
+    pub(crate) fn position(&self, scroll: usize) -> Option<Position> {
+        match self {
+            Self::Text(view) => view.position(scroll).map(Position::Diff),
+            Self::Conflict(view) => Some(Position::Conflict(view.position(scroll))),
+            _ => None,
+        }
+    }
+    pub(crate) fn restore_position(&mut self, position: Position, scroll: &mut usize) {
+        match (self, position) {
+            (Self::Text(view), Position::Diff(position)) => view.restore_position(position),
+            (Self::Conflict(view), Position::Conflict(position)) => view.restore(position, scroll),
+            _ => {}
+        }
+    }
+    pub(crate) fn text(&self) -> Option<&diff::View> {
+        match self {
+            Self::Text(view) => Some(view),
+            _ => None,
+        }
+    }
+    pub(crate) fn horizontal(&mut self) -> Option<&mut crate::horizontal::Viewport> {
+        match self {
+            Self::Text(view) => Some(&mut view.horizontal),
+            Self::Conflict(view) => {
+                if view.focus() == crate::conflict::Focus::Compare {
+                    Some(&mut view.horizontal)
+                } else {
+                    view.result.horizontal()
+                }
+            }
+            _ => None,
         }
     }
 }

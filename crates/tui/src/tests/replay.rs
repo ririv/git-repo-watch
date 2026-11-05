@@ -256,8 +256,12 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     let text = render(&mut s, 140, 38);
     assert!(text.contains(i18n::tr!(ReplayContinueShort)), "{text}");
     key(&mut s, KeyCode::Esc);
-    assert!(text.contains(i18n::tr!(ReplayConflictWorktree)), "{text}");
-    assert!(text.contains("<<<<<<<"), "{text}");
+    assert!(text.contains(i18n::tr!(ConflictCompare)), "{text}");
+    assert!(text.contains(i18n::tr!(ConflictCurrent)), "{text}");
+    command(&mut s, "repo diff conflict include-base");
+    let result = render(&mut s, 140, 38);
+    assert!(result.contains(i18n::tr!(ConflictResult)), "{result}");
+    assert!(result.contains("<<<<<<<"), "{result}");
     support::write(f.repo.join("conflict.txt"), "resolved\n");
     command(&mut s, "repo diff stage");
     wait(&mut s);
