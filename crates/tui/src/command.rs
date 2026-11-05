@@ -8,6 +8,7 @@ pub(crate) mod loader;
 pub(crate) mod options;
 pub(crate) mod path;
 mod prefix;
+pub(crate) mod repository;
 pub(crate) mod scan;
 mod summary;
 #[cfg(test)]
@@ -115,6 +116,14 @@ pub struct Command {
     pub name: &'static str,
     pub action: Action,
     pub description: i18n::Message,
+}
+impl Command {
+    pub(crate) fn common(&self) -> bool {
+        matches!(
+            self.action,
+            Action::Copy | Action::Refresh | Action::OpenEditor | Action::Terminal
+        )
+    }
 }
 use Action::*;
 // 父命令排在子命令之前，使前缀匹配默认选中入口，避免意外执行子操作。

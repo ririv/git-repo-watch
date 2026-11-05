@@ -6,6 +6,7 @@ mod browser_horizontal;
 mod changes;
 mod command_availability;
 mod command_navigation;
+mod command_polish;
 mod command_trigger;
 mod command_values;
 mod commands;
@@ -123,6 +124,7 @@ fn screen(service: Service) -> Screen {
         clipboard: Default::default(),
         link_opener: Default::default(),
         external_editor: Default::default(),
+        command_repository: Default::default(),
         commit_generator: Default::default(),
         commit_draft_id: 0,
         repository_viewport,

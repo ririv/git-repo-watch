@@ -17,6 +17,7 @@ pub(crate) struct CommandDraft {
     pub input: command::Input,
     pub path: Option<PathBuf>,
     pub selection: crate::clipboard::Selection,
+    pub repository: command::repository::Captured,
     pub return_to: ReturnTo,
 }
 #[derive(Debug)]
@@ -34,6 +35,7 @@ pub(crate) enum InputBar {
         menu: command::completion::Menu,
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
+        repository: command::repository::Captured,
     },
 }
 impl Default for InputBar {
@@ -102,6 +104,26 @@ pub(crate) enum BarEvent {
     Quit,
 }
 impl Screen {
+    pub(crate) fn capture_repository(
+        &self,
+        path: Option<&std::path::Path>,
+    ) -> command::repository::Captured {
+        if let Some(path) = path
+            && let InputBar::Command { repository, .. } = &self.bar
+            && repository.matches(path)
+        {
+            return repository.clone();
+        }
+        command::repository::Captured::new(path.map(std::path::Path::to_owned))
+    }
+    pub(crate) fn poll_command_repository(&mut self) -> bool {
+        let captured = match &self.bar {
+            InputBar::Command { repository, .. } => repository.clone(),
+            InputBar::Layout { draft, .. } => draft.repository.clone(),
+            _ => Default::default(),
+        };
+        self.command_repository.poll(&captured, &self.service)
+    }
     pub(crate) fn sync_plain_bar(&mut self) {
         if self.tasks.session.open() {
             return;
@@ -337,6 +359,7 @@ impl Screen {
             menu,
             path,
             selection,
+            repository,
         } = &mut self.bar
         {
             match input.namespace_key(key) {
@@ -476,6 +499,7 @@ impl Screen {
                                     input: input.clone(),
                                     path: path.clone(),
                                     selection: selection.clone(),
+                                    repository: repository.clone(),
                                     return_to: ReturnTo::Command,
                                 };
                                 match argument.mutation(&value) {
@@ -496,6 +520,7 @@ impl Screen {
                                 input: input.clone(),
                                 path: path.clone(),
                                 selection: selection.clone(),
+                                repository: repository.clone(),
                                 return_to: ReturnTo::Command,
                             };
                             let cursor = *selected;
@@ -654,6 +679,7 @@ impl Screen {
             input: command::Input::new(self.command_context()),
             selected: 0,
             menu: Default::default(),
+            repository: command::repository::Captured::new(self.scope_path()),
             path: self.scope_path(),
             selection: self.copy_selection(),
         };

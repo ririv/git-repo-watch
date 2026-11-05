@@ -43,7 +43,11 @@ fn groups_put_direct_entries_before_deeper_actions_without_hiding_descendants() 
             .iter()
             .any(|command| command.name == "repo diff stage")
     );
-    let scoped = command::Context::Repository.matches("");
+    let scoped = command::Context::Repository
+        .matches("")
+        .into_iter()
+        .filter(|command| !command.common())
+        .collect::<Vec<_>>();
     let direct = scoped
         .iter()
         .take_while(|command| command.name.split_whitespace().count() == 2)
@@ -205,6 +209,7 @@ fn pending_reads_filter_the_latest_query_and_cancelled_directory_results_do_not_
         menu: Menu::Loading(request.clone()),
         path: Some("/example/alpha".into()),
         selection: Default::default(),
+        repository: Default::default(),
     };
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();
@@ -253,6 +258,7 @@ fn pending_reads_filter_the_latest_query_and_cancelled_directory_results_do_not_
         menu: Menu::Loading(request.clone()),
         path: None,
         selection: Default::default(),
+        repository: Default::default(),
     };
     let (entered_tx, entered_rx) = mpsc::channel();
     let (release_tx, release_rx) = mpsc::channel();

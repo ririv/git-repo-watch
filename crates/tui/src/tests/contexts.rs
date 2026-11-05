@@ -81,7 +81,7 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
             s.search_commands()
                 .unwrap()
                 .iter()
-                .all(|c| c.name.starts_with("repo diff "))
+                .all(|c| c.common() || c.name.starts_with("repo diff "))
         );
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
@@ -93,10 +93,12 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
             );
         }
         s.paste("terminal");
-        key(&mut s, KeyCode::Enter);
-        assert!(s.search_commands().unwrap().is_empty());
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.text(), "/terminal");
         assert!(s.repository_tasks.is_empty());
-        control(&mut s, 'u');
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Home);
+        key(&mut s, KeyCode::Char('/'));
         s.paste("布局");
         assert!(
             s.search_commands()
@@ -167,7 +169,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
         s.search_commands()
             .unwrap()
             .iter()
-            .all(|c| c.name.starts_with("repo log "))
+            .all(|c| c.common() || c.name.starts_with("repo log "))
     );
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), None);
@@ -182,14 +184,20 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     key(&mut s, KeyCode::Char('/'));
     assert_eq!(context(&s), Some(Context::Diff(DiffContext::History)));
-    assert!(s.search_commands().unwrap().iter().all(|c| matches!(
-        c.action,
-        Action::DiffLayoutMenu
-            | Action::DiffHeader
-            | Action::DiffContextMenu
-            | Action::DiffContext(_)
-            | Action::DiffLayout(_)
-    )));
+    assert!(
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .filter(|c| !c.common())
+            .all(|c| matches!(
+                c.action,
+                Action::DiffLayoutMenu
+                    | Action::DiffHeader
+                    | Action::DiffContextMenu
+                    | Action::DiffContext(_)
+                    | Action::DiffLayout(_)
+            ))
+    );
     s.paste("stage");
     key(&mut s, KeyCode::Enter);
     assert!(s.search_commands().unwrap().is_empty());
@@ -375,7 +383,7 @@ fn repository_entry_freezes_its_target_and_nested_views_keep_full_context_paths(
             s.search_commands()
                 .unwrap()
                 .iter()
-                .all(|c| c.name.starts_with("repo "))
+                .all(|c| c.common() || c.name.starts_with("repo "))
         );
         s.paste("diff");
         key(&mut s, KeyCode::Enter);

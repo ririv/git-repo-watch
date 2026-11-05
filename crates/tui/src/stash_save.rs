@@ -159,6 +159,7 @@ impl Screen {
             menu: Default::default(),
             path: session.draft.path,
             selection: session.draft.selection,
+            repository: session.draft.repository,
         };
         self.refresh_option_candidates();
         self.message.clear();

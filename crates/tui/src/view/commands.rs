@@ -1,5 +1,6 @@
 //! Single-line command rows separate usage, concise descriptions and configuration values.
 mod argument;
+mod elision;
 use super::*;
 use ratatui::layout::Alignment;
 use unicode_width::UnicodeWidthStr;
@@ -10,7 +11,13 @@ struct Entry {
     argument: Option<command::ArgumentSyntax>,
     description: String,
     value: String,
+    value_kind: ValueKind,
     availability: command::availability::Availability,
+}
+enum ValueKind {
+    Text,
+    Path,
+    Repository,
 }
 struct Columns {
     name: usize,
@@ -95,6 +102,7 @@ impl Entry {
         field(
             &mut spans,
             &self.description,
+            &ValueKind::Text,
             columns.description,
             if enabled {
                 Style::default()
@@ -106,8 +114,13 @@ impl Entry {
         field(
             &mut spans,
             &self.value,
+            &self.value_kind,
             columns.value,
-            Style::default().fg(GOOD),
+            Style::default().fg(if matches!(self.value_kind, ValueKind::Repository) {
+                ACCENT
+            } else {
+                GOOD
+            }),
             Alignment::Right,
         );
         ListItem::new(Line::from(spans))
@@ -123,6 +136,7 @@ fn clipped(text: &str, width: usize) -> String {
 fn field(
     spans: &mut Vec<Span<'static>>,
     text: &str,
+    kind: &ValueKind,
     width: usize,
     style: Style,
     alignment: Alignment,
@@ -130,7 +144,10 @@ fn field(
     if width == 0 {
         return;
     }
-    let value = clipped(text, width);
+    let value = match kind {
+        ValueKind::Text => clipped(text, width),
+        ValueKind::Path | ValueKind::Repository => elision::middle(text, width),
+    };
     let padding = width.saturating_sub(value.width());
     let leading = match alignment {
         Alignment::Left => 0,
@@ -160,6 +177,7 @@ fn render_menu(
         selected,
         menu,
         path,
+        repository,
         ..
     } = &screen.bar
     else {
@@ -227,7 +245,17 @@ fn render_menu(
                     .expect("copy target label"),
                 _ => command.summary().text(),
             };
-            let value = screen.command_target(command.action, path.as_deref(), selection)
+            let repository_action = matches!(command.action, Action::Push | Action::Pull | Action::Sync | Action::Commit | Action::CommitGenerate | Action::BranchCreate | Action::BranchSwitch | Action::StashSave | Action::StashSaveMode(_) | Action::Replay(_) | Action::ReplayControl(_) | Action::Compose(crate::composition::Action::Open));
+            let target = screen.command_target(command.action, path.as_deref(), selection);
+            let value = if repository_action {
+                path.as_deref().and_then(|path| repository.label(path)).map(|repository| {
+                    match &target {
+                        Some(target) => format!("{repository} · {target}"),
+                        None => repository,
+                    }
+                })
+            } else { None }
+                .or(target)
                 .or_else(|| repository_list::annotation(command.action, screen))
                 .or_else(|| layout_picker::annotation(command.action, screen, body))
                 .or_else(|| settings::annotation(command.action, screen))
@@ -238,7 +266,7 @@ fn render_menu(
                     }
                     _ => None,
                 });
-            let prefix = if input.menu_context().is_some() {
+            let prefix = if input.menu_context().is_some() && !command.common() {
                 ""
             } else {
                 "/"
@@ -249,6 +277,7 @@ fn render_menu(
                 argument: command.action.argument().map(|argument| argument.syntax()),
                 description: safe(match availability.label() { None => description, Some(reason) => reason }),
                 value: if matches!(availability, command::availability::Availability::Ready) { value.unwrap_or_default() } else { String::new() },
+                value_kind: if repository_action { ValueKind::Repository } else if matches!(command.action, Action::OpenEditor | Action::Terminal) { ValueKind::Path } else { ValueKind::Text },
                 availability,
             }
         })

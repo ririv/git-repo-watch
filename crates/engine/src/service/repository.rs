@@ -5,6 +5,10 @@ pub(crate) struct RepositoryLock {
     _slot: Lock,
 }
 impl Service {
+    pub fn command_head(&self, path: &Path, cancel: &Cancel) -> Result<local::head::Head> {
+        self.validate_repository_access(path, cancel)?;
+        local::head::read(path, cancel)
+    }
     pub fn branch_names(
         &self,
         path: &Path,

@@ -264,6 +264,7 @@ struct Screen {
     clipboard: clipboard::Writer,
     link_opener: links::Opener,
     external_editor: external_editor::Controller,
+    command_repository: command::repository::Reader,
     commit_generator: commit_message::Generator,
     commit_draft_id: u64,
     repository_viewport: ratatui::widgets::TableState,
@@ -333,6 +334,7 @@ impl Screen {
             clipboard: Default::default(),
             link_opener: Default::default(),
             external_editor: Default::default(),
+            command_repository: Default::default(),
             commit_generator: Default::default(),
             commit_draft_id: 0,
             repository_viewport,
@@ -567,6 +569,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.poll_changes()
                 | screen.poll_clipboard()
                 | screen.poll_command_completion()
+                | screen.poll_command_repository()
                 | screen.poll_links()
                 | screen.poll_external_editor()
                 | screen.poll_interaction()

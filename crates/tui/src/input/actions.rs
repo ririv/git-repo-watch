@@ -206,6 +206,7 @@ impl Screen {
                 self.open_layout_picker(
                     crate::bar::CommandDraft {
                         input: command::Input::global(Editor::new("/repo diff layout".into())),
+                        repository: self.capture_repository(path.as_deref()),
                         path,
                         selection,
                         return_to: crate::bar::ReturnTo::Command,
@@ -355,6 +356,7 @@ impl Screen {
                     ),
                     selected: 0,
                     menu: Default::default(),
+                    repository: self.capture_repository(path.as_deref()),
                     path,
                     selection: self.copy_selection(),
                 };

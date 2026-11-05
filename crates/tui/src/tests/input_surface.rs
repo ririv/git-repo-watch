@@ -337,6 +337,7 @@ fn removing_or_replacing_context_prefix_clears_every_old_background_cell() {
                     menu: Default::default(),
                     path: None,
                     selection: Default::default(),
+                    repository: Default::default(),
                 };
                 terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
                 let old_inner = view::input::content_area(s.input_area.unwrap());

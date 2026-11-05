@@ -77,7 +77,7 @@ impl Context {
                         | Action::FileLayout(_)
                 ))
     }
-    pub fn matches(self, input: &str) -> Vec<&'static Command> {
+    fn local_matches(self, input: &str) -> Vec<&'static Command> {
         let canonical = format!("{} {input}", self.name());
         if let Some((argument, _)) = super::argument_input(&canonical) {
             return self
@@ -134,6 +134,49 @@ impl Context {
             )
         });
         candidates.into_iter().map(|(_, command)| command).collect()
+    }
+    pub fn matches(self, input: &str) -> Vec<&'static Command> {
+        let local = self.local_matches(input);
+        // 配置和编排页面保持其专用操作；通用入口用于仓库及内容子视图。
+        if matches!(
+            self,
+            Self::Settings | Self::Startup | Self::Ai | Self::Schedule | Self::Composition
+        ) {
+            return local;
+        }
+        if super::argument_input(&format!("{} {input}", self.name())).is_some() {
+            return local;
+        }
+        let query = input.trim().to_lowercase();
+        let mut candidates = local
+            .into_iter()
+            .map(|command| {
+                let name = self.relative(command).expect("local command");
+                (
+                    command
+                        .match_name(name, &query)
+                        .expect("matched local command"),
+                    false,
+                    command,
+                )
+            })
+            .collect::<Vec<_>>();
+        candidates.extend(
+            super::COMMANDS
+                .iter()
+                .filter(|command| command.common())
+                .filter_map(|command| {
+                    command
+                        .match_name(command.name, &query)
+                        .map(|rank| (rank, true, command))
+                }),
+        );
+        // 同等匹配时先列当前范围，再列明确标出 / 的通用操作；候选移动不重新排序。
+        candidates.sort_by_key(|(rank, global, _)| (*rank, *global));
+        candidates
+            .into_iter()
+            .map(|(_, _, command)| command)
+            .collect()
     }
 }
 impl Screen {

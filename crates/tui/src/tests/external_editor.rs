@@ -143,7 +143,7 @@ fn historical_diffs_do_not_offer_live_file_editing() {
     wait(&mut s);
     let context = s.command_context();
     assert!(
-        !context
+        context
             .unwrap()
             .matches("")
             .iter()

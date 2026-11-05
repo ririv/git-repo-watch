@@ -48,6 +48,7 @@ impl Screen {
             ),
             selected: 0,
             menu: Menu::Commands,
+            repository: self.capture_repository(path.as_deref()),
             path,
             selection,
         };

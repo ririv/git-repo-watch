@@ -3,6 +3,7 @@ pub mod branches;
 pub mod browser;
 pub mod files;
 pub mod guard;
+pub mod head;
 pub mod history;
 pub(crate) mod index_lock;
 pub mod overview;

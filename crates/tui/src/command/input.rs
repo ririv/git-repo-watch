@@ -112,6 +112,7 @@ impl Input {
     }
     pub fn name<'a>(&self, command: &'a Command) -> &'a str {
         match self.menu_context() {
+            Some(_) if command.common() => command.name,
             Some(context) => context
                 .relative(command)
                 .expect("candidate in current group"),
@@ -119,7 +120,7 @@ impl Input {
         }
     }
     pub fn usage(&self, command: &Command) -> String {
-        if self.menu_context().is_none() {
+        if self.menu_context().is_none() || command.common() {
             return command.usage();
         }
         match command.action.argument() {
@@ -148,6 +149,10 @@ impl Input {
         }
     }
     pub fn complete(&mut self, command: &Command) {
+        if command.common() {
+            *self = Self::global(Editor::new(command.completion()));
+            return;
+        }
         self.replace_canonical(Editor::new(command.completion()));
     }
     pub fn paste(&mut self, text: &str) {

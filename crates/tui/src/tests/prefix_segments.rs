@@ -103,7 +103,8 @@ fn typing_replaces_only_the_leaf_and_enter_opens_the_new_view_without_writes() {
             .map(|c| c.name)
             .collect::<Vec<_>>();
         assert!(names.contains(&"repo log") && names.contains(&"repo branch"));
-        assert!(names.iter().all(|name| name.starts_with("repo ")));
+        assert!(names.iter().all(|name| name.starts_with("repo ")
+            || ["copy", "refresh", "editor", "terminal"].contains(name)));
         assert_eq!(s.bar.text(), "/repo branch ");
         type_text(&mut s, "log");
         assert_eq!(s.bar.text(), "/repo log");
@@ -141,6 +142,7 @@ fn expanding_selection_reaches_global_commands_and_escape_or_enter_restores_orig
                 menu: Default::default(),
                 path: None,
                 selection: Default::default(),
+                repository: Default::default(),
             };
             key(&mut s, KeyCode::Backspace);
             if expanded {
@@ -281,6 +283,7 @@ fn partial_highlight_has_distinct_spans_and_survives_narrow_layouts() {
                 menu: Default::default(),
                 path: None,
                 selection: Default::default(),
+                repository: Default::default(),
             };
             key(&mut s, KeyCode::Backspace);
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();

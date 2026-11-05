@@ -2,6 +2,8 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    CommandTargetReadingBranch,
+    CommandTargetBranchFailed,
     RefreshUnavailable,
     RefreshHistorical,
     TerminalSelectionRequired,
@@ -1265,6 +1267,10 @@ impl Message {
             (Self::ContentSearchPlaceholder, Language::Chinese) => {
                 "输入文字定位文件内容，或输入 / 查看命令"
             }
+            (Self::CommandTargetReadingBranch, Language::English) => "Reading branch…",
+            (Self::CommandTargetReadingBranch, Language::Chinese) => "读取分支…",
+            (Self::CommandTargetBranchFailed, Language::English) => "Branch unavailable",
+            (Self::CommandTargetBranchFailed, Language::Chinese) => "分支读取失败",
             (Self::RefreshUnavailable, Language::English) => {
                 "No local data to refresh in this view"
             }

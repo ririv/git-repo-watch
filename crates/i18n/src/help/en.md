@@ -16,6 +16,9 @@
 - Single-click an item to select it; double-click to perform its Enter action, keeping existing confirmations. Scrollbar clicks only seek. Titles and blank space never activate Enter. Disabling precise clicks also disables double-clicks.
 - With pane selection off, clicks and scrolling only affect the focused pane. Disabling wheel input leaves keyboard navigation available.
 
+## Command targets
+- Repository actions show the captured repository and branch, resolved locally in the background. Long paths elide the middle while preserving file names; operations retain the full original path.
+
 ## External editors
 - `/editor` opens the selected repository, working file or folder. The menu shows the captured target; historical content, settings and empty lists have no editable target.
 - `/settings editor` lists detected editors. `/settings editor git` follows the current repository's Git editor. You can also enter a command such as `/settings editor code --reuse-window`. This saves the preference without modifying Git or shell configuration.
@@ -84,7 +87,7 @@
 - Historical diffs offer layout options; use global `/copy` for the loaded patch. They do not offer staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
 
 ## Copy the current selection
-- Global `/copy` copies the current selection. Candidate labels identify the content; unavailable selections are disabled.
+- Global `/copy` copies the current selection. Repository contexts also list `/copy`, `/refresh`, `/terminal` and `/editor` with full names. Type a name or description to filter; Tab switches explicitly to the global command, Enter runs it. Unavailable selections are disabled.
 - In file lists, `/copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
 - In a focused diff preview, `/copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
 - `/copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/copy`.

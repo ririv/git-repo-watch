@@ -213,6 +213,7 @@ impl Screen {
                 None,
                 crate::Editor::new(format!("/{}", command.name)),
             ),
+            repository: self.capture_repository(path.as_deref()),
             path,
             selection: self.copy_selection(),
             return_to: crate::bar::ReturnTo::Command,

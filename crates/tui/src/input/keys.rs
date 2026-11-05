@@ -379,6 +379,7 @@ impl Screen {
                                         input: draft.input,
                                         path: draft.path,
                                         selection: draft.selection,
+                                        repository: draft.repository,
                                         selected: 0,
                                         menu: Default::default(),
                                     };

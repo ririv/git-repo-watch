@@ -355,6 +355,7 @@ impl Screen {
     pub(super) fn shutdown(&mut self) {
         self.live.shutdown();
         self.command_reader.clear();
+        self.command_repository.clear();
         self.clipboard.shutdown();
         self.link_opener.shutdown();
         self.external_editor.shutdown();

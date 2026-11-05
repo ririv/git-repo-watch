@@ -29,6 +29,7 @@ impl Screen {
         let draft = CommandDraft {
             input: input.clone(),
             path: path.clone(),
+            repository: self.capture_repository(path.as_deref()),
             selection: selection.clone(),
             return_to: crate::bar::ReturnTo::Command,
         };
@@ -69,6 +70,7 @@ impl Screen {
                     input: draft.input,
                     path: draft.path,
                     selection: draft.selection,
+                    repository: draft.repository,
                     selected: command_cursor,
                     menu: Default::default(),
                 };
