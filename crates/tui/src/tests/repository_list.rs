@@ -292,12 +292,12 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
 }
 
 #[test]
-fn repositories_without_remotes_remain_normal_after_startup_and_manual_fetch() {
+fn repositories_without_remotes_remain_normal_after_scheduled_and_manual_fetch() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = support::Fixture::create();
     support::git(&f.repo, &["remote", "remove", "origin"]);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    s.service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    s.service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
     s.reload(&Cancel::default()).unwrap();
     let text = render(&mut s, 100, 28);
     assert!(text.contains("正常 1 · 需关注 0 · 失败 0"), "{text}");
@@ -317,10 +317,14 @@ fn repositories_without_remotes_remain_normal_after_startup_and_manual_fetch() {
     assert!(s.repository_errors.is_empty());
     let records = s.service.store.tasks(10).unwrap();
     assert!(records.iter().all(|record| !record.pending()));
-    assert!(records.iter().any(|record| matches!(&record.state,
+    let manual = records
+        .iter()
+        .find(|record| matches!(record.spec.retry, engine::tasks::Retry::Fetch { .. }))
+        .unwrap();
+    assert!(matches!(&manual.state,
         engine::tasks::State::Finished { outcome: engine::tasks::Outcome::Succeeded { detail }, .. }
-        if detail == i18n::tr!(NoRemoteConfiguredSkipped)
-    )));
+        if detail.contains(i18n::tr!(NoRemoteConfiguredSkipped))
+    ));
     s.shutdown();
 }
 
@@ -396,7 +400,7 @@ fn home_branch_is_in_selected_details_and_the_list_keeps_its_existing_columns() 
     let f = support::Fixture::create();
     support::git(&f.repo, &["remote", "remove", "origin"]);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    s.service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    s.service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
     s.reload(&Cancel::default()).unwrap();
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);

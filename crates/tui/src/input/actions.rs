@@ -187,6 +187,19 @@ impl Screen {
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
+            Action::StartupFetchMenu => {
+                self.open_option_menu(command::options::Kind::StartupFetch, path, selection);
+            }
+            Action::StartupFetch(enabled) => {
+                self.start(
+                    i18n::tr!(StartupFetch),
+                    Effect::Configuration,
+                    move |service, _, _| {
+                        service.configure(ConfigEdit::FetchOnStartup(enabled))?;
+                        Ok(Outcome::Text(i18n::tr!(StartupFetchSaved).into()))
+                    },
+                );
+            }
             Action::WrapMenu => {
                 self.open_option_menu(command::options::Kind::TextWrap, path, selection);
             }
@@ -317,24 +330,13 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into()
                 }
             }
-            Action::Check | Action::CheckAll => {
-                let target = if action == Action::CheckAll {
-                    Some(checks::CheckTarget::All)
-                } else {
-                    path.map(checks::CheckTarget::Repository)
-                };
-                if let Some(target) = target {
-                    self.start_check(target);
-                } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
-                }
-            }
+            Action::FetchAll => self.start_check(checks::CheckTarget::All),
             Action::CancelCheck => {
                 if !self.cancel_repository_task() {
                     self.cancel_check();
                 }
             }
-            Action::Workflow(trigger) => self.open_workflow(trigger),
+            Action::Workflow => self.open_workflow(),
             Action::Apply | Action::EnableSchedule | Action::DisableSchedule => {
                 self.mode = Mode::Confirm {
                     operation: Confirmation::Schedule(match action {
@@ -576,10 +578,6 @@ impl Screen {
                             Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
                             Parameter::Concurrency => {
                                 save(ConfigEdit::Concurrency(value.parse()?))?
-                            }
-                            Parameter::StartupCheck => {
-                                s.configure(ConfigEdit::StartupCheck(value.parse()?))?;
-                                i18n::tr!(StartupCheckSavedNextLaunch).into()
                             }
                             Parameter::AiModel | Parameter::AiPrompt => {
                                 let edit = match command {

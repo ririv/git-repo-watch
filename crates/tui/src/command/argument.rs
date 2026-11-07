@@ -29,7 +29,6 @@ pub enum ArgumentAction {
     Anchor,
     Autopush,
     Concurrency,
-    StartupCheck,
     AiAgent,
     AiModel,
     AiPrompt,
@@ -40,7 +39,6 @@ impl ArgumentAction {
         use super::options::Kind;
         match self {
             Self::Option(kind) => Some(kind),
-            Self::StartupCheck => Some(Kind::StartupCheck),
             Self::Autopush => Some(Kind::Autopush),
             Self::AiAgent => Some(Kind::AiAgent),
             _ => None,
@@ -64,7 +62,6 @@ impl ArgumentAction {
             Self::Anchor => Action::Anchor,
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
-            Self::StartupCheck => Action::StartupCheck,
             Self::AiAgent => Action::AiAgent,
             Self::AiModel => Action::AiModel,
             Self::AiPrompt => Action::AiPrompt,
@@ -88,7 +85,7 @@ impl ArgumentAction {
             Self::Interval => "<duration>",
             Self::Anchor => "[<datetime>|auto]",
             Self::Concurrency => "<count>",
-            Self::Option(_) | Self::Autopush | Self::StartupCheck | Self::AiAgent => {
+            Self::Option(_) | Self::Autopush | Self::AiAgent => {
                 return ArgumentSyntax::Choices(
                     self.options()
                         .expect("fixed-value argument")
@@ -115,7 +112,7 @@ impl ArgumentAction {
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
-            Self::Option(_) | Self::Autopush | Self::StartupCheck | Self::AiAgent => {
+            Self::Option(_) | Self::Autopush | Self::AiAgent => {
                 i18n::tr!(OptionCompletionHint)
             }
         }
@@ -190,13 +187,6 @@ impl ArgumentAction {
                 value.parse::<engine::domain::PushPolicy>()?;
                 Ok(value.into())
             }
-            Self::StartupCheck => {
-                ensure!(
-                    matches!(value, "true" | "false"),
-                    i18n::tr!(BooleanArgumentRequired)
-                );
-                Ok(value.into())
-            }
             Self::AiAgent => Ok(value.parse::<engine::ai::Agent>()?.name().into()),
             Self::AiModel | Self::AiPrompt => {
                 let mut config = engine::ai::Config::default();
@@ -233,6 +223,9 @@ impl Action {
             }
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
+            Self::StartupFetchMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::StartupFetch))
+            }
             Self::WrapMenu => Some(ArgumentAction::Option(super::options::Kind::TextWrap)),
             Self::FileLayoutMenu => Some(ArgumentAction::Option(super::options::Kind::FileView)),
             Self::BrowserModeMenu => Some(ArgumentAction::Option(super::options::Kind::FileMode)),
@@ -270,7 +263,6 @@ impl Action {
             Self::Anchor => Some(ArgumentAction::Anchor),
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
-            Self::StartupCheck => Some(ArgumentAction::StartupCheck),
             Self::EditorSetting => Some(ArgumentAction::Editor),
             Self::AiAgent => Some(ArgumentAction::AiAgent),
             Self::AiModel => Some(ArgumentAction::AiModel),
@@ -339,7 +331,6 @@ pub enum ConfigArgument {
     Anchor,
     Autopush,
     Concurrency,
-    StartupCheck,
     AiModel,
     AiPrompt,
 }
@@ -357,7 +348,6 @@ impl ConfigArgument {
             Self::Anchor => ArgumentAction::Anchor,
             Self::Autopush => ArgumentAction::Autopush,
             Self::Concurrency => ArgumentAction::Concurrency,
-            Self::StartupCheck => ArgumentAction::StartupCheck,
             Self::AiModel => ArgumentAction::AiModel,
             Self::AiPrompt => ArgumentAction::AiPrompt,
         }
@@ -371,7 +361,6 @@ impl ArgumentAction {
             Self::Anchor => Some(ConfigArgument::Anchor),
             Self::Autopush => Some(ConfigArgument::Autopush),
             Self::Concurrency => Some(ConfigArgument::Concurrency),
-            Self::StartupCheck => Some(ConfigArgument::StartupCheck),
             Self::AiModel => Some(ConfigArgument::AiModel),
             Self::AiPrompt => Some(ConfigArgument::AiPrompt),
             _ => None,

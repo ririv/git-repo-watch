@@ -21,14 +21,11 @@ fn missing_optional_preferences_and_explicit_values_survive_toml_roundtrips() {
     fs::write(store.config_path(), old).unwrap();
     let mut config = store.config().unwrap();
     assert_eq!(config.max_concurrency, 4);
-    assert!(config.check_on_startup);
     let serialized = serde_json::to_value(&config).unwrap();
     assert!(serialized.get("max_concurrency").is_none());
     config.max_concurrency = 2;
-    config.check_on_startup = false;
     store.save_config(&config).unwrap();
     assert_eq!(store.config().unwrap().max_concurrency, 2);
-    assert!(!store.config().unwrap().check_on_startup);
     let permissions = fs::metadata(store.config_path())
         .unwrap()
         .permissions()
@@ -104,10 +101,9 @@ fn intervals_and_schema_boundaries() {
         interval_seconds: 21600,
         schedule_anchor: Default::default(),
         repositories: vec![],
-        startup_actions: Default::default(),
         scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
         max_concurrency: 32,
-        check_on_startup: true,
+        fetch_on_startup: false,
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,

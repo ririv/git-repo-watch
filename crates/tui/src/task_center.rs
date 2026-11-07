@@ -252,11 +252,8 @@ impl Screen {
         }
         match record.spec.retry {
             Retry::Unavailable => self.message = i18n::tr!(TasksUnavailable).into(),
-            Retry::CheckAll => {
+            Retry::FetchAll => {
                 self.start_check_retry(checks::CheckTarget::All, parent);
-            }
-            Retry::CheckRepository { path } => {
-                self.start_check_retry(checks::CheckTarget::Repository(path), parent)
             }
             Retry::Fetch { path } => self.fetch_repository_retry(path, parent),
         }

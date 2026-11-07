@@ -61,6 +61,7 @@ mod scrollbars;
 mod search;
 mod settings_design;
 mod startup;
+mod startup_fetch;
 mod stash_preview;
 mod stash_save;
 mod sync_progress;
@@ -98,7 +99,6 @@ fn screen(service: Service) -> Screen {
             configured_anchor: config.schedule_anchor.clone(),
             next_trigger: engine::scheduler::NextTrigger::Unanchored,
             push_policy: config.scheduled_actions.push_policy(),
-            startup_actions: config.startup_actions.clone(),
             scheduled_actions: config.scheduled_actions.clone(),
             repository_count: config.repositories.len(),
             schedule: Schedule::Saved {
@@ -106,7 +106,7 @@ fn screen(service: Service) -> Screen {
             },
             report: CachedReport::Missing,
             max_concurrency: config.max_concurrency,
-            check_on_startup: config.check_on_startup,
+            fetch_on_startup: config.fetch_on_startup,
         },
         service: Arc::new(service),
         config,
@@ -171,10 +171,9 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: paths,
-            startup_actions: Default::default(),
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
-            check_on_startup: false,
+            fetch_on_startup: false,
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,
@@ -342,7 +341,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
         matches!(&s.bar,crate::bar::InputBar::Command{input,..}if input.text()=="/repo diff stage")
     );
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo check nope");
+    command(&mut s, "repo fetch nope");
     assert!(matches!(s.bar, crate::bar::InputBar::Command { .. }));
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Char('/'));
@@ -1167,7 +1166,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     std::fs::remove_file(first.repo.join("untracked")).unwrap();
     std::fs::remove_file(second.repo.join("untracked")).unwrap();
     let gate = FetchGate::install(&second);
-    command(&mut s, "repos check");
+    command(&mut s, "repos fetch");
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.check_task.is_some());
     assert!(matches!(
@@ -1205,7 +1204,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     command(&mut s, "help");
     assert_eq!(s.page, Page::Help);
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     assert!(s.repository_tasks.contains_key(&second.repo));
     assert!(matches!(s.mode, Mode::Browsing));
     command(&mut s, "cancel");
@@ -1234,7 +1233,7 @@ fn background_completion_preserves_the_current_detail_page_and_search() {
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     let gate = FetchGate::install(&second);
-    command(&mut s, "repos check");
+    command(&mut s, "repos fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     for c in "repo".chars() {
         key(&mut s, KeyCode::Char(c));
@@ -1260,7 +1259,7 @@ fn single_check_freezes_scope_updates_one_row_and_survives_reopening_without_a_b
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.focus(Some(first.repo.clone()));
     key(&mut s, KeyCode::Char('/'));
-    s.paste("/repo check");
+    s.paste("/repo fetch");
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Enter);
     assert!(!s.repository_tasks.is_empty());
@@ -1300,7 +1299,7 @@ fn checks_started_from_files_leave_the_panel_interactive_and_serialize_writes() 
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
     let gate = FetchGate::install(&f);
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     assert!(matches!(s.mode, Mode::Files(_)));
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "repo diff stage");
@@ -1326,7 +1325,7 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     s.config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     s.service.store.save_config(&s.config).unwrap();
     let gate = FetchGate::install(&f);
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");
     poll_background_until(&mut s, |s| s.repository_tasks.is_empty());
@@ -1447,37 +1446,36 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
             .collect::<Vec<_>>(),
         [
             "settings concurrency",
-            "settings startup",
+            "settings startup-fetch",
             "settings wrap",
             "settings interaction",
             "settings ai",
             "settings editor",
-            "settings startup enabled",
             "settings ai agent",
             "settings ai model",
             "settings ai prompt",
         ]
     );
     assert_eq!(
-        command::matches("repos check")
+        command::matches("repos fetch")
             .iter()
             .map(|c| c.name)
             .collect::<Vec<_>>(),
-        ["repos check"]
+        ["repos fetch"]
     );
     assert_eq!(command::matches("repos ").len(), 7);
     assert!(command::matches("schedule unknown").is_empty());
     assert_eq!(
-        command::matches("repo check")
+        command::matches("repo fetch")
             .first()
             .map(|command| command.action),
-        Some(Action::Check)
+        Some(Action::Fetch)
     );
     assert_eq!(
-        command::matches("repos check")
+        command::matches("repos fetch")
             .first()
             .map(|command| command.action),
-        Some(Action::CheckAll)
+        Some(Action::FetchAll)
     );
 }
 

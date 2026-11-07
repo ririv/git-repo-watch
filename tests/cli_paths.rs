@@ -35,16 +35,16 @@ impl Fixture {
                 interval_seconds: 21600,
                 schedule_anchor: Default::default(),
                 repositories: vec![],
-                startup_actions: Default::default(),
                 scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
                 max_concurrency: 4,
-                check_on_startup: true,
+                fetch_on_startup: false,
                 chinese_command_trigger: true,
                 text_wrap: false,
                 file_icons: true,
                 interaction_mode: Default::default(),
                 view: Default::default(),
                 mouse: Default::default(),
+                editor: Default::default(),
                 ai: Default::default(),
             })
             .unwrap();
@@ -96,7 +96,7 @@ fn literal_tilde_paths_expand_for_cli_config_discovery_and_single_checks() {
         std::slice::from_ref(&canonical)
     );
     assert!(f.store.report().unwrap().is_none());
-    let checked = f.run(&["check", "~//Proj/仓库 空格"]);
+    let checked = f.run(&["fetch", "~//Proj/仓库 空格"]);
     assert_eq!(
         checked.status.code(),
         Some(1),
@@ -129,7 +129,7 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
         "{}",
         String::from_utf8_lossy(&output.stderr)
     );
-    for command in ["add", "remove", "scan", "import-tree", "check"] {
+    for command in ["add", "remove", "scan", "import-tree", "fetch"] {
         let output = f.run(&[command, "~someone/Proj"]);
         assert_eq!(output.status.code(), Some(2));
         assert!(String::from_utf8_lossy(&output.stderr).contains("~user"));

@@ -187,7 +187,6 @@ fn checks_share_the_journal_and_dirty_repositories_are_successful_tasks() {
     store
         .save_config(&Config {
             repositories: vec![repository.repo.clone()],
-            check_on_startup: false,
             ..Config::default()
         })
         .unwrap();
@@ -218,10 +217,7 @@ fn checks_share_the_journal_and_dirty_repositories_are_successful_tasks() {
     );
     let records = store.tasks(10).unwrap();
     assert!(records[0].pending());
-    assert!(matches!(
-        records[0].spec.retry,
-        Retry::CheckRepository { .. }
-    ));
+    assert!(matches!(records[0].spec.retry, Retry::Fetch { .. }));
 }
 #[test]
 fn version_three_migration_imports_operation_history_and_is_repeatable() {
@@ -259,4 +255,22 @@ fn version_three_migration_imports_operation_history_and_is_repeatable() {
         store.operation_history(&operation.path, 10).unwrap().len(),
         1
     );
+}
+
+#[test]
+fn legacy_check_retries_decode_as_canonical_fetch_requests() {
+    use engine::tasks::Retry;
+    let all: Retry = serde_json::from_str(r#"{"kind":"check_all"}"#).unwrap();
+    assert_eq!(all, Retry::FetchAll);
+    assert_eq!(serde_json::to_value(all).unwrap()["kind"], "fetch_all");
+    let one: Retry =
+        serde_json::from_str(r#"{"kind":"check_repository","path":"/example/repository"}"#)
+            .unwrap();
+    assert_eq!(
+        one,
+        Retry::Fetch {
+            path: "/example/repository".into()
+        }
+    );
+    assert_eq!(serde_json::to_value(one).unwrap()["kind"], "fetch");
 }

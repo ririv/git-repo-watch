@@ -118,7 +118,6 @@ fn empty_option_values_reopen_after_escape_without_applying_a_choice() {
         for name in [
             "repos sort",
             "repos filter",
-            "settings startup enabled",
             "schedule autopush",
             "settings ai agent",
         ] {

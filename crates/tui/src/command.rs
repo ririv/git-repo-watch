@@ -86,8 +86,7 @@ pub enum Action {
     Terminal,
     OpenEditor,
     EditorSetting,
-    Check,
-    CheckAll,
+    FetchAll,
     CancelCheck,
     Refresh,
     Settings,
@@ -103,8 +102,9 @@ pub enum Action {
     Anchor,
     Autopush,
     Concurrency,
-    StartupCheck,
-    Workflow(engine::workflow::Trigger),
+    Workflow,
+    StartupFetchMenu,
+    StartupFetch(bool),
     WrapMenu,
     Wrap(bool),
     Apply,
@@ -379,14 +379,9 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::StashDropCommand,
     },
     Command {
-        name: "repo check",
-        action: Check,
-        description: i18n::Message::CheckSelectedRepository,
-    },
-    Command {
-        name: "repos check",
-        action: CheckAll,
-        description: i18n::Message::CheckAllRepositoriesInBackground,
+        name: "repos fetch",
+        action: FetchAll,
+        description: i18n::Message::FetchAllCommand,
     },
     Command {
         name: "cancel",
@@ -494,19 +489,14 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::SetCheckConcurrencyLimit132,
     },
     Command {
-        name: "settings startup",
-        action: Workflow(engine::workflow::Trigger::Startup),
-        description: i18n::Message::WorkflowStartupActions,
-    },
-    Command {
-        name: "settings startup enabled",
-        action: StartupCheck,
-        description: i18n::Message::CheckAllOnStartup,
-    },
-    Command {
         name: "schedule actions",
-        action: Workflow(engine::workflow::Trigger::Scheduled),
+        action: Workflow,
         description: i18n::Message::WorkflowScheduledActions,
+    },
+    Command {
+        name: "settings startup-fetch",
+        action: StartupFetchMenu,
+        description: i18n::Message::StartupFetchHint,
     },
     Command {
         name: "settings wrap",
@@ -676,28 +666,15 @@ pub enum Configuration {
 impl Configuration {
     pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
         match self {
-            Self::General => &[
-                Concurrency,
-                StartupCheck,
-                Workflow(engine::workflow::Trigger::Startup),
-                WrapMenu,
-            ],
+            Self::General => &[Concurrency, StartupFetchMenu, WrapMenu],
             Self::Repositories => &[Add, Remove, Scan],
             Self::Schedule => match registration {
-                engine::scheduler::Registration::Loaded => &[
-                    DisableSchedule,
-                    Interval,
-                    Anchor,
-                    Workflow(engine::workflow::Trigger::Scheduled),
-                    Apply,
-                ],
-                engine::scheduler::Registration::NotLoaded => &[
-                    EnableSchedule,
-                    Interval,
-                    Anchor,
-                    Workflow(engine::workflow::Trigger::Scheduled),
-                    Apply,
-                ],
+                engine::scheduler::Registration::Loaded => {
+                    &[DisableSchedule, Interval, Anchor, Workflow, Apply]
+                }
+                engine::scheduler::Registration::NotLoaded => {
+                    &[EnableSchedule, Interval, Anchor, Workflow, Apply]
+                }
             },
         }
     }

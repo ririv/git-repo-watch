@@ -134,8 +134,7 @@ fn check_progress_and_cancellation_share_the_last_row_without_moving_input() {
         render(&mut s, 100, 32);
         let input = s.input_area;
         let gate = FetchGate::install(&f);
-        s.config.check_on_startup = true;
-        s.check_on_startup();
+        s.start_check(crate::checks::CheckTarget::All);
         poll_background_until(&mut s, |_| gate.started.exists());
         let task = s.check_task.as_ref().unwrap();
         assert!(task.checking(&f.repo));

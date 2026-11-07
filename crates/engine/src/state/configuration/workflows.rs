@@ -45,21 +45,6 @@ pub(super) fn migrate(document: &mut DocumentMut) -> Result<()> {
         .key_mut("scheduled_actions")
         .expect("converted key")
         .leaf_decor_mut() = key_decor;
-    if !document.contains_key("startup_actions") {
-        let value = Value::Array(
-            Plan::fetch()
-                .steps()
-                .iter()
-                .map(|step| Value::from(step.token()))
-                .collect(),
-        );
-        document.insert("startup_actions", Item::Value(value));
-        document
-            .key_mut("startup_actions")
-            .expect("startup key")
-            .leaf_decor_mut()
-            .set_prefix("\n# 启动流程：按数组顺序执行。\n");
-    }
     Ok(())
 }
 pub(super) fn migrate_json(value: &mut serde_json::Value) -> Result<()> {

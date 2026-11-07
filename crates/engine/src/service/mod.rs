@@ -63,13 +63,12 @@ pub struct Snapshot {
     pub configured_anchor: crate::scheduler::timing::Anchor,
     pub next_trigger: crate::scheduler::NextTrigger,
     pub push_policy: PushPolicy,
-    pub startup_actions: crate::workflow::Plan,
     pub scheduled_actions: crate::workflow::Plan,
     pub repository_count: usize,
     pub schedule: Schedule,
     pub report: CachedReport,
     pub max_concurrency: usize,
-    pub check_on_startup: bool,
+    pub fetch_on_startup: bool,
 }
 mod checks;
 mod composition;
@@ -107,11 +106,8 @@ pub enum ConfigEdit {
     Anchor(crate::scheduler::timing::Anchor),
     Policy(PushPolicy),
     Concurrency(usize),
-    StartupCheck(bool),
-    Workflow {
-        trigger: crate::workflow::Trigger,
-        plan: crate::workflow::Plan,
-    },
+    FetchOnStartup(bool),
+    ScheduledWorkflow(crate::workflow::Plan),
     TextWrap(bool),
     FileIcons(bool),
     ChineseCommandTrigger(bool),

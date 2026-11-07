@@ -72,7 +72,7 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     let gate = FetchGate::install(&second);
-    command(&mut s, "repos check");
+    command(&mut s, "repos fetch");
     poll_background_until(&mut s, |s| {
         gate.started.exists()
             && matches!(
@@ -131,9 +131,9 @@ fn two_single_repository_checks_overlap_and_same_repository_commands_do_not_star
     let gate_b = FetchGate::install(&second);
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
     s.focus(Some(first.repo.clone()));
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     s.focus(Some(second.repo.clone()));
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| {
         gate_a.started.exists() && gate_b.started.exists()
     });
@@ -155,7 +155,7 @@ fn cancelled_repository_task_does_not_take_over_the_current_view() {
     let f = support::Fixture::create();
     let gate = FetchGate::install(&f);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    command(&mut s, "repo check");
+    command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");
     wait(&mut s);

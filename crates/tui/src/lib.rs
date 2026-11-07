@@ -539,11 +539,11 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
     let result = (|| -> Result<()> {
-        // 先显示上轮结果，再仅在本次启动时发起一次后台检查。
+        // 先显示缓存结果；实时监听随后读取各仓库的本地状态。
         let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
         link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
         screen.graphics.finish_frame(&mut io::stdout())?;
-        screen.check_on_startup();
+        screen.fetch_on_startup();
         let mut dirty = true;
         let mut schedule_second = chrono::Local::now().timestamp();
         loop {

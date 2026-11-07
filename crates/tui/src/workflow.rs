@@ -4,7 +4,7 @@ use anyhow::Result;
 use crossterm::event::KeyCode;
 use engine::{
     service::ConfigEdit,
-    workflow::{Plan, Step, Trigger},
+    workflow::{Plan, Step},
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -121,7 +121,6 @@ impl Action {
 }
 #[derive(Debug)]
 pub(crate) struct Session {
-    pub trigger: Trigger,
     pub entries: [Entry; 3],
     pub cursor: Cursor,
     pub offset: usize,
@@ -134,7 +133,7 @@ pub(crate) enum Input {
     Cancel,
 }
 impl Session {
-    pub fn new(trigger: Trigger, plan: &Plan) -> Self {
+    pub fn new(plan: &Plan) -> Self {
         let enabled = plan
             .steps()
             .iter()
@@ -158,7 +157,6 @@ impl Session {
             };
         }
         Self {
-            trigger,
             entries,
             cursor: Cursor::Step {
                 index: 0,
@@ -170,10 +168,7 @@ impl Session {
         }
     }
     pub fn title(&self) -> &'static str {
-        match self.trigger {
-            Trigger::Startup => i18n::tr!(WorkflowStartupActions),
-            Trigger::Scheduled => i18n::tr!(WorkflowScheduledActions),
-        }
+        i18n::tr!(WorkflowScheduledActions)
     }
     pub fn steps(&self) -> Vec<Step> {
         self.entries
@@ -407,26 +402,17 @@ impl Session {
     }
 }
 impl Screen {
-    pub(crate) fn open_workflow(&mut self, trigger: Trigger) {
-        self.open_page(crate::Page::Configuration(match trigger {
-            Trigger::Startup => crate::Configuration::General,
-            Trigger::Scheduled => crate::Configuration::Schedule,
-        }));
+    pub(crate) fn open_workflow(&mut self) {
+        self.open_page(crate::Page::Configuration(crate::Configuration::Schedule));
         let crate::Page::Configuration(section) = self.page else {
             unreachable!()
         };
         self.setting_selected = section
             .items(self.snapshot.registration, &self.config.ai)
             .iter()
-            .position(|item| {
-                *item == crate::settings::Item::Command(crate::Action::Workflow(trigger))
-            })
+            .position(|item| *item == crate::settings::Item::Command(crate::Action::Workflow))
             .expect("workflow setting");
-        let plan = match trigger {
-            Trigger::Startup => &self.config.startup_actions,
-            Trigger::Scheduled => &self.config.scheduled_actions,
-        };
-        let session = Session::new(trigger, plan);
+        let session = Session::new(&self.config.scheduled_actions);
         let origin = self.take_mode();
         self.remember_view(origin);
         self.mode = Mode::Workflow(Box::new(session));
@@ -439,17 +425,14 @@ impl Screen {
                 self.return_to_view();
             }
             Ok(Input::Save(plan)) => {
-                let trigger = session.trigger;
                 self.mode = Mode::Workflow(session);
                 self.return_to_view();
                 self.start(
-                    trigger.label(),
+                    i18n::tr!(WorkflowScheduled),
                     Effect::Configuration,
                     move |service, cancel, _| {
-                        service.configure_with_cancel(
-                            ConfigEdit::Workflow { trigger, plan },
-                            &cancel,
-                        )?;
+                        service
+                            .configure_with_cancel(ConfigEdit::ScheduledWorkflow(plan), &cancel)?;
                         Ok(Outcome::Text(i18n::tr!(WorkflowSaved).into()))
                     },
                 );

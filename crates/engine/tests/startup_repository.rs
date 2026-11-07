@@ -82,7 +82,7 @@ fn session_repository_access_keeps_registration_and_batch_scope_unchanged() {
     assert!(scoped.files(&unrelated.repo, &cancel).is_err());
     assert!(plain.files(&temporary.repo, &cancel).is_err());
     assert_eq!(scoped.snapshot(&cancel).unwrap().repository_count, 1);
-    let report = scoped.run_startup(&cancel, |_| {}).unwrap();
+    let report = scoped.run_scheduled(&cancel, |_| {}).unwrap();
     assert_eq!(report.repositories.len(), 1);
     assert_eq!(report.repositories[0].path(), registered.repo);
     assert_eq!(fs::read(scoped.store.config_path()).unwrap(), config);

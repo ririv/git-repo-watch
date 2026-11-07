@@ -1,5 +1,5 @@
 ## Quick navigation
-- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only and are not added to startup or scheduled workflows.
+- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only and are not added to scheduled workflows.
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
@@ -67,7 +67,7 @@
 - `/repo diff view` switches between the directory tree (default) and flat list; use `/repo diff view tree` or `/repo diff view flat` directly. The choice is saved and restored on restart. Single-child directory chains appear together (for example, `output/imagegen/`). Directories can be focused and checked; files can be previewed.
 - `Ctrl+U` clears text before the cursor; `Ctrl+A` / `Ctrl+E` moves to the start / end.
 - On the repository home page, click the Filter or Sort label or its current value to open the choices. `/repos filter [all|problems|…]` and `/repos sort [priority|name|…]` open the same menus. The current value is selected; choosing an option applies it. Filter by name or bilingual description; ↑↓ selects, Tab completes, Enter applies, and Esc closes the choices. ✓ marks the current value. Use commands when precise clicks are disabled or text-selection mode is active.
-- Startup checks, auto-push policy and the AI agent use the same parameter menu: Space or Enter opens choices, ↑↓ selects, Tab only completes, and Enter submits the value. Existing confirmation rules still apply; cancelling does not save.
+- Auto-push policy and the AI agent use the same parameter menu: Space or Enter opens choices, ↑↓ selects, Tab only completes, and Enter submits the value. Existing confirmation rules still apply; cancelling does not save.
 - Filters: all, problems (attention or failed), clean, failed, unchecked, no-upstream, pushes (recorded successes or failures).
 - Sorting: priority, name (A to Z), path (ascending), updated (latest state first; unchecked last). Direct commands work too, e.g. `/repos sort name`. Sorting is saved and restored on restart.
 - Filtering combines with search. Press `/` on the home page to open commands while keeping an existing search; applying or closing returns to that search and keeps the selected repository when visible. Filters and searches apply only to this session and do not check repositories or change reports.
@@ -173,7 +173,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Stage accepts only unstaged files; unstage accepts only staged files. Mixed selections report an error without changing the index. Completion refreshes only this repository and preserves focus and new command drafts.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Shift+Tab` switches between the editor and horizontal options; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
-- `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Startup and scheduled workflows remain non-forced.
+- `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Scheduled workflows remain non-forced.
 - `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
 
 ## Image previews
@@ -193,8 +193,9 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Root commits compare with the empty tree; other diffs identify the parent and selected commit. `/repo diff` layout commands also apply.
 > Graph and historical diff reads do not stage, commit, fetch, push or change reports.
 
-## Checks and configuration
-- `/repo check` checks the selected repository; `/repos check` checks every registered repository. Both start directly without pushing.
+## Fetch and configuration
+- Startup reads local state by default. `/settings startup-fetch [true|false]` enables one background fetch on the next launch for managed repositories and the current session repository, using the same operation as manual fetch. It does not run scheduled pull or push steps.
+- `/repo fetch` fetches the current repository and refreshes its status; `/repos fetch` fetches all managed repositories.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
 - `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
 - `/repo` opens the selected repository; `/repos` returns to the list. `/repos manage` manages registrations; `/repos add <path>` adds one repository and `/repos remove` unregisters the selection.
@@ -202,7 +203,6 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - One `--exclude` accepts multiple directories: `/repos scan ~/Proj --exclude backups archive "old projects"`. Relative exclusions resolve against the scan root, and each path supports Tab completion. Exclusions and unchecked entries affect only this scan.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
 - In a workflow editor, check a step to include it or uncheck it to remove it. `↑↓` selects steps and the Save/Cancel buttons; `Enter`/Space activates the selection. `←→` selects reordering controls in the separate Actions panel. Clicking a step also toggles it. Save applies the draft.
-- `/settings startup` edits startup actions; `/settings startup enabled [true|false]` controls whether they run at startup (default true).
 - `/settings wrap [true|false]` saves text wrapping for file previews and diffs (off by default). Gutters stay fixed, split diffs remain aligned, and links keep their complete targets. When off, use horizontal scrolling. The same option is in Settings → Display.
 - `/schedule` shows status, interval, time basis, and workflow together with their associated buttons. Click a button to edit or enter enable/disable confirmation; use ↑↓ and Enter with the keyboard.
 - `/schedule actions` edits scheduled actions; `/schedule interval <duration>` accepts values such as 6h.
@@ -210,7 +210,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - The first enable persists an automatic basis when omitted. Restarts and re-enabling preserve it; the schedule page shows the basis and applied next trigger.
 - Durations support s / m / h / d / w (at least 60 seconds). Apply saved changes with `/schedule apply`.
 - `/schedule apply` applies configuration; `/schedule enabled [true|false]` selects whether scheduling is enabled. Omitting the value opens an option menu with the current state marked; execution requires confirmation.
-> Startup and scheduled triggers use independent workflows. The default is fetch → inspect. Add and reorder pull or push explicitly. Inspect is last; push requires an earlier fetch or pull. Failure stops later steps for that repository; task details retain step outcomes and times. Manual checks still fetch and read local status only.
+> The scheduled workflow defaults to fetch → inspect. Add and reorder pull or push explicitly. Inspect is last; push requires an earlier fetch or pull. Failure stops later steps for that repository; task details retain step outcomes and times. Manual checks still fetch and read local status only.
 
 ## Confirmation
 - `←→` selects an action; `Enter` confirms; `Esc` returns. Returning from commit or configuration confirmation retains the draft.

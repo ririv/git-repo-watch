@@ -16,7 +16,6 @@ pub(crate) enum Context {
     Repository,
     Repositories,
     Settings,
-    Startup,
     Ai,
     Schedule,
     Files,
@@ -31,7 +30,7 @@ impl Context {
             | Self::Stash
             | Self::Files
             | Self::Composition => Some(Self::Repository),
-            Self::Ai | Self::Startup => Some(Self::Settings),
+            Self::Ai => Some(Self::Settings),
             Self::Repository | Self::Repositories | Self::Settings | Self::Schedule => None,
         }
     }
@@ -44,7 +43,6 @@ impl Context {
             Self::Repository => "repo",
             Self::Repositories => "repos",
             Self::Settings => "settings",
-            Self::Startup => "settings startup",
             Self::Ai => "settings ai",
             Self::Schedule => "schedule",
             Self::Files => "repo files",
@@ -140,7 +138,7 @@ impl Context {
         // 配置和编排页面保持其专用操作；通用入口用于仓库及内容子视图。
         if matches!(
             self,
-            Self::Settings | Self::Startup | Self::Ai | Self::Schedule | Self::Composition
+            Self::Settings | Self::Ai | Self::Schedule | Self::Composition
         ) {
             return local;
         }
@@ -183,10 +181,7 @@ impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
         match &self.mode {
             Mode::Management(_) => Some(Context::Repositories),
-            Mode::Workflow(session) => Some(match session.trigger {
-                engine::workflow::Trigger::Startup => Context::Startup,
-                engine::workflow::Trigger::Scheduled => Context::Schedule,
-            }),
+            Mode::Workflow(_) => Some(Context::Schedule),
             Mode::Composition(_) | Mode::CompositionWaiting(_) => Some(Context::Composition),
             Mode::Browser(_) => Some(Context::Files),
             Mode::Changes(_) | Mode::Files(_) => Some(Context::Diff(DiffContext::Worktree)),

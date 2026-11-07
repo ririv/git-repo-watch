@@ -62,10 +62,10 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
             "schedule apply"
         ]
     );
-    assert_eq!(
-        names("settings st"),
-        ["settings startup", "settings startup enabled"]
-    );
+    assert!(!COMMANDS.iter().any(|command| matches!(
+        command.name,
+        "repo check" | "repos check" | "settings startup" | "settings startup enabled"
+    )));
 }
 
 #[test]
@@ -90,7 +90,7 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
         for (query, expected) in [
             ("检查频率", "schedule interval"),
             ("LIVE DIFF", "repo diff"),
-            ("CHECK SELECTED", "repo check"),
+            ("FETCH CONFIGURED", "repo fetch"),
         ] {
             assert_eq!(names(query), [expected]);
         }
@@ -107,9 +107,9 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
 
 #[test]
 fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() {
-    let checks = names("check");
-    assert_eq!(&checks[..2], ["repo check", "repos check"]);
-    assert!(checks.contains(&"schedule interval"));
+    let checks = names("fetch");
+    assert_eq!(&checks[..2], ["repo fetch", "repos fetch"]);
+    assert!(checks.contains(&"settings startup-fetch"));
     assert_eq!(
         checks
             .iter()
@@ -187,6 +187,6 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
         assert_eq!(matches(query)[0].completion(), format!("/{expected}"));
         assert!(!COMMANDS.iter().any(|c| c.name == query));
     }
-    assert_eq!(matches("repos check")[0].action, Action::CheckAll);
-    assert_eq!(matches("repo check")[0].action, Action::Check);
+    assert_eq!(matches("repos fetch")[0].action, Action::FetchAll);
+    assert_eq!(matches("repo fetch")[0].action, Action::Fetch);
 }

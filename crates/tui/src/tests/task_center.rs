@@ -144,7 +144,7 @@ fn command_opens_tasks_and_background_errors_remain_queryable_after_leaving() {
 #[test]
 fn retry_uses_a_new_check_and_clears_only_the_successfully_retried_failure() {
     let (_home, mut s) = fixture(vec![]);
-    let mut spec = crate::task_center::spec("failed check", None, Retry::CheckAll);
+    let mut spec = crate::task_center::spec("failed check", None, Retry::FetchAll);
     spec.scope = engine::tasks::Scope::All;
     let run = Run::begin(&s.service.store, spec, &Cancel::default()).unwrap();
     let original = run.record.id.clone();

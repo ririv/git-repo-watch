@@ -18,7 +18,6 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
     store
         .save_config(&Config {
             repositories: paths,
-            check_on_startup: false,
             ..Config::default()
         })
         .unwrap();

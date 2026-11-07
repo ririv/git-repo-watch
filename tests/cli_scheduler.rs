@@ -17,16 +17,16 @@ fn fixture() -> (tempfile::TempDir, Store) {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: vec![PathBuf::from("/path/to/unavailable/repository")],
-            startup_actions: Default::default(),
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
-            check_on_startup: true,
+            fetch_on_startup: false,
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: Default::default(),
+            editor: Default::default(),
             ai: Default::default(),
         })
         .unwrap();
@@ -100,12 +100,9 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
 }
 
 #[test]
-fn workflow_cli_saves_independent_ordered_plans_and_reports_mutation_scopes_without_running_them() {
+fn workflow_cli_saves_scheduled_steps_without_running_them() {
     let (_temp, store) = fixture();
-    for args in [
-        &["startup-actions", "inspect"][..],
-        &["scheduled-actions", "fetch", "pull", "push", "inspect"][..],
-    ] {
+    for args in [&["scheduled-actions", "fetch", "pull", "push", "inspect"][..]] {
         let out = cli(&store, args);
         assert!(
             out.status.success(),
@@ -114,10 +111,6 @@ fn workflow_cli_saves_independent_ordered_plans_and_reports_mutation_scopes_with
         );
     }
     assert_eq!(
-        store.config().unwrap().startup_actions,
-        engine::workflow::Plan::local()
-    );
-    assert_eq!(
         store.config().unwrap().scheduled_actions.tokens(),
         "fetch pull push inspect"
     );
@@ -125,7 +118,8 @@ fn workflow_cli_saves_independent_ordered_plans_and_reports_mutation_scopes_with
     let out = cli(&store, &["status", "--json"]);
     assert!(out.status.success());
     let status: serde_json::Value = serde_json::from_slice(&out.stdout).unwrap();
-    assert_eq!(status["startup_actions"], serde_json::json!(["inspect"]));
+    assert!(status.get("startup_actions").is_none());
+    assert!(status.get("check_on_startup").is_none());
     assert_eq!(
         status["scheduled_actions"],
         serde_json::json!(["fetch", "pull", "push", "inspect"])
@@ -319,7 +313,7 @@ fn explicit_single_check_creates_a_repository_report_without_creating_a_batch() 
     let mut config = store.config().unwrap();
     config.repositories = vec![repo.clone()];
     store.save_config(&config).unwrap();
-    let output = cli(&store, &["check", repo.to_str().unwrap()]);
+    let output = cli(&store, &["fetch", repo.to_str().unwrap()]);
     assert_eq!(
         output.status.code(),
         Some(1),
@@ -343,7 +337,7 @@ fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_argument
     config.repositories.clear();
     config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     store.save_config(&config).unwrap();
-    assert_eq!(cli(&store, &["check"]).status.code(), Some(1));
+    assert_eq!(cli(&store, &["fetch"]).status.code(), Some(1));
     assert_eq!(
         store.report().unwrap().unwrap().push_policy,
         PushPolicy::Disabled
@@ -372,32 +366,6 @@ fn schedule_control_arguments_are_explicit_and_invalid_requests_do_not_write() {
         assert_eq!(cli(&store, args).status.code(), Some(2));
     }
     assert!(store.report().unwrap().is_none());
-}
-
-#[test]
-fn startup_check_preference_is_explicit_persistent_and_does_not_trigger_checks() {
-    let (_home, store) = fixture();
-    for value in ["false", "true"] {
-        let out = cli(&store, &["startup-check", value]);
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-        assert_eq!(store.config().unwrap().check_on_startup, value == "true");
-        let status: serde_json::Value =
-            serde_json::from_slice(&cli(&store, &["status", "--json"]).stdout).unwrap();
-        assert_eq!(status["check_on_startup"], value == "true");
-        assert!(store.report().unwrap().is_none());
-    }
-    let before = fs::read(store.config_path()).unwrap();
-    for value in ["yes", "0", "TRUE"] {
-        assert_eq!(
-            cli(&store, &["startup-check", value]).status.code(),
-            Some(2)
-        );
-        assert_eq!(fs::read(store.config_path()).unwrap(), before);
-    }
 }
 
 #[cfg(target_os = "macos")]
@@ -435,4 +403,47 @@ fn standard_plist_uses_user_storage_logs_and_home_without_checkout_arguments() {
         home.to_str().unwrap()
     );
     assert_eq!(value["RunAtLoad"], false);
+}
+
+#[test]
+fn retired_startup_commands_are_rejected_without_changing_configuration() {
+    let (_home, store) = fixture();
+    let before = fs::read(store.config_path()).unwrap();
+    for args in [
+        &["startup-check", "true"][..],
+        &["startup-actions", "fetch", "inspect"][..],
+    ] {
+        assert_eq!(cli(&store, args).status.code(), Some(2));
+        assert_eq!(fs::read(store.config_path()).unwrap(), before);
+    }
+    assert!(store.report().unwrap().is_none());
+}
+
+#[test]
+fn startup_fetch_setting_is_persistent_opt_in_and_never_performs_network_work() {
+    let (_home, store) = fixture();
+    assert!(!store.config().unwrap().fetch_on_startup);
+    for enabled in [true, false] {
+        assert!(
+            cli(
+                &store,
+                &["startup-fetch", if enabled { "true" } else { "false" }]
+            )
+            .status
+            .success()
+        );
+        assert_eq!(store.config().unwrap().fetch_on_startup, enabled);
+        let status: serde_json::Value =
+            serde_json::from_slice(&cli(&store, &["status", "--json"]).stdout).unwrap();
+        assert_eq!(status["fetch_on_startup"], enabled);
+        assert!(store.report().unwrap().is_none());
+        assert!(store.tasks(10).unwrap().is_empty());
+    }
+    let saved = fs::read(store.config_path()).unwrap();
+    assert_eq!(
+        cli(&store, &["startup-fetch", "yes"]).status.code(),
+        Some(2)
+    );
+    assert_eq!(cli(&store, &["check"]).status.code(), Some(2));
+    assert_eq!(fs::read(store.config_path()).unwrap(), saved);
 }

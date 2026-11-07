@@ -20,10 +20,9 @@ impl Default for Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: vec![],
-            startup_actions: crate::workflow::Plan::fetch(),
             scheduled_actions: crate::workflow::Plan::fetch(),
             max_concurrency: 4,
-            check_on_startup: true,
+            fetch_on_startup: false,
             text_wrap: false,
             file_icons: true,
             chinese_command_trigger: true,
@@ -46,16 +45,14 @@ pub struct Config {
     pub schedule_anchor: crate::scheduler::timing::Anchor,
     pub repositories: Vec<PathBuf>,
     #[serde(default)]
-    pub startup_actions: crate::workflow::Plan,
-    #[serde(default)]
     pub scheduled_actions: crate::workflow::Plan,
     #[serde(
         default = "default_concurrency",
         skip_serializing_if = "is_default_concurrency"
     )]
     pub max_concurrency: usize,
-    #[serde(default = "default_startup_check")]
-    pub check_on_startup: bool,
+    #[serde(default)]
+    pub fetch_on_startup: bool,
     #[serde(default)]
     pub text_wrap: bool,
     #[serde(default = "default_file_icons")]
@@ -118,9 +115,6 @@ fn default_file_icons() -> bool {
 fn default_chinese_command_trigger() -> bool {
     true
 }
-fn default_startup_check() -> bool {
-    true
-}
 fn default_concurrency() -> usize {
     4
 }
@@ -155,13 +149,12 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 12] = [
+const FIELDS: [&str; 11] = [
     "interval_seconds",
     "repositories",
-    "startup_actions",
     "scheduled_actions",
     "max_concurrency",
-    "check_on_startup",
+    "fetch_on_startup",
     "text_wrap",
     "file_icons",
     "chinese_command_trigger",
@@ -181,6 +174,7 @@ pub(super) fn parse(text: &str) -> Result<Config> {
     ai::migrate(&mut document)?;
     workflows::migrate(&mut document)?;
     retired::exclusions(&mut document)?;
+    retired::startup(&mut document)?;
     let config: Config =
         toml_edit::de::from_str(&document.to_string()).context(i18n::tr!(InvalidToml))?;
     config.validate()?;
@@ -196,6 +190,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     ai::migrate(&mut document)?;
     workflows::migrate(&mut document)?;
     retired::exclusions(&mut document)?;
+    retired::startup(&mut document)?;
     // 旧版将 AI 选项保存在提交专用表；下次显式保存配置时整体更名，保留表内注释。
     if let Some(legacy) = document.remove("commit_message") {
         document.insert("ai", legacy);
@@ -205,15 +200,15 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     let mut desired = toml_edit::ser::to_document(config)?;
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
     for key in FIELDS {
-        // 旧配置缺少显示或交互偏好时沿用默认值，不因无关配置更新而补写字段。
+        // 旧配置缺少可选偏好时沿用默认值，不因无关配置更新而补写字段。
         if matches!(
             key,
             "interaction_mode"
                 | "editor"
                 | "text_wrap"
                 | "file_icons"
-                | "startup_actions"
                 | "scheduled_actions"
+                | "fetch_on_startup"
         ) && before
             .as_ref()
             .is_some_and(|before| before.get(key) == after.get(key))
@@ -428,7 +423,7 @@ impl Store {
                 let text = fs::read_to_string(self.config_path())?;
                 let config = parse(&text)?;
                 let document: DocumentMut = text.parse()?;
-                if document.contains_key("push_policy") || document.contains_key("excluded_roots") {
+                if document.contains_key("push_policy") || retired::pending(&document) {
                     atomic(
                         &self.config_path(),
                         encode(&config, Some(&text))?.as_bytes(),
@@ -444,6 +439,7 @@ impl Store {
             serde_json::from_slice(&bytes).context(i18n::tr!(InvalidJson))?;
         workflows::migrate_json(&mut value)?;
         retired::json_exclusions(&mut value)?;
+        retired::json_startup(&mut value)?;
         let config: Config = serde_json::from_value(value).context(i18n::tr!(InvalidJson))?;
         config.validate()?;
         if self.config_path().try_exists()? {
@@ -453,7 +449,7 @@ impl Store {
             );
             let text = fs::read_to_string(self.config_path())?;
             let document: DocumentMut = text.parse()?;
-            if document.contains_key("push_policy") || document.contains_key("excluded_roots") {
+            if document.contains_key("push_policy") || retired::pending(&document) {
                 atomic(
                     &self.config_path(),
                     encode(&config, Some(&text))?.as_bytes(),

@@ -156,21 +156,14 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
-        "startup-actions" | "scheduled-actions" => {
+        "scheduled-actions" => {
             let plan: engine::workflow::Plan = args.join(" ").parse()?;
             let details = plan.details();
-            service.configure(ConfigEdit::Workflow {
-                trigger: if command == "startup-actions" {
-                    engine::workflow::Trigger::Startup
-                } else {
-                    engine::workflow::Trigger::Scheduled
-                },
-                plan,
-            })?;
+            service.configure(ConfigEdit::ScheduledWorkflow(plan))?;
             println!("{}\n{details}", i18n::tr!(WorkflowSaved));
             Ok(0)
         }
-        "remove" | "interval" | "autopush" | "concurrency" | "startup-check" | "anchor" => {
+        "remove" | "interval" | "autopush" | "concurrency" | "anchor" | "startup-fetch" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
                 "remove" => {
@@ -183,20 +176,20 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 )?),
                 "autopush" => ConfigEdit::Policy(value.parse()?),
                 "concurrency" => ConfigEdit::Concurrency(value.parse()?),
-                "startup-check" => {
+                "startup-fetch" => {
                     ensure!(
                         matches!(value, "true" | "false"),
                         i18n::tr!(BooleanArgumentRequired)
                     );
-                    ConfigEdit::StartupCheck(value.parse()?)
+                    ConfigEdit::FetchOnStartup(value.parse()?)
                 }
                 _ => unreachable!(),
             };
             service.configure(edit)?;
             println!(
                 "{}",
-                if command == "startup-check" {
-                    i18n::tr!(StartupCheckSavedNextLaunch)
+                if command == "startup-fetch" {
+                    i18n::tr!(StartupFetchSaved)
                 } else {
                     i18n::tr!(ConfigurationSavedApplySchedule)
                 }
@@ -240,7 +233,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(i32::from(failed > 0))
         }
-        "check" | "scheduled-check" | "scheduled-tick" => {
+        "fetch" | "scheduled-check" | "scheduled-tick" => {
             if command == "scheduled-check" || command == "scheduled-tick" {
                 none(&args)?;
             } else {
@@ -412,20 +405,19 @@ pub fn render_status(s: &Snapshot) -> String {
         s.max_concurrency,
         s.push_policy
     );
-    text.push_str(&i18n::tf!(
-        StartupCheckStatus,
-        if s.check_on_startup {
+    text.push_str(&format!(
+        "{}: {}\n",
+        i18n::tr!(StartupFetch),
+        if s.fetch_on_startup {
             i18n::tr!(TaskEnabled)
         } else {
             i18n::tr!(TaskDisabled)
         }
     ));
     text.push_str(&format!(
-        "{}: {}\n{}: {}\n",
-        i18n::tr!(WorkflowStartupActions),
-        s.startup_actions.summary(),
+        "{}: {}\n",
         i18n::tr!(WorkflowScheduledActions),
-        s.scheduled_actions.summary(),
+        s.scheduled_actions.summary()
     ));
     text.push_str(&format!(
         "{}: {}\n{}: {}\n",

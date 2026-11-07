@@ -39,13 +39,12 @@ impl Service {
             configured_anchor: c.schedule_anchor,
             next_trigger,
             push_policy: c.scheduled_actions.push_policy(),
-            startup_actions: c.startup_actions,
             scheduled_actions: c.scheduled_actions,
             repository_count: c.repositories.len(),
             schedule,
             report,
             max_concurrency: c.max_concurrency,
-            check_on_startup: c.check_on_startup,
+            fetch_on_startup: c.fetch_on_startup,
         })
     }
 }

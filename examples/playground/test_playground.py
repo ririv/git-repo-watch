@@ -113,7 +113,8 @@ class PlaygroundTests(unittest.TestCase):
                     if case != Case.NO_REMOTE:
                         self.assertEqual(repo.run("remote", "get-url", "origin"), str(root / "remote.git"))
                     profile = (root / "home/config.toml").read_text(encoding="utf-8")
-                    self.assertIn("check_on_startup = false", profile)
+                    self.assertNotIn("check_on_startup", profile)
+                    self.assertNotIn("startup_actions", profile)
                     self.assertIn("enabled = false", profile)
                     self.assertIn(json.dumps(str(repo.path), ensure_ascii=False), profile)
                     if case == Case.SUBMODULE:

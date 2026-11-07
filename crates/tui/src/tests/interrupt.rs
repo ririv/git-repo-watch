@@ -25,7 +25,7 @@ fn three_presses_clear_all_command_input_warn_then_exit_without_writes() {
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         s.paste("beta");
         let selected = s.selected_path();
-        s.paste("//settings startup enabled ");
+        s.paste("//settings concurrency ");
         assert!(matches!(s.bar, bar::InputBar::Command { .. }));
         assert!(!interrupt(&mut s));
         assert!(s.bar.text().is_empty());

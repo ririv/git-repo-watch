@@ -9,7 +9,7 @@ use std::fs;
 use test_support::{Fixture, git, write};
 
 #[test]
-fn startup_and_all_repository_readers_preserve_uncommitted_submodule_migration() {
+fn scheduled_workflow_and_all_repository_readers_preserve_uncommitted_submodule_migration() {
     let parent = Fixture::create();
     let source = Fixture::create();
     fs::create_dir_all(source.repo.join("packages/cpython")).unwrap();
@@ -90,14 +90,14 @@ fn startup_and_all_repository_readers_preserve_uncommitted_submodule_migration()
     store
         .save_config(&Config {
             repositories: paths.clone(),
-            startup_actions: "fetch inspect".parse().unwrap(),
             max_concurrency: 8,
+            fetch_on_startup: false,
             ..Config::default()
         })
         .unwrap();
     let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
     let service = Service::new(store, manager);
-    let report = service.run_startup(&Cancel::default(), |_| {}).unwrap();
+    let report = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
     assert_eq!(report.repositories.len(), 2);
     for (i, path) in paths.iter().enumerate() {
         service.overview(path, &Cancel::default()).unwrap();

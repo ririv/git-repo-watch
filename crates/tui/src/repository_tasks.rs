@@ -151,6 +151,13 @@ impl Screen {
                     }
                 },
             };
+            // 单仓库获取即使失败也会返回状态报告；先保留报告更新，再按错误结束界面任务。
+            if let Ok(Outcome::Checked(report)) = &outcome
+                && let Some(engine::domain::RepositoryResult::Failed { error, .. }) =
+                    report.repositories.first()
+            {
+                outcome = Err(anyhow::anyhow!(error.clone()));
+            }
             let view = if progress.measurements.is_empty()
                 || matches!(requested, crate::mutations::readback::Requested::None)
             {

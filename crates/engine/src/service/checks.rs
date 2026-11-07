@@ -2,7 +2,7 @@
 use super::*;
 enum CheckInvocation {
     Manual,
-    Startup,
+    StartupFetch,
     Scheduled,
 }
 #[derive(Clone, Copy)]
@@ -23,13 +23,13 @@ impl Service {
     pub fn run(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::Manual, cancel, emit, None)
     }
+    /// Fetch registered repositories once after opening the TUI.
+    pub fn fetch_on_startup(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
+        self.run_batch(CheckInvocation::StartupFetch, cancel, emit, None)
+    }
     /// Execute the configured scheduled workflow.
     pub fn run_scheduled(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::Scheduled, cancel, emit, None)
-    }
-    /// Execute the explicitly configured startup workflow.
-    pub fn run_startup(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
-        self.run_batch(CheckInvocation::Startup, cancel, emit, None)
     }
     pub fn retry_check_all(
         &self,
@@ -86,22 +86,17 @@ impl Service {
     ) -> Result<Report> {
         let config = self.store.config()?;
         let plan = match invocation {
-            CheckInvocation::Manual => RunPlan::Manual,
-            CheckInvocation::Startup => RunPlan::Workflow(&config.startup_actions),
+            CheckInvocation::Manual | CheckInvocation::StartupFetch => RunPlan::Manual,
             CheckInvocation::Scheduled => RunPlan::Workflow(&config.scheduled_actions),
         };
         let source = match invocation {
             CheckInvocation::Manual => crate::tasks::Source::Interactive,
-            CheckInvocation::Startup => crate::tasks::Source::Startup,
+            CheckInvocation::StartupFetch => crate::tasks::Source::Startup,
             CheckInvocation::Scheduled => crate::tasks::Source::Scheduled,
         };
         let title = match invocation {
-            CheckInvocation::Manual => i18n::tr!(TasksCheck).to_owned(),
-            CheckInvocation::Startup => format!(
-                "{} · {}",
-                i18n::tr!(WorkflowStartup),
-                config.startup_actions.summary()
-            ),
+            CheckInvocation::Manual => i18n::tr!(FetchAllCommand).to_owned(),
+            CheckInvocation::StartupFetch => i18n::tr!(StartupFetch).to_owned(),
             CheckInvocation::Scheduled => format!(
                 "{} · {}",
                 i18n::tr!(WorkflowScheduled),
@@ -115,10 +110,10 @@ impl Service {
                 scope: crate::tasks::Scope::All,
                 source,
                 retry: match invocation {
-                    CheckInvocation::Manual => crate::tasks::Retry::CheckAll,
-                    CheckInvocation::Startup | CheckInvocation::Scheduled => {
-                        crate::tasks::Retry::Unavailable
+                    CheckInvocation::Manual | CheckInvocation::StartupFetch => {
+                        crate::tasks::Retry::FetchAll
                     }
+                    CheckInvocation::Scheduled => crate::tasks::Retry::Unavailable,
                 },
                 retry_of,
                 operation: None,
@@ -183,7 +178,7 @@ impl Service {
         cancel: &Cancel,
         emit: impl FnMut(Event),
     ) -> Result<Report> {
-        self.check_repository_task(path, cancel, emit, None)
+        self.check_repository_task(path, cancel, emit, None, crate::tasks::Source::Interactive)
     }
     pub fn retry_check_repository(
         &self,
@@ -192,7 +187,22 @@ impl Service {
         emit: impl FnMut(Event),
         parent: String,
     ) -> Result<Report> {
-        self.check_repository_task(path, cancel, emit, Some(parent))
+        self.check_repository_task(
+            path,
+            cancel,
+            emit,
+            Some(parent),
+            crate::tasks::Source::Interactive,
+        )
+    }
+    /// Fetch a session-only repository using the same repository operation as manual fetch.
+    pub fn fetch_session_on_startup(
+        &self,
+        path: &Path,
+        cancel: &Cancel,
+        emit: impl FnMut(Event),
+    ) -> Result<Report> {
+        self.check_repository_task(path, cancel, emit, None, crate::tasks::Source::Startup)
     }
     fn check_repository_task(
         &self,
@@ -200,6 +210,7 @@ impl Service {
         cancel: &Cancel,
         mut emit: impl FnMut(Event),
         retry_of: Option<String>,
+        source: crate::tasks::Source,
     ) -> Result<Report> {
         let run = crate::tasks::Run::begin(
             &self.store,
@@ -208,8 +219,8 @@ impl Service {
                 scope: crate::tasks::Scope::Repository {
                     path: path.to_owned(),
                 },
-                source: crate::tasks::Source::Interactive,
-                retry: crate::tasks::Retry::CheckRepository {
+                source,
+                retry: crate::tasks::Retry::Fetch {
                     path: path.to_owned(),
                 },
                 retry_of,
@@ -241,14 +252,13 @@ impl Service {
     ) -> Result<Report> {
         let _repository = self.repository_lock(path, cancel)?;
         let started_at = state::now();
-        let (result, timing) = match plan {
-            RunPlan::Manual => check::repository(&self.git, path, PushPolicy::Disabled, cancel),
-            RunPlan::Workflow(plan) => {
-                crate::workflow::execute(&self.git, path, plan, cancel, |step| {
-                    reporter.progress(format!("{}\n{}", path.display(), step.label()))
-                })
-            }
+        let steps = match plan {
+            RunPlan::Manual => crate::workflow::Plan::fetch(),
+            RunPlan::Workflow(plan) => plan.clone(),
         };
+        let (result, timing) = crate::workflow::execute(&self.git, path, &steps, cancel, |step| {
+            reporter.progress(format!("{}\n{}", path.display(), step.label()))
+        });
         let refresh_cancel = Cancel::default();
         let save_cancel = match plan {
             RunPlan::Manual => {
@@ -258,13 +268,11 @@ impl Service {
             RunPlan::Workflow(_) => &refresh_cancel,
         };
         let mut report = single_report(result, timing, started_at, plan.policy());
-        if let RunPlan::Workflow(plan) = plan {
-            report
-                .execution
-                .as_mut()
-                .expect("execution timing")
-                .workflow = Some(plan.clone());
-        }
+        report
+            .execution
+            .as_mut()
+            .expect("execution timing")
+            .workflow = Some(steps);
         self.store
             .save_repository_report(&mut report, save_cancel)?;
         Ok(report)
@@ -377,7 +385,7 @@ impl Service {
             classification_updated_at: None,
             execution: Some(Execution {
                 workflow: match plan {
-                    RunPlan::Manual => None,
+                    RunPlan::Manual => Some(crate::workflow::Plan::fetch()),
                     RunPlan::Workflow(plan) => Some(plan.clone()),
                 },
                 max_concurrency: config.max_concurrency,

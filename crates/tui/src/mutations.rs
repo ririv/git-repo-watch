@@ -177,21 +177,7 @@ impl Screen {
         path: std::path::PathBuf,
         parent: Option<String>,
     ) {
-        let mut spec = crate::task_center::spec(
-            i18n::tr!(FetchCommand),
-            Some(path.clone()),
-            engine::tasks::Retry::Fetch { path: path.clone() },
-        );
-        spec.retry_of = parent;
-        self.start_repository_tracked(
-            path.clone(),
-            i18n::tr!(FetchCommand),
-            Effect::RepositoryWrite,
-            spec,
-            move |service, cancel, _| {
-                Ok(Outcome::MutationCompleted(service.fetch(&path, &cancel)?))
-            },
-        );
+        self.start_check_retry(crate::checks::CheckTarget::Repository(path), parent);
     }
     pub(crate) fn refresh_mutated_view(&mut self) {
         self.message = i18n::tr!(MutationComplete).into();

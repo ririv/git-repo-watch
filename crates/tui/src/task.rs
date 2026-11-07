@@ -212,7 +212,26 @@ impl Screen {
             }
             Outcome::Checked(report) => {
                 self.mode = origin;
-                self.message = i18n::tf!(CheckOneComplete, report.repositories[0].path().display());
+                self.message = report
+                    .execution
+                    .as_ref()
+                    .and_then(|execution| execution.repositories.first())
+                    .and_then(|timing| {
+                        timing
+                            .steps
+                            .iter()
+                            .find_map(|record| match &record.outcome {
+                                engine::workflow::StepOutcome::Skipped { reason }
+                                    if record.step == engine::workflow::Step::Fetch =>
+                                {
+                                    Some(reason.label().to_owned())
+                                }
+                                _ => None,
+                            })
+                    })
+                    .unwrap_or_else(|| {
+                        i18n::tf!(CheckOneComplete, report.repositories[0].path().display())
+                    });
             }
             Outcome::History(view) => {
                 self.workspace.save(origin);

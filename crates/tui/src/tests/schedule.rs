@@ -99,7 +99,7 @@ fn schedule_values_share_rows_with_aligned_action_buttons() {
                 let label = match action {
                     Action::Interval => i18n::tr!(IntervalLabel),
                     Action::Anchor => i18n::tr!(ScheduleAnchorLabel),
-                    Action::Workflow(_) => i18n::tr!(WorkflowScheduledActions),
+                    Action::Workflow => i18n::tr!(WorkflowScheduledActions),
                     Action::Apply => i18n::tr!(ApplicationLabel),
                     Action::EnableSchedule | Action::DisableSchedule => i18n::tr!(TaskStatusLabel),
                     _ => unreachable!(),
@@ -161,10 +161,7 @@ fn schedule_buttons_open_editors_with_one_click_and_keep_control_confirmation() 
     click(&mut s, Action::Anchor);
     assert_eq!(s.bar.text(), "/schedule anchor auto");
     key(&mut s, KeyCode::Esc);
-    click(
-        &mut s,
-        Action::Workflow(engine::workflow::Trigger::Scheduled),
-    );
+    click(&mut s, Action::Workflow);
     assert!(matches!(s.mode, Mode::Workflow(_)));
     key(&mut s, KeyCode::Esc);
     click(&mut s, Action::DisableSchedule);

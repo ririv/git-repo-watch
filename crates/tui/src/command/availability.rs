@@ -69,7 +69,6 @@ impl Screen {
                     | Push
                     | Terminal
                     | OpenEditor
-                    | Check
                     | Remove
                     | Replay(_)
                     | ReplayControl(_)

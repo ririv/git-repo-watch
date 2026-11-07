@@ -15,16 +15,16 @@ fn fixture() -> (tempfile::TempDir, Store) {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: vec![],
-            startup_actions: Default::default(),
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
-            check_on_startup: false,
+            fetch_on_startup: false,
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,
             interaction_mode: Default::default(),
             view: Default::default(),
             mouse: Default::default(),
+            editor: Default::default(),
             ai: Default::default(),
         })
         .unwrap();

@@ -33,6 +33,65 @@ fn observed(s: &Screen, path: &std::path::Path) -> bool {
 }
 
 #[test]
+fn startup_observes_local_state_without_fetching_or_running_retired_steps() {
+    use std::os::unix::fs::PermissionsExt;
+    let _native = NATIVE.lock().unwrap();
+    for start in [crate::Start::Repositories, crate::Start::CurrentDirectory] {
+        let f = support::Fixture::create();
+        f.commit("file.txt", "committed\n");
+        support::write(f.repo.join("file.txt"), "local changes\n");
+        f.advance();
+        let marker = f.temp.path().join("unexpected-fetch");
+        let upload = f.temp.path().join("upload-pack");
+        support::write(
+            &upload,
+            &format!("#!/bin/sh\ntouch '{}'\nexit 99\n", marker.display()),
+        );
+        std::fs::set_permissions(&upload, std::fs::Permissions::from_mode(0o700)).unwrap();
+        support::git(
+            &f.repo,
+            &[
+                "config",
+                "remote.origin.uploadpack",
+                upload.to_str().unwrap(),
+            ],
+        );
+        let (_home, old) = fixture(vec![f.repo.clone()]);
+        let config = std::fs::read_to_string(old.service.store.config_path()).unwrap();
+        let legacy = format!(
+            "check_on_startup = true\nstartup_actions = ['fetch', 'pull', 'push', 'inspect']\n{config}"
+        );
+        std::fs::write(old.service.store.config_path(), &legacy).unwrap();
+        let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+        let refs = support::git(&f.repo, &["show-ref"]);
+        let mut s = start
+            .in_directory(&f.repo, &Cancel::default())
+            .unwrap()
+            .open((*old.service).clone(), &Cancel::default())
+            .unwrap();
+        until(&mut s, |s| observed(s, &f.repo));
+        assert!(
+            matches!(s.result_for(&f.repo), Some(RepositoryResult::Attention { issues, .. }) if issues.iter().any(|issue| issue.kind == IssueKind::Dirty))
+        );
+        assert!(s.check_task.is_none());
+        assert!(!marker.exists());
+        assert_eq!(support::git(&f.repo, &["show-ref"]), refs);
+        assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+        assert_eq!(
+            std::fs::read_to_string(f.repo.join("file.txt")).unwrap(),
+            "local changes\n"
+        );
+        assert_eq!(
+            std::fs::read_to_string(s.service.store.config_path()).unwrap(),
+            legacy
+        );
+        assert!(s.service.store.tasks(10).unwrap().is_empty());
+        assert!(s.service.store.report().unwrap().is_none());
+        s.shutdown();
+    }
+}
+
+#[test]
 fn external_edits_staging_and_commits_refresh_without_navigation_or_remote_checks() {
     let _native = NATIVE.lock().unwrap();
     let f = support::Fixture::create();

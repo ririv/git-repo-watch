@@ -31,7 +31,7 @@ fn editor_preferences_preserve_old_configuration_and_explicit_commands() {
     assert_eq!(config.editor, Preference::Git);
     store.save_config(&config).unwrap();
     let saved = fs::read_to_string(store.config_path()).unwrap();
-    assert!(saved.starts_with(old));
+    assert!(saved.starts_with(&old.replace("startup_actions = [\"inspect\"]\n", "")));
     assert!(!saved.contains("editor ="));
     for value in [
         "code",

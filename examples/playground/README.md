@@ -45,7 +45,7 @@ gw --home "$PLAYGROUND_ROOT/home" check "$PLAYGROUND_ROOT/repo"
 | `work/playground/submodule/submodule-remote.git/` | 子模块的本地 bare 远程 |
 | `work/playground/submodule/submodule-peer/` | 子模块的第二个工作副本 |
 
-`work/` 已在项目忽略规则中。生成脚本隔离调用者的 Git 环境和系统／全局配置，采用固定示例身份与提交时间，并关闭签名与 hooks。生成的仓库只允许本地 file 协议。独立 GW 配置关闭启动检查和 AI，启动与定时流程仅含本地状态读取；定时任务保持未安装。
+`work/` 已在项目忽略规则中。生成脚本隔离调用者的 Git 环境和系统／全局配置，采用固定示例身份与提交时间，并关闭签名与 hooks。生成的仓库只允许本地 file 协议。独立 GW 配置关闭 AI，定时流程仅含本地状态读取；定时任务保持未安装。
 
 ## 场景
 
@@ -102,7 +102,7 @@ python3 examples/playground/create.py --case stash-preview
 - `stash/二进制.dat`：显示二进制提示。
 - `docs/旧名称.md → docs/新名称.md` 和 `docs/待删除.md`：查看重命名与删除。
 
-查看前后可以执行 `git status --short` 与 `git stash list`，结果应相同。该场景使用独立的 GW 配置，不启用启动检查和定时任务。
+查看前后可以执行 `git status --short` 与 `git stash list`，结果应相同。该场景使用独立的 GW 配置，不启用定时任务。
 
 ## 文件头元信息演练
 

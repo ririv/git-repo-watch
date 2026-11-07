@@ -4,7 +4,7 @@ use crate::{
     workflow::{Action as Edit, Cursor, FooterAction, RowAction, Session},
 };
 use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
-use engine::workflow::{Plan, Step, Trigger};
+use engine::workflow::{Plan, Step};
 use ratatui::layout::Position;
 
 fn click_item(screen: &mut Screen, target: Target, index: usize) {
@@ -39,9 +39,8 @@ fn session(screen: &Screen) -> &Session {
 #[test]
 fn keyboard_checkboxes_and_save_are_reachable_without_switching_focus_modes() {
     let (_home, mut s) = fixture(vec![]);
-    let scheduled = s.config.scheduled_actions.clone();
-    command(&mut s, "settings startup");
-    assert_eq!(s.page, Page::Configuration(Configuration::General));
+    command(&mut s, "schedule actions");
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Down);
@@ -51,7 +50,7 @@ fn keyboard_checkboxes_and_save_are_reachable_without_switching_focus_modes() {
         vec![Step::Fetch, Step::Pull, Step::Push, Step::Inspect]
     );
     assert_eq!(
-        s.service.store.config().unwrap().startup_actions,
+        s.service.store.config().unwrap().scheduled_actions,
         Plan::fetch()
     );
     key(&mut s, KeyCode::Down);
@@ -66,28 +65,17 @@ fn keyboard_checkboxes_and_save_are_reachable_without_switching_focus_modes() {
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(
-        s.config.startup_actions,
+        s.config.scheduled_actions,
         "fetch pull push inspect".parse().unwrap()
     );
-    assert_eq!(s.config.scheduled_actions, scheduled);
     assert!(s.service.store.report().unwrap().is_none());
     assert!(s.check_task.is_none());
-    command(&mut s, "schedule actions");
-    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
-    click_item(&mut s, Target::WorkflowToggle, 0);
-    click_action(&mut s, Edit::Save);
-    wait(&mut s);
-    assert_eq!(s.config.scheduled_actions, Plan::local());
-    assert_eq!(
-        s.config.startup_actions,
-        "fetch pull push inspect".parse().unwrap()
-    );
 }
 
 #[test]
 fn invalid_push_stays_visible_and_a_checkbox_can_fix_the_draft() {
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "settings startup");
+    command(&mut s, "schedule actions");
     click_item(&mut s, Target::WorkflowToggle, 0);
     click_item(&mut s, Target::WorkflowToggle, 2);
     click_action(&mut s, Edit::Save);
@@ -95,7 +83,7 @@ fn invalid_push_stays_visible_and_a_checkbox_can_fix_the_draft() {
     assert!(s.message.contains(i18n::tr!(WorkflowPushNeedsRefresh)));
     assert!(render(&mut s, 120, 32).contains(i18n::tr!(WorkflowPushNeedsRefresh)));
     assert_eq!(
-        s.service.store.config().unwrap().startup_actions,
+        s.service.store.config().unwrap().scheduled_actions,
         Plan::fetch()
     );
     click_item(&mut s, Target::WorkflowToggle, 0);
@@ -105,9 +93,9 @@ fn invalid_push_stays_visible_and_a_checkbox_can_fix_the_draft() {
     );
     key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
-    assert_eq!(s.config.startup_actions, Plan::fetch());
+    assert_eq!(s.config.scheduled_actions, Plan::fetch());
     assert_eq!(
-        s.service.store.config().unwrap().startup_actions,
+        s.service.store.config().unwrap().scheduled_actions,
         Plan::fetch()
     );
 }
@@ -115,7 +103,7 @@ fn invalid_push_stays_visible_and_a_checkbox_can_fix_the_draft() {
 #[test]
 fn row_controls_move_the_selected_operation_and_preserve_saved_order() {
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "settings startup");
+    command(&mut s, "schedule actions");
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Right);
@@ -139,7 +127,6 @@ fn row_controls_move_the_selected_operation_and_preserve_saved_order() {
         vec![Step::Fetch, Step::Pull, Step::Inspect]
     );
     s.mode = Mode::Workflow(Box::new(Session::new(
-        Trigger::Startup,
         &"pull fetch push inspect".parse().unwrap(),
     )));
     assert_eq!(
@@ -148,7 +135,7 @@ fn row_controls_move_the_selected_operation_and_preserve_saved_order() {
     );
     click_action(&mut s, Edit::Save);
     wait(&mut s);
-    command(&mut s, "settings startup");
+    command(&mut s, "schedule actions");
     assert_eq!(
         session(&s).steps(),
         vec![Step::Pull, Step::Fetch, Step::Push, Step::Inspect]
@@ -216,7 +203,7 @@ fn all_available_steps_and_save_controls_are_visible_in_both_languages() {
 #[test]
 fn narrow_editor_reveals_footer_controls_and_precise_click_setting_is_respected() {
     let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "settings startup");
+    command(&mut s, "schedule actions");
     for code in [
         KeyCode::End,
         KeyCode::Left,
@@ -240,18 +227,11 @@ fn narrow_editor_reveals_footer_controls_and_precise_click_setting_is_respected(
 #[test]
 fn editor_breadcrumb_has_one_settings_page_and_one_editor_level() {
     let (_home, mut s) = fixture(vec![]);
-    for (command_name, section, title) in [
-        (
-            "settings startup",
-            Configuration::General,
-            i18n::tr!(WorkflowStartupActions),
-        ),
-        (
-            "schedule actions",
-            Configuration::Schedule,
-            i18n::tr!(WorkflowScheduledActions),
-        ),
-    ] {
+    for (command_name, section, title) in [(
+        "schedule actions",
+        Configuration::Schedule,
+        i18n::tr!(WorkflowScheduledActions),
+    )] {
         command(&mut s, command_name);
         let labels = s
             .breadcrumbs()

@@ -15,11 +15,18 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
             .into(),
         );
     }
-    if let Action::Workflow(trigger) = action {
-        return Some(match trigger {
-            engine::workflow::Trigger::Startup => screen.config.startup_actions.summary(),
-            engine::workflow::Trigger::Scheduled => screen.config.scheduled_actions.summary(),
-        });
+    if action == Action::Workflow {
+        return Some(screen.config.scheduled_actions.summary());
+    }
+    if action == Action::StartupFetchMenu {
+        return Some(
+            if screen.config.fetch_on_startup {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
+        );
     }
     if action == Action::WrapMenu {
         return Some(
@@ -73,12 +80,6 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 screen.config.scheduled_actions.push_policy().to_string()
             }
             Item::Command(Action::Concurrency) => screen.config.max_concurrency.to_string(),
-            Item::Command(Action::StartupCheck) => if screen.config.check_on_startup {
-                i18n::tr!(TaskEnabled)
-            } else {
-                i18n::tr!(TaskDisabled)
-            }
-            .into(),
             Item::ChineseCommandTrigger => if screen.config.chinese_command_trigger {
                 i18n::tr!(TaskEnabled)
             } else {

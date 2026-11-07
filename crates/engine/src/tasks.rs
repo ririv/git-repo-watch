@@ -36,9 +36,12 @@ pub enum Source {
 #[serde(tag = "kind", rename_all = "snake_case")]
 pub enum Retry {
     Unavailable,
-    CheckAll,
-    CheckRepository { path: PathBuf },
-    Fetch { path: PathBuf },
+    #[serde(alias = "check_all")]
+    FetchAll,
+    #[serde(alias = "check_repository")]
+    Fetch {
+        path: PathBuf,
+    },
 }
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "kind", rename_all = "snake_case")]

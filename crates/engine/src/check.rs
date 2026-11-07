@@ -87,14 +87,10 @@ fn inspect(
         }
         timing.local_ms += t.elapsed().as_millis();
         let t = Instant::now();
-        let fetched = (|| -> Result<()> {
-            for remote in &remotes {
-                if matches!(refresh, Refresh::Fetch) && !remote.skipped(&repo)? {
-                    git.fetch_tracking(path, remote, cancel)?;
-                }
-            }
-            Ok(())
-        })();
+        let fetched = match refresh {
+            Refresh::Fetch => crate::operations::fetch::all(git, path, cancel).map(|_| ()),
+            Refresh::Local => Ok(()),
+        };
         timing.fetch_ms = t.elapsed().as_millis();
         fetched?;
         let t = Instant::now();

@@ -43,11 +43,8 @@ impl Service {
                 config.scheduled_actions = steps.try_into()?;
             }
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
-            ConfigEdit::StartupCheck(value) => config.check_on_startup = value,
-            ConfigEdit::Workflow { trigger, plan } => match trigger {
-                crate::workflow::Trigger::Startup => config.startup_actions = plan,
-                crate::workflow::Trigger::Scheduled => config.scheduled_actions = plan,
-            },
+            ConfigEdit::FetchOnStartup(value) => config.fetch_on_startup = value,
+            ConfigEdit::ScheduledWorkflow(plan) => config.scheduled_actions = plan,
             ConfigEdit::FileIcons(value) => config.file_icons = value,
             ConfigEdit::TextWrap(value) => config.text_wrap = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,

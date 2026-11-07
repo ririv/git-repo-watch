@@ -119,7 +119,8 @@ fn template_and_initial_configuration_have_all_explicit_defaults_and_private_per
     let text = fs::read_to_string(store.config_path()).unwrap();
     assert!(text.contains("# 定时检查间隔"));
     assert!(text.contains("max_concurrency = 4"));
-    assert!(text.contains("check_on_startup = true"));
+    assert!(text.contains("fetch_on_startup = false"));
+    assert!(!text.contains("check_on_startup") && !text.contains("startup_actions"));
     assert_eq!(
         fs::metadata(store.config_path())
             .unwrap()
@@ -129,6 +130,59 @@ fn template_and_initial_configuration_have_all_explicit_defaults_and_private_per
         0o600
     );
     assert!(!store.legacy_config_path().exists());
+}
+
+#[test]
+fn retired_startup_configuration_is_removed_without_changing_the_schedule_or_user_comments() {
+    use engine::state::ConfigurationMigration;
+    let (_temp, store) = fixture();
+    let legacy = "# 用户配置\ninterval_seconds = 21600\nrepositories = []\n# 启动流程：按数组顺序执行。\nstartup_actions = ['fetch', 'pull', 'push', 'inspect'] # 用户备注\ncheck_on_startup = true\nscheduled_actions = ['inspect']\n";
+    fs::write(store.config_path(), legacy).unwrap();
+    let config = store.config().unwrap();
+    assert!(!config.fetch_on_startup);
+    assert_eq!(config.scheduled_actions, engine::workflow::Plan::local());
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
+    assert!(matches!(
+        store.migrate_configuration(&Cancel::default()).unwrap(),
+        ConfigurationMigration::Converted
+    ));
+    let saved = fs::read_to_string(store.config_path()).unwrap();
+    assert!(!saved.contains("startup_actions") && !saved.contains("check_on_startup"));
+    assert!(saved.contains("# 用户配置") && saved.contains("# 用户备注"));
+    assert!(!saved.contains("# 启动流程"));
+    assert_eq!(store.config().unwrap(), config);
+    assert!(matches!(
+        store.migrate_configuration(&Cancel::default()).unwrap(),
+        ConfigurationMigration::Ready
+    ));
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), saved);
+    assert!(store.report().unwrap().is_none());
+    assert!(store.tasks(10).unwrap().is_empty());
+}
+
+#[test]
+fn legacy_json_startup_settings_are_retired_without_enabling_scheduled_steps() {
+    let (_temp, store) = fixture();
+    let mut legacy = serde_json::to_value(Config {
+        scheduled_actions: engine::workflow::Plan::local(),
+        ..Config::default()
+    })
+    .unwrap();
+    legacy["check_on_startup"] = serde_json::json!(true);
+    legacy["startup_actions"] = serde_json::json!(["fetch", "pull", "push", "inspect"]);
+    fs::write(
+        store.legacy_config_path(),
+        serde_json::to_vec(&legacy).unwrap(),
+    )
+    .unwrap();
+    store.migrate_configuration(&Cancel::default()).unwrap();
+    assert_eq!(
+        store.config().unwrap().scheduled_actions,
+        engine::workflow::Plan::local()
+    );
+    assert!(!store.legacy_config_path().exists());
+    let saved = fs::read_to_string(store.config_path()).unwrap();
+    assert!(!saved.contains("startup_actions") && !saved.contains("check_on_startup"));
 }
 #[test]
 fn scalar_changes_keep_comments_literal_paths_and_unchanged_field_formatting() {
@@ -142,17 +196,17 @@ repositories = [
 excluded_roots = []
 scheduled_actions = ['fetch', 'inspect']
 max_concurrency = 4
-check_on_startup = true # 启动检查
+text_wrap = false # 自动换行
 chinese_command_trigger = true # 中文输入
 "#;
     fs::write(store.config_path(), text).unwrap();
     let mut config = store.config().unwrap();
-    config.check_on_startup = false;
+    config.text_wrap = true;
     store.save_config(&config).unwrap();
     let next = fs::read_to_string(store.config_path()).unwrap();
     assert_eq!(
         next,
-        text.replace("check_on_startup = true", "check_on_startup = false")
+        text.replace("text_wrap = false", "text_wrap = true")
             .replace("excluded_roots = []\n", "")
     );
     assert_eq!(store.config().unwrap(), config);
@@ -162,7 +216,7 @@ chinese_command_trigger = true # 中文输入
     store.save_config(&config).unwrap();
     let next = fs::read_to_string(store.config_path()).unwrap();
     assert!(
-        next.contains("# 用户配置") && next.contains("# 仓库一") && next.contains("# 启动检查")
+        next.contains("# 用户配置") && next.contains("# 仓库一") && next.contains("# 自动换行")
     );
     assert_eq!(store.config().unwrap(), config);
 }
@@ -213,7 +267,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
     let config = Config {
         repositories: vec!["/example/中文 空格".into()],
         max_concurrency: 8,
-        check_on_startup: false,
+        fetch_on_startup: false,
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,
@@ -488,7 +542,7 @@ fn retiring_exclusions_preserves_registered_paths_comments_and_other_preferences
     store.initialize().unwrap();
     let mut config = store.config().unwrap();
     config.repositories = vec!["/example/keep".into()];
-    config.check_on_startup = false;
+    config.text_wrap = true;
     store.save_config(&config).unwrap();
     let current = fs::read_to_string(store.config_path()).unwrap();
     let legacy = format!("# 用户备注\nexcluded_roots = [\"/example/old\"]\n{current}");

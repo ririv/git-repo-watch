@@ -40,19 +40,6 @@ impl Step {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Trigger {
-    Startup,
-    Scheduled,
-}
-impl Trigger {
-    pub fn label(self) -> &'static str {
-        match self {
-            Self::Startup => i18n::tr!(WorkflowStartup),
-            Self::Scheduled => i18n::tr!(WorkflowScheduled),
-        }
-    }
-}
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "Vec<Step>", into = "Vec<Step>")]
 pub struct Plan {

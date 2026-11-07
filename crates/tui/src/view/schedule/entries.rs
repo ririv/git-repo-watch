@@ -105,10 +105,7 @@ pub(super) fn entries(screen: &Screen) -> [Entry; 7] {
             label: i18n::tr!(WorkflowScheduledActions),
             value: screen.config.scheduled_actions.summary(),
             color: Color::LightCyan,
-            interaction: button(
-                Action::Workflow(engine::workflow::Trigger::Scheduled),
-                i18n::tr!(ScheduleWorkflowButton),
-            ),
+            interaction: button(Action::Workflow, i18n::tr!(ScheduleWorkflowButton)),
         },
         Entry {
             label: i18n::tr!(ApplicationLabel),

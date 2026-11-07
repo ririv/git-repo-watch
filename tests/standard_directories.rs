@@ -58,7 +58,7 @@ fn standard_configuration_and_database_ignore_cwd_and_obsolete_location_files() 
     );
     assert_eq!(cli(&home, &cwd, &["init"]).status.code(), Some(2));
     assert_eq!(fs::read(store.config_path()).unwrap(), config);
-    assert_eq!(cli(&home, &cwd, &["check"]).status.code(), Some(1));
+    assert_eq!(cli(&home, &cwd, &["fetch"]).status.code(), Some(1));
     assert!(store.database_path().exists());
     assert!(store.report().unwrap().is_some());
     assert!(!cwd.join("var").exists());
@@ -78,7 +78,7 @@ fn explicit_home_keeps_its_existing_layout_and_is_independent_of_default_storage
     assert_eq!(custom.config().unwrap().interval_seconds, 43200);
     assert_eq!(standard.config().unwrap().interval_seconds, 21600);
     assert_eq!(
-        cli(home, home, &["--home", "~/独立 数据", "check"])
+        cli(home, home, &["--home", "~/独立 数据", "fetch"])
             .status
             .code(),
         Some(1)
@@ -142,7 +142,7 @@ fn explicit_import_transfers_a_custom_home_and_normal_commands_survive_source_re
     let home = temp.path();
     json(cli(home, home, &["--home", "~/旧 数据", "init"]));
     assert_eq!(
-        cli(home, home, &["--home", "~/旧 数据", "check"])
+        cli(home, home, &["--home", "~/旧 数据", "fetch"])
             .status
             .code(),
         Some(1)

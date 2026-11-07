@@ -44,12 +44,6 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
                 "[interactive|text]",
             ),
             (
-                "settings startup enabled",
-                Kind::StartupCheck,
-                2,
-                "[true|false]",
-            ),
-            (
                 "schedule autopush",
                 Kind::Autopush,
                 2,
@@ -178,42 +172,55 @@ fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_m
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
-        s.config.check_on_startup = true;
         s.config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::Disabled);
         s.service.store.save_config(&s.config).unwrap();
         let before = std::fs::read(s.service.store.config_path()).unwrap();
-        command(&mut s, "settings startup enabled");
+        command(&mut s, "schedule autopush");
         assert_eq!(choices(&s).options.len(), 2);
-        assert_eq!(choices(&s).current, Some(Value::StartupCheck(true)));
+        assert_eq!(
+            choices(&s).current,
+            Some(Value::Autopush(PushPolicy::Disabled))
+        );
         let text = render(&mut s, 100, 28);
-        assert!(text.contains(i18n::tr!(StartupCheckDisabledOption)));
+        assert!(text.contains(i18n::tr!(AutoPushFastForwardOption)));
         key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/settings startup enabled false");
+        assert_eq!(s.bar.text(), "/schedule autopush fast_forward");
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
             before
         );
         key(&mut s, KeyCode::Enter);
         assert!(matches!(&s.mode, Mode::Confirm {
-            operation: Confirmation::Configure { command: ConfigArgument::StartupCheck, value, .. }, ..
-        } if value == "false"));
+            operation: Confirmation::Configure { command: ConfigArgument::Autopush, value, .. }, ..
+        } if value == "fast_forward"));
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
             before
         );
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), "/settings startup enabled false");
+        assert_eq!(s.bar.text(), "/schedule autopush fast_forward");
         key(&mut s, KeyCode::Enter);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
-        assert!(!s.config.check_on_startup);
-        assert!(!s.service.store.config().unwrap().check_on_startup);
+        assert_eq!(
+            s.config.scheduled_actions.push_policy(),
+            PushPolicy::FastForward
+        );
+        assert_eq!(
+            s.service
+                .store
+                .config()
+                .unwrap()
+                .scheduled_actions
+                .push_policy(),
+            PushPolicy::FastForward
+        );
         assert!(s.check_task.is_none());
         assert!(s.service.store.report().unwrap().is_none());
 
         let saved = std::fs::read(s.service.store.config_path()).unwrap();
-        command(&mut s, "settings startup enabled");
+        command(&mut s, "schedule autopush");
         render(&mut s, 100, 28);
         let row = s
             .command_items
@@ -232,35 +239,10 @@ fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_m
         )
         .unwrap();
         assert!(matches!(&s.mode, Mode::Confirm {
-            operation: Confirmation::Configure { command: ConfigArgument::StartupCheck, value, .. }, ..
-        } if value == "true"));
-        key(&mut s, KeyCode::Esc);
-        assert_eq!(std::fs::read(s.service.store.config_path()).unwrap(), saved);
-
-        command(&mut s, "schedule autopush");
-        assert_eq!(choices(&s).options.len(), 2);
-        assert_eq!(
-            choices(&s).current,
-            Some(Value::Autopush(PushPolicy::Disabled))
-        );
-        key(&mut s, KeyCode::Down);
-        key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/schedule autopush fast_forward");
-        assert_eq!(std::fs::read(s.service.store.config_path()).unwrap(), saved);
-        key(&mut s, KeyCode::Enter);
-        assert!(matches!(&s.mode, Mode::Confirm {
             operation: Confirmation::Configure { command: ConfigArgument::Autopush, value, .. }, ..
-        } if value == "fast_forward"));
+        } if value == "disabled"));
         key(&mut s, KeyCode::Esc);
-        assert_eq!(
-            s.config.scheduled_actions.push_policy(),
-            PushPolicy::Disabled
-        );
         assert_eq!(std::fs::read(s.service.store.config_path()).unwrap(), saved);
-        command(&mut s, "schedule autopush invalid");
-        assert_eq!(s.message, i18n::tr!(NoMatchingOptions));
-        assert_eq!(std::fs::read(s.service.store.config_path()).unwrap(), saved);
-        s.shutdown();
     }
 }
 

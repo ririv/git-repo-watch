@@ -13,7 +13,6 @@ fn management_settings_and_editors_follow_their_displayed_parents() {
             "repos manage",
             "settings",
             "schedule",
-            "settings startup",
             "schedule actions",
             "settings ai prompt",
         ] {

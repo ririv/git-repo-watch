@@ -15,9 +15,6 @@ pub(crate) enum Item {
 impl Item {
     pub fn context(self) -> command::Context {
         match self {
-            Self::Command(
-                Action::StartupCheck | Action::Workflow(engine::workflow::Trigger::Startup),
-            ) => command::Context::Startup,
             Self::AiEnabled
             | Self::Command(Action::AiAgent | Action::AiModel | Action::AiPrompt) => {
                 command::Context::Ai
