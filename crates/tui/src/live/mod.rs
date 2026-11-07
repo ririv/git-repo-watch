@@ -22,7 +22,13 @@ pub(crate) enum State {
     Disabled,
     Active(Box<Controller>),
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum WindowFocus {
+    Focused,
+    Unfocused,
+}
 pub(crate) struct Controller {
+    focus: WindowFocus,
     monitor: Monitor,
     pending: BTreeMap<PathBuf, Change>,
     readers: BTreeMap<PathBuf, Reader>,
@@ -46,7 +52,8 @@ impl State {
         match self {
             Self::Disabled => "disabled".into(),
             Self::Active(controller) => format!(
-                "pending={:?} readers={:?} results={:?}",
+                "focus={:?} pending={:?} readers={:?} results={:?}",
+                controller.focus,
                 controller.pending.keys(),
                 controller
                     .readers
@@ -59,6 +66,7 @@ impl State {
     }
     pub fn start() -> Self {
         Self::Active(Box::new(Controller {
+            focus: WindowFocus::Focused,
             monitor: Monitor::start(),
             pending: BTreeMap::new(),
             readers: BTreeMap::new(),
@@ -67,6 +75,40 @@ impl State {
             watch_errors: BTreeMap::new(),
             detailed: BTreeSet::new(),
         }))
+    }
+    pub fn focus_changed(&mut self, focus: WindowFocus) {
+        let Self::Active(controller) = self else {
+            return;
+        };
+        if controller.focus == focus {
+            return;
+        }
+        controller.focus = focus;
+        if focus == WindowFocus::Unfocused {
+            // 只取消自动观察器；被中断的仓库在重新聚焦后重读，不接收失焦前的旧快照。
+            for (path, reader) in &controller.readers {
+                reader.cancel.cancel();
+                controller
+                    .pending
+                    .entry(path.clone())
+                    .and_modify(|change| change.merge(Change::all()))
+                    .or_insert_with(Change::all);
+            }
+        }
+    }
+    #[cfg(test)]
+    pub fn reading(&self) -> usize {
+        match self {
+            Self::Disabled => 0,
+            Self::Active(controller) => controller.readers.len(),
+        }
+    }
+    #[cfg(test)]
+    pub fn pending(&self) -> usize {
+        match self {
+            Self::Disabled => 0,
+            Self::Active(controller) => controller.pending.len(),
+        }
     }
     pub fn result(&self, path: &Path) -> Option<&RepositoryResult> {
         match self {
@@ -157,7 +199,11 @@ impl Screen {
             if !paths.contains(&path) {
                 continue;
             }
-            if self.local_refresh_blocked(&path) || reader.order != self.observation_order(&path) {
+            if reader.cancel.is_cancelled()
+                || controller.focus == WindowFocus::Unfocused
+                || self.local_refresh_blocked(&path)
+                || reader.order != self.observation_order(&path)
+            {
                 controller.pending.insert(path, Change::all());
                 continue;
             }
@@ -199,7 +245,9 @@ impl Screen {
             .pending
             .keys()
             .filter(|path| {
-                !controller.readers.contains_key(*path) && !self.local_refresh_blocked(path)
+                controller.focus == WindowFocus::Focused
+                    && !controller.readers.contains_key(*path)
+                    && !self.local_refresh_blocked(path)
             })
             .take(available)
             .cloned()

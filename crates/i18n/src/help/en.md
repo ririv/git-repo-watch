@@ -196,6 +196,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 ## Fetch and configuration
 - Startup reads local state by default. `/settings startup-fetch [true|false]` enables one background fetch on the next launch for managed repositories and the current session repository, using the same operation as manual fetch. It does not run scheduled pull or push steps.
 - `/repo fetch` fetches the current repository and refreshes its status; `/repos fetch` fetches all managed repositories.
+- Local automatic refresh coalesces filesystem events for 250 ms, or up to 1 second during continuous changes. Terminal focus loss pauses automatic reads while changes accumulate; focus gain refreshes affected repositories. Manual operations, startup fetch and scheduled tasks continue running.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
 - `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
 - `/repo` opens the selected repository; `/repos` returns to the list. `/repos manage` manages registrations; `/repos add <path>` adds one repository and `/repos remove` unregisters the selection.

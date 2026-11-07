@@ -1,9 +1,11 @@
 use super::*;
 use crate::{live, workspace};
+mod window_focus;
 // 原生 stream 的建立与销毁串行验证；跨仓库并发在同一观察器中验证。
 static NATIVE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 fn tick(s: &mut Screen) {
+    s.poll_check();
     s.poll_live();
     s.poll_workspace();
     s.overview.poll(&s.service);

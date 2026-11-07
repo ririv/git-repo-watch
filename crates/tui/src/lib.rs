@@ -64,7 +64,10 @@ use anyhow::{Context, Result};
 use command::{Action, Configuration};
 use crossterm::{
     event::{self, Event as TerminalEvent, KeyEventKind},
-    event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste},
+    event::{
+        DisableBracketedPaste, DisableFocusChange, DisableMouseCapture, EnableBracketedPaste,
+        EnableFocusChange,
+    },
     execute,
     terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
 };
@@ -491,7 +494,12 @@ impl TerminalGuard {
     fn enter(mode: engine::state::InteractionMode) -> Result<Self> {
         enable_raw_mode()?;
         let guard = Self::Active(mode);
-        execute!(io::stdout(), EnterAlternateScreen, EnableBracketedPaste)?;
+        execute!(
+            io::stdout(),
+            EnterAlternateScreen,
+            EnableBracketedPaste,
+            EnableFocusChange
+        )?;
         interaction::apply(mode, &mut io::stdout())?;
         Ok(guard)
     }
@@ -507,6 +515,7 @@ impl TerminalGuard {
         let mode = match self {
             Self::Active(mode) | Self::Suspended(mode) => *mode,
         };
+        execute!(io::stdout(), DisableFocusChange)?;
         *self = Self::Suspended(mode);
         let result = engine::editor::terminal::run(plan);
         *self = Self::enter(mode)?;
@@ -520,6 +529,7 @@ impl Drop for TerminalGuard {
             let _ = execute!(
                 io::stdout(),
                 DisableBracketedPaste,
+                DisableFocusChange,
                 DisableMouseCapture,
                 LeaveAlternateScreen,
                 crossterm::cursor::Show
@@ -621,6 +631,12 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                         screen.drag = None;
                         screen.graphics.refresh_metrics();
                         dirty = true;
+                    }
+                    TerminalEvent::FocusLost => {
+                        screen.live.focus_changed(live::WindowFocus::Unfocused);
+                    }
+                    TerminalEvent::FocusGained => {
+                        screen.live.focus_changed(live::WindowFocus::Focused);
                     }
                     _ => {}
                 }
