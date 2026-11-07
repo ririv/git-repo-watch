@@ -27,6 +27,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: concurrency,
             fetch_on_startup: false,
+            auto_fetch: Default::default(),
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,

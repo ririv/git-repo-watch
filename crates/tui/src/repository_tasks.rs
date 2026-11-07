@@ -259,6 +259,9 @@ impl Screen {
                 .repository_tasks
                 .remove(&path)
                 .expect("completed repository task");
+            if task.effect == Effect::Check {
+                self.note_fetch_finished(&path);
+            }
             if task.handle.join().is_err() {
                 completion.outcome = Err(anyhow::anyhow!(i18n::tr!(BackgroundWorkerPanicked)));
             }

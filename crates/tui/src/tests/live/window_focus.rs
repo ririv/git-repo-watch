@@ -7,11 +7,11 @@ fn unfocused_start_waits_for_focus_before_the_initial_local_read() {
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     s.live = live::State::start();
-    s.live.focus_changed(WindowFocus::Unfocused);
+    s.window_focus_changed(WindowFocus::Unfocused);
     until(&mut s, |s| s.live.pending() == 1);
     assert_eq!(s.live.reading(), 0);
     assert!(!observed(&s, &f.repo));
-    s.live.focus_changed(WindowFocus::Focused);
+    s.window_focus_changed(WindowFocus::Focused);
     until(&mut s, |s| observed(s, &f.repo));
     assert!(s.service.store.tasks(10).unwrap().is_empty());
     s.shutdown();
@@ -32,7 +32,7 @@ fn unfocused_changes_are_coalesced_and_resume_without_replacing_selection_or_inp
     s.focus(Some(a.repo.clone()));
     s.paste("/help");
     let input = s.bar.text();
-    s.live.focus_changed(WindowFocus::Unfocused);
+    s.window_focus_changed(WindowFocus::Unfocused);
     for value in 2..=8 {
         support::write(
             b.repo.join("file.ts"),
@@ -45,7 +45,7 @@ fn unfocused_changes_are_coalesced_and_resume_without_replacing_selection_or_inp
         s.result_for(&b.repo),
         Some(RepositoryResult::Clean { .. })
     ));
-    s.live.focus_changed(WindowFocus::Focused);
+    s.window_focus_changed(WindowFocus::Focused);
     until(&mut s, |s| {
         matches!(
             s.result_for(&b.repo),
@@ -62,7 +62,7 @@ fn unfocused_changes_are_coalesced_and_resume_without_replacing_selection_or_inp
     assert!(s.service.store.report().unwrap().is_none());
     assert!(s.service.store.tasks(10).unwrap().is_empty());
     // 重复聚焦事件不应主动让全部仓库失效。
-    s.live.focus_changed(WindowFocus::Focused);
+    s.window_focus_changed(WindowFocus::Focused);
     tick(&mut s);
     assert_eq!(s.live.reading(), 0);
     assert_eq!(s.live.pending(), 0);
@@ -82,13 +82,13 @@ fn losing_focus_cancels_a_blocked_auto_reader_and_resumes_it_without_an_error() 
         .unwrap();
     s.live = live::State::start();
     until(&mut s, |s| s.live.reading() == 1);
-    s.live.focus_changed(WindowFocus::Unfocused);
+    s.window_focus_changed(WindowFocus::Unfocused);
     until(&mut s, |s| s.live.reading() == 0);
     assert_eq!(s.live.pending(), 1);
     assert!(s.live.error().is_none());
     assert!(!observed(&s, &f.repo));
     drop(lock);
-    s.live.focus_changed(WindowFocus::Focused);
+    s.window_focus_changed(WindowFocus::Focused);
     until(&mut s, |s| observed(s, &f.repo));
     assert!(s.live.error().is_none());
     s.shutdown();
@@ -102,7 +102,7 @@ fn manual_and_startup_fetches_continue_while_local_observation_is_unfocused() {
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         s.live = live::State::start();
         until(&mut s, |s| observed(s, &f.repo) && s.live.reading() == 0);
-        s.live.focus_changed(WindowFocus::Unfocused);
+        s.window_focus_changed(WindowFocus::Unfocused);
         f.advance();
         let remote = support::git(&f.remote, &["rev-parse", "main"]);
         let gate = FetchGate::install(&f);

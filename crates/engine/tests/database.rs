@@ -640,6 +640,7 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
         repositories: vec!["/example/中文 空格".into()],
         max_concurrency: 8,
         fetch_on_startup: false,
+        auto_fetch: Default::default(),
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,

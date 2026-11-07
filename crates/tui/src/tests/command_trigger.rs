@@ -137,6 +137,8 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
             [
                 "settings concurrency",
                 "settings startup-fetch",
+                "settings auto-fetch",
+                "settings auto-fetch-interval",
                 "settings wrap",
                 "settings interaction",
                 "settings ai",

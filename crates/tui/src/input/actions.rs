@@ -187,6 +187,22 @@ impl Screen {
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
+            Action::AutoFetchMenu => {
+                self.open_option_menu(command::options::Kind::AutoFetch, path, selection);
+            }
+            Action::AutoFetch(enabled) => {
+                self.start(
+                    i18n::tr!(AutoFetch),
+                    Effect::Configuration,
+                    move |service, cancel, _| {
+                        service.configure_with_cancel(
+                            ConfigEdit::AutoFetchEnabled(enabled),
+                            &cancel,
+                        )?;
+                        Ok(Outcome::Text(i18n::tr!(PreferenceSaved).into()))
+                    },
+                );
+            }
             Action::StartupFetchMenu => {
                 self.open_option_menu(command::options::Kind::StartupFetch, path, selection);
             }
@@ -332,7 +348,7 @@ impl Screen {
             }
             Action::FetchAll => self.start_check(checks::CheckTarget::All),
             Action::CancelCheck => {
-                if !self.cancel_repository_task() {
+                if !self.cancel_repository_task() && !self.cancel_auto_fetch() {
                     self.cancel_check();
                 }
             }
@@ -366,6 +382,9 @@ impl Screen {
                         .basis()
                         .map(|basis| basis.at.format("%Y-%m-%d %H:%M:%S").to_string())
                         .unwrap_or_else(|| "auto".into()),
+                    Action::AutoFetchInterval => engine::scheduler::duration::compact(
+                        self.config.auto_fetch.interval_seconds,
+                    ),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
                     Action::AiModel => {
                         if self.config.ai.program().model.is_empty() {
@@ -568,6 +587,12 @@ impl Screen {
                             }
                             Parameter::Interval => {
                                 save(ConfigEdit::Interval(state::interval(&value)?))?
+                            }
+                            Parameter::AutoFetchInterval => {
+                                s.configure(ConfigEdit::AutoFetchInterval(state::interval(
+                                    &value,
+                                )?))?;
+                                i18n::tr!(PreferenceSaved).into()
                             }
                             Parameter::Anchor => {
                                 save(ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(

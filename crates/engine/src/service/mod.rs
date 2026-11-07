@@ -107,6 +107,8 @@ pub enum ConfigEdit {
     Policy(PushPolicy),
     Concurrency(usize),
     FetchOnStartup(bool),
+    AutoFetchEnabled(bool),
+    AutoFetchInterval(u64),
     ScheduledWorkflow(crate::workflow::Plan),
     TextWrap(bool),
     FileIcons(bool),

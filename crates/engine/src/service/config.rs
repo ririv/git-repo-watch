@@ -44,6 +44,8 @@ impl Service {
             }
             ConfigEdit::Concurrency(value) => config.max_concurrency = value,
             ConfigEdit::FetchOnStartup(value) => config.fetch_on_startup = value,
+            ConfigEdit::AutoFetchEnabled(value) => config.auto_fetch.enabled = value,
+            ConfigEdit::AutoFetchInterval(value) => config.auto_fetch.interval_seconds = value,
             ConfigEdit::ScheduledWorkflow(plan) => config.scheduled_actions = plan,
             ConfigEdit::FileIcons(value) => config.file_icons = value,
             ConfigEdit::TextWrap(value) => config.text_wrap = value,

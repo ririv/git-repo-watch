@@ -372,6 +372,7 @@ impl Screen {
         };
     }
     pub(super) fn shutdown(&mut self) {
+        self.auto_fetch.shutdown();
         self.live.shutdown();
         self.command_reader.clear();
         self.command_repository.clear();

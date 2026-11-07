@@ -26,6 +26,7 @@ pub enum ArgumentAction {
     StashDrop,
     Scan,
     Interval,
+    AutoFetchInterval,
     Anchor,
     Autopush,
     Concurrency,
@@ -59,6 +60,7 @@ impl ArgumentAction {
 
             Self::Scan => Action::Scan,
             Self::Interval => Action::Interval,
+            Self::AutoFetchInterval => Action::AutoFetchInterval,
             Self::Anchor => Action::Anchor,
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
@@ -82,7 +84,7 @@ impl ArgumentAction {
             Self::Editor => "[git|<editor-command>]",
             Self::Add => "<path>",
             Self::Scan => "<path> [--exclude <path>…]",
-            Self::Interval => "<duration>",
+            Self::Interval | Self::AutoFetchInterval => "<duration>",
             Self::Anchor => "[<datetime>|auto]",
             Self::Concurrency => "<count>",
             Self::Option(_) | Self::Autopush | Self::AiAgent => {
@@ -107,7 +109,7 @@ impl ArgumentAction {
             Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
-            Self::Interval => i18n::tr!(DurationArgumentHint),
+            Self::Interval | Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
@@ -167,7 +169,7 @@ impl ArgumentAction {
                 );
                 Ok(value.into())
             }
-            Self::Interval => {
+            Self::Interval | Self::AutoFetchInterval => {
                 engine::state::interval(value)?;
                 Ok(value.into())
             }
@@ -223,6 +225,7 @@ impl Action {
             }
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
+            Self::AutoFetchMenu => Some(ArgumentAction::Option(super::options::Kind::AutoFetch)),
             Self::StartupFetchMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::StartupFetch))
             }
@@ -260,6 +263,7 @@ impl Action {
 
             Self::Scan => Some(ArgumentAction::Scan),
             Self::Interval => Some(ArgumentAction::Interval),
+            Self::AutoFetchInterval => Some(ArgumentAction::AutoFetchInterval),
             Self::Anchor => Some(ArgumentAction::Anchor),
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
@@ -328,6 +332,7 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
 pub enum ConfigArgument {
     Add,
     Interval,
+    AutoFetchInterval,
     Anchor,
     Autopush,
     Concurrency,
@@ -345,6 +350,7 @@ impl ConfigArgument {
         match self {
             Self::Add => ArgumentAction::Add,
             Self::Interval => ArgumentAction::Interval,
+            Self::AutoFetchInterval => ArgumentAction::AutoFetchInterval,
             Self::Anchor => ArgumentAction::Anchor,
             Self::Autopush => ArgumentAction::Autopush,
             Self::Concurrency => ArgumentAction::Concurrency,
@@ -358,6 +364,7 @@ impl ArgumentAction {
         match self {
             Self::Add => Some(ConfigArgument::Add),
             Self::Interval => Some(ConfigArgument::Interval),
+            Self::AutoFetchInterval => Some(ConfigArgument::AutoFetchInterval),
             Self::Anchor => Some(ConfigArgument::Anchor),
             Self::Autopush => Some(ConfigArgument::Autopush),
             Self::Concurrency => Some(ConfigArgument::Concurrency),

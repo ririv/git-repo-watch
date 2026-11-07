@@ -100,6 +100,8 @@ impl Command {
             Action::Concurrency => Summary::Concurrency,
             Action::Workflow => Summary::ScheduledActions,
             Action::WrapMenu | Action::Wrap(_) => Summary::TextWrap,
+            Action::AutoFetchMenu | Action::AutoFetch(_) => Summary::AutoFetch,
+            Action::AutoFetchInterval => Summary::AutoFetchInterval,
             Action::StartupFetchMenu | Action::StartupFetch(_) => Summary::StartupFetch,
             Action::Apply => Summary::Apply,
             Action::EnableSchedule => Summary::EnableSchedule,

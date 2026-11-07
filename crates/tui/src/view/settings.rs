@@ -18,6 +18,21 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
     if action == Action::Workflow {
         return Some(screen.config.scheduled_actions.summary());
     }
+    if action == Action::AutoFetchInterval {
+        return Some(engine::scheduler::duration::compact(
+            screen.config.auto_fetch.interval_seconds,
+        ));
+    }
+    if action == Action::AutoFetchMenu {
+        return Some(
+            if screen.config.auto_fetch.enabled {
+                i18n::tr!(TaskEnabled)
+            } else {
+                i18n::tr!(TaskDisabled)
+            }
+            .into(),
+        );
+    }
     if action == Action::StartupFetchMenu {
         return Some(
             if screen.config.fetch_on_startup {

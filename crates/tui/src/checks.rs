@@ -40,6 +40,12 @@ pub(crate) struct CheckTask {
     animation: Spinner,
 }
 impl CheckTask {
+    pub(crate) fn fetching(&self, path: &std::path::Path) -> bool {
+        matches!(
+            self.progress.get(path),
+            Some(Progress::Queued | Progress::Checking)
+        )
+    }
     pub(crate) fn state(&self) -> TaskState {
         self.state
     }
@@ -226,6 +232,12 @@ impl Screen {
         origin: FetchOrigin,
     ) {
         if let CheckTarget::Repository(path) = target {
+            if self.auto_fetch.running(&path) {
+                self.message = i18n::tr!(CheckAlreadyRunning).into();
+                return;
+            }
+            let existed = self.repository_tasks.contains_key(&path);
+            let scheduled_path = path.clone();
             self.start_repository(
                 path.clone(),
                 i18n::tr!(TasksCheck),
@@ -246,6 +258,9 @@ impl Screen {
                     }))
                 },
             );
+            if !existed && self.repository_tasks.contains_key(&scheduled_path) {
+                self.note_fetch_started(&[scheduled_path]);
+            }
             return;
         }
         if self.check_task.is_some() {
@@ -257,9 +272,12 @@ impl Screen {
             CheckTarget::Repository(path) => vec![path.clone()],
         };
         let progress = paths
-            .into_iter()
+            .iter()
+            .cloned()
             .map(|path| (path, Progress::Queued))
             .collect();
+        self.auto_fetch.cancel_all();
+        self.note_fetch_started(&paths);
         let cancel = Cancel::default();
         let worker_cancel = cancel.clone();
         let service = self.service.clone();
@@ -358,6 +376,7 @@ impl Screen {
         if let Some(result) = done {
             let task = self.check_task.take().expect("completed check task exists");
             for (path, progress) in task.progress {
+                self.note_fetch_finished(&path);
                 if let Progress::Finished(update) = progress {
                     self.merge_update(path, update);
                 }

@@ -28,7 +28,6 @@ pub(crate) enum WindowFocus {
     Unfocused,
 }
 pub(crate) struct Controller {
-    focus: WindowFocus,
     monitor: Monitor,
     pending: BTreeMap<PathBuf, Change>,
     readers: BTreeMap<PathBuf, Reader>,
@@ -52,8 +51,7 @@ impl State {
         match self {
             Self::Disabled => "disabled".into(),
             Self::Active(controller) => format!(
-                "focus={:?} pending={:?} readers={:?} results={:?}",
-                controller.focus,
+                "pending={:?} readers={:?} results={:?}",
                 controller.pending.keys(),
                 controller
                     .readers
@@ -66,7 +64,6 @@ impl State {
     }
     pub fn start() -> Self {
         Self::Active(Box::new(Controller {
-            focus: WindowFocus::Focused,
             monitor: Monitor::start(),
             pending: BTreeMap::new(),
             readers: BTreeMap::new(),
@@ -76,16 +73,8 @@ impl State {
             detailed: BTreeSet::new(),
         }))
     }
-    pub fn focus_changed(&mut self, focus: WindowFocus) {
-        let Self::Active(controller) = self else {
-            return;
-        };
-        if controller.focus == focus {
-            return;
-        }
-        controller.focus = focus;
-        if focus == WindowFocus::Unfocused {
-            // 只取消自动观察器；被中断的仓库在重新聚焦后重读，不接收失焦前的旧快照。
+    fn pause(&mut self) {
+        if let Self::Active(controller) = self {
             for (path, reader) in &controller.readers {
                 reader.cancel.cancel();
                 controller
@@ -95,6 +84,9 @@ impl State {
                     .or_insert_with(Change::all);
             }
         }
+    }
+    pub fn is_reading(&self, path: &Path) -> bool {
+        matches!(self, Self::Active(controller) if controller.readers.contains_key(path))
     }
     #[cfg(test)]
     pub fn reading(&self) -> usize {
@@ -146,6 +138,14 @@ impl Drop for Controller {
     }
 }
 impl Screen {
+    pub(crate) fn window_focus_changed(&mut self, focus: WindowFocus) {
+        if self.window_focus != focus {
+            self.window_focus = focus;
+            if focus == WindowFocus::Unfocused {
+                self.live.pause();
+            }
+        }
+    }
     pub(crate) fn poll_live(&mut self) -> bool {
         let selected = self.selected_path();
         let scope = self.scope_path();
@@ -200,7 +200,7 @@ impl Screen {
                 continue;
             }
             if reader.cancel.is_cancelled()
-                || controller.focus == WindowFocus::Unfocused
+                || self.window_focus == WindowFocus::Unfocused
                 || self.local_refresh_blocked(&path)
                 || reader.order != self.observation_order(&path)
             {
@@ -245,7 +245,7 @@ impl Screen {
             .pending
             .keys()
             .filter(|path| {
-                controller.focus == WindowFocus::Focused
+                self.window_focus == WindowFocus::Focused
                     && !controller.readers.contains_key(*path)
                     && !self.local_refresh_blocked(path)
             })

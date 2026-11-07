@@ -333,6 +333,12 @@ pub enum Message {
     BranchCreateCommand,
     BranchSwitchCommand,
     FetchCommand,
+    AutoFetch,
+    AutoFetchHint,
+    AutoFetchInterval,
+    AutoFetchIntervalHint,
+    AutoFetchEnabled,
+    AutoFetchDisabled,
     StartupFetch,
     StartupFetchHint,
     StartupFetchEnabled,
@@ -2292,6 +2298,24 @@ impl Message {
                 "Switch to an existing local branch after review"
             }
             (Self::BranchSwitchCommand, Language::Chinese) => "预览后切换到已有本地分支",
+            (Self::AutoFetch, Language::English) => "Automatic fetch",
+            (Self::AutoFetch, Language::Chinese) => "自动获取远程",
+            (Self::AutoFetchHint, Language::English) => {
+                "Periodically fetch while the window is focused and repositories are idle"
+            }
+            (Self::AutoFetchHint, Language::Chinese) => "窗口聚焦且仓库空闲时，定期获取远程信息",
+            (Self::AutoFetchInterval, Language::English) => "Automatic fetch interval",
+            (Self::AutoFetchInterval, Language::Chinese) => "自动获取间隔",
+            (Self::AutoFetchIntervalHint, Language::English) => {
+                "Wait after each fetch completes; e.g. 3m or 1h (at least 60s)"
+            }
+            (Self::AutoFetchIntervalHint, Language::Chinese) => {
+                "从获取完成后计算，例如 3m、1h，至少 60s"
+            }
+            (Self::AutoFetchEnabled, Language::English) => "Enable periodic fetch in this TUI",
+            (Self::AutoFetchEnabled, Language::Chinese) => "启用界面内的周期获取",
+            (Self::AutoFetchDisabled, Language::English) => "Stop scheduling periodic fetches",
+            (Self::AutoFetchDisabled, Language::Chinese) => "关闭界面内的周期获取",
             (Self::StartupFetch, Language::English) => "Fetch on startup",
             (Self::StartupFetch, Language::Chinese) => "启动时获取远程",
             (Self::StartupFetchHint, Language::English) => {

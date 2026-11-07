@@ -1,3 +1,4 @@
+mod auto_fetch;
 mod branches;
 mod breadcrumb_returns;
 mod breadcrumbs;
@@ -157,6 +158,8 @@ fn screen(service: Service) -> Screen {
         view_revision: 0,
         updates: BTreeMap::new(),
         live: Default::default(),
+        window_focus: crate::live::WindowFocus::Focused,
+        auto_fetch: Default::default(),
         overview: Default::default(),
         replay: Default::default(),
         workspace: Default::default(),
@@ -174,6 +177,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             fetch_on_startup: false,
+            auto_fetch: Default::default(),
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,
@@ -1447,6 +1451,8 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
         [
             "settings concurrency",
             "settings startup-fetch",
+            "settings auto-fetch",
+            "settings auto-fetch-interval",
             "settings wrap",
             "settings interaction",
             "settings ai",

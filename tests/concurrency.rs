@@ -82,6 +82,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             fetch_on_startup: false,
+            auto_fetch: Default::default(),
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,

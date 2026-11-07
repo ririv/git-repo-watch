@@ -103,6 +103,9 @@ pub enum Action {
     Autopush,
     Concurrency,
     Workflow,
+    AutoFetchMenu,
+    AutoFetch(bool),
+    AutoFetchInterval,
     StartupFetchMenu,
     StartupFetch(bool),
     WrapMenu,
@@ -499,6 +502,16 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::StartupFetchHint,
     },
     Command {
+        name: "settings auto-fetch",
+        action: AutoFetchMenu,
+        description: i18n::Message::AutoFetchHint,
+    },
+    Command {
+        name: "settings auto-fetch-interval",
+        action: AutoFetchInterval,
+        description: i18n::Message::AutoFetchIntervalHint,
+    },
+    Command {
         name: "settings wrap",
         action: WrapMenu,
         description: i18n::Message::TextWrapHint,
@@ -666,7 +679,13 @@ pub enum Configuration {
 impl Configuration {
     pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
         match self {
-            Self::General => &[Concurrency, StartupFetchMenu, WrapMenu],
+            Self::General => &[
+                Concurrency,
+                StartupFetchMenu,
+                AutoFetchMenu,
+                AutoFetchInterval,
+                WrapMenu,
+            ],
             Self::Repositories => &[Add, Remove, Scan],
             Self::Schedule => match registration {
                 engine::scheduler::Registration::Loaded => {

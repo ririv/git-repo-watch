@@ -204,6 +204,10 @@ impl Service {
     ) -> Result<Report> {
         self.check_repository_task(path, cancel, emit, None, crate::tasks::Source::Startup)
     }
+    /// Fetch one repository for the focused TUI's periodic refresh.
+    pub fn fetch_automatically(&self, path: &Path, cancel: &Cancel) -> Result<Report> {
+        self.check_repository_task(path, cancel, |_| {}, None, crate::tasks::Source::Automatic)
+    }
     fn check_repository_task(
         &self,
         path: &Path,

@@ -23,6 +23,7 @@ impl Default for Config {
             scheduled_actions: crate::workflow::Plan::fetch(),
             max_concurrency: 4,
             fetch_on_startup: false,
+            auto_fetch: AutoFetchConfig::default(),
             text_wrap: false,
             file_icons: true,
             chinese_command_trigger: true,
@@ -54,6 +55,8 @@ pub struct Config {
     #[serde(default)]
     pub fetch_on_startup: bool,
     #[serde(default)]
+    pub auto_fetch: AutoFetchConfig,
+    #[serde(default)]
     pub text_wrap: bool,
     #[serde(default = "default_file_icons")]
     pub file_icons: bool,
@@ -69,6 +72,21 @@ pub struct Config {
     pub editor: crate::editor::Preference,
     #[serde(default, alias = "commit_message")]
     pub ai: crate::ai::Config,
+}
+/// Preferences for periodic remote refresh while the TUI is focused.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default, deny_unknown_fields)]
+pub struct AutoFetchConfig {
+    pub enabled: bool,
+    pub interval_seconds: u64,
+}
+impl Default for AutoFetchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            interval_seconds: 180,
+        }
+    }
 }
 /// Independently configurable pointer capabilities.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -124,6 +142,7 @@ fn is_default_concurrency(value: &usize) -> bool {
 impl Config {
     pub fn validate(&self) -> Result<()> {
         self.ai.validate()?;
+        crate::scheduler::duration::validate(self.auto_fetch.interval_seconds)?;
         crate::scheduler::duration::validate(self.interval_seconds)?;
         if let Some(basis) = self.schedule_anchor.basis() {
             basis.validate()?;
@@ -257,24 +276,29 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
         }
         document[key] = Item::Value(replacement);
     }
-    for key in ["precise_click", "scroll", "select_pane"] {
-        if before
-            .as_ref()
-            .is_some_and(|before| before["mouse"][key] == after["mouse"][key])
-        {
-            continue;
+    for (table, keys) in [
+        ("mouse", &["precise_click", "scroll", "select_pane"][..]),
+        ("auto_fetch", &["enabled", "interval_seconds"][..]),
+    ] {
+        for &key in keys {
+            if before
+                .as_ref()
+                .is_some_and(|before| before[table][key] == after[table][key])
+            {
+                continue;
+            }
+            if !document.contains_key(table) {
+                document[table] = Item::Table(toml_edit::Table::new());
+            }
+            let mut value = desired[table][key]
+                .as_value()
+                .expect("preference scalar")
+                .clone();
+            if let Some(current) = document[table].get(key).and_then(Item::as_value) {
+                *value.decor_mut() = current.decor().clone();
+            }
+            document[table][key] = Item::Value(value);
         }
-        if !document.contains_key("mouse") {
-            document["mouse"] = Item::Table(toml_edit::Table::new());
-        }
-        let mut value = desired["mouse"][key]
-            .as_value()
-            .expect("mouse boolean")
-            .clone();
-        if let Some(current) = document["mouse"].get(key).and_then(Item::as_value) {
-            *value.decor_mut() = current.decor().clone();
-        }
-        document["mouse"][key] = Item::Value(value);
     }
     for key in [
         "file_layout",

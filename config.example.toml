@@ -34,6 +34,12 @@ chinese_command_trigger = true
 interaction_mode = "application"
 
 # 视图偏好：切换后保存，下次启动沿用。
+# 界面内自动获取：仅在窗口聚焦、仓库空闲时安排，默认关闭。
+[auto_fetch]
+enabled = false
+# 默认 3 分钟；支持与定时任务相同的时间单位，至少 60 秒。
+interval_seconds = 180
+
 [view]
 # 文件列表：tree 为树形，flat 为平铺。
 file_layout = "tree"

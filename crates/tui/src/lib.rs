@@ -2,6 +2,7 @@
 mod management;
 mod startup;
 pub use startup::Start;
+mod auto_fetch;
 mod bar;
 mod branches;
 mod browser;
@@ -299,6 +300,8 @@ struct Screen {
     view_revision: u64,
     updates: BTreeMap<PathBuf, checks::Update>,
     live: live::State,
+    window_focus: live::WindowFocus,
+    auto_fetch: auto_fetch::Controller,
     overview: overview::Overview,
     replay: replay::Cache,
     workspace: workspace::Workspace,
@@ -369,6 +372,8 @@ impl Screen {
             view_revision: 0,
             updates: BTreeMap::new(),
             live: live::State::start(),
+            window_focus: live::WindowFocus::Focused,
+            auto_fetch: Default::default(),
             overview: Default::default(),
             replay: Default::default(),
             workspace: Default::default(),
@@ -576,6 +581,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.poll(&root)
                 | screen.poll_check()
                 | screen.poll_live()
+                | screen.poll_auto_fetch()
                 | screen.poll_workspace()
                 | screen.poll_changes()
                 | screen.poll_clipboard()
@@ -633,10 +639,10 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                         dirty = true;
                     }
                     TerminalEvent::FocusLost => {
-                        screen.live.focus_changed(live::WindowFocus::Unfocused);
+                        screen.window_focus_changed(live::WindowFocus::Unfocused);
                     }
                     TerminalEvent::FocusGained => {
-                        screen.live.focus_changed(live::WindowFocus::Focused);
+                        screen.window_focus_changed(live::WindowFocus::Focused);
                     }
                     _ => {}
                 }

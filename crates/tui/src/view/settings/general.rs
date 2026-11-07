@@ -51,6 +51,20 @@ impl Entry {
                 i18n::tr!(SettingsConcurrencyHint),
                 Value::Number(screen.config.max_concurrency),
             ),
+            Item::Command(Action::AutoFetchMenu) => (
+                Group::Checks,
+                i18n::tr!(AutoFetch),
+                i18n::tr!(AutoFetchHint),
+                Value::Toggle(screen.config.auto_fetch.enabled),
+            ),
+            Item::Command(Action::AutoFetchInterval) => (
+                Group::Checks,
+                i18n::tr!(AutoFetchInterval),
+                i18n::tr!(AutoFetchIntervalHint),
+                Value::Text(engine::scheduler::duration::compact(
+                    screen.config.auto_fetch.interval_seconds,
+                )),
+            ),
             Item::Command(Action::StartupFetchMenu) => (
                 Group::Checks,
                 i18n::tr!(StartupFetch),

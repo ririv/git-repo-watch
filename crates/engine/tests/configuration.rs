@@ -268,6 +268,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         repositories: vec!["/example/中文 空格".into()],
         max_concurrency: 8,
         fetch_on_startup: false,
+        auto_fetch: Default::default(),
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,
