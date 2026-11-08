@@ -54,8 +54,8 @@ fn diff_scrolls_long_unicode_lines_with_pinned_gutters_and_synchronized_columns(
         let after = render(&mut s, 100, 32);
         assert!(after.contains("NEWTAIL"), "{after}");
         assert!(after.contains("OLDTAIL"), "{after}");
-        assert!(after.contains("1 │+"), "{after}");
-        assert!(after.contains("│-"), "{after}");
+        assert!(after.contains("1 +│"), "{after}");
+        assert!(after.contains("-│"), "{after}");
         key(&mut s, KeyCode::Right);
         assert_eq!(diff(&s).horizontal.offset(), offset);
         key(&mut s, KeyCode::Left);

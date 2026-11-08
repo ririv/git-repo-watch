@@ -459,10 +459,17 @@ fn partial_selection_marks_only_the_gutter_and_preserves_diff_colors_and_text() 
                         }
                         for (column, x) in columns.into_iter().enumerate() {
                             let cell = &selected[(x, y)];
-                            if marked && column < gutter - 1 {
+                            if marked && column < gutter {
                                 assert_eq!(cell.bg, view::SELECTION);
-                                assert_eq!(cell.fg, Color::LightBlue);
-                                if column == gutter - 2 {
+                                assert_eq!(
+                                    cell.fg,
+                                    if column == gutter - 2 {
+                                        normal[(x, y)].fg
+                                    } else {
+                                        Color::LightBlue
+                                    }
+                                );
+                                if column == gutter - 1 {
                                     assert_eq!(cell.symbol(), "│");
                                 }
                             } else {

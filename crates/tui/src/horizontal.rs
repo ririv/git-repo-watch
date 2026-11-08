@@ -135,12 +135,12 @@ mod tests {
     #[test]
     fn pinned_gutters_stay_styled_while_content_scrolls_and_bounds_shrink() {
         let line = Line::from(vec![
-            Span::styled("12 │+", Style::default().fg(Color::Red)),
+            Span::styled("12 +│", Style::default().fg(Color::Red)),
             Span::styled("abc中文TAIL", Style::default().fg(Color::Green)),
         ])
         .style(Style::default().bg(Color::Blue));
         let slice = pinned(&line, 5, 7, 9);
-        assert_eq!(slice.to_string(), "12 │+TAIL");
+        assert_eq!(slice.to_string(), "12 +│TAIL");
         assert_eq!(slice.style.bg, Some(Color::Blue));
         assert_eq!(slice.spans[0].style.fg, Some(Color::Red));
         assert_eq!(slice.spans.last().unwrap().style.fg, Some(Color::Green));

@@ -43,8 +43,8 @@ fn unequal_edits_keep_logical_rows_and_pad_the_missing_side() {
     ];
     let cache = layout::arrange(&rows, 1, 140, Layout::Split, false, &[]);
     let pairs = columns(&cache);
-    assert!(pairs[0].0.to_string().contains("1 │-"));
-    assert!(pairs[0].1.to_string().contains("1 │+short"));
+    assert!(pairs[0].0.to_string().contains("1 -│"));
+    assert!(pairs[0].1.to_string().contains("1 +│short"));
     let next = pairs
         .iter()
         .position(|(left, _)| left.to_string().contains("following context"))
@@ -57,7 +57,7 @@ fn unequal_edits_keep_logical_rows_and_pad_the_missing_side() {
             .all(|(_, right)| right.to_string().is_empty())
     );
     assert!(pairs[0].0.width() > 69);
-    assert!(pairs[1].0.to_string().starts_with("2 │-"));
+    assert!(pairs[1].0.to_string().starts_with("2 -│"));
 }
 
 #[test]
@@ -73,10 +73,10 @@ fn pure_addition_deletion_and_empty_lines_stay_on_the_correct_side() {
         let (left, right) = pairs[0];
         if added {
             assert!(left.to_string().is_empty());
-            assert!(right.to_string().contains("1 │+"));
+            assert!(right.to_string().contains("1 +│"));
         } else {
             assert!(right.to_string().is_empty());
-            assert!(left.to_string().contains("1 │-"));
+            assert!(left.to_string().contains("1 -│"));
         }
     }
 }
@@ -102,9 +102,9 @@ fn unified_order_stays_removed_then_added_and_metadata_is_not_duplicated() {
         text,
         [
             "@@ block @@",
-            "1   │-old one",
-            "2   │-old two",
-            "  1 │+new one"
+            "1   -│old one",
+            "2   -│old two",
+            "  1 +│new one"
         ]
     );
     let split = layout::arrange(&rows, 1, 140, Layout::Split, false, &[]);

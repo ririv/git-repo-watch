@@ -59,7 +59,7 @@ fn column((row, code, mark): Entry<'_>, digits: u16) -> (crate::links::Line, Anc
     (
         decorate(
             code.content.clone(),
-            format!("{:>number_width$} │", code.number),
+            format!("{:>number_width$} ", code.number),
             mark,
         ),
         Anchor { row },

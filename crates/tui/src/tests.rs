@@ -410,7 +410,7 @@ fn file_selection_commit_and_push_through_command_bar() {
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(matches!(&s.mode, Mode::Changes(_)));
-        assert!(render(&mut s, 100, 28).contains("+one"));
+        assert!(render(&mut s, 100, 28).contains("+│one"));
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Char('/'));
         key(&mut s, KeyCode::Esc);

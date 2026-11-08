@@ -35,7 +35,7 @@ fn highlighted_diff_keeps_styles_scrolling_and_navigation_after_resizing() {
             key(&mut s, KeyCode::Down);
             let text = render(&mut s, width, height);
             assert!(text.contains(i18n::tr!(FileDiff)), "{text}");
-            assert!(text.contains("+fn changed()"), "{text}");
+            assert!(text.contains("+│fn changed()"), "{text}");
             let lines = text.lines().collect::<Vec<_>>();
             let header = lines
                 .iter()

@@ -74,7 +74,7 @@ fn old_and_new_contexts_have_independent_syntax_and_diff_backgrounds() {
         foreground(new, "fn"),
         foreground(find(&text, "fn stable"), "fn")
     );
-    assert!(new.to_string().contains("21 │+"));
+    assert!(new.to_string().contains("21 +│"));
     assert!(find(&text, "@@").style.fg.is_some());
 }
 
@@ -93,7 +93,7 @@ fn crlf_tabs_unicode_and_no_final_newline_keep_the_displayed_content() {
     )
     .unwrap();
     let rendered = text.to_string();
-    assert!(rendered.contains("+    let 消息 = \"中文\";"));
+    assert!(rendered.contains("+│    let 消息 = \"中文\";"));
     assert!(rendered.contains(notice::NO_NEWLINE));
     assert!(!rendered.contains(['\r', '\t', '\u{1b}']));
     assert_ne!(

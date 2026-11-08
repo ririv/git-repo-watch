@@ -19,7 +19,7 @@ pub(super) fn arrange(rows: &[Row], digits: u16) -> Vec<VisualRow> {
                 .map(|n| format!("{n:>number_width$}"))
                 .unwrap_or_else(|| " ".repeat(number_width))
         };
-        let gutter = format!("{} {} │", number(old), number(new));
+        let gutter = format!("{} {} ", number(old), number(new));
         out.push(VisualRow::Full {
             anchor: Anchor { row: index },
             fixed: 2 * number_width + 4,

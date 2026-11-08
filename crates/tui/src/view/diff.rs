@@ -231,10 +231,16 @@ fn selected_line(
         && fixed >= 2
         && fixed <= usize::from(area.width)
     {
-        let separator = area.x + fixed as u16 - 2;
+        let separator = area.x + fixed as u16 - 1;
+        let marker = separator - 1;
         let style = selected_style().fg(Color::LightBlue);
         for x in area.x..=separator {
-            frame.buffer_mut()[(x, area.y)].set_style(style);
+            // 增删符号属于行号区，但选中背景不能覆盖它自身的语义颜色。
+            frame.buffer_mut()[(x, area.y)].set_style(if x == marker {
+                selected_style()
+            } else {
+                style
+            });
         }
         frame.buffer_mut()[(separator, area.y)]
             .set_symbol("│")

@@ -199,6 +199,7 @@ fn decorate(part: Line<'static>, gutter: String, mark: Mark) -> crate::links::Li
     let base = mark.style();
     let mut spans = vec![Span::styled(gutter, base.fg(MUTED))];
     spans.push(mark.prefix());
+    spans.push(Span::styled("│", base.fg(MUTED)));
     spans.extend(part.spans);
     Line::from(spans).style(base).into()
 }

@@ -55,6 +55,7 @@ impl Background {
                     (Color::Reset, Color::LightGreen) => LIGHT_VALUE,
                     (SELECTION, Color::LightCyan) => SELECTED_PARAMETER,
                     (SELECTION, Color::LightGreen) => SELECTED_VALUE,
+                    (SELECTION, Color::LightRed) => diff::REMOVED_MARK,
                     (_, color) => color,
                 };
             }
@@ -138,8 +139,14 @@ mod tests {
             0.2126 * linear(rgb.0) + 0.7152 * linear(rgb.1) + 0.0722 * linear(rgb.2)
         };
         for (background, foregrounds) in [
-            ((255, 255, 255), [LIGHT_PARAMETER, LIGHT_VALUE]),
-            ((196, 219, 239), [SELECTED_PARAMETER, SELECTED_VALUE]),
+            (
+                (255, 255, 255),
+                [LIGHT_PARAMETER, LIGHT_VALUE, diff::REMOVED_MARK],
+            ),
+            (
+                (196, 219, 239),
+                [SELECTED_PARAMETER, SELECTED_VALUE, diff::REMOVED_MARK],
+            ),
         ] {
             for foreground in foregrounds {
                 let Color::Rgb(r, g, b) = foreground else {
@@ -149,13 +156,14 @@ mod tests {
                 assert!(contrast >= 4.5, "{foreground:?}: {contrast}");
             }
         }
-        let mut buffer = Buffer::empty(Rect::new(0, 0, 4, 1));
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 5, 1));
         buffer[(0, 0)].set_fg(Color::LightCyan);
         buffer[(1, 0)].set_fg(Color::LightGreen).set_bg(SELECTION);
         buffer[(2, 0)]
             .set_fg(Color::LightGreen)
             .set_bg(Color::Rgb(15, 45, 25));
         buffer[(3, 0)].set_fg(Color::Rgb(120, 210, 170));
+        buffer[(4, 0)].set_fg(Color::LightRed).set_bg(SELECTION);
         let original = buffer.clone();
         Background::Dark.apply(&mut buffer);
         assert_eq!(buffer, original);
@@ -164,5 +172,6 @@ mod tests {
         assert_eq!(buffer[(1, 0)].fg, SELECTED_VALUE);
         assert_eq!(buffer[(2, 0)], original[(2, 0)]);
         assert_eq!(buffer[(3, 0)], original[(3, 0)]);
+        assert_eq!(buffer[(4, 0)].fg, diff::REMOVED_MARK);
     }
 }
