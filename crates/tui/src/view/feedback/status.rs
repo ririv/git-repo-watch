@@ -166,10 +166,10 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
         full_tail.spans.push(Span::raw(" · "));
     }
     full_tail.spans.push(Span::styled(
-        i18n::tr!(TasksOpenShortcut),
+        i18n::tr!(TasksOpenCommand),
         Style::default().fg(MUTED),
     ));
-    // 窄屏先省略任务快捷键，再缩短进度；待处理提醒优先保留。
+    // 窄屏先省略任务入口提示，再缩短进度；待处理提醒优先保留。
     if main.width() + 3 + full_tail.width() <= width {
         tail = full_tail;
     }

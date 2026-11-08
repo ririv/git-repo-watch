@@ -95,7 +95,12 @@ impl Center {
         let pending = self.records.iter().filter(|r| r.pending()).count();
         let running = self.records.iter().filter(|r| r.active()).count();
         if let Some(error) = &self.error {
-            return format!("{}: {} · Alt+Enter", i18n::tr!(TasksStorageError), error);
+            return format!(
+                "{}: {} · {}",
+                i18n::tr!(TasksStorageError),
+                error,
+                i18n::tr!(TasksOpenCommand)
+            );
         }
         if pending + running > 0 {
             let summary = i18n::tf!(TasksSummary, pending = pending, running = running);
@@ -261,14 +266,6 @@ impl Screen {
     pub(crate) fn tasks_key(&mut self, key: crossterm::event::KeyEvent) -> bool {
         use crossterm::event::{KeyCode as K, KeyModifiers as M};
         self.tasks.clicks.reset();
-        if key.code == K::Enter && key.modifiers == M::ALT {
-            if self.tasks.session.open() {
-                self.tasks.session = Session::Closed;
-            } else {
-                self.open_tasks();
-            }
-            return true;
-        }
         if !self.tasks.session.open() {
             return false;
         }

@@ -247,7 +247,8 @@ fn external_progress_and_pending_failures_remain_visible_in_small_windows() {
             last.contains(&format!("1 {}", i18n::tr!(TasksPending))),
             "{text}"
         );
-        assert!(last.contains(i18n::tr!(TasksOpenShortcut)), "{text}");
+        assert!(last.contains(i18n::tr!(TasksOpenCommand)), "{text}");
+        assert!(!last.contains("Alt+Enter"), "{text}");
         assert!(!text.contains("failure details"));
         let text = render(&mut s, 8, 4);
         assert!(text.lines().last().unwrap().contains("! 1"), "{text}");

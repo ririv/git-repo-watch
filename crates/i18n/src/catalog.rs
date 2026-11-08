@@ -265,7 +265,7 @@ pub enum Message {
     TasksHistory,
     TasksUnavailable,
     TasksSummary,
-    TasksOpenShortcut,
+    TasksOpenCommand,
     TasksDetailsHint,
     TasksInteractive,
     TasksScheduled,
@@ -2072,9 +2072,9 @@ impl Message {
             (Self::TasksEmpty, Language::English) => "No tasks yet",
             (Self::TasksEmpty, Language::Chinese) => "暂无任务",
             (Self::TasksPending, Language::English) => "Needs action",
-            (Self::TasksOpenShortcut, Language::English) => "Alt+Enter tasks",
-            (Self::TasksOpenShortcut, Language::Chinese) => "Alt+Enter 任务",
             (Self::TasksPending, Language::Chinese) => "待处理",
+            (Self::TasksOpenCommand, Language::English) => "/tasks",
+            (Self::TasksOpenCommand, Language::Chinese) => "/tasks 任务",
             (Self::TasksRunning, Language::English) => "Running",
             (Self::TasksRunning, Language::Chinese) => "运行中",
             (Self::TasksCancelling, Language::English) => "Cancelling",
@@ -2094,10 +2094,10 @@ impl Message {
                 "此任务不支持直接重试，请查看详情后重新执行操作。"
             }
             (Self::TasksSummary, Language::English) => {
-                "{pending} pending · {running} running · Alt+Enter tasks"
+                "{pending} pending · {running} running · /tasks"
             }
             (Self::TasksSummary, Language::Chinese) => {
-                "{pending} 待处理 · {running} 运行中 · Alt+Enter 任务"
+                "{pending} 待处理 · {running} 运行中 · /tasks 任务"
             }
             (Self::TasksDetailsHint, Language::English) => {
                 "↑↓ scroll · c cancel · r retry · d mark handled · Esc return"
@@ -2132,8 +2132,8 @@ impl Message {
             (Self::TasksStorageError, Language::English) => "Task history error",
             (Self::TasksStorageError, Language::Chinese) => "任务记录错误",
 
-            (Self::ExpandOperationResult, Language::English) => "Show full result · Alt+Enter",
-            (Self::ExpandOperationResult, Language::Chinese) => "展开完整结果 · Alt+Enter",
+            (Self::ExpandOperationResult, Language::English) => "Show full result",
+            (Self::ExpandOperationResult, Language::Chinese) => "展开完整结果",
             (Self::OperationResultReaderHint, Language::English) => {
                 "↑↓ / PgUp / PgDn scroll · Esc / Enter return"
             }
@@ -5642,8 +5642,8 @@ macro_rules! tf {
     };
     (TasksSummary $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("{pending} pending · {running} running · Alt+Enter tasks" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中 · Alt+Enter 任务" $(, $($args)*)?),
+            $crate::Language::English => format!("{pending} pending · {running} running · /tasks" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中 · /tasks 任务" $(, $($args)*)?),
         }
     };
     (LinkPathMissing $(, $($args:tt)*)?) => {

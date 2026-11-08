@@ -26,13 +26,15 @@ fn task_view_keeps_the_command_draft_and_does_not_acknowledge_on_read() {
     })
     .unwrap();
     synchronize(&mut s, |s| s.tasks.records.len() == 1);
-    s.paste("/settings");
-    let draft = s.bar.text();
     s.key(
         KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT),
         &Cancel::default(),
     )
     .unwrap();
+    assert!(!s.tasks.session.open());
+    s.paste("/settings");
+    let draft = s.bar.text();
+    s.open_tasks();
     assert!(s.tasks.session.open());
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
@@ -109,7 +111,15 @@ fn footer_stays_one_row_and_failure_marker_opens_tasks() {
     })
     .unwrap();
     synchronize(&mut s, |s| s.tasks.records.len() == 1);
-    render(&mut s, 80, 25);
+    let text = render(&mut s, 80, 25);
+    assert!(
+        text.lines()
+            .last()
+            .unwrap()
+            .contains(i18n::tr!(TasksOpenCommand)),
+        "{text}"
+    );
+    assert!(!text.contains("Alt+Enter"));
     let footer = s.tasks.footer;
     s.mouse(
         MouseEvent {
