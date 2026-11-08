@@ -84,8 +84,9 @@ impl Display {
             spinner: crate::spinner::Spinner::new(Instant::now()),
         }
     }
-    pub fn detect() -> Self {
-        Self::new(probe::detect())
+    pub fn detect() -> (Self, crate::appearance::Background) {
+        let (support, background) = probe::detect();
+        (Self::new(support), background)
     }
     pub fn metrics(&self) -> Result<Metrics, String> {
         match &self.support {

@@ -2,6 +2,7 @@
 mod management;
 mod startup;
 pub use startup::Start;
+mod appearance;
 mod auto_fetch;
 mod bar;
 mod branches;
@@ -265,6 +266,7 @@ struct Screen {
     diff_context: diff::Context,
     file_layout: files::Layout,
     graphics: graphics::Display,
+    background: appearance::Background,
     bar: bar::InputBar,
     exit_sequence: input::interrupt::Sequence,
     clipboard: clipboard::Writer,
@@ -337,6 +339,7 @@ impl Screen {
             graphics: graphics::Display::new(graphics::Support::Unavailable(
                 i18n::tr!(GraphicsUnsupported).into(),
             )),
+            background: appearance::Background::Unreported,
             bar: bar::InputBar::default(),
             exit_sequence: Default::default(),
             clipboard: Default::default(),
@@ -550,7 +553,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
     );
     let mut screen = start.resolve(&root)?.open(service, &root)?;
     let mut guard = TerminalGuard::enter(screen.config.interaction_mode)?;
-    screen.graphics = graphics::Display::detect();
+    (screen.graphics, screen.background) = graphics::Display::detect();
     let mut link_output = links::Native::default();
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
     terminal.clear()?;
@@ -606,7 +609,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                     Err(error) => format!("{}: {error:#}", i18n::tr!(ExternalEditorFailed)),
                 };
                 terminal.clear()?;
-                screen.graphics = graphics::Display::detect();
+                (screen.graphics, screen.background) = graphics::Display::detect();
                 link_output = Default::default();
                 dirty = true;
             }

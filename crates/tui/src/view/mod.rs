@@ -67,7 +67,7 @@ const BORDER: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;
 const BAD: Color = Color::LightRed;
 const WARN: Color = Color::Yellow;
-pub(crate) const SELECTION: Color = Color::Rgb(25, 65, 95);
+pub(crate) use crate::appearance::SELECTION;
 const FOOTER_INSET: u16 = 2;
 fn footer_text_area(area: Rect) -> Rect {
     Rect::new(
@@ -145,6 +145,10 @@ fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
     }
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
+    render_content(frame, screen);
+    screen.background.apply(frame.buffer_mut());
+}
+fn render_content(frame: &mut Frame, screen: &mut Screen) {
     if screen.focus_mode == crate::focus::State::Selecting
         && (!screen.pane_navigation_available() || screen.tasks.session.open())
     {

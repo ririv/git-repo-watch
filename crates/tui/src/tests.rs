@@ -1,3 +1,4 @@
+mod appearance;
 mod auto_fetch;
 mod branches;
 mod breadcrumb_returns;
@@ -122,6 +123,7 @@ fn screen(service: Service) -> Screen {
         diff_context: view_preferences.diff_context,
         file_layout: view_preferences.file_layout.into(),
         graphics: graphics::Display::new(graphics::Support::Pixels(graphics::Backend::test())),
+        background: crate::appearance::Background::Dark,
         bar: crate::bar::InputBar::default(),
         exit_sequence: Default::default(),
         clipboard: Default::default(),

@@ -121,24 +121,35 @@ fn interpret(responses: &[Response], transport: Transport) -> Result<Backend> {
         transport,
     })
 }
-pub(super) fn detect() -> Support {
+pub(super) fn detect() -> (Support, crate::appearance::Background) {
     let transport = if std::env::var_os("TMUX").is_some() {
         Transport::Tmux
     } else {
         Transport::Direct
     };
-    match query(transport).and_then(|responses| interpret(&responses, transport)) {
+    let (responses, background) = match query(transport) {
+        Ok(report) => report,
+        Err(error) => {
+            return (
+                Support::Unavailable(error.to_string()),
+                crate::appearance::Background::Unreported,
+            );
+        }
+    };
+    let support = match interpret(&responses, transport) {
         Ok(backend) => Support::Pixels(backend),
         Err(error) => Support::Unavailable(error.to_string()),
-    }
+    };
+    (support, background)
 }
 #[cfg(unix)]
-fn query(transport: Transport) -> Result<Vec<Response>> {
+fn query(transport: Transport) -> Result<(Vec<Response>, crate::appearance::Background)> {
     let query = Parser::query(
         transport.tmux(),
         QueryStdioOptions {
             timeout: Duration::from_millis(400),
             kitty_compression: true,
+            terminal_background_color_osc: true,
             ..QueryStdioOptions::default()
         },
     );
@@ -146,6 +157,7 @@ fn query(transport: Transport) -> Result<Vec<Response>> {
     io::stdout().flush()?;
     let deadline = Instant::now() + Duration::from_millis(400);
     let mut parser = Parser::new();
+    let mut appearance = crate::appearance::probe::Probe::default();
     let mut responses = Vec::new();
     while let Some(remaining) = deadline.checked_duration_since(Instant::now()) {
         let mut fd = libc::pollfd {
@@ -177,19 +189,20 @@ fn query(transport: Transport) -> Result<Vec<Response>> {
         if count <= 0 {
             anyhow::bail!(i18n::tr!(GraphicsUnsupported));
         }
+        appearance.push(&bytes[..count as usize]);
         for byte in &bytes[..count as usize] {
             for response in parser.push(char::from(*byte)) {
                 if response == Response::Status {
-                    return Ok(responses);
+                    return Ok((responses, appearance.background()));
                 }
                 responses.push(response);
             }
         }
     }
-    Ok(responses)
+    Ok((responses, appearance.background()))
 }
 #[cfg(not(unix))]
-fn query(_: Transport) -> Result<Vec<Response>> {
+fn query(_: Transport) -> Result<(Vec<Response>, crate::appearance::Background)> {
     anyhow::bail!(i18n::tr!(GraphicsUnsupported))
 }
 
