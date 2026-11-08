@@ -1,5 +1,5 @@
 //! One ephemeral App Server turn; only agent-message events reach the draft.
-use super::{Config, Update, wire};
+use super::{Config, Format, Update, wire};
 use crate::{cancel::Cancel, process::conversation};
 use anyhow::{Context, Result, bail, ensure};
 use serde_json::{Value, json};
@@ -8,6 +8,7 @@ use std::{path::Path, process::Command, time::Duration};
 pub(super) fn run(
     config: &Config,
     prompt: &str,
+    format: Format<'_>,
     cancel: &Cancel,
     executable: &Path,
     directory: &Path,
@@ -70,9 +71,13 @@ pub(super) fn run(
                         }
                         (Stage::Thread, Some(2)) => {
                             let thread = wire::text(&event["result"]["thread"]["id"])?.to_owned();
+                            let mut params = json!({"threadId":thread,"input":[{"type":"text","text":prompt}],"approvalPolicy":"never"});
+                            if let Format::JsonSchema(schema) = format {
+                                params["outputSchema"] = schema.clone();
+                            }
                             wire::send(
                                 &mut output,
-                                json!({"id":3,"method":"turn/start","params":{"threadId":thread,"input":[{"type":"text","text":prompt}],"approvalPolicy":"never"}}),
+                                json!({"id":3,"method":"turn/start","params":params}),
                             )?;
                             stage = Stage::Turn { thread };
                         }

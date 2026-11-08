@@ -6,6 +6,11 @@ pub(crate) mod wire;
 use super::{Agent, Config};
 use crate::cancel::Cancel;
 use anyhow::{Result, ensure};
+#[derive(Clone, Copy)]
+pub(crate) enum Format<'a> {
+    Text,
+    JsonSchema(&'a serde_json::Value),
+}
 pub const MESSAGE_LIMIT: usize = 64 * 1024;
 #[derive(Debug, Clone)]
 pub enum Update {
@@ -21,5 +26,29 @@ pub fn generate(
     ensure!(config.enabled, i18n::tr!(AiDisabled));
     config.validate()?;
     let executable = runner::resolve(config.agent)?;
-    runner::run(config, prompt, cancel, &executable, &mut emit)
+    runner::run(config, prompt, Format::Text, cancel, &executable, &mut emit)
 }
+
+/// Generate a structured result using the agent's native schema support.
+pub(crate) fn generate_json(
+    config: &Config,
+    prompt: &str,
+    schema: &serde_json::Value,
+    cancel: &Cancel,
+) -> Result<serde_json::Value> {
+    ensure!(config.enabled, i18n::tr!(AiDisabled));
+    config.validate()?;
+    let executable = runner::resolve(config.agent)?;
+    let text = runner::run(
+        config,
+        prompt,
+        Format::JsonSchema(schema),
+        cancel,
+        &executable,
+        &mut |_| {},
+    )?;
+    Ok(serde_json::from_str(&text)?)
+}
+
+#[cfg(test)]
+mod tests;

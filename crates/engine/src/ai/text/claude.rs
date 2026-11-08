@@ -1,5 +1,5 @@
 //! Claude JSON events expose real text deltas and an authoritative final result.
-use super::{Config, Update, wire};
+use super::{Config, Format, Update, wire};
 use crate::{cancel::Cancel, process::conversation};
 use anyhow::{Result, ensure};
 use std::{io::Write, path::Path, process::Command, time::Duration};
@@ -7,6 +7,7 @@ use std::{io::Write, path::Path, process::Command, time::Duration};
 pub(super) fn run(
     config: &Config,
     prompt: &str,
+    format: Format<'_>,
     cancel: &Cancel,
     executable: &Path,
     directory: &Path,
@@ -35,6 +36,9 @@ pub(super) fn run(
     if !config.program().model.is_empty() {
         command.args(["--model", &config.program().model]);
     }
+    if let Format::JsonSchema(schema) = format {
+        command.args(["--json-schema", &serde_json::to_string(schema)?]);
+    }
     conversation::run(
         command,
         cancel,
@@ -48,7 +52,10 @@ pub(super) fn run(
             loop {
                 let event = reader.next()?;
                 match event["type"].as_str() {
-                    Some("stream_event") if event["event"]["delta"]["type"] == "text_delta" => {
+                    Some("stream_event")
+                        if matches!(format, Format::Text)
+                            && event["event"]["delta"]["type"] == "text_delta" =>
+                    {
                         let delta = wire::text(&event["event"]["delta"]["text"])?;
                         bytes += delta.len();
                         ensure!(
@@ -62,13 +69,23 @@ pub(super) fn run(
                             event["subtype"] == "success" && event["is_error"] == false,
                             "Claude Code: {event}"
                         );
-                        let message = wire::text(&event["result"])?;
+                        let message = match format {
+                            Format::Text => wire::text(&event["result"])?.to_owned(),
+                            Format::JsonSchema(_) => {
+                                ensure!(
+                                    event["structured_output"].is_object(),
+                                    "Claude Code: {}",
+                                    i18n::tr!(AgentStructuredOutputMissing)
+                                );
+                                serde_json::to_string(&event["structured_output"])?
+                            }
+                        };
                         ensure!(
                             message.len() <= super::MESSAGE_LIMIT,
                             i18n::tr!(AgentOutputTooLarge)
                         );
-                        emit(Update::Replace(message.into()));
-                        return Ok(message.into());
+                        emit(Update::Replace(message.clone()));
+                        return Ok(message);
                     }
                     _ => {}
                 }

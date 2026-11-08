@@ -19,7 +19,14 @@ fn generate_program(
     cancel: &Cancel,
 ) -> anyhow::Result<String> {
     super::generate_using(plan, config, cancel, |config, prompt, cancel| {
-        runner::run(config, prompt, cancel, program, &mut |_| {})
+        runner::run(
+            config,
+            prompt,
+            crate::ai::text::Format::Text,
+            cancel,
+            program,
+            &mut |_| {},
+        )
     })
 }
 fn executable(directory: &Path, script: &str) -> PathBuf {
@@ -143,12 +150,15 @@ fn both_adapters_send_only_staged_context_and_keep_repository_untouched() {
         assert!(!prompt.contains(f.repo.to_str().unwrap()));
         let arguments = fs::read_to_string(directory.path().join("arguments")).unwrap();
         if agent == Agent::Codex {
+            let request: serde_json::Value = serde_json::from_str(&prompt).unwrap();
+            assert!(request["params"].get("outputSchema").is_none());
             assert!(
                 fs::read_to_string(directory.path().join("thread"))
                     .unwrap()
                     .contains("literal $(echo should-not-run) model")
             );
         } else {
+            assert!(!arguments.contains("--json-schema"));
             assert!(arguments.contains("literal $(echo should-not-run) model\n"));
         }
         assert!(!arguments.contains("staged-only-value"));
@@ -423,9 +433,16 @@ fn real_deltas_arrive_before_completion_and_cancel_reaps_the_stream() {
         let (tx, rx) = std::sync::mpsc::channel();
         let handle = thread::spawn(move || {
             generate_using(&plan, &config, &task_cancel, |config, prompt, cancel| {
-                runner::run(config, prompt, cancel, &program, &mut |update| {
-                    tx.send(update).unwrap();
-                })
+                runner::run(
+                    config,
+                    prompt,
+                    crate::ai::text::Format::Text,
+                    cancel,
+                    &program,
+                    &mut |update| {
+                        tx.send(update).unwrap();
+                    },
+                )
             })
         });
         await_file(&directory.path().join("ready"));

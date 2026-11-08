@@ -317,6 +317,7 @@ pub enum Message {
     AgentDiffTooLarge,
     AgentOutputTooLarge,
     AgentMessageInvalid,
+    AgentStructuredOutputMissing,
     SettingsChecks,
     SettingsInput,
     SettingsConcurrency,
@@ -2243,6 +2244,12 @@ impl Message {
                 "Agent output exceeded the allowed size."
             }
             (Self::AgentOutputTooLarge, Language::Chinese) => "生成工具的输出超过大小限制。",
+            (Self::AgentStructuredOutputMissing, Language::English) => {
+                "The agent did not return a structured JSON result. Check that its version and model support JSON Schema."
+            }
+            (Self::AgentStructuredOutputMissing, Language::Chinese) => {
+                "生成工具未返回结构化 JSON 结果，请确认其版本和模型支持 JSON Schema。"
+            }
             (Self::AgentMessageInvalid, Language::English) => {
                 "Expected a nonempty plain-text commit message (up to 64 KiB), without code fences or control characters other than newlines and tabs."
             }

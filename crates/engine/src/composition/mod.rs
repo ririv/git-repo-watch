@@ -3,6 +3,7 @@ mod capture;
 mod execute;
 mod generate;
 mod projection;
+mod schema;
 use crate::local::Head;
 use anyhow::{Result, ensure};
 pub use capture::capture;

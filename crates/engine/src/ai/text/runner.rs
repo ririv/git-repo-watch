@@ -1,5 +1,5 @@
 //! Agent selection over explicit streaming protocol adapters.
-use super::{Agent, Config, Update};
+use super::{Agent, Config, Format, Update};
 use crate::cancel::Cancel;
 use anyhow::{Context, Result};
 use std::path::{Path, PathBuf};
@@ -7,18 +7,31 @@ use std::path::{Path, PathBuf};
 pub(crate) fn run(
     config: &Config,
     prompt: &str,
+    format: Format<'_>,
     cancel: &Cancel,
     executable: &Path,
     emit: &mut (impl FnMut(Update) + Send),
 ) -> Result<String> {
     let directory = tempfile::tempdir()?;
     match config.agent {
-        Agent::Codex => {
-            super::codex::run(config, prompt, cancel, executable, directory.path(), emit)
-        }
-        Agent::Claude => {
-            super::claude::run(config, prompt, cancel, executable, directory.path(), emit)
-        }
+        Agent::Codex => super::codex::run(
+            config,
+            prompt,
+            format,
+            cancel,
+            executable,
+            directory.path(),
+            emit,
+        ),
+        Agent::Claude => super::claude::run(
+            config,
+            prompt,
+            format,
+            cancel,
+            executable,
+            directory.path(),
+            emit,
+        ),
     }
 }
 pub(crate) fn resolve(agent: Agent) -> Result<PathBuf> {
