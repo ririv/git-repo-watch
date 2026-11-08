@@ -92,7 +92,7 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         key(&mut s, KeyCode::Up);
         let files = s.mode.file_session().unwrap();
         let entries = files.entries(Layout::Tree);
-        let directory = entries[0]
+        let directory = entries[Group::Unstaged.index()]
             .iter()
             .find(|row| row.cursor(Group::Unstaged) == files.cursor)
             .unwrap();
@@ -318,7 +318,7 @@ pub(super) fn click(s: &mut Screen, point: Position) {
 }
 
 #[test]
-fn tree_scrollbar_drag_uses_projected_rows_and_preserves_both_group_offsets() {
+fn tree_scrollbar_drag_uses_one_viewport_for_projected_rows() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     let f = support::Fixture::create();
     for index in 0..25 {
@@ -359,11 +359,10 @@ fn tree_scrollbar_drag_uses_projected_rows_and_preserves_both_group_offsets() {
         render(&mut s, 160, 32);
         let files = s.mode.file_session().unwrap();
         if expect_bottom {
-            assert!(files.offsets[0] > 30);
+            assert!(files.offset > 30);
         } else {
-            assert_eq!(files.offsets[0], 0);
+            assert_eq!(files.offset, 0);
         }
-        assert_eq!(files.offsets[1], 0);
     }
     s.shutdown();
 }

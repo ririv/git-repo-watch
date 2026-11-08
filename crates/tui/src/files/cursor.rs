@@ -18,14 +18,14 @@ impl Group {
     }
     pub fn index(self) -> usize {
         match self {
-            Self::Unstaged => 0,
-            Self::Staged => 1,
+            Self::Staged => 0,
+            Self::Unstaged => 1,
         }
     }
     pub fn from_index(index: usize) -> Self {
         match index {
-            0 => Self::Unstaged,
-            1 => Self::Staged,
+            0 => Self::Staged,
+            1 => Self::Unstaged,
             _ => unreachable!("two file groups"),
         }
     }
@@ -82,7 +82,7 @@ impl FileSession {
     }
     pub fn entries(&self, layout: Layout) -> [Vec<Row>; 2] {
         let rows = self.rows();
-        [Group::Unstaged, Group::Staged].map(|group| {
+        [Group::Staged, Group::Unstaged].map(|group| {
             let changes = rows
                 .iter()
                 .copied()
@@ -126,6 +126,9 @@ impl FileSession {
         self.cursor = cursors[index].clone();
     }
     pub fn edge(&mut self, last: bool, layout: Layout) {
+        if !last {
+            self.offset = 0;
+        }
         let mut cursors = self.cursors(layout).into_iter();
         self.cursor = if last {
             cursors.next_back()
@@ -193,6 +196,29 @@ impl FileSession {
         } else {
             CheckState::Mixed
         }
+    }
+    pub fn step_match(&self, backwards: bool) -> Option<usize> {
+        if matches!(self.cursor, Cursor::Directory { .. }) {
+            let rows = self.rows();
+            let mut matches = self
+                .focused_changes()
+                .into_iter()
+                .filter(|change| self.matches_change(change))
+                .map(|change| {
+                    rows.iter()
+                        .position(|candidate| *candidate == change)
+                        .expect("focused change is visible")
+                });
+            let index = if backwards {
+                matches.next_back()
+            } else {
+                matches.next()
+            };
+            if index.is_some() {
+                return index;
+            }
+        }
+        self.matches().step(self.cursor.index(), backwards)
     }
     pub fn set_layout(&mut self, layout: Layout) {
         if layout == Layout::Tree {

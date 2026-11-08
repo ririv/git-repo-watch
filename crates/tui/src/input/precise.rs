@@ -115,9 +115,7 @@ impl Screen {
                             Mode::Changes(session) => &mut session.files,
                             _ => return false,
                         };
-                        if let Some(group) = files.group() {
-                            files.offsets[group.index()] = offset;
-                        }
+                        files.offset = offset;
                     }
                     Target::Branches => {
                         if let Mode::Branches(view) = &mut self.mode
@@ -312,6 +310,17 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
+                ScrollTarget::Files => {
+                    let files = match &mut self.mode {
+                        Mode::Files(files) => files,
+                        Mode::Changes(session) => &mut session.files,
+                        _ => return false,
+                    };
+                    files.seek(offset, self.file_layout);
+                    if matches!(self.mode, Mode::Changes(_)) {
+                        self.poll_changes();
+                    }
+                }
                 ScrollTarget::BrowserTreeHorizontal => {
                     let Mode::Browser(session) = &mut self.mode else {
                         return false;

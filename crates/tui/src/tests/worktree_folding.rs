@@ -51,19 +51,22 @@ fn worktree_folding_keyboard_preserves_hidden_checks_and_group_navigation() {
         assert_eq!(expansion(files, Group::Staged), Expanded);
         assert_eq!(
             files.entries(Layout::Tree).map(|rows| rows.len()),
-            [counts[0] - 2, counts[1]]
+            [counts[0], counts[1] - 2]
         );
         assert_eq!(files.focused_changes().len(), 2);
         assert_eq!(files.selection(), selected);
-        key(&mut s, KeyCode::Down);
-        assert!(matches!(
-            s.mode.file_session().unwrap().cursor,
-            Cursor::Directory {
-                group: Group::Staged,
-                ..
-            }
-        ));
-        key(&mut s, KeyCode::Up);
+        let steps = files.entries(Layout::Tree)[Group::Unstaged.index()]
+            .iter()
+            .position(|row| row.cursor(Group::Unstaged) == files.cursor)
+            .unwrap()
+            + 1;
+        for _ in 0..steps {
+            key(&mut s, KeyCode::Up);
+        }
+        assert_eq!(s.mode.file_session().unwrap().group(), Some(Group::Staged));
+        for _ in 0..steps {
+            key(&mut s, KeyCode::Down);
+        }
         assert_eq!(
             s.mode.file_session().unwrap().cursor,
             Cursor::Directory {
@@ -206,7 +209,7 @@ fn worktree_refresh_keeps_folds_across_compact_chain_changes_and_removed_directo
     let (_home, s) = fixture(vec![f.repo.clone()]);
     let snapshot = s.service.files(&f.repo, &Cancel::default()).unwrap();
     let mut files = FileSession::new(snapshot);
-    let index = files.entries(Layout::Tree)[0]
+    let index = files.entries(Layout::Tree)[Group::Unstaged.index()]
         .iter()
         .position(|row| {
             row.cursor(Group::Unstaged)
@@ -224,7 +227,7 @@ fn worktree_refresh_keeps_folds_across_compact_chain_changes_and_removed_directo
     let mut next = files.refreshed(s.service.files(&f.repo, &Cancel::default()).unwrap());
     assert_eq!(next.cursor, files.cursor);
     assert_eq!(next.selection(), files.selection());
-    assert_eq!(next.entries(Layout::Tree)[0].len(), 1);
+    assert_eq!(next.entries(Layout::Tree)[Group::Unstaged.index()].len(), 1);
     assert_eq!(expansion(&next, Group::Unstaged), Collapsed);
     assert!(next.toggle_directory(Layout::Tree));
     assert_eq!(expansion(&next, Group::Unstaged), Expanded);

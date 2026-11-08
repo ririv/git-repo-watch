@@ -572,6 +572,8 @@ pub enum Message {
     ChangesTitle,
     ChangesUnstaged,
     ChangesStaged,
+    FileListClean,
+    FileListNoMatches,
     ChangesSelectFile,
     ChangesSelectionRequired,
     ChangesWrongArea,
@@ -3062,6 +3064,10 @@ impl Message {
             (Self::ChangesUnstaged, Language::Chinese) => "未暂存",
             (Self::ChangesStaged, Language::English) => "Staged",
             (Self::ChangesStaged, Language::Chinese) => "已暂存",
+            (Self::FileListClean, Language::English) => "No working tree changes",
+            (Self::FileListClean, Language::Chinese) => "工作区没有变更",
+            (Self::FileListNoMatches, Language::English) => "No matching changed files",
+            (Self::FileListNoMatches, Language::Chinese) => "没有匹配的变更文件",
             (Self::ChangesSelectFile, Language::English) => {
                 "Select a changed file to preview its diff"
             }

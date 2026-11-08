@@ -204,7 +204,7 @@ fn staged_comparison_labels_head_and_index_and_layout_selection_survives_restart
     let Mode::Files(files) = &mut s.mode else {
         panic!("file list")
     };
-    files.switch_group(s.file_layout);
+    assert_eq!(files.current().unwrap().area, Area::Staged);
     wait(&mut s);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);

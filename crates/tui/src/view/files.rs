@@ -1,7 +1,8 @@
-//! Staged and unstaged trees share selectable rows and tri-state directory checkboxes.
+//! Staged and unstaged trees share one viewport, selectable rows and directory checkboxes.
 use super::*;
-use crate::files::Group;
+use crate::files::{Group, list::Row};
 use crate::search::highlight::{self, Emphasis};
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -14,142 +15,145 @@ pub(super) fn render(
     let border = block(title.to_owned());
     let inner = border.inner(area);
     frame.render_widget(border, area);
-    let mut offsets = session.offsets;
-    let rows = session.rows();
-    let projected = session.entries(options.layout);
-    let unstaged = rows
-        .iter()
-        .filter(|change| change.area != Area::Staged)
-        .count();
-    let natural = projected
-        .iter()
-        .map(Vec::len)
-        .sum::<usize>()
-        .saturating_add(2);
-    let first_height = if natural <= usize::from(inner.height) {
-        (projected[0].len() + 1) as u16
-    } else {
-        inner.height.div_ceil(2)
-    };
-    let groups =
-        Layout::vertical([Constraint::Length(first_height), Constraint::Min(0)]).split(inner);
-    let mut row_offset = 0;
-    for (group, staged) in groups.iter().zip([false, true]) {
-        let entries = &projected[usize::from(staged)];
-        let count = if staged {
-            rows.len() - unstaged
-        } else {
-            unstaged
-        };
-        let parts = Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(*group);
+    let changes = session.rows();
+    let rows = session.list(options.layout);
+    if rows.is_empty() {
+        session.offset = 0;
         frame.render_widget(
-            Line::styled(
+            Paragraph::new(if session.snapshot.changes.is_empty() {
+                i18n::tr!(FileListClean)
+            } else {
+                i18n::tr!(FileListNoMatches)
+            })
+            .style(Style::default().fg(MUTED)),
+            inner,
+        );
+        return;
+    }
+    let items = rows
+        .iter()
+        .map(|row| match row {
+            Row::Header { group, count } => ListItem::new(Line::styled(
                 format!(
                     "{} · {}",
-                    if staged {
-                        i18n::tr!(ChangesStaged)
-                    } else {
-                        i18n::tr!(ChangesUnstaged)
+                    match group {
+                        Group::Staged => i18n::tr!(ChangesStaged),
+                        Group::Unstaged => i18n::tr!(ChangesUnstaged),
                     },
                     count
                 ),
                 Style::default().fg(ACCENT).bold(),
-            ),
-            parts[0],
-        );
-        let items = entries
-            .iter()
-            .map(|entry| {
-                let selected =
-                    entry.cursor(Group::from_index(usize::from(staged))) == session.cursor;
-                let emphasis = if selected {
-                    Emphasis::Current
-                } else {
-                    Emphasis::Other
-                };
-                let mut spans = super::checkbox::spans(session.check_state(entry, &rows));
-                spans.push(Span::raw(" "));
-                let crate::files::tree::Row::File {
-                    index,
-                    prefix,
-                    label,
-                } = entry
-                else {
-                    let crate::files::tree::Row::Directory {
-                        prefix,
-                        label,
-                        expansion,
-                        ..
-                    } = entry
-                    else {
-                        unreachable!()
-                    };
-                    spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
-                    spans.extend(options.icons.directory_slot(match expansion {
-                        crate::files::Expansion::Expanded => crate::file_icons::Folder::Expanded,
-                        crate::files::Expansion::Collapsed => crate::file_icons::Folder::Collapsed,
-                    }));
-                    spans.extend(
-                        highlight::line(
-                            Line::styled(safe(label), Style::default().fg(ACCENT)),
-                            &session.query,
-                            emphasis,
-                        )
-                        .spans,
-                    );
-                    return ListItem::new(Line::from(spans)).style(row_style(selected));
-                };
-                let change = rows[*index];
-                spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
-                spans.extend(options.icons.file(change.location.name()));
-                spans.extend(
-                    highlight::line(Line::raw(safe(label)), &session.query, emphasis).spans,
-                );
-                let line = Line::from(spans);
-                ListItem::new(marked_line(
-                    &line,
-                    change.kind,
-                    if change.kind == 'U' {
-                        BAD
-                    } else if staged {
-                        GOOD
-                    } else {
-                        WARN
-                    },
-                    parts[1].width as usize,
-                ))
-                .style(row_style(selected))
-            })
-            .collect::<Vec<_>>();
-        let mut state = ListState::default()
-            .with_offset(offsets[usize::from(staged)])
-            .with_selected(entries.iter().position(|entry| {
-                entry.cursor(Group::from_index(usize::from(staged))) == session.cursor
-            }));
-        frame.render_stateful_widget(List::new(items), parts[1], &mut state);
-        offsets[usize::from(staged)] = state.offset();
-        crate::scrollbar::vertical(frame, area, parts[1], entries.len(), state.offset());
-        hits.list(
-            area,
-            parts[1],
-            &(row_offset..row_offset + entries.len()).collect::<Vec<_>>(),
-            state.offset(),
-            crate::pointer::Target::Files,
-        );
-        // 复选框单独命中，点击文件名仍只定位；复选框不参与双击进入。
-        for (row, _) in entries
-            .iter()
-            .skip(state.offset())
-            .take(parts[1].height as usize)
-            .enumerate()
-        {
-            let checkbox =
-                Rect::new(parts[1].x, parts[1].y + row as u16, 3, 1).intersection(parts[1]);
-            hits.file_checkbox(checkbox, row_offset + state.offset() + row);
-        }
-        row_offset += entries.len();
+            )),
+            Row::Entry { group, entry, .. } => {
+                item(session, entry, *group, &changes, options.icons, inner.width)
+            }
+        })
+        .collect::<Vec<_>>();
+    let selected = rows
+        .iter()
+        .position(|row| row.cursor().as_ref() == Some(&session.cursor));
+    let mut offset = session
+        .offset
+        .min(rows.len().saturating_sub(usize::from(inner.height)));
+    if inner.height >= 2
+        && let Some(index) = selected
+        && index > 0
+        && matches!(rows[index - 1], Row::Header { .. })
+    {
+        // 选中分组第一项时，同时露出它上方的标题。
+        offset = offset.min(index - 1);
     }
-    session.offsets = offsets;
+    let mut state = ListState::default()
+        .with_offset(offset)
+        .with_selected(selected);
+    frame.render_stateful_widget(List::new(items), inner, &mut state);
+    session.offset = state.offset();
+    crate::scrollbar::vertical(frame, area, inner, rows.len(), session.offset);
+    hits.vertical(
+        area,
+        inner,
+        rows.len().saturating_sub(usize::from(inner.height)),
+        session.offset,
+        crate::pointer::ScrollTarget::Files,
+    );
+    for (visible, row) in rows
+        .iter()
+        .skip(session.offset)
+        .take(usize::from(inner.height))
+        .enumerate()
+    {
+        let Row::Entry { index, .. } = row else {
+            continue;
+        };
+        let line = Rect::new(inner.x, inner.y + visible as u16, inner.width, 1);
+        hits.item(line, crate::pointer::Target::Files, *index);
+        // 复选框单独命中，分组标题不参与选择或勾选。
+        hits.file_checkbox(Rect::new(line.x, line.y, 3, 1).intersection(line), *index);
+    }
+}
+
+fn item(
+    session: &FileSession,
+    entry: &crate::files::tree::Row,
+    group: Group,
+    changes: &[&Change],
+    icons: crate::file_icons::Display,
+    width: u16,
+) -> ListItem<'static> {
+    let selected = entry.cursor(group) == session.cursor;
+    let emphasis = if selected {
+        Emphasis::Current
+    } else {
+        Emphasis::Other
+    };
+    let mut spans = super::checkbox::spans(session.check_state(entry, changes));
+    spans.push(Span::raw(" "));
+    match entry {
+        crate::files::tree::Row::Directory {
+            prefix,
+            label,
+            expansion,
+            ..
+        } => {
+            spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
+            spans.extend(icons.directory_slot(match expansion {
+                crate::files::Expansion::Expanded => crate::file_icons::Folder::Expanded,
+                crate::files::Expansion::Collapsed => crate::file_icons::Folder::Collapsed,
+            }));
+            spans.extend(
+                highlight::line(
+                    Line::styled(safe(label), Style::default().fg(ACCENT)),
+                    &session.query,
+                    emphasis,
+                )
+                .spans,
+            );
+            ListItem::new(Line::from(spans)).style(row_style(selected))
+        }
+        crate::files::tree::Row::File {
+            index,
+            prefix,
+            label,
+        } => {
+            let change = changes[*index];
+            spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
+            spans.extend(icons.file(change.location.name()));
+            spans.extend(highlight::line(Line::raw(safe(label)), &session.query, emphasis).spans);
+            ListItem::new(marked_line(
+                &Line::from(spans),
+                change.kind,
+                if change.kind == 'U' {
+                    BAD
+                } else if group == Group::Staged {
+                    GOOD
+                } else {
+                    WARN
+                },
+                usize::from(width),
+            ))
+            .style(row_style(selected))
+        }
+    }
 }
 
 /// Keep a file status marker pinned to the last column, clipping only the label.

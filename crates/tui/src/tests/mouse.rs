@@ -297,7 +297,7 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
         let text = render(&mut s, width, height);
         let y = text
             .lines()
-            .position(|line| line.contains("staged-18.rs") && !line.contains("unstaged"))
+            .position(|line| line.contains("unstaged-18.rs"))
             .unwrap() as u16;
         assert!(click(&mut s, 8, y));
         let Mode::Changes(session) = &s.mode else {
@@ -310,9 +310,11 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
                 .unwrap()
                 .location
                 .display()
-                .contains("staged-18.rs")
+                .contains("unstaged-18.rs")
         );
         assert!(session.files.selected.is_empty());
+        key(&mut s, KeyCode::Home);
+        let text = render(&mut s, width, height);
         let header = text
             .lines()
             .position(|line| line.contains(i18n::tr!(ChangesStaged)))
@@ -328,7 +330,7 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
                 .unwrap()
                 .location
                 .display()
-                .contains("staged-18.rs")
+                .contains("staged-00.rs")
         );
     }
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -698,7 +700,7 @@ fn help_scrollbar_drag_uses_text_offset_without_moving_pages() {
 }
 
 #[test]
-fn file_scrollbar_drag_preserves_each_group_offset_and_does_not_modify_index() {
+fn file_scrollbar_drag_uses_one_viewport_and_does_not_modify_index() {
     let f = support::Fixture::create();
     for n in 0..30 {
         support::write(f.repo.join(format!("staged-{n:02}")), "staged\n");
@@ -726,18 +728,17 @@ fn file_scrollbar_drag_preserves_each_group_offset_and_does_not_modify_index() {
         area.bottom() + 5,
     );
     render(&mut s, 100, 32);
-    let offsets = s.mode.file_session().unwrap().offsets;
-    assert!(offsets[0] > 0);
-    assert_eq!(offsets[1], 0);
+    let offsets = s.mode.file_session().unwrap().offset;
+    assert!(offsets > 0);
     event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y);
     render(&mut s, 100, 32);
-    assert_eq!(s.mode.file_session().unwrap().offsets, [0; 2]);
+    assert_eq!(s.mode.file_session().unwrap().offset, 0);
     event(&mut s, MouseEventKind::Drag(MouseButton::Left), 0, y + 2);
     render(&mut s, 100, 32);
-    let offsets = s.mode.file_session().unwrap().offsets;
+    let offsets = s.mode.file_session().unwrap().offset;
     event(&mut s, MouseEventKind::Up(MouseButton::Left), 0, y + 2);
     render(&mut s, 100, 32);
-    assert_eq!(s.mode.file_session().unwrap().offsets, offsets);
+    assert_eq!(s.mode.file_session().unwrap().offset, offsets);
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     s.shutdown();
 }

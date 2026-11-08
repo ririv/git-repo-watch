@@ -119,7 +119,7 @@ fn external_edits_staging_and_commits_refresh_without_navigation_or_remote_check
     };
     files.toggle_current();
     files.query = "中文".into();
-    files.offsets = [3, 4];
+    files.offset = 3;
     s.paste("/repo diff sta");
     let input = s.bar.command_input().unwrap().text().to_owned();
     support::git(&f.repo, &["add", "中文 文件.ts"]);
@@ -128,9 +128,7 @@ fn external_edits_staging_and_commits_refresh_without_navigation_or_remote_check
         |s| matches!(&s.mode, Mode::Files(files) if files.snapshot.changes.iter().any(|change| change.area == Area::Staged)),
     );
     assert_eq!(s.bar.command_input().unwrap().text(), input);
-    assert!(
-        matches!(&s.mode, Mode::Files(files) if files.query == "中文" && files.offsets == [3,4])
-    );
+    assert!(matches!(&s.mode, Mode::Files(files) if files.query == "中文" && files.offset == 3));
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     for _ in 0..30 {
         tick(&mut s);

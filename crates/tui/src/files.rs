@@ -1,6 +1,7 @@
 //! Shared file selection with explicit staged and unstaged identities.
 mod cursor;
 mod folding;
+pub(crate) mod list;
 pub(crate) use folding::Expansion;
 pub(super) mod tree;
 use crate::{Area, Change, Files};
@@ -31,7 +32,7 @@ use std::collections::BTreeSet;
 pub(super) struct FileSession {
     pub snapshot: Files,
     pub cursor: Cursor,
-    pub offsets: [usize; 2],
+    pub offset: usize,
     pub selected: BTreeSet<usize>,
     pub query: String,
     pub recovery: crate::replay::controls::Focus,
@@ -59,7 +60,7 @@ impl FileSession {
         Self {
             snapshot,
             cursor,
-            offsets: [0; 2],
+            offset: 0,
             selected: BTreeSet::new(),
             query: String::new(),
             recovery: Default::default(),
@@ -84,7 +85,7 @@ impl FileSession {
             &self.snapshot.operation.state,
             &next.snapshot.operation.state,
         );
-        next.offsets = self.offsets;
+        next.offset = self.offset;
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
         next.folding = self.folding.clone();
@@ -145,8 +146,8 @@ impl FileSession {
             .filter(|change| self.search_mode.includes(self.matches_change(change)))
             .collect::<Vec<_>>();
         rows.sort_by(|a, b| {
-            (a.area == Area::Staged)
-                .cmp(&(b.area == Area::Staged))
+            (a.area != Area::Staged)
+                .cmp(&(b.area != Area::Staged))
                 .then_with(|| a.location.name().cmp(b.location.name()))
         });
         rows

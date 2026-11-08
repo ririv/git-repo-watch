@@ -135,7 +135,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
 }
 
 #[test]
-fn combined_view_previews_exact_sides_and_keeps_both_groups_visible_after_navigation_and_resize() {
+fn combined_view_previews_exact_sides_and_keeps_selection_visible_after_navigation_and_resize() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
@@ -161,11 +161,34 @@ fn combined_view_previews_exact_sides_and_keeps_both_groups_visible_after_naviga
         );
         for (width, height) in [(60, 18), (100, 28), (180, 36), (240, 40)] {
             let text = render(&mut s, width, height);
-            assert!(
-                text.contains(i18n::tr!(ChangesUnstaged))
-                    && text.contains(i18n::tr!(ChangesStaged)),
-                "{text}"
-            );
+            let files_area = view::changes::areas(s.body_area.unwrap(), review(&s))
+                .into_iter()
+                .find(|(_, focus)| *focus == Focus::Files)
+                .unwrap()
+                .0;
+            if files_area.height >= 7 {
+                assert!(
+                    text.contains(i18n::tr!(ChangesUnstaged))
+                        && text.contains(i18n::tr!(ChangesStaged)),
+                    "{text}"
+                );
+            }
+            let selected = review(&s)
+                .files
+                .list(s.file_layout)
+                .into_iter()
+                .find_map(|row| {
+                    let selected = row.cursor().as_ref() == Some(&review(&s).files.cursor);
+                    match row {
+                        crate::files::list::Row::Entry { index, .. } if selected => Some(index),
+                        _ => None,
+                    }
+                })
+                .unwrap();
+            assert!((files_area.y+1..files_area.bottom()-1).any(|y| matches!(
+                s.pointer.hit(ratatui::layout::Position::new(files_area.x+5,y)),
+                Some(crate::pointer::Hit::Item(crate::pointer::Target::Files,index)) if index == selected
+            )));
             assert!(text.contains(i18n::tr!(FileDiff)), "{text}");
         }
         choose(&mut s, "双重.ts", Area::Staged);

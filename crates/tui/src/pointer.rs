@@ -23,6 +23,7 @@ pub(crate) enum Target {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScrollTarget {
+    Files,
     BrowserTreeHorizontal,
     HistoryActions,
     BrowserPreview(crate::browser::opening::TextMode),

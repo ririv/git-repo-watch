@@ -49,6 +49,11 @@ fn working_and_staged_images_decode_exact_snapshots_render_pixels_and_cleanup_on
         let refs = support::git(&f.repo, &["show-ref"]);
         open_files(&mut s);
         wait(&mut s);
+        let Mode::Files(files) = &mut s.mode else {
+            panic!("file list")
+        };
+        assert_eq!(files.current().unwrap().area, Area::Staged);
+        files.switch_group(s.file_layout);
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(
