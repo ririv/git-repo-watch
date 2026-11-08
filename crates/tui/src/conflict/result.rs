@@ -34,7 +34,12 @@ pub(crate) struct View {
     reveal: Reveal,
 }
 impl View {
-    pub fn prepare(document: Document, change: &Change, cancel: &Cancel) -> anyhow::Result<Self> {
+    pub fn prepare(
+        document: Document,
+        change: &Change,
+        theme: highlight::Theme,
+        cancel: &Cancel,
+    ) -> anyhow::Result<Self> {
         let source = match &document {
             Document::Patch { files, .. } if files.len() == 1 => match &files[0].after {
                 Source::Text { path, text } => Some(Source::Text {
@@ -49,16 +54,17 @@ impl View {
             Some(source) => {
                 let limited =
                     matches!(&source, Source::Text {text,..} if text.lines().count() > 50_000);
-                let (body, syntax) = super::prepare_source(source, limited, cancel)?;
+                let (body, syntax) = super::prepare_source(source, limited, theme, cancel)?;
                 Content::Source {
                     body,
                     syntax: syntax.expect("text source syntax label"),
                 }
             }
-            None => Content::Document(document::prepare_change(
+            None => Content::Document(document::prepare_change_with_theme(
                 &change.location.display(),
                 document,
                 change,
+                theme,
                 cancel,
             )?),
         };

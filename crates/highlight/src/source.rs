@@ -1,5 +1,5 @@
 //! Parse old and new sources independently, retaining tokens only for requested lines.
-use crate::{Color, Style, THEMES, syntax};
+use crate::{Color, Style, THEMES, Theme, syntax};
 use anyhow::{Context, Result};
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -47,6 +47,17 @@ pub fn highlight(
     path: &Path,
     text: &str,
     requested: &BTreeSet<NonZeroU32>,
+    checkpoint: impl FnMut() -> Result<()>,
+) -> Result<Source> {
+    highlight_with_theme(path, text, requested, Theme::Dark, checkpoint)
+}
+
+/// Highlight with an explicitly selected bundled color theme.
+pub fn highlight_with_theme(
+    path: &Path,
+    text: &str,
+    requested: &BTreeSet<NonZeroU32>,
+    theme: Theme,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Source> {
     checkpoint()?;
@@ -57,7 +68,7 @@ pub fn highlight(
     let Some(syntax) = syntax::detect(syntaxes, path, text.lines().next())? else {
         return Ok(Source::UnknownLanguage);
     };
-    highlight_syntax(syntax, text, requested, checkpoint)
+    highlight_syntax(syntax, text, requested, theme, checkpoint)
 }
 
 /// Highlight a fenced code block using its explicit language token.
@@ -73,19 +84,20 @@ pub fn highlight_code(
     let Some(syntax) = syntaxes.find_syntax_by_token(language) else {
         return Ok(Source::UnknownLanguage);
     };
-    highlight_syntax(syntax, text, requested, || Ok(()))
+    highlight_syntax(syntax, text, requested, Theme::Dark, || Ok(()))
 }
 
 fn highlight_syntax(
     syntax: &syntect::parsing::SyntaxReference,
     text: &str,
     requested: &BTreeSet<NonZeroU32>,
+    theme: Theme,
     mut checkpoint: impl FnMut() -> Result<()>,
 ) -> Result<Source> {
     let syntaxes = syntax::set();
     let theme = THEMES
         .themes
-        .get("base16-ocean.dark")
+        .get(theme.name())
         .context("Bundled syntax theme is missing")?;
     let mut parser = HighlightLines::new(syntax, theme);
     let mut lines = BTreeMap::new();

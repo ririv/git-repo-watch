@@ -13,7 +13,12 @@ pub(super) struct Prepared {
     pub full: Result<Vec<Row>, &'static str>,
 }
 
-pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) -> Result<Prepared> {
+pub(super) fn rows(
+    heading: Heading<'_>,
+    document: Document,
+    theme: highlight::Theme,
+    cancel: &Cancel,
+) -> Result<Prepared> {
     cancel.check()?;
     let mut information = match heading {
         Heading::Full(title) => Some(Information {
@@ -70,18 +75,20 @@ pub(super) fn rows(heading: Heading<'_>, document: Document, cancel: &Cancel) ->
                         _ => {}
                     }
                 }
-                let old = source::prepare(
+                let old = source::prepare_with_theme(
                     &file.before,
                     &old_numbers,
                     &file.lines,
                     source::Side::Old,
+                    theme,
                     cancel,
                 )?;
-                let new = source::prepare(
+                let new = source::prepare_with_theme(
                     &file.after,
                     &new_numbers,
                     &file.lines,
                     source::Side::New,
+                    theme,
                     cancel,
                 )?;
                 let start = rows.len();

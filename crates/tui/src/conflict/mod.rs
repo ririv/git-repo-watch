@@ -93,10 +93,11 @@ pub(crate) struct Position {
     offsets: [usize; VIEWPORTS],
 }
 impl View {
-    pub fn prepare(
+    pub fn prepare_with_theme(
         snapshot: Snapshot,
         result: result::View,
         pairs: pair::Pairs,
+        theme: highlight::Theme,
         cancel: &Cancel,
     ) -> anyhow::Result<Self> {
         let Snapshot {
@@ -118,9 +119,9 @@ impl View {
             title: path.display().to_string(),
             pairs,
             columns: [
-                column(Role::Base, base, show_mode, &path, cancel)?,
-                column(Role::Current, current, show_mode, &path, cancel)?,
-                column(Role::Incoming, incoming, show_mode, &path, cancel)?,
+                column(Role::Base, base, show_mode, &path, theme, cancel)?,
+                column(Role::Current, current, show_mode, &path, theme, cancel)?,
+                column(Role::Incoming, incoming, show_mode, &path, theme, cancel)?,
             ],
             comparison,
             overview_focus: Focus::Result,
@@ -291,6 +292,7 @@ fn column(
     version: Version,
     show_mode: bool,
     selected: &std::path::Path,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> anyhow::Result<Column> {
     let Version::Present {
@@ -307,7 +309,7 @@ fn column(
         });
     };
     let limited = matches!(&source, Source::Text { text, .. } if text.lines().count() > 50_000);
-    let (body, syntax) = prepare_source(source, limited, cancel)?;
+    let (body, syntax) = prepare_source(source, limited, theme, cancel)?;
     let mut description = oid.to_string()[..12].to_owned();
     if show_mode {
         description.push_str(&format!(" · {mode:o}"));
@@ -329,6 +331,7 @@ fn column(
 fn prepare_source(
     source: Source,
     limited: bool,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> anyhow::Result<(Body, Option<String>)> {
     let requested: BTreeSet<_> = match &source {
@@ -337,7 +340,14 @@ fn prepare_source(
             .collect(),
         _ => BTreeSet::new(),
     };
-    let paint = diff::source::prepare(&source, &requested, &[], diff::source::Side::Old, cancel)?;
+    let paint = diff::source::prepare_with_theme(
+        &source,
+        &requested,
+        &[],
+        diff::source::Side::Old,
+        theme,
+        cancel,
+    )?;
     let syntax = paint.label();
     let body = match source {
         Source::Text { text, .. } if !limited => {

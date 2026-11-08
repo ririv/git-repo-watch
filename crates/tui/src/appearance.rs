@@ -1,4 +1,5 @@
 //! Terminal-reported appearance adapts interface contrast while preserving semantic color roles.
+mod diff;
 pub(crate) mod probe;
 use ratatui::{
     buffer::Buffer,
@@ -21,6 +22,12 @@ pub(crate) enum Background {
 }
 
 impl Background {
+    pub fn syntax_theme(self) -> highlight::Theme {
+        match self {
+            Self::Light => highlight::Theme::Light,
+            Self::Dark | Self::Unreported => highlight::Theme::Dark,
+        }
+    }
     pub fn rgb(red: u8, green: u8, blue: u8) -> Self {
         let linear = |channel: u8| {
             let value = f64::from(channel) / 255.0;
@@ -40,8 +47,9 @@ impl Background {
 
     pub fn apply(self, buffer: &mut Buffer) {
         for cell in &mut buffer.content {
-            // 只调整默认底色及选中行上的界面语义色，保留代码、搜索与差异色块。
+            // 差异底色单独适配，界面语义色只调整默认底色及选中行。
             if self == Self::Light {
+                diff::apply_light(cell);
                 cell.fg = match (cell.bg, cell.fg) {
                     (Color::Reset, Color::LightCyan) => LIGHT_PARAMETER,
                     (Color::Reset, Color::LightGreen) => LIGHT_VALUE,

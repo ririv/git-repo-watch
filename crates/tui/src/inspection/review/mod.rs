@@ -29,11 +29,11 @@ impl Review {
             followed: None,
         }
     }
-    pub fn poll(&self, service: &Arc<Service>) -> bool {
+    pub fn poll(&self, service: &Arc<Service>, theme: highlight::Theme) -> bool {
         self.bundle
             .lock()
             .expect("history review state")
-            .poll(service)
+            .poll(service, theme)
     }
     #[cfg(test)]
     pub fn loaded(&self) -> bool {

@@ -45,11 +45,12 @@ impl Paint {
     }
 }
 
-pub(crate) fn prepare(
+pub(crate) fn prepare_with_theme(
     source: &Source,
     requested: &BTreeSet<NonZeroU32>,
     patch: &[PatchLine],
     side: Side,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> Result<Paint> {
     match source {
@@ -78,10 +79,11 @@ pub(crate) fn prepare(
                     i18n::tr!(DiffSourceChanged)
                 );
             }
-            Ok(Paint::Source(highlight::highlight(
+            Ok(Paint::Source(highlight::highlight_with_theme(
                 path,
                 text,
                 requested,
+                theme,
                 || cancel.check(),
             )?))
         }

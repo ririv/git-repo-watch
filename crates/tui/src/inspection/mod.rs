@@ -36,12 +36,14 @@ impl Session {
         &self,
         service: &crate::Service,
         index: usize,
+        theme: highlight::Theme,
         cancel: &engine::cancel::Cancel,
     ) -> anyhow::Result<Box<crate::document::View>> {
-        crate::document::prepare_with(
+        crate::document::prepare_with_theme(
             &self.detail.change(index).location.display(),
             self.detail.document(service, index, cancel)?,
             self.detail.comparison(index),
+            theme,
             cancel,
         )
     }
@@ -258,7 +260,9 @@ impl Screen {
             .iter()
             .any(|(_, focus)| *focus == Focus::Preview)
         {
-            inspect.review.poll(&self.service)
+            inspect
+                .review
+                .poll(&self.service, self.background.syntax_theme())
         } else {
             false
         }

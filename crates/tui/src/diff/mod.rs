@@ -26,12 +26,11 @@ mod tests;
 mod text;
 use crate::view::safe;
 use anyhow::Result;
+#[cfg(test)]
+use engine::local::files::Area;
 use engine::{
     cancel::Cancel,
-    local::files::{
-        Area,
-        patch::{Document, Extent, Line as PatchLine, Metadata},
-    },
+    local::files::patch::{Document, Extent, Line as PatchLine, Metadata},
 };
 pub(super) use layout::{Anchor, Anchors, Cache, RowKind, VisualRow};
 use ratatui::{
@@ -376,6 +375,7 @@ impl View {
     }
 }
 
+#[cfg(test)]
 pub(super) fn prepare(
     title: &str,
     document: Document,
@@ -393,6 +393,7 @@ pub(super) fn prepare(
     )
 }
 
+#[cfg(test)]
 pub(super) fn prepare_history(
     title: &str,
     document: Document,
@@ -408,27 +409,55 @@ pub(super) fn prepare_history(
     )
 }
 
+#[cfg(test)]
 pub(crate) fn prepare_inline_comparison(
     document: Document,
     comparison: Comparison,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
-    prepare_rows(build::Heading::Inline, document, comparison, cancel)
+    prepare_inline_with_theme(document, comparison, highlight::Theme::Dark, cancel)
 }
 
+pub(crate) fn prepare_inline_with_theme(
+    document: Document,
+    comparison: Comparison,
+    theme: highlight::Theme,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_rows(build::Heading::Inline, document, comparison, theme, cancel)
+}
+
+#[cfg(test)]
 pub(super) fn prepare_comparison(
     title: &str,
     document: Document,
     comparison: Comparison,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
-    prepare_rows(build::Heading::Full(title), document, comparison, cancel)
+    prepare_with_theme(title, document, comparison, highlight::Theme::Dark, cancel)
+}
+
+pub(crate) fn prepare_with_theme(
+    title: &str,
+    document: Document,
+    comparison: Comparison,
+    theme: highlight::Theme,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_rows(
+        build::Heading::Full(title),
+        document,
+        comparison,
+        theme,
+        cancel,
+    )
 }
 
 fn prepare_rows(
     heading: build::Heading<'_>,
     document: Document,
     comparison: Comparison,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
     let export = match &document {
@@ -444,7 +473,7 @@ fn prepare_rows(
         information,
         header,
         full,
-    } = build::rows(heading, document, cancel)?;
+    } = build::rows(heading, document, theme, cancel)?;
     let digits = rows
         .iter()
         .chain(full.as_ref().into_iter().flatten())

@@ -40,6 +40,7 @@ impl Reader {
 #[derive(Debug)]
 pub(super) struct Bundle {
     detail: Source,
+    theme: highlight::Theme,
     pub entries: Vec<Entry>,
     state: State,
     feedback: Feedback<()>,
@@ -50,6 +51,7 @@ impl Bundle {
         let count = detail.len();
         Self {
             detail,
+            theme: highlight::Theme::Dark,
             entries: vec![Entry::Pending; count],
             state: if count == 0 {
                 State::Complete
@@ -67,8 +69,21 @@ impl Bundle {
     pub fn symbol(&self) -> Option<&'static str> {
         self.feedback.visible().then(|| self.animation.symbol())
     }
-    pub fn poll(&mut self, service: &Arc<Service>) -> bool {
+    pub fn poll(&mut self, service: &Arc<Service>, theme: highlight::Theme) -> bool {
         let mut changed = false;
+        if self.theme != theme {
+            self.theme = theme;
+            if let State::Reading(reader) = std::mem::replace(&mut self.state, State::Idle)
+                && let Err(error) = reader.close()
+            {
+                self.entries.fill(Entry::Failed(error.into()));
+                self.state = State::Complete;
+                self.feedback.finish();
+                return true;
+            }
+            self.entries.fill(Entry::Pending);
+            changed = true;
+        }
         if matches!(self.state, State::Idle) {
             let service = service.clone();
             let detail = self.detail.clone();
@@ -85,9 +100,10 @@ impl Bundle {
                     let result = detail
                         .document(&service, index, &worker_cancel)
                         .and_then(|document| {
-                            diff::prepare_inline_comparison(
+                            diff::prepare_inline_with_theme(
                                 document,
                                 detail.comparison(index),
+                                theme,
                                 &worker_cancel,
                             )
                         })

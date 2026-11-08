@@ -28,6 +28,34 @@ fn color(line: &Highlighted, word: &str) -> Color {
 }
 
 #[test]
+fn light_and_dark_themes_preserve_source_and_distinguish_syntax() {
+    let text = "export const message = \"中文\"; // comment\n";
+    let requested = numbers(&[1]);
+    let mut palettes = Vec::new();
+    for theme in [Theme::Dark, Theme::Light] {
+        let highlighted =
+            highlight_with_theme(Path::new("theme.ts"), text, &requested, theme, || Ok(()))
+                .unwrap();
+        let line = &lines(&highlighted)[&NonZeroU32::new(1).unwrap()];
+        let reconstructed: String = line
+            .tokens
+            .iter()
+            .map(|token| &line.text[token.range.clone()])
+            .collect();
+        assert_eq!(reconstructed, text);
+        let colors = [
+            color(line, "export"),
+            color(line, "中文"),
+            color(line, "comment"),
+        ];
+        assert_ne!(colors[0], colors[1]);
+        assert_ne!(colors[0], colors[2]);
+        palettes.push(colors);
+    }
+    assert_ne!(palettes[0], palettes[1]);
+}
+
+#[test]
 fn rust_tokens_preserve_unicode_and_distinguish_keywords_strings_and_comments() {
     let text = "fn main() { let 消息 = \"中文\"; } // comment\n";
     let highlighted = source("中文 文件.rs", text, &[1]);

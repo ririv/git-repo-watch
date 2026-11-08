@@ -10,6 +10,7 @@ use std::{sync::Arc, time::Instant};
 pub(super) struct Key {
     revision: u64,
     change: Change,
+    theme: highlight::Theme,
 }
 #[derive(Debug)]
 pub(super) enum Preview {
@@ -110,10 +111,22 @@ impl Session {
     pub fn symbol(&self) -> &'static str {
         self.animation.symbol()
     }
-    pub fn poll(&mut self, service: &Arc<Service>) -> bool {
-        self.poll_at(service, Instant::now())
-    }
+    #[cfg(test)]
     pub fn poll_at(&mut self, service: &Arc<Service>, now: Instant) -> bool {
+        self.poll_at_with_theme(service, highlight::Theme::Dark, now)
+    }
+    pub fn poll_with_theme(&mut self, service: &Arc<Service>, theme: highlight::Theme) -> bool {
+        self.poll_at_with_theme(service, theme, Instant::now())
+    }
+    fn poll_at_with_theme(
+        &mut self,
+        service: &Arc<Service>,
+        theme: highlight::Theme,
+        now: Instant,
+    ) -> bool {
+        if self.preview.key().is_some_and(|key| key.theme != theme) {
+            self.refreshed(self.files.snapshot.clone());
+        }
         if let crate::files::Cursor::Directory { path, .. } = &self.files.cursor {
             let count = self.files.focused_changes().len();
             let changed = !matches!(&self.preview, Preview::Directory { path: current, count: current_count } if current == path && *current_count == count);
@@ -132,6 +145,7 @@ impl Session {
         let next = self.files.current().map(|change| Key {
             revision: self.revision,
             change: change.clone(),
+            theme,
         });
         let mut changed = false;
         if self.preview.key() != next.as_ref() || matches!(self.preview, Preview::Directory { .. })
@@ -207,7 +221,7 @@ impl Screen {
         match &mut self.mode {
             Mode::Changes(session) => {
                 session.files.set_layout(self.file_layout);
-                session.poll(&self.service)
+                session.poll_with_theme(&self.service, self.background.syntax_theme())
             }
             _ => false,
         }

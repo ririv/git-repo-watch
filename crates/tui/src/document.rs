@@ -68,18 +68,24 @@ impl View {
         }
     }
 }
-pub(super) fn prepare_change(
+pub(crate) fn prepare_change_with_theme(
     title: &str,
     document: Document,
     change: &engine::local::files::Change,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
     if change.kind == 'U' {
-        prepare_with(title, document, diff::Comparison::Conflict, cancel)
+        prepare_with_theme(title, document, diff::Comparison::Conflict, theme, cancel)
     } else {
-        prepare(title, document, change.area, cancel)
+        let comparison = match change.area {
+            Area::Staged => diff::Comparison::Staged,
+            Area::Unstaged | Area::Untracked => diff::Comparison::Working,
+        };
+        prepare_with_theme(title, document, comparison, theme, cancel)
     }
 }
+#[cfg(test)]
 pub(super) fn prepare(
     title: &str,
     document: Document,
@@ -92,10 +98,20 @@ pub(super) fn prepare(
     };
     prepare_with(title, document, comparison, cancel)
 }
+#[cfg(test)]
 pub(crate) fn prepare_with(
     title: &str,
     document: Document,
     comparison: diff::Comparison,
+    cancel: &Cancel,
+) -> Result<Box<View>> {
+    prepare_with_theme(title, document, comparison, highlight::Theme::Dark, cancel)
+}
+pub(crate) fn prepare_with_theme(
+    title: &str,
+    document: Document,
+    comparison: diff::Comparison,
+    theme: highlight::Theme,
     cancel: &Cancel,
 ) -> Result<Box<View>> {
     if let Document::Patch { files, .. } = &document
@@ -113,15 +129,6 @@ pub(crate) fn prepare_with(
             cancel,
         )?))));
     }
-    let text = match comparison {
-        diff::Comparison::Staged => diff::prepare(title, document, Area::Staged, cancel)?,
-        diff::Comparison::Working => diff::prepare(title, document, Area::Unstaged, cancel)?,
-        diff::Comparison::Conflict | diff::Comparison::Stash(_) => {
-            diff::prepare_comparison(title, document, comparison, cancel)?
-        }
-        diff::Comparison::History { before, after } => {
-            diff::prepare_history(title, document, before, after, cancel)?
-        }
-    };
+    let text = diff::prepare_with_theme(title, document, comparison, theme, cancel)?;
     Ok(Box::new(View::Text(text)))
 }

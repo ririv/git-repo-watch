@@ -40,6 +40,7 @@ mod images;
 mod input_surface;
 mod interrupt;
 mod layout_picker;
+mod light_diff;
 mod links;
 mod live;
 mod mouse;

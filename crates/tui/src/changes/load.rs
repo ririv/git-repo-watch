@@ -79,16 +79,27 @@ impl Loader {
                             &document,
                             &task_cancel,
                         )?;
-                        let result =
-                            crate::conflict::result::View::prepare(document, change, &task_cancel)?;
+                        let result = crate::conflict::result::View::prepare(
+                            document,
+                            change,
+                            request.key.theme,
+                            &task_cancel,
+                        )?;
                         Box::new(document::View::Conflict(Box::new(
-                            crate::conflict::View::prepare(snapshot, result, pairs, &task_cancel)?,
+                            crate::conflict::View::prepare_with_theme(
+                                snapshot,
+                                result,
+                                pairs,
+                                request.key.theme,
+                                &task_cancel,
+                            )?,
                         )))
                     } else {
-                        let mut content = document::prepare_change(
+                        let mut content = document::prepare_change_with_theme(
                             &change.location.display(),
                             document,
                             change,
+                            request.key.theme,
                             &task_cancel,
                         )?;
                         if let document::View::Text(view) = content.as_mut() {

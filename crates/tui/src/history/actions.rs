@@ -136,12 +136,15 @@ impl Screen {
             self.message = i18n::tr!(HistoryNoChanges).into();
             return;
         };
+        let theme = self.background.syntax_theme();
         self.start_repository(
             commit.inspect.detail.path().to_owned(),
             i18n::tr!(HistoryReadDiff),
             Effect::ReadOnly,
             move |service, cancel, _| {
-                let content = commit.inspect.prepare_file(&service, index, &cancel)?;
+                let content = commit
+                    .inspect
+                    .prepare_file(&service, index, theme, &cancel)?;
                 Ok(Outcome::History(Box::new(View::Diff {
                     commit: Box::new(commit),
                     content,

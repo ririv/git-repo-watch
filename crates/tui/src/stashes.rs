@@ -232,12 +232,13 @@ impl crate::Screen {
             return;
         };
         let (session, inspect) = (session.clone(), inspect.clone());
+        let theme = self.background.syntax_theme();
         self.start_repository(
             session.snapshot.path.clone(),
             i18n::tr!(HistoryReadDiff),
             crate::Effect::ReadOnly,
             move |service, cancel, _| {
-                let content = inspect.prepare_file(&service, index, &cancel)?;
+                let content = inspect.prepare_file(&service, index, theme, &cancel)?;
                 Ok(crate::Outcome::StashView(Box::new(View::Diff {
                     session,
                     inspect: Box::new(inspect),
