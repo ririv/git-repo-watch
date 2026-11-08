@@ -105,6 +105,7 @@ fn intervals_and_schema_boundaries() {
         max_concurrency: 32,
         fetch_on_startup: false,
         auto_fetch: Default::default(),
+        experimental_features: true,
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,

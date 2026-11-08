@@ -163,7 +163,7 @@ impl Session {
 }
 impl Screen {
     pub(crate) fn compose_action(&mut self, action: Action, path: Option<std::path::PathBuf>) {
-        if !self.config.ai.enabled {
+        if !self.config.ai.enabled || !self.config.experimental_features {
             return;
         }
         if matches!(action, Action::Open | Action::Regenerate) {
@@ -240,6 +240,9 @@ impl Screen {
         self.sync_bar();
     }
     pub(crate) fn compose_submit(&mut self) {
+        if !self.config.ai.enabled || !self.config.experimental_features {
+            return;
+        }
         let Mode::Composition(session) = &self.mode else {
             return;
         };
@@ -269,6 +272,11 @@ impl Screen {
         self.sync_bar();
     }
     pub(crate) fn finish_composition(&mut self, progress: Progress) {
+        if !self.config.ai.enabled || !self.config.experimental_features {
+            self.mode = Mode::Browsing;
+            self.sync_bar();
+            return;
+        }
         match progress {
             Progress::More { prepared, result } => {
                 self.mode = Mode::Composition(Box::new(Session::new(prepared)));
@@ -288,6 +296,11 @@ impl Screen {
         _root: &Cancel,
     ) {
         use crossterm::event::{KeyCode, KeyModifiers};
+        if !self.config.ai.enabled || !self.config.experimental_features {
+            self.mode = Mode::Browsing;
+            self.sync_bar();
+            return;
+        }
         match &mut session.state {
             State::Editing(editor) => match (key.code, key.modifiers) {
                 (KeyCode::Esc, _) => session.restore(),

@@ -10,6 +10,7 @@ pub(crate) enum Item {
     FileIcons,
     Interaction,
     AiEnabled,
+    ExperimentalFeatures,
     Mouse(engine::state::MouseSetting),
 }
 impl Item {
@@ -27,6 +28,7 @@ impl Item {
             Self::Command(action) => command::description(action),
             Self::Interaction => i18n::tr!(InteractionSetting),
             Self::AiEnabled => i18n::tr!(AiEnabled),
+            Self::ExperimentalFeatures => i18n::tr!(ExperimentalEnabled),
             Self::FileIcons => i18n::tr!(FileIcons),
             Self::ChineseCommandTrigger => i18n::tr!(ChineseCommandTrigger),
             Self::Mouse(setting) => match setting {
@@ -56,6 +58,7 @@ impl Configuration {
             items.push(Item::Interaction);
             use engine::state::MouseSetting::*;
             items.extend([PreciseClick, Scroll, SelectPane].map(Item::Mouse));
+            items.push(Item::ExperimentalFeatures);
             items.push(Item::AiEnabled);
             if ai.enabled {
                 items.extend(
@@ -82,6 +85,21 @@ impl Screen {
                     Effect::Configuration,
                     move |service, cancel, _| {
                         service.configure_with_cancel(ConfigEdit::FileIcons(enabled), &cancel)?;
+                        Ok(Outcome::Text(i18n::tr!(PreferenceSaved).into()))
+                    },
+                );
+                Ok(false)
+            }
+            Item::ExperimentalFeatures => {
+                let enabled = !self.config.experimental_features;
+                self.start(
+                    item.description(),
+                    Effect::Configuration,
+                    move |service, cancel, _| {
+                        service.configure_with_cancel(
+                            ConfigEdit::ExperimentalFeatures(enabled),
+                            &cancel,
+                        )?;
                         Ok(Outcome::Text(i18n::tr!(PreferenceSaved).into()))
                     },
                 );

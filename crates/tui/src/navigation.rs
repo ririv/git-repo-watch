@@ -272,20 +272,16 @@ impl Screen {
 }
 
 impl Screen {
-    pub(crate) fn hide_disabled_ai_settings(&mut self) {
-        if self.config.ai.enabled {
-            return;
-        }
-        self.history.retain(|visit| {
-            !matches!(
-                visit.mode,
-                Mode::PromptEditor(_) | Mode::Composition(_) | Mode::CompositionWaiting(_)
-            )
-        });
-        if matches!(
-            self.mode,
-            Mode::PromptEditor(_) | Mode::Composition(_) | Mode::CompositionWaiting(_)
-        ) {
+    pub(crate) fn hide_disabled_features(&mut self) {
+        let allowed = |mode: &Mode| match mode {
+            Mode::PromptEditor(_) => self.config.ai.enabled,
+            Mode::Composition(_) | Mode::CompositionWaiting(_) => {
+                self.config.ai.enabled && self.config.experimental_features
+            }
+            _ => true,
+        };
+        self.history.retain(|visit| allowed(&visit.mode));
+        if !allowed(&self.mode) {
             self.mode = Mode::Browsing;
             self.sync_bar();
         }

@@ -93,6 +93,7 @@ fn scheduled_workflow_and_all_repository_readers_preserve_uncommitted_submodule_
             max_concurrency: 8,
             fetch_on_startup: false,
             auto_fetch: Default::default(),
+            experimental_features: true,
             ..Config::default()
         })
         .unwrap();

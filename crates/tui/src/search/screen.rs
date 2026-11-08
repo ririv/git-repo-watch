@@ -42,7 +42,7 @@ impl Screen {
     }
     pub(crate) fn search_commands(&self) -> Option<Vec<&'static crate::command::Command>> {
         let support = self.search_support();
-        self.bar.commands(self.config.ai.enabled).map(|commands| {
+        self.bar.commands(&self.config).map(|commands| {
             commands
                 .into_iter()
                 .filter(|command| support.admits(command.action))

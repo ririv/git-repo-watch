@@ -112,6 +112,7 @@ pub enum ConfigEdit {
     ScheduledWorkflow(crate::workflow::Plan),
     TextWrap(bool),
     FileIcons(bool),
+    ExperimentalFeatures(bool),
     ChineseCommandTrigger(bool),
     Mouse(state::MouseSetting, bool),
     Interaction(state::InteractionMode),

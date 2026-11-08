@@ -1,6 +1,7 @@
 //! Breadcrumbs describe actual return destinations, including nested content views.
 mod follow;
 use super::*;
+use crate::features::Maturity;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -25,6 +26,7 @@ pub(crate) enum Destination {
 pub(crate) struct Crumb {
     pub label: String,
     pub destination: Option<Destination>,
+    pub maturity: Maturity,
 }
 pub(super) fn repository(mode: &Mode) -> Option<&Path> {
     match mode {
@@ -50,17 +52,17 @@ pub(super) fn repository(mode: &Mode) -> Option<&Path> {
             .map(|session| session.snapshot.path.as_path()),
     }
 }
-fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)> {
+fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level, Maturity)> {
     if let Mode::Busy(pending) = mode {
         return entries(page, &pending.origin, path);
     }
     if let Mode::Error { origin, title, .. } = mode {
         let mut entries = entries(page, origin, path);
-        entries.push((title.clone(), Level::Page));
+        entries.push((title.clone(), Level::Page, Maturity::Stable));
         return entries;
     }
     let mut entries = Vec::new();
-    let mut push = |label: String, level| entries.push((label, level));
+    let mut push = |label: String, level| entries.push((label, level, Maturity::Stable));
     match page {
         Page::Repositories => {}
         Page::Detail => push(
@@ -148,7 +150,11 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level)>
             push(i18n::tr!(ChangesTitle).into(), Level::Page)
         }
         Mode::Composition(_) | Mode::CompositionWaiting(_) => {
-            push(i18n::tr!(ComposeTitle).into(), Level::Page)
+            entries.push((
+                i18n::tr!(ComposeTitle).into(),
+                Level::Page,
+                Maturity::Experimental,
+            ));
         }
         Mode::CommitMessage { .. } => push(i18n::tr!(CommitStagedContents).into(), Level::Page),
         Mode::PromptEditor(_) => push(i18n::tr!(AgentPrompt).into(), Level::Page),
@@ -167,6 +173,7 @@ impl Screen {
         let mut trail = vec![Crumb {
             label: i18n::tr!(Repositories).into(),
             destination: Some(Destination::Home),
+            maturity: Maturity::Stable,
         }];
         let mut previous_repository: Option<&Path> = None;
         for (index, page, mode, saved_path) in self
@@ -193,7 +200,7 @@ impl Screen {
             // 从首页直接打开仓库子视图时，在入口标签中带仓库名，不虚构未进入的概览层。
             if matches!(page, Page::View(_))
                 && path != previous_repository
-                && let (Some(path), Some((label, _))) = (path, parts.first_mut())
+                && let (Some(path), Some((label, _, _))) = (path, parts.first_mut())
             {
                 *label = format!("{} · {label}", crate::view::name(path));
             }
@@ -201,7 +208,7 @@ impl Screen {
                 previous_repository = path;
             }
             let count = parts.len();
-            for (position, (label, level)) in parts.into_iter().enumerate() {
+            for (position, (label, level, maturity)) in parts.into_iter().enumerate() {
                 let destination = match index {
                     Some(index) => Some(Destination::Saved {
                         index,
@@ -214,7 +221,11 @@ impl Screen {
                     None if position + 1 == count => None,
                     None => Some(Destination::Current(level)),
                 };
-                trail.push(Crumb { label, destination });
+                trail.push(Crumb {
+                    label,
+                    destination,
+                    maturity,
+                });
             }
         }
         if let Some(last) = trail.last_mut() {

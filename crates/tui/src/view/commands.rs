@@ -2,11 +2,13 @@
 mod argument;
 mod elision;
 use super::*;
+use crate::features::Maturity;
 use ratatui::layout::Alignment;
 use unicode_width::UnicodeWidthStr;
 
 struct Entry {
     name: String,
+    maturity: Maturity,
     usage_width: usize,
     argument: Option<command::ArgumentSyntax>,
     description: String,
@@ -81,7 +83,13 @@ impl Entry {
         let mut spans = vec![Span::styled(
             name,
             if enabled {
-                Style::default().fg(ACCENT).bold()
+                Style::default()
+                    .fg(if self.maturity == Maturity::Experimental {
+                        EXPERIMENTAL
+                    } else {
+                        ACCENT
+                    })
+                    .bold()
             } else {
                 Style::default().fg(MUTED)
             },
@@ -105,7 +113,11 @@ impl Entry {
             &ValueKind::Text,
             columns.description,
             if enabled {
-                Style::default()
+                if self.maturity == Maturity::Experimental {
+                    Style::default().fg(EXPERIMENTAL)
+                } else {
+                    Style::default()
+                }
             } else {
                 Style::default().fg(MUTED)
             },
@@ -275,6 +287,7 @@ fn render_menu(
             };
             Entry {
                 name: format!("{prefix}{}", input.name(command)),
+                maturity: if command.action.experimental() { Maturity::Experimental } else { Maturity::Stable },
                 usage_width: prefix.width() + input.usage(command).width(),
                 argument: command.action.argument().map(|argument| argument.syntax()),
                 description: safe(match availability.label() { None => description, Some(reason) => reason }),

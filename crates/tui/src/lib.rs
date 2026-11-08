@@ -20,6 +20,7 @@ mod diff;
 mod document;
 mod editor;
 mod external_editor;
+mod features;
 mod file_icons;
 mod files;
 mod flow;
@@ -473,7 +474,7 @@ impl Screen {
         if ai_enabled != self.config.ai.enabled {
             self.settings_focus = None;
         }
-        self.hide_disabled_ai_settings();
+        self.hide_disabled_features();
         self.load_updates()?;
         for (path, previous) in errors {
             if self

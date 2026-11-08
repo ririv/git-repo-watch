@@ -194,6 +194,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 > Graph and historical diff reads do not stage, commit, fetch, push or change reports.
 
 ## Fetch and configuration
+- Experimental features are enabled by default and remembered in settings. AI commit composition uses a distinct text color for its commands and page title; disabling experiments hides the whole composition group while keeping ordinary commit-message generation available.
 - `/settings auto-fetch [true|false]` enables periodic fetch in this TUI (off by default). `/settings auto-fetch-interval <duration>` sets its interval (3m by default, at least 60s). It waits while unfocused or busy and fetches once when due, without catch-up runs. Startup and manual fetches reset the deadline; background completion preserves input and navigation. System scheduling remains independent.
 - Startup reads local state by default. `/settings startup-fetch [true|false]` enables one background fetch on the next launch for managed repositories and the current session repository, using the same operation as manual fetch. It does not run scheduled pull or push steps.
 - `/repo fetch` fetches the current repository and refreshes its status; `/repos fetch` fetches all managed repositories.

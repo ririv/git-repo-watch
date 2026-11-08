@@ -48,6 +48,7 @@ impl Service {
             ConfigEdit::AutoFetchInterval(value) => config.auto_fetch.interval_seconds = value,
             ConfigEdit::ScheduledWorkflow(plan) => config.scheduled_actions = plan,
             ConfigEdit::FileIcons(value) => config.file_icons = value,
+            ConfigEdit::ExperimentalFeatures(value) => config.experimental_features = value,
             ConfigEdit::TextWrap(value) => config.text_wrap = value,
             ConfigEdit::ChineseCommandTrigger(value) => config.chinese_command_trigger = value,
             ConfigEdit::Mouse(setting, value) => config.mouse.set(setting, value),

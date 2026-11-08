@@ -259,7 +259,7 @@ impl Screen {
                 }
             },
             Outcome::Composed(prepared) => {
-                if self.config.ai.enabled {
+                if self.config.ai.enabled && self.config.experimental_features {
                     let origin = match origin {
                         Mode::CompositionWaiting(waiting) => *waiting.origin,
                         origin => origin,

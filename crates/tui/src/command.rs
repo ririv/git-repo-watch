@@ -718,17 +718,21 @@ pub fn description(action: Action) -> &'static str {
 }
 
 impl Action {
-    pub fn available(self, ai_enabled: bool) -> bool {
-        ai_enabled
-            || !matches!(
-                self,
-                Self::AiSettings
-                    | Self::Compose(_)
-                    | Self::ComposeOrderMenu
-                    | Self::CommitGenerate
-                    | Self::AiAgent
-                    | Self::AiModel
-                    | Self::AiPrompt
-            )
+    pub fn experimental(self) -> bool {
+        matches!(self, Self::Compose(_) | Self::ComposeOrderMenu)
+    }
+    pub fn available(self, config: &engine::state::Config) -> bool {
+        (!self.experimental() || config.experimental_features)
+            && (config.ai.enabled
+                || !matches!(
+                    self,
+                    Self::AiSettings
+                        | Self::Compose(_)
+                        | Self::ComposeOrderMenu
+                        | Self::CommitGenerate
+                        | Self::AiAgent
+                        | Self::AiModel
+                        | Self::AiPrompt
+                ))
     }
 }

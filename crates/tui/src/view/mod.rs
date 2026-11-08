@@ -61,6 +61,7 @@ use review::{commit_review, text_view};
 use settings::settings;
 use shell::header;
 pub(crate) const ACCENT: Color = Color::LightBlue;
+pub(crate) const EXPERIMENTAL: Color = Color::Rgb(95, 201, 181);
 pub(crate) const MUTED: Color = Color::DarkGray;
 const BORDER: Color = Color::DarkGray;
 const GOOD: Color = Color::LightGreen;

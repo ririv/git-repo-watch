@@ -464,9 +464,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         {
                             i18n::tr!(DiffLayoutEntryHint)
                         }
-                        Some((argument, _))
-                            if argument.action().available(screen.config.ai.enabled) =>
-                        {
+                        Some((argument, _)) if argument.action().available(&screen.config) => {
                             argument.hint()
                         }
                         _ => command_hint(bar.command_input().expect("command input")),

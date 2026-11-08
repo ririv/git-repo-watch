@@ -26,6 +26,9 @@ editor = "git"
 # 文件列表显示类型图标，需要终端支持 Nerd Font 字形。
 file_icons = true
 
+# 实验性功能默认开启，当前包含 AI 编排提交。
+experimental_features = true
+
 # 中文界面中输入 、 打开命令菜单；英文界面不启用。
 chinese_command_trigger = true
 

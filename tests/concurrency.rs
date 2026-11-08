@@ -83,6 +83,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
             max_concurrency: 4,
             fetch_on_startup: false,
             auto_fetch: Default::default(),
+            experimental_features: true,
             chinese_command_trigger: true,
             text_wrap: false,
             file_icons: true,

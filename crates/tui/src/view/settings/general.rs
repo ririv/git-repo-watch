@@ -11,6 +11,7 @@ enum Group {
     Pointer,
     Ai,
     Tools,
+    Experimental,
 }
 impl Group {
     fn title(self) -> &'static str {
@@ -21,6 +22,7 @@ impl Group {
             Self::Pointer => i18n::tr!(MouseSettings),
             Self::Ai => i18n::tr!(Ai),
             Self::Tools => i18n::tr!(ExternalEditorTools),
+            Self::Experimental => i18n::tr!(ExperimentalFeatures),
         }
     }
 }
@@ -114,6 +116,12 @@ impl Entry {
                     Value::Toggle(screen.config.mouse.enabled(setting)),
                 )
             }
+            Item::ExperimentalFeatures => (
+                Group::Experimental,
+                i18n::tr!(ExperimentalEnabled),
+                i18n::tr!(ExperimentalHint),
+                Value::Toggle(screen.config.experimental_features),
+            ),
             Item::AiEnabled => (
                 Group::Ai,
                 i18n::tr!(AiEnabled),

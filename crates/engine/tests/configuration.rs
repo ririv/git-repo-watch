@@ -269,6 +269,7 @@ fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
         max_concurrency: 8,
         fetch_on_startup: false,
         auto_fetch: Default::default(),
+        experimental_features: true,
         chinese_command_trigger: true,
         text_wrap: false,
         file_icons: true,
@@ -562,4 +563,47 @@ fn retiring_exclusions_preserves_registered_paths_comments_and_other_preferences
         store.migrate_configuration(&Cancel::default()).unwrap(),
         ConfigurationMigration::Ready
     ));
+}
+
+#[test]
+fn experimental_features_default_on_preserve_legacy_files_and_persist_explicit_changes() {
+    use engine::{
+        scheduler::Manager,
+        service::{ConfigEdit, Service},
+    };
+    let (_home, store) = fixture();
+    store.initialize().unwrap();
+    assert!(store.config().unwrap().experimental_features);
+    let legacy = fs::read_to_string(store.config_path())
+        .unwrap()
+        .replace("experimental_features = true\n", "");
+    fs::write(store.config_path(), &legacy).unwrap();
+    store.save_config(&store.config().unwrap()).unwrap();
+    assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
+    let service = Service::new(
+        store.clone(),
+        Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap(),
+    );
+    service
+        .configure(ConfigEdit::ExperimentalFeatures(false))
+        .unwrap();
+    assert!(!store.config().unwrap().experimental_features);
+    assert!(store.config().unwrap().ai.enabled);
+    assert_eq!(
+        service
+            .compose(
+                std::path::Path::new("/missing"),
+                &engine::ai::Config::default(),
+                &Cancel::default()
+            )
+            .unwrap_err()
+            .to_string(),
+        i18n::tr!(ExperimentalDisabled)
+    );
+    service.configure(ConfigEdit::FileIcons(false)).unwrap();
+    assert!(!store.config().unwrap().experimental_features);
+    service
+        .configure(ConfigEdit::ExperimentalFeatures(true))
+        .unwrap();
+    assert!(store.config().unwrap().experimental_features);
 }

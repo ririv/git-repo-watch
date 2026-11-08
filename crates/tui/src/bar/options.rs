@@ -16,7 +16,7 @@ impl Screen {
                     .filter(|kind| *kind != Kind::DiffLayout || !value.trim().is_empty())
             }) {
                 Some(kind)
-                    if kind.action().available(self.config.ai.enabled)
+                    if kind.action().available(&self.config)
                         && selection.in_scope(kind.action())
                         && self.search_support().admits(kind.action()) =>
                 {

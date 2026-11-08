@@ -160,6 +160,10 @@ pub enum Message {
     ComposeTooLarge,
     ComposeFileTooLarge,
     ComposeTitle,
+    ExperimentalFeatures,
+    ExperimentalEnabled,
+    ExperimentalHint,
+    ExperimentalDisabled,
     ComposeCommand,
     ComposeInvalid,
     ComposeCoverage,
@@ -1745,12 +1749,26 @@ impl Message {
                 "编排不能读取超过 16 MiB 的未暂存文件"
             }
 
-            (Self::ComposeTitle, Language::English) => "Commit composition",
-            (Self::ComposeTitle, Language::Chinese) => "编排提交",
-            (Self::ComposeCommand, Language::English) => {
-                "Plan multiple commits from staged and working-tree changes"
+            (Self::ExperimentalFeatures, Language::English) => "Experimental features",
+            (Self::ExperimentalFeatures, Language::Chinese) => "实验性功能",
+            (Self::ExperimentalEnabled, Language::English) => "Enable experimental features",
+            (Self::ExperimentalEnabled, Language::Chinese) => "启用实验性功能",
+            (Self::ExperimentalHint, Language::English) => {
+                "A distinct text color marks experimental features, including AI commit composition."
             }
-            (Self::ComposeCommand, Language::Chinese) => "按改动主题编排多个提交",
+            (Self::ExperimentalHint, Language::Chinese) => {
+                "特殊文字颜色标识实验性功能，当前包含 AI 编排提交。"
+            }
+            (Self::ExperimentalDisabled, Language::English) => {
+                "Experimental features are disabled. Enable them in settings to use commit composition."
+            }
+            (Self::ExperimentalDisabled, Language::Chinese) => {
+                "实验性功能已关闭，请在设置中启用后使用编排提交。"
+            }
+            (Self::ComposeTitle, Language::English) => "AI commit composition",
+            (Self::ComposeTitle, Language::Chinese) => "AI 编排提交",
+            (Self::ComposeCommand, Language::English) => "Compose commits with AI",
+            (Self::ComposeCommand, Language::Chinese) => "AI 编排提交",
             (Self::ComposeInvalid, Language::English) => "Invalid commit plan.",
             (Self::ComposeInvalid, Language::Chinese) => "提交计划格式无效。",
             (Self::ComposeCoverage, Language::English) => {
@@ -2193,11 +2211,9 @@ impl Message {
             (Self::AgentSaved, Language::English) => "AI settings saved.",
             (Self::AgentSaved, Language::Chinese) => "AI 设置已保存。",
             (Self::AgentGenerate, Language::English) => {
-                "Generate a commit message from staged changes using the configured agent"
+                "Generate a commit message from staged changes with AI"
             }
-            (Self::AgentGenerate, Language::Chinese) => {
-                "使用已配置的工具，根据暂存改动生成提交消息"
-            }
+            (Self::AgentGenerate, Language::Chinese) => "AI 根据暂存改动生成提交说明",
             (Self::AgentGenerating, Language::English) => "Generating commit message",
             (Self::AgentGenerating, Language::Chinese) => "正在生成提交消息",
             (Self::AgentGenerated, Language::English) => {

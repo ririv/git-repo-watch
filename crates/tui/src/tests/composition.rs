@@ -312,7 +312,7 @@ fn disabled_ai_hides_every_composition_entry() {
         .iter()
         .filter(|command| command.name.starts_with("repo compose"))
     {
-        assert!(!command.action.available(false));
+        assert!(!command.action.available(&s.config));
     }
     s.shutdown();
 }
@@ -371,5 +371,109 @@ fn reorder_options_explain_boundaries_and_only_rearrange_the_draft_plan() {
         std::fs::read(f.repo.join(".git/index")).unwrap(),
         before_index
     );
+    s.shutdown();
+}
+
+#[test]
+fn experimental_toggle_hides_the_whole_group_and_saved_pages_but_keeps_ai_messages() {
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let (_f, _home, mut s) = setup();
+        assert!(s.config.experimental_features);
+        let title = i18n::tr!(ComposeTitle);
+        assert!(render(&mut s, 160, 40).contains(title));
+        let mut title_terminal = Terminal::new(TestBackend::new(160, 40)).unwrap();
+        title_terminal
+            .draw(|frame| view::render(frame, &mut s))
+            .unwrap();
+        let title_colors = title_terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .filter(|cell| cell.symbol() != " " && cell.fg == view::EXPERIMENTAL)
+            .count();
+        assert!(title_colors > 0);
+        s.paste("//repo compose");
+        let menu = render(&mut s, 160, 40);
+        let label = command::COMMANDS
+            .iter()
+            .find(|entry| entry.name == "repo compose")
+            .unwrap()
+            .summary()
+            .text();
+        assert!(menu.contains(label));
+        assert!(label.contains("AI"));
+        assert!(!label.contains("实验性") && !label.contains("experimental"));
+        let mut terminal = Terminal::new(TestBackend::new(160, 40)).unwrap();
+        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+        let menu_colors = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .filter(|cell| cell.symbol() != " " && cell.fg == view::EXPERIMENTAL)
+            .count();
+        assert!(menu_colors > title_colors);
+        key(&mut s, KeyCode::Esc);
+        command(&mut s, "settings");
+        let item = crate::settings::Item::ExperimentalFeatures;
+        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        s.setting_selected = items.iter().position(|entry| *entry == item).unwrap();
+        assert!(render(&mut s, 140, 50).contains(i18n::tr!(ExperimentalFeatures)));
+        s.activate_setting(item, &Cancel::default()).unwrap();
+        wait(&mut s);
+        assert!(!s.config.experimental_features);
+        assert!(!s.service.store.config().unwrap().experimental_features);
+        assert!(s.config.ai.enabled);
+        assert!(Action::CommitGenerate.available(&s.config));
+        for entry in command::COMMANDS
+            .iter()
+            .filter(|entry| entry.action.experimental())
+        {
+            assert!(!entry.action.available(&s.config));
+        }
+        s.return_to_view();
+        assert!(!matches!(
+            s.mode,
+            Mode::Composition(_) | Mode::CompositionWaiting(_)
+        ));
+        s.paste("//repo compose");
+        assert!(s.search_commands().unwrap().is_empty());
+        key(&mut s, KeyCode::Esc);
+        s.compose_action(crate::composition::Action::Open, s.selected_path());
+        assert!(s.repository_tasks.is_empty());
+        assert!(!matches!(
+            s.mode,
+            Mode::Composition(_) | Mode::CompositionWaiting(_)
+        ));
+        s.activate_setting(item, &Cancel::default()).unwrap();
+        wait(&mut s);
+        assert!(s.service.store.config().unwrap().experimental_features);
+        assert!(
+            command::COMMANDS
+                .iter()
+                .filter(|entry| entry.action.experimental())
+                .all(|entry| entry.action.available(&s.config))
+        );
+        s.shutdown();
+    }
+}
+
+#[test]
+fn disabling_experiments_during_generation_does_not_reopen_the_composition_page() {
+    let (_f, _home, mut s) = setup();
+    let release = begin_waiting(&mut s);
+    s.service
+        .configure(engine::service::ConfigEdit::ExperimentalFeatures(false))
+        .unwrap();
+    s.config = s.service.store.config().unwrap();
+    release.send(()).unwrap();
+    wait(&mut s);
+    assert!(!matches!(
+        s.mode,
+        Mode::Composition(_) | Mode::CompositionWaiting(_)
+    ));
+    assert!(s.config.ai.enabled);
     s.shutdown();
 }

@@ -60,7 +60,10 @@ impl InputBar {
             Self::Layout { draft, .. } => draft.input.editor(),
         }
     }
-    pub fn commands(&self, ai_enabled: bool) -> Option<Vec<&'static command::Command>> {
+    pub fn commands(
+        &self,
+        config: &engine::state::Config,
+    ) -> Option<Vec<&'static command::Command>> {
         match self {
             Self::Command {
                 input, selection, ..
@@ -69,7 +72,7 @@ impl InputBar {
                     .matches()
                     .into_iter()
                     .filter(|command| {
-                        command.action.available(ai_enabled) && selection.in_scope(command.action)
+                        command.action.available(config) && selection.in_scope(command.action)
                     })
                     .collect(),
             ),
@@ -422,7 +425,7 @@ impl Screen {
                 .matches()
                 .into_iter()
                 .filter(|command| {
-                    command.action.available(self.config.ai.enabled)
+                    command.action.available(&self.config)
                         && search_support.admits(command.action)
                         && selection.in_scope(command.action)
                 })
@@ -456,7 +459,7 @@ impl Screen {
                     if !selection.is_error()
                         && let Some((argument, value)) = command::argument_input(&query)
                     {
-                        if !argument.action().available(self.config.ai.enabled) {
+                        if !argument.action().available(&self.config) {
                             self.message = i18n::tr!(NoMatchingCommands).into();
                             return Ok(BarEvent::Handled);
                         }

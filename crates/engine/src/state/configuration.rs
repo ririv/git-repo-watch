@@ -26,6 +26,7 @@ impl Default for Config {
             auto_fetch: AutoFetchConfig::default(),
             text_wrap: false,
             file_icons: true,
+            experimental_features: true,
             chinese_command_trigger: true,
             interaction_mode: Default::default(),
             view: Default::default(),
@@ -60,6 +61,8 @@ pub struct Config {
     pub text_wrap: bool,
     #[serde(default = "default_file_icons")]
     pub file_icons: bool,
+    #[serde(default = "default_experimental_features")]
+    pub experimental_features: bool,
     #[serde(default = "default_chinese_command_trigger")]
     pub chinese_command_trigger: bool,
     #[serde(default)]
@@ -127,6 +130,9 @@ impl MouseConfig {
         }
     }
 }
+fn default_experimental_features() -> bool {
+    true
+}
 fn default_file_icons() -> bool {
     true
 }
@@ -168,7 +174,7 @@ impl Config {
 }
 
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 11] = [
+const FIELDS: [&str; 12] = [
     "interval_seconds",
     "repositories",
     "scheduled_actions",
@@ -176,6 +182,7 @@ const FIELDS: [&str; 11] = [
     "fetch_on_startup",
     "text_wrap",
     "file_icons",
+    "experimental_features",
     "chinese_command_trigger",
     "schedule_anchor",
     "interaction_mode",
@@ -226,6 +233,7 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
                 | "editor"
                 | "text_wrap"
                 | "file_icons"
+                | "experimental_features"
                 | "scheduled_actions"
                 | "fetch_on_startup"
         ) && before

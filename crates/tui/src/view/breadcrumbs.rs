@@ -1,5 +1,6 @@
 //! Width-aware breadcrumb rendering keeps the active view visible and ancestors clickable.
 use super::*;
+use crate::features::Maturity;
 use crate::navigation::breadcrumbs::Crumb;
 use unicode_width::{UnicodeWidthChar, UnicodeWidthStr};
 
@@ -60,6 +61,7 @@ pub(super) fn render(screen: &mut Screen, area: Rect) -> Line<'static> {
             Crumb {
                 label: "…".into(),
                 destination: None,
+                maturity: Maturity::Stable,
             },
         );
     }
@@ -86,7 +88,14 @@ pub(super) fn render(screen: &mut Screen, area: Rect) -> Line<'static> {
         }
         spans.push(Span::styled(
             crumb.label,
-            if index + 1 == count {
+            if crumb.maturity == Maturity::Experimental {
+                let style = Style::default().fg(EXPERIMENTAL);
+                if index + 1 == count {
+                    style.bold()
+                } else {
+                    style
+                }
+            } else if index + 1 == count {
                 Style::default().fg(ACCENT).bold()
             } else {
                 Style::default().fg(MUTED)
