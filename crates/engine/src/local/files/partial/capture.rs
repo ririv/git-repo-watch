@@ -69,7 +69,7 @@ pub(super) fn working(path: &Path) -> Result<Version> {
         mode: 0o100000 | (meta.permissions().mode() & 0o777),
     })
 }
-pub(super) fn checked_worktree_path(root: &Path, path: &Path) -> Result<std::path::PathBuf> {
+pub(crate) fn checked_worktree_path(root: &Path, path: &Path) -> Result<std::path::PathBuf> {
     let mut full = root.to_owned();
     let components = path.components().collect::<Vec<_>>();
     for (index, component) in components.iter().enumerate() {
@@ -134,13 +134,19 @@ fn checkout_version(repo: &git2::Repository, path: &Path, version: &Version) -> 
             .context(i18n::tr!(PartialChanged))?,
     )?;
     let directory = tempfile::tempdir()?;
-    let mut options = git2::build::CheckoutBuilder::new();
-    options
-        .target_dir(directory.path())
-        .force()
-        .update_index(false);
-    repo.checkout_index(Some(&mut index), Some(&mut options))?;
+    checkout_to(repo, &mut index, directory.path())?;
     working(&directory.path().join(path))
+}
+
+pub(crate) fn checkout_to(
+    repo: &git2::Repository,
+    index: &mut git2::Index,
+    directory: &Path,
+) -> Result<()> {
+    let mut options = git2::build::CheckoutBuilder::new();
+    options.target_dir(directory).force().update_index(false);
+    repo.checkout_index(Some(index), Some(&mut options))?;
+    Ok(())
 }
 impl Snapshot {
     pub fn capture(
@@ -285,7 +291,7 @@ impl Snapshot {
     }
 }
 
-fn require_supported_filters(repo: &git2::Repository, path: &Path) -> Result<()> {
+pub(crate) fn require_supported_filters(repo: &git2::Repository, path: &Path) -> Result<()> {
     super::super::index::require_supported_filters(repo, path)?;
     if let git2::AttrValue::String(name) = git2::AttrValue::from_bytes(repo.get_attr_bytes(
         path,

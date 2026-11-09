@@ -297,6 +297,7 @@ impl Screen {
             }
             Action::PartialSelect(mode) => self.select_partial(mode),
             Action::Discard => self.edit_partial(engine::local::files::partial::Action::Discard),
+            Action::DiscardFile => self.prepare_discard_file(path.as_deref(), &selection),
             Action::Diff => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Diff, path);
@@ -537,6 +538,10 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
+            Confirmation::DiscardFile { plan, origin, .. } => {
+                self.mode = *origin;
+                self.execute_discard_file(plan);
+            }
             Confirmation::Partial { plan, origin, .. } => {
                 self.mode = *origin;
                 self.execute_partial(*plan);

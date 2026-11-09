@@ -1,5 +1,5 @@
 //! Immutable text selections project changes onto exactly one index entry or worktree file.
-mod capture;
+pub(crate) mod capture;
 mod coherence;
 mod execute;
 mod preview;

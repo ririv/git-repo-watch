@@ -16,6 +16,7 @@ pub(super) enum Requirement {
     LocalRefresh,
     IndexSelection,
     DiffSelection,
+    WorktreeFile,
     Conflict,
     BranchList,
     HistoryGraph,
@@ -124,6 +125,7 @@ impl Action {
             Refresh => Requirement::LocalRefresh,
             Stage | Unstage => Requirement::IndexSelection,
             Discard | PartialSelectMenu | PartialSelect(_) => Requirement::DiffSelection,
+            DiscardFile => Requirement::WorktreeFile,
             ConflictMenu | ConflictView(_) => Requirement::Conflict,
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
@@ -224,6 +226,16 @@ impl Screen {
         }
     }
 
+    pub(crate) fn worktree_file_list(&self) -> Option<&crate::FileSession> {
+        match &self.mode {
+            Mode::Files(files) => Some(files),
+            Mode::Changes(session) if session.focus == changes::Focus::Files => {
+                Some(&session.files)
+            }
+            _ => None,
+        }
+    }
+
     pub(super) fn diff_selection_target(&self) -> Option<&changes::Session> {
         match &self.mode {
             Mode::Changes(session)
@@ -284,6 +296,13 @@ impl Screen {
             DiffSelection => Status::requiring(
                 !self.tasks.session.open() && self.diff_selection_target().is_some(),
                 OutOfScope(i18n::tr!(CommandRequiresWorktreePreview)),
+            ),
+            WorktreeFile if self.tasks.session.open() || self.worktree_file_list().is_none() => {
+                OutOfScope(i18n::tr!(DiscardFileSelect))
+            }
+            WorktreeFile => Status::requiring(
+                selection.worktree_file().is_some(),
+                Unavailable(i18n::tr!(DiscardFileSelect)),
             ),
             Conflict => Status::requiring(
                 self.conflict_view().is_some(),

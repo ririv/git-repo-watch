@@ -1,4 +1,5 @@
 //! One changes workspace composes file selection and a versioned background preview.
+mod discard;
 pub(crate) mod edit;
 mod load;
 mod partial;

@@ -140,6 +140,7 @@ impl Screen {
             self.scroll = 0;
         }
         match outcome {
+            Outcome::DiscardFilePrepared(plan) => self.review_discard_file(plan, origin),
             Outcome::Scanned(report) => {
                 self.enter_management(
                     crate::management::Session::scanned(*report, &self.config.repositories),

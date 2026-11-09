@@ -7,6 +7,7 @@ impl Command {
             Action::ConflictMenu | Action::ConflictView(_) => Summary::Conflict,
             Action::PartialSelectMenu | Action::PartialSelect(_) => Summary::PartialSelect,
             Action::Discard => Summary::PartialDiscard,
+            Action::DiscardFile => Summary::DiscardFile,
             Action::SearchMenu => Summary::SearchMode,
             Action::Search(crate::search::Mode::Filter) => Summary::SearchFilter,
             Action::Search(crate::search::Mode::Locate) => Summary::SearchLocate,

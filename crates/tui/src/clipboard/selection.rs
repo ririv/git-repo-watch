@@ -141,6 +141,7 @@ pub(crate) enum Selection {
         content: Content,
         marked: Vec<engine::local::files::Location>,
         diff_selection: Option<changes::SelectionKey>,
+        worktree_file: Option<engine::local::files::Change>,
     },
     HistoricalDiff {
         content: Content,
@@ -155,6 +156,13 @@ pub(crate) enum Selection {
     Error(Content),
 }
 impl Selection {
+    pub fn worktree_file(&self) -> Option<&engine::local::files::Change> {
+        match self {
+            Self::Diff { worktree_file, .. } => worktree_file.as_ref(),
+            _ => None,
+        }
+    }
+
     pub fn diff_selection(&self) -> Option<&changes::SelectionKey> {
         match self {
             Self::Diff { diff_selection, .. } => diff_selection.as_ref(),
@@ -375,10 +383,15 @@ impl Screen {
                 content: file_paths(files),
                 marked: marked_paths(files),
                 diff_selection: None,
+                worktree_file: files.current().cloned(),
             },
             Mode::Changes(session) => Selection::Diff {
                 working: session.files.working_target(),
                 marked: marked_paths(&session.files),
+                worktree_file: self
+                    .worktree_file_list()
+                    .and_then(|files| files.current())
+                    .cloned(),
                 diff_selection: if session.focus == changes::Focus::Preview {
                     session.selection_key()
                 } else {
@@ -458,6 +471,7 @@ impl Screen {
                 match section {
                     workspace::Section::Worktree => Selection::Diff {
                         diff_selection: None,
+                        worktree_file: None,
                         working: match &session.files {
                             workspace::Panel::Ready(files) => files.working_target(),
                             _ => None,

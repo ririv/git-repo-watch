@@ -1,14 +1,14 @@
 use engine::{
     cancel::{Cancel, Cancelled},
     domain::{Issue, IssueKind, Issues, PushPolicy, Report, ReportStatus, RepositoryResult},
-    state::{Completion, Migration, Operation, OperationOrigin, OperationRecord, Store},
+    state::{Completion, Operation, OperationOrigin, OperationRecord, Store},
 };
 use rusqlite::Connection;
 use std::{
     collections::BTreeMap,
     fs,
     os::unix::fs::PermissionsExt,
-    path::{Path, PathBuf},
+    path::Path,
     sync::{Arc, Barrier},
     thread,
     time::{Duration, Instant},
@@ -16,22 +16,8 @@ use std::{
 
 const AT: &str = "2026-10-22T12:00:00+00:00";
 #[test]
-fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
+fn occurrence_claims_are_atomic_across_first_writes() {
     let (_temp, store) = fixture();
-    store.migrate(&Cancel::default()).unwrap();
-    let mut observation = report(Path::new("/example/retained"), 0, false);
-    store
-        .save_repository_report(&mut observation, &Cancel::default())
-        .unwrap();
-    let db = Connection::open(store.database_path()).unwrap();
-    db.execute_batch("DROP TABLE tasks; DROP TABLE scheduled_occurrences; PRAGMA user_version=1;")
-        .unwrap();
-    let before: i64 = db
-        .query_row("SELECT count(*) FROM repository_observations", [], |row| {
-            row.get(0)
-        })
-        .unwrap();
-    drop(db);
     let store = Arc::new(store);
     let barrier = Arc::new(Barrier::new(8));
     let threads = (0..8)
@@ -58,19 +44,6 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
             .count(),
         1
     );
-    let db = Connection::open(store.database_path()).unwrap();
-    assert_eq!(
-        db.pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-            .unwrap(),
-        4
-    );
-    assert_eq!(
-        db.query_row("SELECT count(*) FROM repository_observations", [], |row| {
-            row.get::<_, i64>(0)
-        })
-        .unwrap(),
-        before
-    );
     assert!(
         store
             .claim_schedule_occurrence("same-plan", "2026-10-23 12:00:00", &Cancel::default())
@@ -82,6 +55,7 @@ fn version_one_upgrade_preserves_reports_and_occurrence_claims_are_atomic() {
             .unwrap()
     );
 }
+
 fn report(path: &Path, revision: u64, dirty: bool) -> Report {
     let result = if dirty {
         RepositoryResult::Attention {
@@ -131,12 +105,6 @@ fn fixture() -> (tempfile::TempDir, Store) {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::custom(temp.path().to_owned());
     (temp, store)
-}
-fn legacy(store: &Store, name: &str, value: &impl serde::Serialize) -> Vec<u8> {
-    fs::create_dir_all(store.state_dir()).unwrap();
-    let bytes = serde_json::to_vec_pretty(value).unwrap();
-    fs::write(store.state_dir().join(name), &bytes).unwrap();
-    bytes
 }
 fn record(path: &Path) -> OperationRecord {
     OperationRecord {
@@ -192,226 +160,24 @@ fn fresh_store_reads_do_not_create_a_database_and_updates_are_per_repository_row
     }
 }
 #[test]
-fn legacy_batch_latest_rows_operations_and_scan_are_imported_once_and_original_bytes_are_archived()
-{
+fn legacy_state_is_refused_without_creating_a_database_or_changing_the_source() {
     let (_temp, store) = fixture();
-    let path = Path::new("/example/repo");
-    let batch = report(path, 4, false);
-    let current = report(path, 5, true);
-    let batch_bytes = legacy(&store, "latest.json", &batch);
-    let row_bytes = legacy(
-        &store,
-        "repository-checks.json",
-        &BTreeMap::from([(path.to_owned(), current)]),
-    );
-    legacy(
-        &store,
-        "manual-commit.json",
-        &serde_json::json!({"at":AT,"path":path,"branch":"main","result":{"oid":"0123456789012345678901234567890123456789","review":"exact"}}),
-    );
-    legacy(
-        &store,
-        "manual-push.json",
-        &serde_json::json!({"at":AT,"path":path,"push":{"status":"pushed","target":{"branch":"main","local_ref":"refs/heads/main","local_oid":"0123456789012345678901234567890123456789","remote":"origin","remote_ref":"refs/heads/main","remote_oid":"abcdefabcdefabcdefabcdefabcdefabcdefabcd","ahead_commits":1}}}),
-    );
-    legacy(
-        &store,
-        "import-report.json",
-        &engine::discovery::Report {
-            excluded_roots: vec![],
-            root: PathBuf::from("/example"),
-            scanned_at: AT.into(),
-            repositories: vec![engine::discovery::Record::Scanned {
-                path: path.to_owned(),
-            }],
-            non_repository_markers: vec![],
-        },
-    );
+    fs::create_dir(store.state_dir()).unwrap();
+    let legacy = store.state_dir().join("latest.json");
+    fs::write(&legacy, b"legacy state").unwrap();
     assert!(store.report().is_err());
-    assert!(matches!(
-        store.migrate(&Cancel::default()).unwrap(),
-        Migration::Imported { files: 5 }
-    ));
-    assert_eq!(
-        serde_json::to_value(store.report().unwrap().unwrap()).unwrap(),
-        serde_json::to_value(batch).unwrap()
-    );
-    assert_eq!(
-        store
-            .repository_report(path)
-            .unwrap()
-            .unwrap()
-            .repository_revisions[path],
-        5
-    );
-    assert_eq!(store.scan_report().unwrap().unwrap().repositories.len(), 1);
-    assert_eq!(store.operation_history(path, 10).unwrap().len(), 2);
     assert!(
         store
-            .operation_history(path, 10)
-            .unwrap()
-            .iter()
-            .all(|entry| matches!(entry.origin, OperationOrigin::Imported))
+            .save_repository_report(
+                &mut report(Path::new("/example/repo"), 0, false),
+                &Cancel::default()
+            )
+            .is_err()
     );
-    assert_eq!(
-        fs::read(store.state_dir().join("legacy-json/latest.json")).unwrap(),
-        batch_bytes
-    );
-    assert_eq!(
-        fs::read(store.state_dir().join("legacy-json/repository-checks.json")).unwrap(),
-        row_bytes
-    );
-    assert!(!store.state_dir().join("latest.json").exists());
-    assert!(matches!(
-        store.migrate(&Cancel::default()).unwrap(),
-        Migration::Ready
-    ));
-    assert_eq!(store.operation_history(path, 10).unwrap().len(), 2);
-    let mut next = report(path, 0, false);
-    store
-        .save_repository_report(&mut next, &Cancel::default())
-        .unwrap();
-    assert_eq!(next.repository_revisions[path], 6);
-}
-#[test]
-fn unversioned_legacy_reports_are_compared_by_their_actual_times_before_assigning_versions() {
-    let (_temp, store) = fixture();
-    let path = Path::new("/example/repo");
-    let mut batch = report(path, 0, false);
-    batch.finished_at = "2026-10-22T13:00:00+00:00".into();
-    batch.repository_finished_at.clear();
-    let old = report(path, 0, true);
-    legacy(&store, "latest.json", &batch);
-    legacy(
-        &store,
-        "repository-checks.json",
-        &BTreeMap::from([(path.to_owned(), old)]),
-    );
-    store.migrate(&Cancel::default()).unwrap();
-    assert!(matches!(
-        store.repository_report(path).unwrap().unwrap().repositories[0],
-        RepositoryResult::Clean { .. }
-    ));
-}
-#[test]
-fn conflicting_or_malformed_legacy_data_is_not_discarded_or_replaced_by_an_empty_database() {
-    for corrupt in [true, false] {
-        let (_temp, store) = fixture();
-        let path = Path::new("/example/repo");
-        legacy(&store, "latest.json", &report(path, 7, false));
-        if corrupt {
-            fs::write(store.state_dir().join("repository-checks.json"), b"broken").unwrap();
-        } else {
-            legacy(
-                &store,
-                "repository-checks.json",
-                &BTreeMap::from([(path.to_owned(), report(path, 7, true))]),
-            );
-        }
-        let before = fs::read(store.state_dir().join("latest.json")).unwrap();
-        assert!(store.migrate(&Cancel::default()).is_err());
-        assert_eq!(
-            fs::read(store.state_dir().join("latest.json")).unwrap(),
-            before
-        );
-        assert!(!store.state_dir().join("legacy-json").exists());
-        assert!(store.report().is_err());
-        let connection = Connection::open(store.database_path()).unwrap();
-        assert_eq!(
-            connection
-                .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-                .unwrap(),
-            0
-        );
-    }
-}
-#[test]
-fn interrupted_archival_resumes_without_duplicating_imported_records() {
-    let (_temp, store) = fixture();
-    let path = Path::new("/example/repo");
-    legacy(
-        &store,
-        "repository-checks.json",
-        &BTreeMap::from([(path.to_owned(), report(path, 3, true))]),
-    );
-    store.migrate(&Cancel::default()).unwrap();
-    let connection = Connection::open(store.database_path()).unwrap();
-    connection
-        .execute("UPDATE legacy_imports SET state='pending'", [])
-        .unwrap();
-    fs::rename(
-        store.state_dir().join("legacy-json/repository-checks.json"),
-        store.state_dir().join("repository-checks.json"),
-    )
-    .unwrap();
-    assert!(store.repository_reports().is_err());
-    store.migrate(&Cancel::default()).unwrap();
-    assert_eq!(store.repository_history(path, 100).unwrap().len(), 1);
-    assert!(!store.state_dir().join("repository-checks.json").exists());
-}
-#[test]
-fn completed_archives_can_be_deleted_without_reimporting_or_accepting_recreated_legacy_json() {
-    let (_temp, store) = fixture();
-    let path = Path::new("/example/repo");
-    let bytes = legacy(
-        &store,
-        "repository-checks.json",
-        &BTreeMap::from([(path.to_owned(), report(path, 3, true))]),
-    );
-    store.migrate(&Cancel::default()).unwrap();
-    fs::remove_dir_all(store.state_dir().join("legacy-json")).unwrap();
-    assert!(matches!(
-        store.migrate(&Cancel::default()).unwrap(),
-        Migration::Ready
-    ));
-    assert!(!store.state_dir().join("legacy-json").exists());
-    assert_eq!(store.repository_history(path, 100).unwrap().len(), 1);
-    assert_eq!(
-        store
-            .repository_report(path)
-            .unwrap()
-            .unwrap()
-            .repository_revisions[path],
-        3
-    );
-    fs::write(store.state_dir().join("repository-checks.json"), &bytes).unwrap();
-    assert!(store.migrate(&Cancel::default()).is_err());
-    assert!(store.repository_reports().is_err());
-    assert_eq!(
-        fs::read(store.state_dir().join("repository-checks.json")).unwrap(),
-        bytes
-    );
+    assert_eq!(fs::read(legacy).unwrap(), b"legacy state");
+    assert!(!store.database_path().exists());
 }
 
-#[test]
-fn an_old_process_writing_json_after_migration_is_reported_instead_of_becoming_a_second_source() {
-    let (_temp, store) = fixture();
-    let path = Path::new("/example/repo");
-    let mut original = report(path, 0, false);
-    store
-        .save_repository_report(&mut original, &Cancel::default())
-        .unwrap();
-    let bytes = legacy(
-        &store,
-        "repository-checks.json",
-        &BTreeMap::from([(path.to_owned(), report(path, 2, true))]),
-    );
-    assert!(store.repository_reports().is_err());
-    assert!(store.migrate(&Cancel::default()).is_err());
-    assert_eq!(
-        fs::read(store.state_dir().join("repository-checks.json")).unwrap(),
-        bytes
-    );
-    fs::remove_file(store.state_dir().join("repository-checks.json")).unwrap();
-    assert_eq!(
-        store
-            .repository_report(path)
-            .unwrap()
-            .unwrap()
-            .repository_revisions[path],
-        1
-    );
-}
 #[test]
 fn a_failed_operation_insert_rolls_back_the_state_revision_head_and_observation() {
     let (_temp, store) = fixture();
@@ -528,25 +294,50 @@ fn wal_reads_continue_during_a_writer_and_a_waiting_write_can_be_cancelled() {
     assert!(store.operation_history(path, 10).unwrap().is_empty());
 }
 #[test]
-fn invalid_databases_and_future_schema_versions_are_never_recreated() {
+fn invalid_databases_and_incompatible_schema_versions_are_never_recreated() {
+    let path = Path::new("/example/repo");
+    let cancel = Cancel::default();
     let (_temp, store) = fixture();
     fs::create_dir(store.state_dir()).unwrap();
     fs::write(store.database_path(), b"not a database").unwrap();
     assert!(store.report().is_err());
-    assert!(store.migrate(&Cancel::default()).is_err());
-    assert_eq!(fs::read(store.database_path()).unwrap(), b"not a database");
-    let (_temp, store) = fixture();
-    store.migrate(&Cancel::default()).unwrap();
-    let connection = Connection::open(store.database_path()).unwrap();
-    connection.pragma_update(None, "user_version", 99).unwrap();
-    assert!(store.report().is_err());
-    assert!(store.migrate(&Cancel::default()).is_err());
-    assert_eq!(
-        connection
-            .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
-            .unwrap(),
-        99
+    assert!(
+        store
+            .save_repository_report(&mut report(path, 0, false), &cancel)
+            .is_err()
     );
+    assert_eq!(fs::read(store.database_path()).unwrap(), b"not a database");
+
+    for version in [4, 99] {
+        let (_temp, store) = fixture();
+        store
+            .save_repository_report(&mut report(path, 0, false), &cancel)
+            .unwrap();
+        let connection = Connection::open(store.database_path()).unwrap();
+        connection
+            .pragma_update(None, "user_version", version)
+            .unwrap();
+        assert!(store.report().is_err());
+        assert!(
+            store
+                .save_repository_report(&mut report(path, 0, false), &cancel)
+                .is_err()
+        );
+        assert_eq!(
+            connection
+                .pragma_query_value(None, "user_version", |row| row.get::<_, i64>(0))
+                .unwrap(),
+            version
+        );
+        assert_eq!(
+            connection
+                .query_row("SELECT count(*) FROM repository_observations", [], |row| {
+                    row.get::<_, i64>(0)
+                })
+                .unwrap(),
+            1
+        );
+    }
 }
 
 #[test]
@@ -681,102 +472,31 @@ fn transferring_a_json_profile_converts_configuration_and_preserves_its_database
 }
 
 #[test]
-fn version_two_upgrade_preserves_events_ids_observations_and_schedule_claims() {
+fn current_schema_records_discard_and_retains_prior_operations() {
     let (_temp, store) = fixture();
-    let path = Path::new("/example/upgrade");
-    let mut observation = report(path, 0, false);
+    let path = Path::new("/example/discard");
+    let cancel = Cancel::default();
     store
-        .save_operation_report(&mut observation, &record(path), &Cancel::default())
+        .save_operation_report(&mut report(path, 0, false), &record(path), &cancel)
         .unwrap();
-    assert!(
-        store
-            .claim_schedule_occurrence("retained", "2026-10-23 06:00:00", &Cancel::default())
-            .unwrap()
-    );
-    let db = Connection::open(store.database_path()).unwrap();
-    let before: (i64, String, i64) = db
-        .query_row("SELECT id,record,revision FROM operation_events", [], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-        })
-        .unwrap();
-    db.execute_batch(
-        "BEGIN IMMEDIATE;
-        CREATE TABLE operation_events_v2 (
-            id INTEGER PRIMARY KEY, path BLOB NOT NULL, revision INTEGER, at TEXT NOT NULL,
-            kind TEXT NOT NULL CHECK(kind IN ('stage','unstage','commit','push')),
-            record TEXT NOT NULL CHECK(json_valid(record)),
-            FOREIGN KEY(path,revision) REFERENCES repository_observations(path,revision)
-        ) STRICT;
-        INSERT INTO operation_events_v2 SELECT * FROM operation_events;
-        DROP TABLE operation_events;
-        ALTER TABLE operation_events_v2 RENAME TO operation_events;
-        CREATE INDEX operation_repository ON operation_events(path,id DESC);
-        DROP TABLE tasks; PRAGMA user_version=2; COMMIT;",
-    )
-    .unwrap();
-    drop(db);
-    store.migrate(&Cancel::default()).unwrap();
-    let db = Connection::open(store.database_path()).unwrap();
-    assert_eq!(
-        db.pragma_query_value(None, "user_version", |r| r.get::<_, i64>(0))
-            .unwrap(),
-        4
-    );
-    let after: (i64, String, i64) = db
-        .query_row("SELECT id,record,revision FROM operation_events", [], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-        })
-        .unwrap();
-    assert_eq!(before, after);
-    assert_eq!(
-        db.query_row("PRAGMA integrity_check", [], |r| r.get::<_, String>(0))
-            .unwrap(),
-        "ok"
-    );
-    assert!(
-        db.prepare("PRAGMA foreign_key_check")
-            .unwrap()
-            .query([])
-            .unwrap()
-            .next()
-            .unwrap()
-            .is_none()
-    );
-    assert!(
-        !store
-            .claim_schedule_occurrence("retained", "2026-10-23 06:00:00", &Cancel::default())
-            .unwrap()
-    );
-    assert_eq!(
-        store
-            .repository_report(path)
-            .unwrap()
-            .unwrap()
-            .repository_revisions[path],
-        1
-    );
-    let next = OperationRecord {
-        path: path.into(),
+    let before = store.operation_history(path, 10).unwrap()[0].id;
+    let discard = OperationRecord {
+        path: path.to_owned(),
         at: AT.into(),
-        operation: Operation::Workspace {
-            action: engine::operations::mutation::Action::Fetch,
-            completion: Completion::Succeeded {
-                value: engine::operations::mutation::Change::Fetched {
-                    remotes: vec!["origin".into()],
-                },
-            },
+        operation: Operation::Discard {
+            completion: Completion::Succeeded { value: () },
         },
     };
     store
-        .save_operation_report(&mut observation, &next, &Cancel::default())
+        .save_operation_report(&mut report(path, 0, false), &discard, &cancel)
         .unwrap();
-    assert_eq!(store.operation_history(path, 10).unwrap().len(), 2);
-    assert_eq!(
-        store
-            .repository_report(path)
-            .unwrap()
-            .unwrap()
-            .repository_revisions[path],
-        2
-    );
+    let history = store.operation_history(path, 10).unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[1].id, before);
+    assert!(matches!(
+        history[0].record.operation,
+        Operation::Discard {
+            completion: Completion::Succeeded { .. }
+        }
+    ));
 }

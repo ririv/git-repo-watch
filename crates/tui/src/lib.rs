@@ -157,6 +157,11 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
+    DiscardFile {
+        plan: Box<engine::local::files::discard::Plan>,
+        review: String,
+        origin: Box<Mode>,
+    },
     Partial {
         plan: Box<engine::local::files::partial::Plan>,
         review: String,
@@ -220,6 +225,7 @@ enum WorkerEvent {
 }
 #[derive(Debug)]
 enum Outcome {
+    DiscardFilePrepared(Box<engine::local::files::discard::Plan>),
     Scanned(Box<engine::discovery::Report>),
     RegistrationsAdded(usize),
     Opened(Box<navigation::Content>),

@@ -542,6 +542,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 Content::Choices {
                     choice: *choice,
                     execute: match operation {
+                        Confirmation::DiscardFile { .. } => i18n::tr!(DiscardFile),
                         Confirmation::Partial { .. } => i18n::tr!(PartialDiscard),
                         Confirmation::Schedule(operation) => match operation {
                             engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),

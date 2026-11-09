@@ -48,6 +48,7 @@ pub enum Action {
     PartialSelectMenu,
     PartialSelect(crate::changes::edit::Granularity),
     Discard,
+    DiscardFile,
     Diff,
     ConflictMenu,
     ConflictView(crate::conflict::DisplayMode),
@@ -257,6 +258,11 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff discard",
         action: Discard,
         description: i18n::Message::PartialDiscard,
+    },
+    Command {
+        name: "repo diff discard-file",
+        action: DiscardFile,
+        description: i18n::Message::DiscardFile,
     },
     Command {
         name: "repo diff view",

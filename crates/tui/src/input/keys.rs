@@ -440,7 +440,8 @@ impl Screen {
                             self.message.clear();
                             return Ok(false);
                         }
-                        Confirmation::Partial { origin, .. }
+                        Confirmation::DiscardFile { origin, .. }
+                        | Confirmation::Partial { origin, .. }
                         | Confirmation::Remove { origin, .. } => *origin,
                         Confirmation::Schedule(_) => Mode::Browsing,
                     };

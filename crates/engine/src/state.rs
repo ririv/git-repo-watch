@@ -8,7 +8,7 @@ pub use interaction::InteractionMode;
 mod operation;
 use crate::cancel::Cancel;
 use anyhow::{Context, Result, ensure};
-pub use database::{Migration, Transfer};
+pub use database::Transfer;
 pub use operation::{Completion, Operation, OperationOrigin, OperationRecord, StoredOperation};
 use std::{
     fs::{self, File, OpenOptions},

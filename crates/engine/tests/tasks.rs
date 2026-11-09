@@ -10,7 +10,6 @@ use std::{
 fn fixture() -> (tempfile::TempDir, Store) {
     let dir = tempfile::tempdir().unwrap();
     let store = Store::custom(dir.path().into());
-    store.migrate(&Cancel::default()).unwrap();
     (dir, store)
 }
 fn spec() -> Spec {
@@ -219,44 +218,6 @@ fn checks_share_the_journal_and_dirty_repositories_are_successful_tasks() {
     assert!(records[0].pending());
     assert!(matches!(records[0].spec.retry, Retry::Fetch { .. }));
 }
-#[test]
-fn version_three_migration_imports_operation_history_and_is_repeatable() {
-    use engine::state::{Completion, Operation, OperationRecord};
-    use rusqlite::{Connection, params};
-    let (_home, store) = fixture();
-    let operation = OperationRecord {
-        path: "/example/repository".into(),
-        at: "2026-10-20T10:00:00+00:00".into(),
-        operation: Operation::Stage {
-            completion: Completion::Succeeded { value: () },
-        },
-    };
-    let db = Connection::open(store.database_path()).unwrap();
-    db.execute(
-        "INSERT INTO operation_events(path,revision,at,kind,record) VALUES(?1,NULL,?2,'stage',?3)",
-        params![
-            b"/example/repository".as_slice(),
-            operation.at,
-            serde_json::to_string(&operation).unwrap()
-        ],
-    )
-    .unwrap();
-    db.execute_batch("DROP TABLE tasks; PRAGMA user_version=3;")
-        .unwrap();
-    drop(db);
-    store.migrate(&Cancel::default()).unwrap();
-    let records = store.tasks(10).unwrap();
-    assert_eq!(records.len(), 1);
-    assert_eq!(records[0].spec.source, Source::Imported);
-    assert_eq!(records[0].started_at, operation.at);
-    store.migrate(&Cancel::default()).unwrap();
-    assert_eq!(store.tasks(10).unwrap(), records);
-    assert_eq!(
-        store.operation_history(&operation.path, 10).unwrap().len(),
-        1
-    );
-}
-
 #[test]
 fn legacy_check_retries_decode_as_canonical_fetch_requests() {
     use engine::tasks::Retry;

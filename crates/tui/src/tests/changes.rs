@@ -67,6 +67,7 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff context",
                 "repo diff header",
                 "repo diff discard",
+                "repo diff discard-file",
                 "repo diff view",
                 "repo diff conflict",
             ]
@@ -325,4 +326,62 @@ fn completing_a_write_refreshes_only_files_and_preserves_a_new_command_draft() {
         review(&s).content().labels(),
         ("HEAD".into(), i18n::tr!(Index).into())
     );
+}
+
+#[test]
+fn whole_file_discard_uses_the_highlighted_worktree_row_and_requires_confirmation() {
+    let f = support::Fixture::create();
+    let name = "tracked.txt";
+    f.commit(name, "head\n");
+    support::write(f.repo.join(name), "index\n");
+    support::git(&f.repo, &["add", name]);
+    support::write(f.repo.join(name), "worktree\n");
+    support::write(f.repo.join("untracked.txt"), "keep\n");
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    choose(&mut s, name, Area::Staged);
+    command(&mut s, "repo diff discard-file");
+    assert_eq!(s.message, i18n::tr!(CommandNeedsUnstaged));
+    key(&mut s, KeyCode::Esc);
+
+    choose(&mut s, name, Area::Unstaged);
+    key(&mut s, KeyCode::Enter);
+    command(&mut s, "repo diff discard-file");
+    assert_eq!(s.message, i18n::tr!(DiscardFileSelect));
+    key(&mut s, KeyCode::Esc);
+    choose(&mut s, name, Area::Unstaged);
+    command(&mut s, "repo diff discard-file");
+    wait(&mut s);
+    assert!(matches!(
+        &s.mode,
+        Mode::Confirm {
+            operation: Confirmation::DiscardFile { .. },
+            choice: crate::confirmation::Choice::Return,
+        }
+    ));
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join(name)).unwrap(),
+        "worktree\n"
+    );
+    assert_eq!(review(&s).focus, Focus::Files);
+
+    command(&mut s, "repo diff discard-file");
+    wait(&mut s);
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join(name)).unwrap(),
+        "index\n"
+    );
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("untracked.txt")).unwrap(),
+        "keep\n"
+    );
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    assert_eq!(review(&s).focus, Focus::Files);
+    s.shutdown();
 }

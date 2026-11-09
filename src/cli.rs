@@ -296,8 +296,6 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         "migrate" => {
             if args == ["config"] {
                 json(&service.store.migrate_configuration(cancel)?)?;
-            } else if args.is_empty() {
-                json(&service.store.migrate(cancel)?)?;
             } else {
                 ensure!(
                     args.len() == 2 && args[0] == "--from",
