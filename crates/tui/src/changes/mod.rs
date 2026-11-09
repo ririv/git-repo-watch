@@ -49,6 +49,12 @@ pub(super) enum ReturnTo {
     Repositories,
     Files,
 }
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct SelectionKey {
+    preview: Key,
+    lines: std::collections::BTreeSet<engine::local::files::partial::LineId>,
+}
+
 #[derive(Debug)]
 pub(super) struct Session {
     pub files: FileSession,
@@ -69,6 +75,24 @@ struct Bookmark {
     reading: Option<crate::document::Position>,
 }
 impl Session {
+    pub fn previews_file_diff(&self) -> bool {
+        self.preview.key().is_some_and(|key| key.change.kind != 'U')
+    }
+
+    pub fn selection_key(&self) -> Option<SelectionKey> {
+        match &self.preview {
+            Preview::Ready {
+                key,
+                editing: edit::State::Ready(editing),
+                ..
+            } => Some(SelectionKey {
+                preview: key.clone(),
+                lines: editing.selected(),
+            }),
+            _ => None,
+        }
+    }
+
     pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
         Self {
             files,

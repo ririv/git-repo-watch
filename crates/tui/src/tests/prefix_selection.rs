@@ -130,8 +130,14 @@ fn typing_slash_over_a_selected_prefix_opens_the_global_menu() {
 #[test]
 fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
-    select_prefix(&mut s);
-    s.focus(Some("/example/beta".into()));
+    s.open_management();
+    key(&mut s, KeyCode::Char('/'));
+    key(&mut s, KeyCode::Backspace);
+    assert!(s.bar.command_input().unwrap().prefix_selected());
+    let Mode::Management(session) = &mut s.mode else {
+        panic!("repository management");
+    };
+    session.advance(1);
     type_text(&mut s, "repos remove");
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
@@ -139,7 +145,7 @@ fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
         matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path, .. },..} if path==std::path::Path::new("/example/alpha"))
     );
     key(&mut s, KeyCode::Esc);
-    assert_eq!(s.selected_path(), Some("/example/beta".into()));
+    assert_eq!(s.command_repository(), Some("/example/beta".into()));
 }
 #[test]
 fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_slash() {

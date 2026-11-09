@@ -8,8 +8,11 @@ pub(crate) enum Target {
 }
 impl Target {
     pub fn path(&self, root: &Path) -> PathBuf {
+        root.join(self.relative_path())
+    }
+    pub fn relative_path(&self) -> &Path {
         let (Self::File(path) | Self::Directory(path)) = self;
-        root.join(path)
+        path
     }
     pub fn directory(&self, root: &Path) -> PathBuf {
         match self {

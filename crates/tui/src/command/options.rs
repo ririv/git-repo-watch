@@ -595,7 +595,13 @@ pub(crate) struct Candidates {
     pub selected: usize,
 }
 impl Candidates {
-    pub fn new(input: &Input, kind: Kind, screen: &Screen) -> std::option::Option<Self> {
+    pub fn new(
+        input: &Input,
+        kind: Kind,
+        screen: &Screen,
+        path: std::option::Option<&std::path::Path>,
+        selection: &crate::clipboard::Selection,
+    ) -> std::option::Option<Self> {
         let editor = input.canonical_editor();
         let (_, raw) = super::argument_input(editor.text.strip_prefix('/')?)?;
         let start = editor.text.len() - raw.len();
@@ -606,7 +612,7 @@ impl Candidates {
         let mut options = kind
             .options()
             .filter(|option| {
-                screen.search_support().admits(option.value.action())
+                screen.command_visible(option.value.action(), path, selection)
                     && (option.token.starts_with(&needle)
                         || [i18n::Language::Chinese, i18n::Language::English]
                             .iter()

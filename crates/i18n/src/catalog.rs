@@ -53,6 +53,8 @@ pub enum Message {
     ExternalEditorTools,
 
     LocalObservationFailed,
+    CommandRequiresWorktreePreview,
+    CommandRequiresFileTarget,
     PartialSelectRequired,
     PartialChanged,
     PartialSelectionConflict,
@@ -1440,6 +1442,12 @@ impl Message {
             (Self::ExternalEditorTools, Language::Chinese) => "外部工具",
             (Self::LocalObservationFailed, Language::English) => "Local refresh failed · {0}: {1}",
             (Self::LocalObservationFailed, Language::Chinese) => "本地刷新失败 · {0}：{1}",
+            (Self::CommandRequiresWorktreePreview, Language::English) => {
+                "Focus the working tree diff preview first"
+            }
+            (Self::CommandRequiresWorktreePreview, Language::Chinese) => "请先聚焦工作区差异预览",
+            (Self::CommandRequiresFileTarget, Language::English) => "Select or open a file first",
+            (Self::CommandRequiresFileTarget, Language::Chinese) => "请先选择或打开文件",
             (Self::PartialSelectRequired, Language::English) => {
                 "Select a hunk or lines in the diff preview first"
             }

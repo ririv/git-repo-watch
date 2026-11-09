@@ -9,7 +9,10 @@ impl Screen {
         selection: crate::clipboard::Selection,
         root: &Cancel,
     ) -> Result<bool> {
-        if !action.available(&self.config) || !self.search_support().admits(action) {
+        if !action.available(&self.config)
+            || (selection.is_error()
+                && !matches!(action, Action::Copy | Action::Quit | Action::Tasks))
+        {
             self.message = i18n::tr!(NoMatchingCommands).into();
             return Ok(false);
         }
@@ -156,6 +159,19 @@ impl Screen {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(engine::operations::mutation::Request::Sync, draft);
             }
+            Action::CopyPath => {
+                let target = selection
+                    .file_target()
+                    .expect("available file path has a target");
+                let text = target
+                    .relative_path()
+                    .to_str()
+                    .expect("available file path is UTF-8");
+                self.submit_clipboard(Ok(crate::clipboard::Payload {
+                    target: crate::clipboard::Target::FilePaths,
+                    text: text.to_owned(),
+                }));
+            }
             Action::Copy => {
                 let scope = selection.copy_scope().expect("available copy has a source");
                 self.copy_to_clipboard(scope, selection, path);
@@ -276,7 +292,9 @@ impl Screen {
                     IndexAction::Unstage
                 });
             }
-            Action::PartialSelectMenu => self.partial_menu(),
+            Action::PartialSelectMenu => {
+                self.open_option_menu(command::options::Kind::DiffSelection, path, selection);
+            }
             Action::PartialSelect(mode) => self.select_partial(mode),
             Action::Discard => self.edit_partial(engine::local::files::partial::Action::Discard),
             Action::Diff => {
@@ -472,17 +490,20 @@ impl Screen {
         self.sync_bar();
     }
     pub(crate) fn edit_files(&mut self, action: IndexAction) {
-        if matches!(&self.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview)
-        {
-            self.edit_partial(match action {
-                IndexAction::Stage => engine::local::files::partial::Action::Stage,
-                IndexAction::Unstage => engine::local::files::partial::Action::Unstage,
-            });
-            return;
-        }
-        let Some(session) = self.mode.file_session().cloned() else {
-            self.message = i18n::tr!(ChangesSelectionRequired).into();
-            return;
+        use command::target::IndexSelection;
+        let session = match IndexSelection::current(self) {
+            Some(IndexSelection::Files(files)) => files.clone(),
+            Some(IndexSelection::Diff(_)) => {
+                self.edit_partial(match action {
+                    IndexAction::Stage => engine::local::files::partial::Action::Stage,
+                    IndexAction::Unstage => engine::local::files::partial::Action::Unstage,
+                });
+                return;
+            }
+            None => {
+                self.message = i18n::tr!(ChangesSelectionRequired).into();
+                return;
+            }
         };
         let selected = session.selection();
         if selected.is_empty() {

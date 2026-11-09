@@ -106,6 +106,81 @@ fn partial_line_mode_and_shift_range_apply_only_selected_source_lines() {
 }
 
 #[test]
+fn partial_commands_follow_the_focused_worktree_pane() {
+    fn listed(s: &Screen, action: Action) -> bool {
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .any(|command| command.action == action)
+    }
+
+    let (f, _home, mut s, _, after) = setup();
+    key(&mut s, KeyCode::Esc);
+    assert!(matches!(&s.mode, Mode::Changes(session) if session.focus == Focus::Files));
+
+    s.paste("/");
+    assert!(!listed(&s, Action::Discard));
+    assert!(!listed(&s, Action::PartialSelectMenu));
+    assert!(listed(&s, Action::Stage));
+    key(&mut s, KeyCode::Esc);
+    s.paste("//repo diff ");
+    assert!(!listed(&s, Action::Discard));
+    assert!(!listed(&s, Action::PartialSelectMenu));
+
+    command(&mut s, "repo diff discard");
+    assert_eq!(s.message, i18n::tr!(CommandRequiresWorktreePreview));
+    assert!(matches!(&s.mode, Mode::Changes(session) if session.focus == Focus::Files));
+    key(&mut s, KeyCode::Esc);
+    s.paste("//repo diff select ");
+    assert!(matches!(
+        s.bar,
+        bar::InputBar::Command {
+            menu: command::completion::Menu::Commands,
+            ..
+        }
+    ));
+    command(&mut s, "repo diff select line");
+    assert_eq!(s.message, i18n::tr!(CommandRequiresWorktreePreview));
+    assert!(matches!(&s.mode, Mode::Changes(session) if session.focus == Focus::Files));
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("文件 空格.txt")).unwrap(),
+        after
+    );
+
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Enter);
+    s.paste("/");
+    assert!(listed(&s, Action::Discard));
+    assert!(listed(&s, Action::PartialSelectMenu));
+    s.shutdown();
+}
+
+#[test]
+fn discard_does_not_retarget_a_changed_selection_after_opening_the_command() {
+    let (f, _home, mut s, _, after) = setup();
+    s.paste("//repo diff discard");
+    let Mode::Changes(session) = &mut s.mode else {
+        panic!("changes view");
+    };
+    let Preview::Ready {
+        editing: edit::State::Ready(editing),
+        ..
+    } = &mut session.preview
+    else {
+        panic!("editable preview");
+    };
+    editing.advance(1, false);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.message, i18n::tr!(PartialChanged));
+    assert!(matches!(s.mode, Mode::Changes(_)));
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("文件 空格.txt")).unwrap(),
+        after
+    );
+    s.shutdown();
+}
+
+#[test]
 fn partial_discard_requires_confirmation_and_preserves_unselected_hunks() {
     let (f, _home, mut s, before, after) = setup();
     command(&mut s, "repo diff discard");
@@ -271,13 +346,15 @@ fn partial_commands_stay_out_of_historical_diffs_and_cannot_modify_them() {
         matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Diff {..}))
     );
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    let selection = s.copy_selection();
-    for command in command::COMMANDS
-        .iter()
-        .filter(|command| matches!(command.action, Action::PartialSelectMenu | Action::Discard))
-    {
-        assert!(!selection.in_scope(command.action));
-        assert!(!s.command_context().unwrap().admits(command));
+    for input in ["/", "//repo diff "] {
+        s.paste(input);
+        assert!(
+            !s.search_commands().unwrap().iter().any(|command| matches!(
+                command.action,
+                Action::PartialSelectMenu | Action::Discard
+            ))
+        );
+        key(&mut s, KeyCode::Esc);
     }
     key(&mut s, KeyCode::Char(' '));
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);

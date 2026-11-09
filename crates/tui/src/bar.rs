@@ -60,25 +60,6 @@ impl InputBar {
             Self::Layout { draft, .. } => draft.input.editor(),
         }
     }
-    pub fn commands(
-        &self,
-        config: &engine::state::Config,
-    ) -> Option<Vec<&'static command::Command>> {
-        match self {
-            Self::Command {
-                input, selection, ..
-            } => Some(
-                input
-                    .matches()
-                    .into_iter()
-                    .filter(|command| {
-                        command.action.available(config) && selection.in_scope(command.action)
-                    })
-                    .collect(),
-            ),
-            Self::Search(_) | Self::CommandsOnly | Self::Layout { .. } => None,
-        }
-    }
     pub fn text(&self) -> String {
         match self {
             Self::Command { input, .. } => input.text(),
@@ -327,10 +308,10 @@ impl Screen {
                 _ => {}
             }
         }
-        let search_support = self.search_support();
         if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
         }
+        let matches = self.search_commands().unwrap_or_default();
         if key.code == KeyCode::Enter
             && let InputBar::Command {
                 input,
@@ -341,12 +322,11 @@ impl Screen {
             } = &self.bar
             && !input.prefix_selected()
         {
-            let action = command::argument_input(&input.query())
+            let query = input.query();
+            let action = command::argument_input(&query)
                 .map(|(argument, _)| argument.action())
-                .or_else(|| {
-                    self.search_commands()
-                        .and_then(|commands| commands.get(*selected).map(|command| command.action))
-                });
+                .or_else(|| self.out_of_view_command(&query, path.as_deref(), selection))
+                .or_else(|| matches.get(*selected).map(|command| command.action));
             if let Some(action) = action
                 && let Some(reason) = self
                     .command_availability(action, path.as_deref(), selection)
@@ -421,15 +401,6 @@ impl Screen {
                 }
                 return Ok(BarEvent::Handled);
             }
-            let matches = input
-                .matches()
-                .into_iter()
-                .filter(|command| {
-                    command.action.available(&self.config)
-                        && search_support.admits(command.action)
-                        && selection.in_scope(command.action)
-                })
-                .collect::<Vec<_>>();
             let query = input.query();
             match key.code {
                 KeyCode::Esc => self.clear_bar(),
@@ -678,12 +649,13 @@ impl Screen {
         Ok(BarEvent::Pass)
     }
     pub(crate) fn open_command_bar(&mut self) {
+        let path = self.command_repository();
         self.bar = InputBar::Command {
             input: command::Input::new(self.command_context()),
             selected: 0,
             menu: Default::default(),
-            repository: command::repository::Captured::new(self.scope_path()),
-            path: self.scope_path(),
+            repository: command::repository::Captured::new(path.clone()),
+            path,
             selection: self.copy_selection(),
         };
     }

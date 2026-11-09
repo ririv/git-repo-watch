@@ -241,6 +241,11 @@ fn render_menu(
             return;
         }
     }
+    use command::target::IndexSelection;
+    let partial_index = matches!(
+        IndexSelection::current(screen),
+        Some(IndexSelection::Diff(_))
+    );
     let commands = screen.search_commands().expect("command candidates");
     let source =
         candidates::Source::Commands(commands.iter().map(|command| command.name).collect());
@@ -248,38 +253,68 @@ fn render_menu(
         .into_iter()
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
-            let availability = screen.command_availability(command.action, path.as_deref(), selection);
+            let availability =
+                screen.command_availability(command.action, path.as_deref(), selection);
             let description = match command.action {
-                Action::Stage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialStage),
-                Action::Unstage if matches!(&screen.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Preview) => i18n::tr!(PartialUnstage),
+                Action::Stage if partial_index => i18n::tr!(PartialStage),
+                Action::Unstage if partial_index => i18n::tr!(PartialUnstage),
                 Action::Copy => selection
                     .annotation(command.action)
                     .expect("copy target label"),
                 _ => command.summary().text(),
             };
-            let repository_action = matches!(command.action, Action::Push | Action::Pull | Action::Sync | Action::Commit | Action::CommitGenerate | Action::BranchCreate | Action::BranchSwitch | Action::StashSave | Action::StashSaveMode(_) | Action::Replay(_) | Action::ReplayControl(_) | Action::Compose(crate::composition::Action::Open));
+            let repository_action = matches!(
+                command.action,
+                Action::Push
+                    | Action::Pull
+                    | Action::Sync
+                    | Action::Commit
+                    | Action::CommitGenerate
+                    | Action::BranchCreate
+                    | Action::BranchSwitch
+                    | Action::StashSave
+                    | Action::StashSaveMode(_)
+                    | Action::Replay(_)
+                    | Action::ReplayControl(_)
+                    | Action::Compose(crate::composition::Action::Open)
+            );
             let target = screen.command_target(command.action, path.as_deref(), selection);
             let value = if repository_action {
-                path.as_deref().and_then(|path| repository.label(path)).map(|repository| {
-                    match &target {
+                path.as_deref()
+                    .and_then(|path| repository.label(path))
+                    .map(|repository| match &target {
                         Some(target) => format!("{repository} · {target}"),
                         None => repository,
-                    }
-                })
-            } else { None }
-                .or(target)
-                .or_else(|| match (&screen.mode, command.action) { (Mode::Branches(view), Action::BranchFilterMenu) => Some(view.session().filter.title().into()),
-                    (Mode::Changes(session), Action::ConflictMenu) => match &session.preview { crate::changes::Preview::Ready { content,..} => match content.as_ref() { crate::document::View::Conflict(view) => Some(view.mode.label().into()), _ => None }, _ => None }, _ => None })
-                .or_else(|| repository_list::annotation(command.action, screen))
-                .or_else(|| layout_picker::annotation(command.action, screen, body))
-                .or_else(|| settings::annotation(command.action, screen))
-                .or_else(|| match command.action {
-                    Action::PartialSelectMenu => screen.partial_mode().map(|mode| mode.label().to_owned()),
-                    Action::BrowserLayoutMenu | Action::BrowserModeMenu => {
-                        selection.annotation(command.action).map(str::to_owned)
-                    }
+                    })
+            } else {
+                None
+            }
+            .or(target)
+            .or_else(|| match (&screen.mode, command.action) {
+                (Mode::Branches(view), Action::BranchFilterMenu) => {
+                    Some(view.session().filter.title().into())
+                }
+                (Mode::Changes(session), Action::ConflictMenu) => match &session.preview {
+                    crate::changes::Preview::Ready { content, .. } => match content.as_ref() {
+                        crate::document::View::Conflict(view) => Some(view.mode.label().into()),
+                        _ => None,
+                    },
                     _ => None,
-                });
+                },
+                _ => None,
+            })
+            .or_else(|| repository_list::annotation(command.action, screen))
+            .or_else(|| layout_picker::annotation(command.action, screen, body))
+            .or_else(|| settings::annotation(command.action, screen))
+            .or_else(|| match command.action {
+                Action::PartialSelectMenu => {
+                    screen.partial_mode().map(|mode| mode.label().to_owned())
+                }
+                Action::BrowserLayoutMenu | Action::BrowserModeMenu => {
+                    selection.annotation(command.action).map(str::to_owned)
+                }
+                _ => None,
+            });
             let prefix = if input.menu_context().is_some() && !command.common() {
                 ""
             } else {
@@ -287,12 +322,29 @@ fn render_menu(
             };
             Entry {
                 name: format!("{prefix}{}", input.name(command)),
-                maturity: if command.action.experimental() { Maturity::Experimental } else { Maturity::Stable },
+                maturity: if command.action.experimental() {
+                    Maturity::Experimental
+                } else {
+                    Maturity::Stable
+                },
                 usage_width: prefix.width() + input.usage(command).width(),
                 argument: command.action.argument().map(|argument| argument.syntax()),
-                description: safe(match availability.label() { None => description, Some(reason) => reason }),
-                value: if matches!(availability, command::availability::Availability::Ready) { value.unwrap_or_default() } else { String::new() },
-                value_kind: if repository_action { ValueKind::Repository } else if matches!(command.action, Action::OpenEditor | Action::Terminal) { ValueKind::Path } else { ValueKind::Text },
+                description: safe(match availability.label() {
+                    None => description,
+                    Some(reason) => reason,
+                }),
+                value: if matches!(availability, command::availability::Availability::Ready) {
+                    value.unwrap_or_default()
+                } else {
+                    String::new()
+                },
+                value_kind: if repository_action {
+                    ValueKind::Repository
+                } else if matches!(command.action, Action::OpenEditor | Action::Terminal) {
+                    ValueKind::Path
+                } else {
+                    ValueKind::Text
+                },
                 availability,
             }
         })

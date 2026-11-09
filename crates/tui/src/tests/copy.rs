@@ -74,6 +74,38 @@ fn assert_patch_applies(repo: &std::path::Path, patch: &str) {
 }
 
 #[test]
+fn explicit_copy_path_uses_the_same_file_before_and_after_opening() {
+    let f = support::Fixture::create();
+    let name = "文件 空格.txt";
+    f.commit(name, "old\n");
+    support::write(f.repo.join(name), "new\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let rx = capture(&mut s);
+
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    command(&mut s, "copy path");
+    assert_eq!(copied(&mut s, &rx), name);
+    key(&mut s, KeyCode::Enter);
+    command(&mut s, "copy path");
+    assert_eq!(copied(&mut s, &rx), name);
+    command(&mut s, "copy");
+    assert!(copied(&mut s, &rx).contains("diff --git"));
+
+    command(&mut s, "repo log");
+    wait(&mut s);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    command(&mut s, "copy path");
+    assert_eq!(copied(&mut s, &rx), name);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    command(&mut s, "copy path");
+    assert_eq!(copied(&mut s, &rx), name);
+    s.shutdown();
+}
+
+#[test]
 fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);

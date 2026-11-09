@@ -799,7 +799,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
     let (_temp, mut empty) = fixture(vec![]);
     command(&mut empty, "terminal");
     assert!(matches!(empty.mode, Mode::Browsing));
-    assert_eq!(empty.message, "Select a repository first");
+    assert_eq!(empty.message, i18n::tr!(TerminalSelectionRequired));
     let f = support::Fixture::create();
     let (_temp, mut s) = fixture(vec![f.repo.clone()]);
     let mut files = FileSession::new(s.service.files(&f.repo, &Cancel::default()).unwrap());

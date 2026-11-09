@@ -115,6 +115,7 @@ impl Command {
             Action::Sort(_) => Summary::SortMenu,
             Action::Interaction(_) => Summary::InteractionMenu,
             Action::Copy => Summary::Copy,
+            Action::CopyPath => Summary::CopyPath,
         }
     }
 }

@@ -118,11 +118,4 @@ impl Screen {
         };
         self.edit_partial(action);
     }
-    pub(crate) fn partial_menu(&mut self) {
-        self.open_option_menu(
-            crate::command::options::Kind::DiffSelection,
-            self.scope_path(),
-            self.copy_selection(),
-        );
-    }
 }

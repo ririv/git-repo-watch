@@ -643,6 +643,8 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 
 ## 开发与验证
 
+终端命令的目标声明、视图供给与执行校验见 [命令目标绑定](docs/command-targets.md)。
+
 ```sh
 cargo test --workspace --locked
 cargo fmt --all --check

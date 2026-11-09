@@ -149,6 +149,7 @@ fn static_pages_and_read_only_details_use_the_same_command_entry() {
             command(&mut s, entry);
             commands_only(&mut s);
         }
+        command(&mut s, "repos");
         for entry in ["repo branch", "repo stash"] {
             command(&mut s, entry);
             wait(&mut s);

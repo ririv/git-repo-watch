@@ -165,6 +165,7 @@ fn repository_views_and_confirmation_render_across_tiny_sizes_without_mutating_g
             "help",
             "settings",
             "schedule",
+            "repos",
             "repos remove",
         ] {
             command(&mut s, entry);

@@ -1,6 +1,10 @@
 //! Resolve focus and selection from displayed snapshots without reading Git again.
 use super::{Payload, Scope, Target};
-use crate::{Action, Mode, Screen, branches, changes, diff, document, history, workspace};
+use crate::{
+    Action, Mode, Screen, branches, changes,
+    command::target::{File, HistoricalFile, Status},
+    diff, document, history, workspace,
+};
 use anyhow::{Context, Result, bail};
 use std::{
     collections::BTreeSet,
@@ -103,6 +107,7 @@ pub(crate) enum CommitSelection {
         oid: engine::local::history::Oid,
         marked: Vec<engine::local::history::Oid>,
         content: Content,
+        file: Option<HistoricalFile>,
     },
     Unavailable(Content),
 }
@@ -135,23 +140,37 @@ pub(crate) enum Selection {
         working: Option<crate::working_target::Target>,
         content: Content,
         marked: Vec<engine::local::files::Location>,
+        diff_selection: Option<changes::SelectionKey>,
     },
-    HistoricalDiff(Content),
+    HistoricalDiff {
+        content: Content,
+        file: Option<HistoricalFile>,
+    },
     Log(CommitSelection),
     Branch(Content),
-    Stash(Content),
+    Stash {
+        content: Content,
+        file: Option<HistoricalFile>,
+    },
     Error(Content),
 }
 impl Selection {
+    pub fn diff_selection(&self) -> Option<&changes::SelectionKey> {
+        match self {
+            Self::Diff { diff_selection, .. } => diff_selection.as_ref(),
+            _ => None,
+        }
+    }
+
     pub fn copy_scope(&self) -> Option<Scope> {
         Some(match self {
             Self::None => return None,
             Self::Repository => Scope::Repository,
             Self::Browser { .. } => Scope::Browser,
-            Self::Diff { .. } | Self::HistoricalDiff(_) => Scope::Diff,
+            Self::Diff { .. } | Self::HistoricalDiff { .. } => Scope::Diff,
             Self::Log(_) => Scope::Log,
             Self::Branch(_) => Scope::Branch,
-            Self::Stash(_) => Scope::Stash,
+            Self::Stash { .. } => Scope::Stash,
             Self::Error(_) => Scope::Error,
         })
     }
@@ -159,32 +178,32 @@ impl Selection {
         match self {
             Self::Repository
             | Self::Log(_)
-            | Self::HistoricalDiff(_)
+            | Self::HistoricalDiff { .. }
             | Self::Branch(_)
-            | Self::Stash(_) => Some(root.to_owned()),
-            Self::Browser {
-                working: Some(target),
-                ..
-            }
-            | Self::Diff {
-                working: Some(target),
-                ..
-            } => Some(target.directory(root)),
-            _ => None,
+            | Self::Stash { .. } => Some(root.to_owned()),
+            _ => self.working_target().map(|target| target.directory(root)),
         }
     }
     pub fn editor_target(&self, root: &Path) -> Option<PathBuf> {
         match self {
             Self::Repository => Some(root.to_owned()),
-            Self::Browser {
-                working: Some(target),
-                ..
-            }
-            | Self::Diff {
-                working: Some(target),
-                ..
-            } => Some(target.path(root)),
+            _ => self.working_target().map(|target| target.path(root)),
+        }
+    }
+
+    fn working_target(&self) -> Option<&crate::working_target::Target> {
+        match self {
+            Self::Browser { working, .. } | Self::Diff { working, .. } => working.as_ref(),
             _ => None,
+        }
+    }
+
+    pub fn file_target(&self) -> Option<File<'_>> {
+        match self {
+            Self::HistoricalDiff { file, .. }
+            | Self::Log(CommitSelection::Selected { file, .. })
+            | Self::Stash { file, .. } => file.as_ref().map(File::Historical),
+            _ => self.working_target().map(File::Working),
         }
     }
 
@@ -216,9 +235,9 @@ impl Selection {
             (Self::Browser { content, .. }, Scope::Browser) => Some(content),
             (Self::Log(selection), Scope::Log) => Some(selection.content()),
             (Self::Diff { content, .. }, Scope::Diff)
-            | (Self::HistoricalDiff(content), Scope::Diff)
+            | (Self::HistoricalDiff { content, .. }, Scope::Diff)
             | (Self::Branch(content), Scope::Branch)
-            | (Self::Stash(content), Scope::Stash)
+            | (Self::Stash { content, .. }, Scope::Stash)
             | (Self::Error(content), Scope::Error) => Some(content),
             _ => None,
         }
@@ -228,7 +247,10 @@ impl Selection {
         if matches!(
             command.action,
             Action::StashApply | Action::StashPop | Action::StashDrop
-        ) && let Self::Stash(Content::Text { text, .. }) = self
+        ) && let Self::Stash {
+            content: Content::Text { text, .. },
+            ..
+        } = self
         {
             input.editor_mut().insert(text);
         }
@@ -277,33 +299,23 @@ impl Selection {
             _ => self.commit().into_iter().collect(),
         }
     }
-    /// Match view capabilities independently of the current selection or operation state.
-    pub fn in_scope(&self, action: Action) -> bool {
-        if self.is_error() {
-            return matches!(action, Action::Copy | Action::Quit | Action::Tasks);
-        }
-        match action {
-            Action::PartialSelectMenu
-            | Action::PartialSelect(_)
-            | Action::Discard
-            | Action::ConflictMenu
-            | Action::ConflictView(_) => {
-                matches!(self, Self::Diff { .. })
+    pub(crate) fn history_selection_status(&self) -> Status {
+        match self {
+            Self::Log(CommitSelection::Graph { .. } | CommitSelection::Unavailable(_)) => {
+                Status::Present
             }
-            Action::LogSelect | Action::LogSelection(_) => {
-                matches!(
-                    self,
-                    Self::Log(CommitSelection::Graph { .. } | CommitSelection::Unavailable(_))
-                )
-            }
-            Action::Replay(_) => matches!(self, Self::Log(_)),
-            Action::BrowserLayoutMenu
-            | Action::BrowserLayout(_)
-            | Action::BrowserModeMenu
-            | Action::BrowserMode(_) => self.opener().is_some(),
-            _ => true,
+            _ => Status::OutOfScope(i18n::tr!(CommandRequiresHistory)),
         }
     }
+
+    pub(crate) fn commit_selection_status(&self) -> Status {
+        match self {
+            Self::Log(selection) if selection.oid().is_some() => Status::Present,
+            Self::Log(_) => Status::Unavailable(i18n::tr!(ReplaySelectCommit)),
+            _ => Status::OutOfScope(i18n::tr!(CommandRequiresHistory)),
+        }
+    }
+
     pub fn annotation(&self, action: Action) -> Option<&'static str> {
         match action {
             Action::BrowserModeMenu => self.opener().map(|target| match target.presentation {
@@ -362,10 +374,16 @@ impl Screen {
                 working: files.working_target(),
                 content: file_paths(files),
                 marked: marked_paths(files),
+                diff_selection: None,
             },
             Mode::Changes(session) => Selection::Diff {
                 working: session.files.working_target(),
                 marked: marked_paths(&session.files),
+                diff_selection: if session.focus == changes::Focus::Preview {
+                    session.selection_key()
+                } else {
+                    None
+                },
                 content: match session.focus {
                     changes::Focus::Files => file_paths(&session.files),
                     changes::Focus::Preview => match &session.preview {
@@ -386,6 +404,7 @@ impl Screen {
                 history::View::Commit(commit) => Selection::Log(CommitSelection::Selected {
                     oid: commit.inspect.detail.oid(),
                     marked: commit.graph.picks(),
+                    file: historical_file(&commit.inspect, false),
                     content: Content::paths(
                         commit
                             .inspect
@@ -395,20 +414,33 @@ impl Screen {
                             .map(|change| change.location.name().to_owned()),
                     ),
                 }),
-                history::View::Diff { content, .. } => {
-                    Selection::HistoricalDiff(Content::document(content))
-                }
+                history::View::Diff {
+                    commit, content, ..
+                } => Selection::HistoricalDiff {
+                    content: Content::document(content),
+                    file: historical_file(&commit.inspect, true),
+                },
             },
-            Mode::Stashes(view) if matches!(view.as_ref(), crate::stashes::View::Diff { .. }) => {
-                let crate::stashes::View::Diff { content, .. } = view.as_ref() else {
-                    unreachable!()
-                };
-                Selection::HistoricalDiff(Content::document(content))
-            }
-            Mode::Stashes(view) => Selection::Stash(match view.selected() {
-                Some(entry) => Content::text(Target::Stash, entry.oid.to_string()),
-                None => Content::Unavailable(Unavailable::Empty),
-            }),
+            Mode::Stashes(view) => match view.as_ref() {
+                crate::stashes::View::Diff {
+                    inspect, content, ..
+                } => Selection::HistoricalDiff {
+                    content: Content::document(content),
+                    file: historical_file(inspect, true),
+                },
+                other => Selection::Stash {
+                    content: match other.selected() {
+                        Some(entry) => Content::text(Target::Stash, entry.oid.to_string()),
+                        None => Content::Unavailable(Unavailable::Empty),
+                    },
+                    file: match other {
+                        crate::stashes::View::Detail { inspect, .. } => {
+                            historical_file(inspect, false)
+                        }
+                        _ => None,
+                    },
+                },
+            },
             Mode::Branches(view) => Selection::Branch(match view.as_ref() {
                 branches::View::List(session) => branch(session),
                 branches::View::Detail { entry, .. } => {
@@ -425,6 +457,7 @@ impl Screen {
                     .expect("repository pane has an open workspace");
                 match section {
                     workspace::Section::Worktree => Selection::Diff {
+                        diff_selection: None,
                         working: match &session.files {
                             workspace::Panel::Ready(files) => files.working_target(),
                             _ => None,
@@ -455,6 +488,20 @@ impl Screen {
         }
     }
 }
+fn historical_file(inspect: &crate::inspection::Session, opened: bool) -> Option<HistoricalFile> {
+    use crate::inspection::Focus;
+    let selected = inspect.selected_index();
+    let index = match (opened, inspect.focus) {
+        (true, _) | (_, Focus::Files) => selected,
+        (_, Focus::Preview) => inspect.review.visible_file(selected),
+        (_, Focus::Message) => None,
+    }?;
+    Some(HistoricalFile {
+        object: inspect.detail.oid(),
+        path: inspect.detail.change(index).location.name().to_owned(),
+    })
+}
+
 fn file_paths(files: &crate::FileSession) -> Content {
     // 与暂存的勾选语义一致；相同路径同时在两组出现时只复制一次。
     let mut paths = Vec::new();

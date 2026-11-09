@@ -10,7 +10,9 @@ pub(crate) mod path;
 mod prefix;
 pub(crate) mod repository;
 pub(crate) mod scan;
+mod scope;
 mod summary;
+pub(crate) mod target;
 #[cfg(test)]
 mod tests;
 pub(crate) mod values;
@@ -75,6 +77,7 @@ pub enum Action {
     SortMenu,
     Sort(crate::repository_list::Order),
     Copy,
+    CopyPath,
     Commit,
     CommitGenerate,
     Compose(crate::composition::Action),
@@ -129,7 +132,11 @@ impl Command {
     pub(crate) fn common(&self) -> bool {
         matches!(
             self.action,
-            Action::Copy | Action::Refresh | Action::OpenEditor | Action::Terminal
+            Action::Copy
+                | Action::CopyPath
+                | Action::Refresh
+                | Action::OpenEditor
+                | Action::Terminal
         )
     }
 }
@@ -435,6 +442,11 @@ pub const COMMANDS: &[Command] = &[
         name: "copy",
         action: Copy,
         description: i18n::Message::CopySelectionRequired,
+    },
+    Command {
+        name: "copy path",
+        action: CopyPath,
+        description: i18n::Message::CopyFilePaths,
     },
     Command {
         name: "refresh",

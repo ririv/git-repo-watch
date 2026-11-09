@@ -72,6 +72,22 @@ fn activate(s: &mut Screen, focus: Focus) {
     assert_eq!(review(s).focus(), focus);
 }
 #[test]
+fn conflict_preview_omits_partial_diff_commands() {
+    let (_f, _home, mut s) = setup();
+    activate(&mut s, Focus::Result);
+    s.paste("//repo diff ");
+    assert!(
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .all(|command| !matches!(command.action, Action::Discard | Action::PartialSelectMenu))
+    );
+    assert!(matches!(&s.mode, Mode::Changes(session)
+        if session.focus == crate::changes::Focus::Preview));
+    s.shutdown();
+}
+
+#[test]
 fn inputs_and_actual_source_result_remain_visible_with_an_optional_base_at_every_size() {
     let (f, _home, mut s) = setup();
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();

@@ -89,6 +89,27 @@ fn empty_history_keeps_its_commands_disabled_then_enables_them_after_a_commit() 
 }
 
 #[test]
+fn repository_commands_require_a_target_from_the_current_view() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.paste("//repo fetch");
+    assert!(reason(&s, Action::Fetch).is_none());
+    key(&mut s, KeyCode::Esc);
+    command(&mut s, "repo");
+    wait(&mut s);
+    s.paste("//repo fetch");
+    assert!(reason(&s, Action::Fetch).is_none());
+    key(&mut s, KeyCode::Esc);
+
+    command(&mut s, "settings");
+    command(&mut s, "repo fetch");
+    assert_eq!(s.message, i18n::tr!(SelectARepositoryFirst));
+    assert_eq!(s.page, Page::Configuration(Configuration::General));
+    assert!(s.repository_tasks.is_empty());
+    s.shutdown();
+}
+
+#[test]
 fn idle_repository_recovery_commands_stay_visible_and_never_start_a_task() {
     let f = support::Fixture::create();
     let head = support::git(&f.repo, &["rev-parse", "HEAD"]);

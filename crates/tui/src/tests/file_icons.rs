@@ -94,6 +94,7 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert!(!s.config.file_icons && !s.service.store.config().unwrap().file_icons);
+        command(&mut s, "repos");
         command(&mut s, "repo files");
         browser::ready(&mut s);
         browser::select(&mut s, "中文.ts");

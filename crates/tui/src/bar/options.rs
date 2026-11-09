@@ -9,18 +9,17 @@ impl Screen {
     pub(crate) fn refresh_option_candidates(&mut self) {
         let candidates = match &self.bar {
             InputBar::Command {
-                input, selection, ..
+                input,
+                path,
+                selection,
+                ..
             } => match command::argument_input(&input.query()).and_then(|(argument, value)| {
                 argument
                     .options()
                     .filter(|kind| *kind != Kind::DiffLayout || !value.trim().is_empty())
             }) {
-                Some(kind)
-                    if kind.action().available(&self.config)
-                        && selection.in_scope(kind.action())
-                        && self.search_support().admits(kind.action()) =>
-                {
-                    Candidates::new(input, kind, self)
+                Some(kind) if self.command_visible(kind.action(), path.as_deref(), selection) => {
+                    Candidates::new(input, kind, self, path.as_deref(), selection)
                 }
                 _ => None,
             },

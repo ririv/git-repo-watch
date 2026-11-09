@@ -235,7 +235,7 @@ fn disabled_ai_is_hidden_and_can_only_be_restored_from_general_settings() {
             assert!(!text.contains(i18n::tr!(AgentModelHint)));
             assert!(!text.contains(i18n::tr!(AgentPromptHint)));
         }
-        key(&mut s, KeyCode::Esc);
+        command(&mut s, "repos");
         command(&mut s, "repo commit");
         wait_generation(&mut s);
         assert!(matches!(s.mode, Mode::CommitMessage { .. }));

@@ -265,7 +265,12 @@ impl Screen {
                 .command_input()
                 .is_some_and(|input| input.prefix_selected())
             {
-                let command = self.search_commands().expect("command candidates")[index];
+                let Some(command) = self
+                    .search_commands()
+                    .and_then(|commands| commands.get(index).copied())
+                else {
+                    return Ok(false);
+                };
                 if let bar::InputBar::Command {
                     input, selected, ..
                 } = &mut self.bar

@@ -53,10 +53,10 @@ impl Screen {
         selection: Selection,
         path: Option<std::path::PathBuf>,
     ) {
-        match selection
-            .payload(scope, path.as_deref())
-            .and_then(|payload| self.clipboard.submit(payload))
-        {
+        self.submit_clipboard(selection.payload(scope, path.as_deref()));
+    }
+    pub(crate) fn submit_clipboard(&mut self, payload: anyhow::Result<Payload>) {
+        match payload.and_then(|payload| self.clipboard.submit(payload)) {
             Ok(()) => self.message = format!("{}…", i18n::tr!(CopyWriting)),
             Err(error) => self.message = format!("{}: {error:#}", i18n::tr!(CopyFailed)),
         }

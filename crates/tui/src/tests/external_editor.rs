@@ -88,6 +88,10 @@ fn editor_commands_open_captured_targets_without_leaving_the_current_view() {
     wait_editor(&mut s);
     assert!(matches!(s.mode, Mode::Changes(_)));
     assert_eq!(opened.lock().unwrap()[4].0, f.repo.join("space 中文.ts"));
+    key(&mut s, KeyCode::Enter);
+    command(&mut s, "editor");
+    wait_editor(&mut s);
+    assert_eq!(opened.lock().unwrap()[5].0, f.repo.join("space 中文.ts"));
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     s.shutdown();
 }
@@ -212,6 +216,7 @@ fn editor_has_no_target_in_settings_or_an_empty_file_search() {
             .reason()
             .is_some()
     );
+    command(&mut s, "repos");
     command(&mut s, "repo files");
     browser::ready(&mut s);
     s.paste("missing-file");
