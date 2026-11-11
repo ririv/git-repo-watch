@@ -172,7 +172,7 @@ fn context_choices_complete_persist_and_apply_to_current_and_future_files() {
 }
 
 #[test]
-fn fully_staged_files_keep_the_same_file_preview() {
+fn fully_staged_files_move_to_the_staged_view_without_changing_views() {
     let f = support::Fixture::create();
     f.commit("file.txt", "before\nstable\n");
     support::write(f.repo.join("file.txt"), "after\nstable\n");
@@ -182,6 +182,11 @@ fn fully_staged_files_keep_the_same_file_preview() {
     maximize_preview(&mut s);
     render(&mut s, 160, 32);
     command(&mut s, "repo diff stage");
+    wait(&mut s);
+    assert!(s.mode.file_session().unwrap().rows().is_empty());
+    command(&mut s, "repo diff staged");
+    wait(&mut s);
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert!(render(&mut s, 160, 32).contains("after"));
     assert_eq!(

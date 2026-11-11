@@ -58,6 +58,7 @@ impl Screen {
             },
             Level::Repository => self.leave_repository_section(),
             Level::Pane(section) => self.switch_repository_section(section),
+            Level::ChangesParent => self.open_changes_parent(),
             Level::History => self.open_breadcrumb_view(View::History),
             Level::Commit => {
                 if let Mode::History(view) = &self.mode

@@ -15,14 +15,14 @@
 | 仓库 | 首页选中的仓库，或仓库内视图所属的仓库 | `/repo fetch`、`/repo sync` |
 | 工作区文件或目录 | 文件树当前条目、变更列表当前条目、文件预览 | `/editor`、`/copy path` |
 | 历史文件 | 提交或贮藏中的选中文件、正在阅读的文件差异 | `/copy path` |
-| 工作区变更文件 | 工作区文件列表当前高亮的单个文件 | `/repo diff discard-file` |
+| 工作区变更文件 | 工作区文件列表中当前组的已勾选文件，无勾选时取当前高亮文件 | `/repo diff discard-file` |
 | 差异选区 | 聚焦普通工作区差异时的预览快照与所选块或行 | `/repo diff select`、`/repo diff discard` |
 | 索引选区 | 文件列表里的文件，或差异预览中的块或行 | `/repo diff stage`、`/repo diff unstage` |
 | 提交选区 | 提交历史选中的提交及批量选择 | Cherry-pick、Revert |
 
 历史文件保留所属对象 ID 和仓库相对路径，只作为只读文件目标。`/copy path` 复制相对路径。`/copy` 根据当前内容复制，例如在差异预览复制补丁。
 
-暂存与取消暂存根据焦点选择索引目标。文件列表按文件操作，普通差异预览按块或行操作。冲突由独立的冲突处理流程管理。命令菜单显示所选文件或行的数量。`discard` 专用于未暂存差异选区，整文件用 `/repo diff discard-file`，确认页列出文件路径和结果。已跟踪文件恢复到暂存区版本，未跟踪文件会永久删除。
+工作区使用 `/repo diff` 进入，通过 `/repo diff unstaged` 或 `/repo diff staged` 打开对应子视图。两个子视图分别保留光标、滚动位置和勾选。Ctrl+A 只勾选当前子视图的可见文件。暂存和取消暂存分别使用 `/repo diff stage` 和 `/repo diff unstage`。文件列表按文件操作，普通差异预览按块或行操作。冲突由独立的冲突处理流程管理。命令菜单显示所选文件或行的数量。未暂存差异选区使用 `/repo diff discard`，整文件使用 `/repo diff discard-file`。确认页分别列出从暂存区恢复的已跟踪文件和将永久删除的未跟踪文件。
 
 ## 解析与执行
 

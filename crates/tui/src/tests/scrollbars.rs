@@ -29,11 +29,12 @@ fn file_groups_share_one_track_and_scroll_headers_with_files() {
         support::write(f.repo.join(format!("working-{index:02}.rs")), "working\n");
     }
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    for combined in [false, true] {
+    for in_workspace in [false, true] {
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
-        if combined {
-            command(&mut s, "repo diff");
-            wait(&mut s);
+        if in_workspace {
+            key(&mut s, KeyCode::Enter);
+            wait_workspace(&mut s);
+            s.switch_repository_section(crate::workspace::Section::Worktree);
         } else {
             open_files(&mut s);
         }
@@ -42,16 +43,14 @@ fn file_groups_share_one_track_and_scroll_headers_with_files() {
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
             key(&mut s, KeyCode::Home);
             terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
-            let area = match &s.mode {
-                Mode::Changes(session) => {
-                    view::changes::areas(s.body_area.unwrap(), session)
-                        .into_iter()
-                        .find(|(_, focus)| *focus == crate::changes::Focus::Files)
-                        .unwrap()
-                        .0
-                }
-                Mode::Files(_) => s.body_area.unwrap(),
-                _ => panic!("file list"),
+            let area = if in_workspace {
+                s.workspace_areas
+                    .iter()
+                    .find(|(_, section)| *section == crate::workspace::Section::Worktree)
+                    .unwrap()
+                    .0
+            } else {
+                s.body_area.unwrap()
             };
             let buffer = terminal.backend().buffer();
             let text = (area.y + 1..area.bottom() - 1)
@@ -134,7 +133,6 @@ fn first_file_reveals_its_group_heading_from_a_scrolled_viewport_in_every_scene(
     use ratatui::layout::Position;
     enum Scene {
         Files,
-        Diff,
         Workspace,
     }
     let f = support::Fixture::create();
@@ -144,14 +142,10 @@ fn first_file_reveals_its_group_heading_from_a_scrolled_viewport_in_every_scene(
         support::write(f.repo.join(format!("working-{index:02}.txt")), "working\n");
     }
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    for scene in [Scene::Files, Scene::Diff, Scene::Workspace] {
+    for scene in [Scene::Files, Scene::Workspace] {
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         match scene {
             Scene::Files => open_files(&mut s),
-            Scene::Diff => {
-                command(&mut s, "repo diff");
-                wait(&mut s);
-            }
             Scene::Workspace => {
                 key(&mut s, KeyCode::Enter);
                 wait_workspace(&mut s);
@@ -165,7 +159,6 @@ fn first_file_reveals_its_group_heading_from_a_scrolled_viewport_in_every_scene(
             for group in [Group::Staged, Group::Unstaged] {
                 let files = match &mut s.mode {
                     Mode::Files(files) => files,
-                    Mode::Changes(session) => &mut session.files,
                     _ => panic!("file panel"),
                 };
                 let first = files.entries(layout)[group.index()][0].cursor(group);
@@ -179,19 +172,6 @@ fn first_file_reveals_its_group_heading_from_a_scrolled_viewport_in_every_scene(
                 let text = render(&mut s, 160, 40);
                 let area = match scene {
                     Scene::Files => s.body_area.unwrap(),
-                    Scene::Diff => {
-                        view::changes::areas(
-                            s.body_area.unwrap(),
-                            match &s.mode {
-                                Mode::Changes(session) => session,
-                                _ => unreachable!(),
-                            },
-                        )
-                        .into_iter()
-                        .find(|(_, focus)| *focus == crate::changes::Focus::Files)
-                        .unwrap()
-                        .0
-                    }
                     Scene::Workspace => {
                         s.workspace_areas
                             .iter()

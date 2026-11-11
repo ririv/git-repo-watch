@@ -325,7 +325,8 @@ fn unavailable_commands_explain_their_condition_and_file_counts_match_the_select
     open_files(&mut s);
     wait(&mut s);
     if let Mode::Files(files) = &mut s.mode {
-        files.selected.extend([0, 1]);
+        files.mark_file(0);
+        files.mark_file(1);
     } else {
         panic!();
     }
@@ -333,10 +334,7 @@ fn unavailable_commands_explain_their_condition_and_file_counts_match_the_select
     let text = render(&mut s, 150, 28);
     assert!(text.lines().any(|line| line.contains("/repo diff stage")
         && line.contains(&i18n::tf!(CommandTargetFiles, count = 2))));
-    assert!(
-        text.lines().any(|line| line.contains("/repo diff unstage")
-            && line.contains(i18n::tr!(CommandNeedsStaged)))
-    );
+    assert!(!text.contains("/repo diff unstage "), "{text}");
     let before = support::git(&f.repo, &["diff", "--cached"]);
     key(&mut s, KeyCode::Esc);
     s.paste("//repo diff unstage");

@@ -154,6 +154,8 @@ impl Screen {
                 }
             }
 
+            Action::ChangesGroup(group) => return self.select_changes_group(group),
+
             Action::ToggleFile(index) => {
                 let files = match &mut self.mode {
                     Mode::Files(files) => files,
@@ -450,7 +452,11 @@ impl Screen {
                         _ => return false,
                     },
                     Mode::Composition(session) => session.scroll = offset,
-                    Mode::CommitMessage { scroll, .. }
+                    Mode::Confirm {
+                        operation: crate::Confirmation::DiscardFile { scroll, .. },
+                        ..
+                    }
+                    | Mode::CommitMessage { scroll, .. }
                     | Mode::PushConfirm { scroll, .. }
                     | Mode::Error { scroll, .. } => *scroll = offset,
                     Mode::Browsing if matches!(self.page, Page::Help | Page::Configuration(_)) => {

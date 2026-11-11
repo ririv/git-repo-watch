@@ -137,7 +137,7 @@ fn worktree_locates_both_stages_keeps_checked_identities_and_survives_readback()
     assert!(s.search_title().contains("2/2"));
     key(&mut s, KeyCode::Insert);
     let before = s.mode.file_session().unwrap().selection();
-    assert_eq!(before.len(), 2);
+    assert_eq!(before.len(), 1);
     let snapshot = s.service.files(&f.repo, &Cancel::default()).unwrap();
     s.merge_mutation_view(crate::mutations::readback::Readback::Files(snapshot));
     let files = s.mode.file_session().unwrap();
@@ -147,13 +147,19 @@ fn worktree_locates_both_stages_keeps_checked_identities_and_survives_readback()
     assert_eq!(files.rows().len(), count);
     key(&mut s, KeyCode::Up);
     assert!(s.search_title().contains("1/2"));
-    // Ctrl+A 仍是全部可见文件的批量选择，不被搜索导航占用。
+    // Ctrl+A 只勾选当前组的可见文件，不被搜索导航占用。
     s.key(
         KeyEvent::new(KeyCode::Char('a'), KeyModifiers::CONTROL),
         &Cancel::default(),
     )
     .unwrap();
-    assert_eq!(s.mode.file_session().unwrap().selection().len(), count);
+    let files = s.mode.file_session().unwrap();
+    assert_eq!(files.marked_changes().count(), 1);
+    assert!(
+        files
+            .marked_changes()
+            .all(|change| change.area == Area::Staged)
+    );
 }
 
 #[test]

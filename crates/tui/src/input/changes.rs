@@ -21,7 +21,7 @@ impl Screen {
                     return;
                 }
                 self.mode = match session.return_to {
-                    crate::changes::ReturnTo::Files => Mode::Files(session.files),
+                    crate::changes::ReturnTo::Files => Mode::Files(session.combined_files()),
                     crate::changes::ReturnTo::Repositories => Mode::Browsing,
                 };
                 self.sync_bar();

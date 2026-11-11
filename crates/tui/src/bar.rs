@@ -559,24 +559,12 @@ impl Screen {
                     return Ok(BarEvent::Handled);
                 }
                 KeyCode::Char('a') if matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) => {
-                    let files = match &mut self.mode {
-                        Mode::Files(files) => Some(files),
-                        Mode::Changes(session) => Some(&mut session.files),
-                        _ => None,
-                    };
-                    if let Some(s) = files {
-                        let indices = s
-                            .rows()
-                            .iter()
-                            .map(|c| s.change_index(c))
-                            .collect::<Vec<_>>();
-                        if indices.iter().all(|i| s.selected.contains(i)) {
-                            for i in indices {
-                                s.selected.remove(&i);
-                            }
-                        } else {
-                            s.selected.extend(indices)
+                    match &mut self.mode {
+                        Mode::Files(files) => files.toggle_visible_group(),
+                        Mode::Changes(session) if session.focus == crate::changes::Focus::Files => {
+                            session.files.toggle_visible_group();
                         }
+                        _ => {}
                     }
                     return Ok(BarEvent::Handled);
                 }

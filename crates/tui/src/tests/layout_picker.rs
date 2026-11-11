@@ -150,17 +150,15 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
                 "{text}"
             );
         }
-        let (_, index) = s
-            .command_items
+        let commands = s.search_commands().unwrap();
+        let index = commands
             .iter()
-            .find(|(_, index)| {
-                command::matches("repo diff ")[*index].action == Action::DiffLayoutMenu
-            })
+            .position(|command| command.action == Action::DiffLayoutMenu)
             .unwrap();
         let area = s
             .command_items
             .iter()
-            .find(|(_, candidate)| candidate == index)
+            .find(|(_, candidate)| *candidate == index)
             .unwrap()
             .0;
         s.mouse(
@@ -175,7 +173,7 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
         .unwrap();
         assert!(matches!(s.bar, InputBar::Layout { .. }));
         key(&mut s, KeyCode::Esc);
-        assert!(matches!(s.bar, InputBar::Command { selected: 2, .. }));
+        assert!(matches!(s.bar, InputBar::Command { selected, .. } if selected == index));
         key(&mut s, KeyCode::Enter);
 
         key(&mut s, KeyCode::Right);

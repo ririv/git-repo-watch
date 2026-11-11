@@ -165,7 +165,8 @@ impl Screen {
                 self.poll_changes();
             }
             Outcome::BrowserDiff { files } => {
-                self.enter_view(navigation::Content::Diff(files), origin);
+                let group = files.group();
+                self.enter_view(navigation::Content::Diff(files, group), origin);
                 if let Mode::Changes(session) = &mut self.mode {
                     session.focus = crate::changes::Focus::Preview;
                 }

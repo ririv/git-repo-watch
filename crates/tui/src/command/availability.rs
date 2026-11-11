@@ -109,23 +109,10 @@ impl Screen {
             }
             LogSelect if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),
             PartialSelectMenu | PartialSelect(_) => self.partial_target().err(),
-            DiscardFile => match (self.worktree_file_list(), selection.worktree_file()) {
-                (Some(files), Some(change))
-                    if Some(files.snapshot.path.as_path()) != path
-                        || files.current() != Some(change) =>
-                {
-                    Some(i18n::tr!(PartialChanged).into())
-                }
-                (_, Some(change)) if change.area == Area::Staged => {
-                    Some(i18n::tr!(CommandNeedsUnstaged).into())
-                }
-                (_, Some(change))
-                    if engine::local::files::discard::Action::for_change(change).is_some() =>
-                {
-                    None
-                }
-                _ => Some(i18n::tr!(DiscardFileUnsupported).into()),
-            },
+            DiscardFile => self
+                .discard_file_target(path, selection)
+                .err()
+                .map(str::to_owned),
             Discard => match self.partial_target() {
                 Err(reason) => Some(reason),
                 Ok(editing) if editing.selected().is_empty() => {
@@ -201,16 +188,26 @@ impl Screen {
                 Some(label.display().to_string())
             }
             Action::CopyPath => selection.file_target().map(|target| target.label()),
-            Action::DiscardFile => selection
-                .worktree_file()
-                .map(|change| change.location.display()),
+            Action::DiscardFile => match selection.worktree_files() {
+                [] => None,
+                [change] => Some(change.location.display()),
+                files => Some(format!(
+                    "{} · {}",
+                    i18n::tr!(ChangesUnstaged),
+                    i18n::tf!(CommandTargetFiles, count = files.len())
+                )),
+            },
             Action::StashSaveMode(crate::stash_save::Scope::Selected) => Some(i18n::tf!(
                 CommandTargetFiles,
                 count = selection.marked_file_count()
             )),
             Action::Stage | Action::Unstage => {
                 self.index_target(action).ok().map(|target| match target {
-                    IndexTarget::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
+                    IndexTarget::Files { count, group } => format!(
+                        "{} · {}",
+                        group.label(),
+                        i18n::tf!(CommandTargetFiles, count = count)
+                    ),
                     IndexTarget::Lines(count) => i18n::tf!(CommandTargetLines, count = count),
                 })
             }
@@ -282,10 +279,16 @@ impl Screen {
                 engine::local::files::IndexAction::Stage
             }));
         }
-        Ok(IndexTarget::Files(files.len()))
+        Ok(IndexTarget::Files {
+            count: files.len(),
+            group: crate::files::Group::of(files[0].area),
+        })
     }
 }
 enum IndexTarget {
-    Files(usize),
+    Files {
+        count: usize,
+        group: crate::files::Group,
+    },
     Lines(usize),
 }

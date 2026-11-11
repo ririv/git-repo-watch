@@ -160,6 +160,7 @@ enum Confirmation {
     DiscardFile {
         plan: Box<engine::local::files::discard::Plan>,
         review: String,
+        scroll: usize,
         origin: Box<Mode>,
     },
     Partial {

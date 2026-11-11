@@ -54,6 +54,7 @@ pub(crate) enum Action {
         index: usize,
         offset: usize,
     },
+    ChangesGroup(crate::files::Group),
     ToggleFile(usize),
     ToggleCommit(usize),
     ReplayControl(engine::operations::replay::Control),

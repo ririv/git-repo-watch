@@ -69,6 +69,7 @@ pub enum Message {
     DiscardFileUnsupported,
     DiscardFileRestoreReview,
     DiscardFileRemoveReview,
+    DiscardFileInterrupted,
     PartialStage,
     PartialUnstage,
     PartialHunkHint,
@@ -575,11 +576,15 @@ pub enum Message {
     LayoutCurrent,
 
     ChangesOpen,
+    ChangesOpenStaged,
+    ChangesOpenUnstaged,
     ChangesLayout,
     ChangesTitle,
     ChangesUnstaged,
     ChangesStaged,
     FileListClean,
+    ChangesNoStaged,
+    ChangesNoUnstaged,
     FileListNoMatches,
     ChangesSelectFile,
     ChangesSelectionRequired,
@@ -1489,16 +1494,18 @@ impl Message {
                 "This entry does not support whole-file discard"
             }
             (Self::DiscardFileUnsupported, Language::Chinese) => "此条目不支持整文件丢弃",
-            (Self::DiscardFileRestoreReview, Language::English) => {
-                "Restore the worktree file from the index. All unstaged changes to this file will be discarded."
-            }
-            (Self::DiscardFileRestoreReview, Language::Chinese) => {
-                "从暂存区恢复工作区文件。此文件的全部未暂存改动将被丢弃。"
-            }
+            (Self::DiscardFileRestoreReview, Language::English) => "Restore from the index",
+            (Self::DiscardFileRestoreReview, Language::Chinese) => "从暂存区恢复",
             (Self::DiscardFileRemoveReview, Language::English) => {
-                "Permanently delete this untracked file from the worktree."
+                "Permanently delete untracked files"
             }
-            (Self::DiscardFileRemoveReview, Language::Chinese) => "从工作区永久删除此未跟踪文件。",
+            (Self::DiscardFileRemoveReview, Language::Chinese) => "永久删除未跟踪文件",
+            (Self::DiscardFileInterrupted, Language::English) => {
+                "Discard stopped at {path} ({count}/{total} files completed)"
+            }
+            (Self::DiscardFileInterrupted, Language::Chinese) => {
+                "丢弃在 {path} 处中止，已处理 {count}/{total} 个文件"
+            }
             (Self::PartialStage, Language::English) => "Stage selected changes",
             (Self::PartialStage, Language::Chinese) => "暂存所选变更",
             (Self::PartialUnstage, Language::English) => "Unstage selected changes",
@@ -3086,7 +3093,11 @@ impl Message {
             (Self::LayoutCurrent, Language::Chinese) => "当前",
 
             (Self::ChangesOpen, Language::English) => "Open file changes with a live diff preview",
-            (Self::ChangesOpen, Language::Chinese) => "打开文件变更与差异预览",
+            (Self::ChangesOpen, Language::Chinese) => "打开工作区与差异预览",
+            (Self::ChangesOpenStaged, Language::Chinese) => "查看已暂存改动",
+            (Self::ChangesOpenStaged, Language::English) => "Show staged changes",
+            (Self::ChangesOpenUnstaged, Language::Chinese) => "查看未暂存改动",
+            (Self::ChangesOpenUnstaged, Language::English) => "Show unstaged changes",
             (Self::ChangesLayout, Language::English) => {
                 "Choose automatic, split or unified diff layout"
             }
@@ -3099,6 +3110,10 @@ impl Message {
             (Self::ChangesStaged, Language::Chinese) => "已暂存",
             (Self::FileListClean, Language::English) => "No working tree changes",
             (Self::FileListClean, Language::Chinese) => "工作区没有变更",
+            (Self::ChangesNoStaged, Language::Chinese) => "没有已暂存改动",
+            (Self::ChangesNoStaged, Language::English) => "No staged changes",
+            (Self::ChangesNoUnstaged, Language::Chinese) => "没有未暂存改动",
+            (Self::ChangesNoUnstaged, Language::English) => "No unstaged changes",
             (Self::FileListNoMatches, Language::English) => "No matching changed files",
             (Self::FileListNoMatches, Language::Chinese) => "没有匹配的变更文件",
             (Self::ChangesSelectFile, Language::English) => {
@@ -5593,6 +5608,12 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("Files · {count}" $(, $($args)*)?),
             $crate::Language::Chinese => format!("文件 · {count}" $(, $($args)*)?),
+        }
+    };
+    (DiscardFileInterrupted $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Discard stopped at {path} ({count}/{total} files completed)" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("丢弃在 {path} 处中止，已处理 {count}/{total} 个文件" $(, $($args)*)?),
         }
     };
     (CommandTargetFiles $(, $($args:tt)*)?) => {

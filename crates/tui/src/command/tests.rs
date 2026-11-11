@@ -11,6 +11,8 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff stage",
         "repo diff unstage",
         "repo diff layout",
+        "repo diff unstaged",
+        "repo diff staged",
         "repo diff select",
         "repo diff context",
         "repo diff header",
@@ -119,10 +121,10 @@ fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() 
             .len(),
         checks.len()
     );
-    assert_eq!(
-        &names("stage")[..2],
-        ["repo diff stage", "repo diff unstage"]
-    );
+    let staging = names("stage");
+    assert_eq!(staging[0], "repo diff stage");
+    assert!(staging.contains(&"repo diff staged"));
+    assert!(staging.contains(&"repo diff unstage"));
     assert!(names("stage").contains(&"repo commit"));
     assert_eq!(names("REPO DIFF "), names("repo diff "));
     assert!(

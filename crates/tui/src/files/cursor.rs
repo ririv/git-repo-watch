@@ -16,6 +16,19 @@ impl Group {
             Self::Unstaged
         }
     }
+    pub fn other(self) -> Self {
+        match self {
+            Self::Staged => Self::Unstaged,
+            Self::Unstaged => Self::Staged,
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Staged => i18n::tr!(ChangesStaged),
+            Self::Unstaged => i18n::tr!(ChangesUnstaged),
+        }
+    }
     pub fn index(self) -> usize {
         match self {
             Self::Staged => 0,
@@ -169,25 +182,69 @@ impl FileSession {
         }
     }
     pub fn toggle_current(&mut self) {
-        let indices = self
-            .focused_changes()
-            .into_iter()
-            .map(|change| self.change_index(change))
-            .collect::<Vec<_>>();
-        let checked = indices.iter().all(|index| self.selected.contains(index));
-        for index in indices {
-            if checked {
-                self.selected.remove(&index);
-            } else {
-                self.selected.insert(index);
-            }
+        if let Some(group) = self.group() {
+            let indices = self
+                .focused_changes()
+                .into_iter()
+                .map(|change| self.change_index(change))
+                .collect();
+            self.toggle_marks(group, indices);
         }
     }
+
+    pub fn toggle_visible_group(&mut self) {
+        if let Some(group) = self.group() {
+            let indices = self
+                .rows()
+                .into_iter()
+                .filter(|change| Group::of(change.area) == group)
+                .map(|change| self.change_index(change))
+                .collect();
+            self.toggle_marks(group, indices);
+        }
+    }
+
+    fn toggle_marks(&mut self, group: Group, indices: std::collections::BTreeSet<usize>) {
+        if indices.is_empty() {
+            return;
+        }
+        let mut marked = self
+            .selected
+            .0
+            .take()
+            .filter(|(active, _)| *active == group)
+            .map(|(_, indices)| indices)
+            .unwrap_or_default();
+        if indices.is_subset(&marked) {
+            marked.retain(|index| !indices.contains(index));
+        } else {
+            marked.extend(indices);
+        }
+        self.selected.replace(group, marked);
+    }
+
+    #[cfg(test)]
+    pub(crate) fn mark_file(&mut self, index: usize) {
+        let group = Group::of(self.snapshot.changes[index].area);
+        if !self
+            .selected
+            .indices(group)
+            .is_some_and(|marks| marks.contains(&index))
+        {
+            self.toggle_marks(group, [index].into());
+        }
+    }
+
     pub fn check_state(&self, row: &Row, rows: &[&Change]) -> CheckState {
         let checked = row
             .indices()
             .iter()
-            .filter(|index| self.selected.contains(&self.change_index(rows[**index])))
+            .filter(|index| {
+                let change = rows[**index];
+                self.selected
+                    .indices(Group::of(change.area))
+                    .is_some_and(|marked| marked.contains(&self.change_index(change)))
+            })
             .count();
         if checked == 0 {
             CheckState::Unchecked

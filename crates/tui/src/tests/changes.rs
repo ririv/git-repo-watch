@@ -19,6 +19,7 @@ fn choose(s: &mut Screen, name: &str, area: Area) {
     let Mode::Changes(session) = &mut s.mode else {
         panic!("changes workspace expected")
     };
+    session.select_group(crate::files::Group::of(area));
     session.focus = Focus::Files;
     session.files.cursor = session
         .files
@@ -63,6 +64,8 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff stage",
                 "repo diff unstage",
                 "repo diff layout",
+                "repo diff unstaged",
+                "repo diff staged",
                 "repo diff select",
                 "repo diff context",
                 "repo diff header",
@@ -110,7 +113,7 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         s.paste("//di");
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff");
-        assert_eq!(s.search_commands().unwrap().len(), 7);
+        assert_eq!(s.search_commands().unwrap().len(), 9);
         let text = render(&mut s, 180, 36);
         for command in s.search_commands().unwrap().into_iter().take(8) {
             assert!(text.contains(&format!("/{}", command.name)), "{text}");
@@ -223,7 +226,7 @@ fn combined_view_previews_exact_sides_and_keeps_selection_visible_after_navigati
 }
 
 #[test]
-fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explicit_errors() {
+fn stage_and_unstage_refresh_the_same_workspace_with_group_scoped_select_all() {
     let f = support::Fixture::create();
     support::write(f.repo.join("alpha"), "alpha");
     support::write(f.repo.join("beta"), "beta");
@@ -240,16 +243,17 @@ fn stage_and_unstage_refresh_the_same_workspace_and_mixed_selections_are_explici
     );
     assert_eq!(
         review(&s).files.current().unwrap().location.name(),
-        std::path::Path::new("alpha")
+        std::path::Path::new("beta")
     );
+    command(&mut s, "repo diff staged");
+    wait(&mut s);
     ctrl(&mut s, 'a');
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     command(&mut s, "repo diff stage");
-    assert_eq!(s.message, i18n::tr!(ChangesWrongArea));
+    assert_eq!(s.message, i18n::tr!(CommandNeedsUnstaged));
     assert!(s.repository_tasks.is_empty());
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     key(&mut s, KeyCode::Esc);
-    ctrl(&mut s, 'a');
     command(&mut s, "repo diff unstage");
     wait(&mut s);
     assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
@@ -321,7 +325,8 @@ fn completing_a_write_refreshes_only_files_and_preserves_a_new_command_draft() {
     release.send(()).unwrap();
     wait(&mut s);
     assert_eq!(s.bar.text(), "/repo diff layout sp");
-    assert_eq!(review(&s).files.rows()[0].area, Area::Staged);
+    assert!(review(&s).files.rows().is_empty());
+    choose(&mut s, "new.rs", Area::Staged);
     assert_eq!(
         review(&s).content().labels(),
         ("HEAD".into(), i18n::tr!(Index).into())
@@ -383,5 +388,174 @@ fn whole_file_discard_uses_the_highlighted_worktree_row_and_requires_confirmatio
     );
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     assert_eq!(review(&s).focus, Focus::Files);
+    s.shutdown();
+}
+
+#[test]
+fn whole_file_discard_uses_only_the_current_groups_marks() {
+    let f = support::Fixture::create();
+    f.commit("tracked.txt", "head\n");
+    support::write(f.repo.join("tracked.txt"), "index\n");
+    support::git(&f.repo, &["add", "tracked.txt"]);
+    support::write(f.repo.join("tracked.txt"), "worktree\n");
+    support::write(f.repo.join("delete.txt"), "delete\n");
+    support::write(f.repo.join("keep.txt"), "keep\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+
+    choose(&mut s, "tracked.txt", Area::Staged);
+    key(&mut s, KeyCode::Insert);
+    choose(&mut s, "keep.txt", Area::Untracked);
+    assert_eq!(review(&s).files.marked_changes().count(), 0);
+    choose(&mut s, "tracked.txt", Area::Staged);
+    assert_eq!(review(&s).files.marked_changes().count(), 1);
+
+    choose(&mut s, "delete.txt", Area::Untracked);
+    key(&mut s, KeyCode::Insert);
+    choose(&mut s, "tracked.txt", Area::Unstaged);
+    key(&mut s, KeyCode::Insert);
+    choose(&mut s, "tracked.txt", Area::Staged);
+    assert_eq!(review(&s).files.marked_changes().count(), 1);
+    command(&mut s, "repo diff discard-file");
+    assert_eq!(s.message, i18n::tr!(CommandNeedsUnstaged));
+    assert!(f.repo.join("delete.txt").exists());
+    key(&mut s, KeyCode::Esc);
+
+    choose(&mut s, "keep.txt", Area::Untracked);
+    command(&mut s, "repo diff discard-file");
+    wait(&mut s);
+
+    let Mode::Confirm {
+        operation: Confirmation::DiscardFile { review, .. },
+        choice: crate::confirmation::Choice::Return,
+    } = &s.mode
+    else {
+        panic!("batch confirmation expected: {:?}", s.mode);
+    };
+    assert!(review.contains(i18n::tr!(DiscardFileRestoreReview)));
+    assert!(review.contains(i18n::tr!(DiscardFileRemoveReview)));
+    assert!(review.contains("tracked.txt"));
+    assert!(review.contains("delete.txt"));
+    assert!(!review.contains("keep.txt"));
+
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("tracked.txt")).unwrap(),
+        "index\n"
+    );
+    assert!(!f.repo.join("delete.txt").exists());
+    assert!(f.repo.join("keep.txt").exists());
+    s.shutdown();
+}
+
+#[test]
+fn worktree_subviews_keep_their_marks_cursor_and_scroll_when_switching() {
+    use crate::{
+        files::Group,
+        navigation::breadcrumbs::{Destination, Level},
+        pointer::{Action, Hit},
+    };
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Position;
+    use std::path::Path;
+
+    let f = support::Fixture::create();
+    for prefix in ["staged", "worktree"] {
+        for number in 0..32 {
+            support::write(f.repo.join(format!("{prefix}-{number:02}.txt")), prefix);
+        }
+        if prefix == "staged" {
+            support::git(&f.repo, &["add", "."]);
+        }
+    }
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff staged");
+    wait(&mut s);
+    assert_eq!(review(&s).active_group(), Group::Staged);
+    assert_eq!(review(&s).files.rows().len(), 32);
+    assert!(
+        review(&s)
+            .files
+            .rows()
+            .iter()
+            .all(|change| change.area == Area::Staged)
+    );
+    assert!(
+        s.breadcrumbs()
+            .last()
+            .is_some_and(|crumb| crumb.label == Group::Staged.label())
+    );
+    key(&mut s, KeyCode::End);
+    key(&mut s, KeyCode::Insert);
+    render(&mut s, 150, 26);
+    let staged_offset = review(&s).files.offset;
+    let history_depth = s.history.len();
+    assert!(staged_offset > 0);
+
+    let tab = (0..26)
+        .flat_map(|row| (0..42).map(move |col| Position::new(col, row)))
+        .find(|point| {
+            s.pointer.hit(*point) == Some(Hit::Button(Action::ChangesGroup(Group::Unstaged)))
+        })
+        .expect("unstaged tab");
+    s.mouse(
+        MouseEvent {
+            kind: MouseEventKind::Down(MouseButton::Left),
+            column: tab.x,
+            row: tab.y,
+            modifiers: KeyModifiers::NONE,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    wait(&mut s);
+    assert_eq!(review(&s).active_group(), Group::Unstaged);
+    assert_eq!(review(&s).files.offset, 0);
+    assert_eq!(review(&s).files.marked_changes().count(), 0);
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Insert);
+
+    command(&mut s, "repo diff staged");
+    wait(&mut s);
+    assert_eq!(s.history.len(), history_depth);
+    assert_eq!(review(&s).files.offset, staged_offset);
+    assert_eq!(
+        review(&s).files.current().unwrap().location.name(),
+        Path::new("staged-31.txt")
+    );
+    assert_eq!(
+        review(&s)
+            .files
+            .marked_changes()
+            .next()
+            .unwrap()
+            .location
+            .name(),
+        Path::new("staged-31.txt")
+    );
+    command(&mut s, "repo diff unstaged");
+    wait(&mut s);
+    assert_eq!(
+        review(&s).files.current().unwrap().location.name(),
+        Path::new("worktree-01.txt")
+    );
+    assert_eq!(
+        review(&s)
+            .files
+            .marked_changes()
+            .next()
+            .unwrap()
+            .location
+            .name(),
+        Path::new("worktree-01.txt")
+    );
+
+    s.follow_breadcrumb(Destination::Current(Level::ChangesParent));
+    wait_workspace(&mut s);
+    assert_eq!(s.page, Page::Detail);
+    assert_eq!(s.mode.file_session().unwrap().rows().len(), 64);
     s.shutdown();
 }

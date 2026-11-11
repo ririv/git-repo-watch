@@ -50,6 +50,7 @@ pub enum Action {
     Discard,
     DiscardFile,
     Diff,
+    DiffGroup(crate::files::Group),
     ConflictMenu,
     ConflictView(crate::conflict::DisplayMode),
     BrowseFiles,
@@ -238,6 +239,16 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff layout",
         action: DiffLayoutMenu,
         description: i18n::Message::ChangesLayout,
+    },
+    Command {
+        name: "repo diff unstaged",
+        action: DiffGroup(crate::files::Group::Unstaged),
+        description: i18n::Message::ChangesOpenUnstaged,
+    },
+    Command {
+        name: "repo diff staged",
+        action: DiffGroup(crate::files::Group::Staged),
+        description: i18n::Message::ChangesOpenStaged,
     },
     Command {
         name: "repo diff select",

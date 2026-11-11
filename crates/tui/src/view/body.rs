@@ -157,9 +157,18 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             ..
         } => {
             let text = match confirmation {
-                Confirmation::DiscardFile { review, .. } | Confirmation::Partial { review, .. } => {
-                    review.clone()
+                Confirmation::DiscardFile { review, scroll, .. } => {
+                    text_view(
+                        frame,
+                        area,
+                        review,
+                        scroll,
+                        i18n::tr!(ConfirmOperation),
+                        &mut screen.pointer,
+                    );
+                    return;
                 }
+                Confirmation::Partial { review, .. } => review.clone(),
                 Confirmation::Schedule(operation) => match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnableConfirmation),
                     engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisableConfirmation),

@@ -531,7 +531,7 @@ impl Screen {
         ) && !matches!(
             self.mode,
             Mode::Confirm {
-                operation: Confirmation::ReplayParents { .. },
+                operation: Confirmation::ReplayParents { .. } | Confirmation::DiscardFile { .. },
                 ..
             }
         ) {

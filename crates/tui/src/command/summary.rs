@@ -31,6 +31,8 @@ impl Command {
             Action::Stage => Summary::Stage,
             Action::Unstage => Summary::Unstage,
             Action::Diff => Summary::Diff,
+            Action::DiffGroup(crate::files::Group::Unstaged) => Summary::DiffUnstaged,
+            Action::DiffGroup(crate::files::Group::Staged) => Summary::DiffStaged,
             Action::BrowseFiles => Summary::BrowseFiles,
             Action::BrowserDiff => Summary::BrowserDiff,
             Action::BrowserLayoutMenu | Action::BrowserLayout(_) => Summary::BrowserLayout,

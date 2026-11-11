@@ -20,10 +20,11 @@ pub(super) fn render(
     if rows.is_empty() {
         session.offset = 0;
         frame.render_widget(
-            Paragraph::new(if session.snapshot.changes.is_empty() {
-                i18n::tr!(FileListClean)
-            } else {
-                i18n::tr!(FileListNoMatches)
+            Paragraph::new(match (session.has_changes(), session.scope()) {
+                (true, _) => i18n::tr!(FileListNoMatches),
+                (false, Some(Group::Staged)) => i18n::tr!(ChangesNoStaged),
+                (false, Some(Group::Unstaged)) => i18n::tr!(ChangesNoUnstaged),
+                (false, None) => i18n::tr!(FileListClean),
             })
             .style(Style::default().fg(MUTED)),
             inner,

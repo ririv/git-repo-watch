@@ -179,11 +179,11 @@ impl Service {
     pub fn prepare_discard_file(
         &self,
         snapshot: Files,
-        change: &Change,
+        changes: &[Change],
         cancel: &Cancel,
     ) -> Result<files::discard::Plan> {
         let _lock = self.repository_lock(&snapshot.path, cancel)?;
-        files::discard::Plan::prepare(snapshot, change, cancel)
+        files::discard::Plan::prepare(snapshot, changes, cancel)
     }
     pub fn discard_file(&self, plan: &files::discard::Plan, cancel: &Cancel) -> Result<Files> {
         let path = plan.repository();

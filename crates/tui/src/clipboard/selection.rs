@@ -141,7 +141,7 @@ pub(crate) enum Selection {
         content: Content,
         marked: Vec<engine::local::files::Location>,
         diff_selection: Option<changes::SelectionKey>,
-        worktree_file: Option<engine::local::files::Change>,
+        worktree_files: Vec<engine::local::files::Change>,
     },
     HistoricalDiff {
         content: Content,
@@ -156,10 +156,10 @@ pub(crate) enum Selection {
     Error(Content),
 }
 impl Selection {
-    pub fn worktree_file(&self) -> Option<&engine::local::files::Change> {
+    pub fn worktree_files(&self) -> &[engine::local::files::Change] {
         match self {
-            Self::Diff { worktree_file, .. } => worktree_file.as_ref(),
-            _ => None,
+            Self::Diff { worktree_files, .. } => worktree_files,
+            _ => &[],
         }
     }
 
@@ -383,15 +383,14 @@ impl Screen {
                 content: file_paths(files),
                 marked: marked_paths(files),
                 diff_selection: None,
-                worktree_file: files.current().cloned(),
+                worktree_files: files.discard_selection(),
             },
             Mode::Changes(session) => Selection::Diff {
                 working: session.files.working_target(),
                 marked: marked_paths(&session.files),
-                worktree_file: self
+                worktree_files: self
                     .worktree_file_list()
-                    .and_then(|files| files.current())
-                    .cloned(),
+                    .map_or_else(Vec::new, crate::FileSession::discard_selection),
                 diff_selection: if session.focus == changes::Focus::Preview {
                     session.selection_key()
                 } else {
@@ -471,7 +470,7 @@ impl Screen {
                 match section {
                     workspace::Section::Worktree => Selection::Diff {
                         diff_selection: None,
-                        worktree_file: None,
+                        worktree_files: Vec::new(),
                         working: match &session.files {
                             workspace::Panel::Ready(files) => files.working_target(),
                             _ => None,
@@ -573,11 +572,7 @@ fn log(session: &history::Session) -> Selection {
 
 fn marked_paths(files: &crate::FileSession) -> Vec<engine::local::files::Location> {
     files
-        .snapshot
-        .changes
-        .iter()
-        .enumerate()
-        .filter(|(index, _)| files.selected.contains(index))
-        .map(|(_, change)| change.location.clone())
+        .all_marked_changes()
+        .map(|change| change.location.clone())
         .collect()
 }

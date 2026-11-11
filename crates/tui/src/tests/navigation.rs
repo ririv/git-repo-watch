@@ -249,6 +249,9 @@ fn background_index_updates_reach_a_saved_view_without_replacing_settings() {
     assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.page, Page::View(crate::navigation::View::Diff));
+    assert!(s.mode.file_session().unwrap().rows().is_empty());
+    command(&mut s, "repo diff staged");
+    wait(&mut s);
     let files = s.mode.file_session().unwrap();
     assert!(files.rows().iter().any(|row| row.area == Area::Staged));
     assert!(s.repository_tasks.is_empty());

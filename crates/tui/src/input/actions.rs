@@ -305,6 +305,13 @@ impl Screen {
                     self.message = i18n::tr!(SelectARepositoryFirst).into();
                 }
             }
+            Action::DiffGroup(group) => {
+                if let Some(path) = path {
+                    self.open_changes_group(path, group);
+                } else {
+                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                }
+            }
             Action::Commit | Action::CommitGenerate | Action::Push => {
                 if let Some(path) = path {
                     if matches!(action, Action::Commit | Action::CommitGenerate) {
@@ -483,9 +490,11 @@ impl Screen {
         let Some(files) = self.mode.file_session().cloned() else {
             return;
         };
+        let group = files.group();
         self.mode = Mode::Changes(Box::new(crate::changes::Session::new(
             files,
             crate::changes::ReturnTo::Files,
+            group,
         )));
         self.poll_changes();
         self.sync_bar();

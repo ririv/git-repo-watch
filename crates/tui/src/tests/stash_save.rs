@@ -13,7 +13,7 @@ fn mark(screen: &mut Screen, name: &str) {
         .iter()
         .position(|change| change.location.name() == std::path::Path::new(name))
         .unwrap();
-    session.files.selected.insert(index);
+    session.files.mark_file(index);
 }
 fn review(screen: &Screen) -> &crate::stash_save::Session {
     let Mode::StashSave(session) = &screen.mode else {

@@ -577,43 +577,35 @@ fn file_checkboxes_toggle_filtered_staged_and_unstaged_rows_without_entering_or_
     command(&mut s, "repo diff");
     wait(&mut s);
     s.paste("a.txt");
-    for width in [60, 160] {
+    for (width, group, view) in [
+        (60, Area::Unstaged, "repo diff unstaged"),
+        (160, Area::Staged, "repo diff staged"),
+    ] {
+        command(&mut s, view);
+        wait(&mut s);
         render(&mut s, width, 32);
-        let points = (0..32)
+        let point = (0..32)
             .flat_map(|y| (0..width).map(move |x| Position::new(x, y)))
-            .filter_map(|point| match s.pointer.hit(point) {
-                Some(crate::pointer::Hit::FileCheckbox(row)) => Some((row, point)),
-                _ => None,
+            .find(|point| {
+                matches!(
+                    s.pointer.hit(*point),
+                    Some(crate::pointer::Hit::FileCheckbox(_))
+                )
             })
-            .collect::<std::collections::BTreeMap<_, _>>();
-        assert_eq!(points.len(), 2);
-        for point in points.values() {
-            click(&mut s, point.x, point.y);
-            render(&mut s, width, 32);
-        }
+            .expect("visible checkbox");
+        click(&mut s, point.x, point.y);
         let Mode::Changes(session) = &s.mode else {
             panic!("changes");
         };
-        assert_eq!(session.files.selected.len(), 2);
-        assert_eq!(session.focus, crate::changes::Focus::Files);
-        for point in points.values() {
-            click(&mut s, point.x, point.y);
-            click(&mut s, point.x, point.y);
-        }
-        let Mode::Changes(session) = &s.mode else {
-            panic!("changes");
-        };
-        assert_eq!(session.files.selected.len(), 2);
+        assert_eq!(session.files.selected.len(), 1);
+        assert_eq!(session.files.marked_changes().next().unwrap().area, group);
         assert_eq!(session.focus, crate::changes::Focus::Files);
         s.config.mouse.precise_click = false;
-        for point in points.values() {
-            click(&mut s, point.x, point.y);
-        }
-        assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
+        click(&mut s, point.x, point.y);
+        assert_eq!(s.mode.file_session().unwrap().selected.len(), 1);
         s.config.mouse.precise_click = true;
-        for point in points.values() {
-            click(&mut s, point.x, point.y);
-        }
+        render(&mut s, width, 32);
+        click(&mut s, point.x, point.y);
         assert!(s.mode.file_session().unwrap().selected.is_empty());
     }
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);

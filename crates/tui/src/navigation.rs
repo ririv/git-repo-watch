@@ -1,7 +1,8 @@
 //! View entry points own navigation; command context follows the focused content.
 pub(crate) mod breadcrumbs;
 use crate::{
-    Effect, FileSession, Mode, Outcome, Page, Screen, branches, changes, history, stashes,
+    Effect, FileSession, Mode, Outcome, Page, Screen, branches, changes, files::Group, history,
+    stashes,
 };
 use std::path::PathBuf;
 
@@ -16,7 +17,7 @@ pub(crate) enum View {
 impl View {
     pub fn title(self) -> &'static str {
         match self {
-            Self::Diff => i18n::tr!(ChangesTitle),
+            Self::Diff => i18n::tr!(Worktree),
             Self::History => i18n::tr!(HistoryTitle),
             Self::Branches => i18n::tr!(BranchTitle),
             Self::Stashes => i18n::tr!(StashTitle),
@@ -26,7 +27,7 @@ impl View {
 }
 #[derive(Debug)]
 pub(crate) enum Content {
-    Diff(FileSession),
+    Diff(FileSession, Option<Group>),
     History(history::Session),
     Branches(branches::Session),
     Stashes(stashes::Session),
@@ -35,7 +36,7 @@ pub(crate) enum Content {
 impl Content {
     fn view(&self) -> View {
         match self {
-            Self::Diff(_) => View::Diff,
+            Self::Diff(..) => View::Diff,
             Self::History(_) => View::History,
             Self::Branches(_) => View::Branches,
             Self::Stashes(_) => View::Stashes,
@@ -44,9 +45,10 @@ impl Content {
     }
     fn into_mode(self) -> Mode {
         match self {
-            Self::Diff(files) => Mode::Changes(Box::new(changes::Session::new(
+            Self::Diff(files, group) => Mode::Changes(Box::new(changes::Session::new(
                 files,
                 changes::ReturnTo::Repositories,
+                group,
             ))),
             Self::History(session) => Mode::History(Box::new(history::View::Graph(session))),
             Self::Branches(session) => Mode::Branches(Box::new(branches::View::List(session))),
@@ -167,6 +169,39 @@ impl Screen {
         self.sync_bar();
     }
     pub(crate) fn open_view(&mut self, view: View, path: PathBuf) {
+        self.open_view_target(view, path, None);
+    }
+
+    pub(crate) fn open_changes_group(&mut self, path: PathBuf, group: Group) {
+        if matches!(&self.mode, Mode::Changes(session) if session.files.snapshot.path == path) {
+            self.select_changes_group(group);
+        } else {
+            self.open_view_target(View::Diff, path, Some(group));
+        }
+    }
+
+    fn open_changes_parent(&mut self) {
+        let Mode::Changes(session) = &self.mode else {
+            return;
+        };
+        let files = session.combined_files();
+        let path = files.snapshot.path.clone();
+        if self.history.last().is_some_and(|visit| {
+            visit.page == Page::Detail && visit.repository.as_ref() == Some(&path)
+        }) {
+            self.return_to_view();
+        } else {
+            self.focus(Some(path.clone()));
+            self.page = Page::Detail;
+            self.mode = Mode::Browsing;
+            self.scroll = 0;
+            self.enter_repository(path);
+            self.workspace.save(Mode::Files(files));
+        }
+        self.switch_repository_section(crate::workspace::Section::Worktree);
+    }
+
+    fn open_view_target(&mut self, view: View, path: PathBuf, group: Option<Group>) {
         if self.page == Page::View(view) && self.scope_path().as_ref() == Some(&path) {
             let at_root = match (&self.mode, view) {
                 (Mode::Changes(_), View::Diff) => true,
@@ -198,10 +233,13 @@ impl Screen {
         // 从当前焦点进入完整视图时复用选择和搜索，布局由入口单独决定。
         let cached = match (&self.mode, view) {
             (Mode::Files(session), View::Diff) if session.snapshot.path == path => {
-                Some(Content::Diff(session.clone()))
+                Some(Content::Diff(session.clone(), group))
             }
             (Mode::Changes(session), View::Diff) if session.files.snapshot.path == path => {
-                Some(Content::Diff(session.files.clone()))
+                Some(Content::Diff(
+                    session.combined_files(),
+                    group.or(Some(session.active_group())),
+                ))
             }
             (Mode::History(current), View::History)
                 if current.session().references.path == path =>
@@ -225,7 +263,9 @@ impl Screen {
             let session = self.workspace.session()?;
             match view {
                 View::Diff => match &session.files {
-                    crate::workspace::Panel::Ready(files) => Some(Content::Diff(files.clone())),
+                    crate::workspace::Panel::Ready(files) => {
+                        Some(Content::Diff(files.clone(), group))
+                    }
                     _ => None,
                 },
                 View::History => match &session.history {
@@ -252,7 +292,9 @@ impl Screen {
             Effect::ReadOnly,
             move |service, cancel, _| {
                 let content = match view {
-                    View::Diff => Content::Diff(FileSession::new(service.files(&path, &cancel)?)),
+                    View::Diff => {
+                        Content::Diff(FileSession::new(service.files(&path, &cancel)?), group)
+                    }
                     View::History => Content::History(history::Session::new(
                         service.history(&path, engine::local::history::Request::Start, &cancel)?,
                         &cancel,

@@ -415,6 +415,10 @@ impl Screen {
                     KeyCode::Esc => confirmation::Input::Return,
                     _ => confirmation::Input::Pending,
                 },
+                Confirmation::DiscardFile { scroll, .. } => {
+                    scroll_key(scroll, key);
+                    choice.input(key.code)
+                }
                 _ => choice.input(key.code),
             } {
                 confirmation::Input::Execute => self.confirm(operation),

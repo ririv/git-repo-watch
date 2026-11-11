@@ -28,12 +28,44 @@ impl Layout {
 }
 use std::collections::BTreeSet;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(super) struct Marks(Option<(Group, BTreeSet<usize>)>);
+
+impl Marks {
+    fn indices(&self, group: Group) -> Option<&BTreeSet<usize>> {
+        self.0
+            .as_ref()
+            .filter(|(active, _)| *active == group)
+            .map(|(_, indices)| indices)
+    }
+
+    fn replace(&mut self, group: Group, indices: BTreeSet<usize>) {
+        self.0 = (!indices.is_empty()).then_some((group, indices));
+    }
+
+    #[cfg(test)]
+    pub fn clear(&mut self) {
+        self.0 = None;
+    }
+
+    #[cfg(test)]
+    pub fn len(&self) -> usize {
+        self.0.as_ref().map_or(0, |(_, indices)| indices.len())
+    }
+
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.0.is_none()
+    }
+}
+
 #[derive(Debug, Clone)]
 pub(super) struct FileSession {
     pub snapshot: Files,
+    scope: Option<Group>,
     pub cursor: Cursor,
     pub offset: usize,
-    pub selected: BTreeSet<usize>,
+    pub selected: Marks,
     pub query: String,
     pub recovery: crate::replay::controls::Focus,
     pub search_mode: crate::search::Mode,
@@ -59,9 +91,10 @@ impl FileSession {
         };
         Self {
             snapshot,
+            scope: None,
             cursor,
             offset: 0,
-            selected: BTreeSet::new(),
+            selected: Marks::default(),
             query: String::new(),
             recovery: Default::default(),
             search_mode: Default::default(),
@@ -72,15 +105,8 @@ impl FileSession {
         let current = self
             .current()
             .map(|change| (change.area, change.location.clone()));
-        let selected = self
-            .snapshot
-            .changes
-            .iter()
-            .enumerate()
-            .filter(|(index, _)| self.selected.contains(index))
-            .map(|(_, change)| (change.area, change.location.clone()))
-            .collect::<Vec<_>>();
         let mut next = Self::new(snapshot);
+        next.scope = self.scope;
         next.recovery = self.recovery.refreshed(
             &self.snapshot.operation.state,
             &next.snapshot.operation.state,
@@ -93,18 +119,26 @@ impl FileSession {
         if next.rows().is_empty() {
             next.cursor = Cursor::Empty;
         }
-        next.selected = next
-            .snapshot
-            .changes
-            .iter()
-            .enumerate()
-            .filter(|(_, change)| {
-                selected
+        if let Some((group, indices)) = &self.selected.0 {
+            let selected = indices
+                .iter()
+                .map(|index| &self.snapshot.changes[*index])
+                .collect::<Vec<_>>();
+            next.selected.replace(
+                *group,
+                next.snapshot
+                    .changes
                     .iter()
-                    .any(|(area, location)| *area == change.area && *location == change.location)
-            })
-            .map(|(index, _)| index)
-            .collect();
+                    .enumerate()
+                    .filter(|(_, change)| {
+                        selected
+                            .iter()
+                            .any(|old| old.area == change.area && old.location == change.location)
+                    })
+                    .map(|(index, _)| index)
+                    .collect(),
+            );
+        }
         next.cursor = current
             .and_then(|(area, location)| {
                 next.rows()
@@ -138,12 +172,59 @@ impl FileSession {
         }
         next
     }
+    pub fn scope(&self) -> Option<Group> {
+        self.scope
+    }
+
+    pub fn with_scope(mut self, scope: Option<Group>) -> Self {
+        if self.scope == scope {
+            return self;
+        }
+        let current = self.current().cloned();
+        let previous = self.cursor.clone();
+        self.scope = scope;
+        if let Some(group) = scope
+            && self
+                .selected
+                .0
+                .as_ref()
+                .is_some_and(|(marked, _)| *marked != group)
+        {
+            self.selected = Marks::default();
+        }
+        let rows = self.rows();
+        self.cursor = if rows.is_empty() {
+            Cursor::Empty
+        } else if matches!(&previous, Cursor::Directory { group, .. } if scope.is_none_or(|scope| scope == *group))
+        {
+            previous
+        } else {
+            Cursor::File(
+                current
+                    .and_then(|change| rows.iter().position(|row| **row == change))
+                    .unwrap_or(0),
+            )
+        };
+        self
+    }
+
+    pub fn has_changes(&self) -> bool {
+        self.snapshot.changes.iter().any(|change| {
+            self.scope
+                .is_none_or(|group| Group::of(change.area) == group)
+        })
+    }
+
     pub fn rows(&self) -> Vec<&Change> {
         let mut rows = self
             .snapshot
             .changes
             .iter()
-            .filter(|change| self.search_mode.includes(self.matches_change(change)))
+            .filter(|change| {
+                self.scope
+                    .is_none_or(|group| Group::of(change.area) == group)
+                    && self.search_mode.includes(self.matches_change(change))
+            })
             .collect::<Vec<_>>();
         rows.sort_by(|a, b| {
             (a.area != Area::Staged)
@@ -216,17 +297,36 @@ impl FileSession {
             .position(|c| c == change)
             .expect("visible change belongs to snapshot")
     }
-    pub fn selection(&self) -> Vec<Change> {
-        if self.selected.is_empty() {
-            self.focused_changes().into_iter().cloned().collect()
+    pub fn all_marked_changes(&self) -> impl Iterator<Item = &Change> {
+        self.selected
+            .0
+            .as_ref()
+            .into_iter()
+            .flat_map(|(_, indices)| indices)
+            .map(|index| &self.snapshot.changes[*index])
+    }
+
+    pub fn marked_changes(&self) -> impl Iterator<Item = &Change> {
+        let group = self.group();
+        self.all_marked_changes()
+            .filter(move |change| Some(Group::of(change.area)) == group)
+    }
+
+    pub fn discard_selection(&self) -> Vec<Change> {
+        let mut marked = self.marked_changes().peekable();
+        if marked.peek().is_some() {
+            marked.cloned().collect()
         } else {
-            self.snapshot
-                .changes
-                .iter()
-                .enumerate()
-                .filter(|(i, _)| self.selected.contains(i))
-                .map(|(_, c)| c.clone())
-                .collect()
+            self.current().cloned().into_iter().collect()
+        }
+    }
+
+    pub fn selection(&self) -> Vec<Change> {
+        let mut marked = self.marked_changes().peekable();
+        if marked.peek().is_some() {
+            marked.cloned().collect()
+        } else {
+            self.focused_changes().into_iter().cloned().collect()
         }
     }
 }

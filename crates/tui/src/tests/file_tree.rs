@@ -130,6 +130,9 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         click(&mut s, checkbox);
         assert!(s.mode.file_session().unwrap().selected.is_empty());
         render(&mut s, 160, 40);
+        command(&mut s, "repo diff staged");
+        wait(&mut s);
+        render(&mut s, 160, 40);
         let staged = checkbox_point(&s, directory_id(&s, Group::Staged));
         click(&mut s, staged);
         assert!(
@@ -248,15 +251,13 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
                 }
             }
         }
-        assert_eq!(points.len(), 3);
-        for index in [0, 2] {
-            let point = points[&index];
-            click(&mut s, point);
-        }
+        assert_eq!(points.len(), 2);
+        let point = points[&0];
+        click(&mut s, point);
         let files = s.mode.file_session().unwrap();
         let selected = files.selection();
-        assert_eq!(selected.len(), 2);
-        assert_ne!(selected[0].area, selected[1].area);
+        assert_eq!(selected.len(), 1);
+        assert_ne!(selected[0].area, Area::Staged);
         let current = files.current().unwrap().clone();
         command(&mut s, "repo diff view");
         let commands = s.search_commands().unwrap();
@@ -274,10 +275,13 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         command(&mut s, "repo diff view tree");
         render(&mut s, 160, 40);
         assert_eq!(s.mode.file_session().unwrap().selection(), selected);
-        assert!(matches!(
-            s.pointer.hit(Position::new(12, 3)),
+        let area = s.body_area.unwrap();
+        assert!((area.y..area.bottom()).any(|row| matches!(
+            s.pointer.hit(Position::new(area.x + 12, row)),
             Some(Hit::Item(crate::pointer::Target::Files, 0))
-        ));
+        )));
+        command(&mut s, "repo diff staged");
+        wait(&mut s);
         key(&mut s, KeyCode::Home);
         assert!(matches!(
             s.mode.file_session().unwrap().cursor,
@@ -359,7 +363,7 @@ fn tree_scrollbar_drag_uses_one_viewport_for_projected_rows() {
         render(&mut s, 160, 32);
         let files = s.mode.file_session().unwrap();
         if expect_bottom {
-            assert!(files.offset > 30);
+            assert!(files.offset > 0);
         } else {
             assert_eq!(files.offset, 0);
         }

@@ -48,7 +48,9 @@ fn worktree_folding_keyboard_preserves_hidden_checks_and_group_navigation() {
         key(&mut s, KeyCode::Enter);
         let files = s.mode.file_session().unwrap();
         assert_eq!(expansion(files, Group::Unstaged), Collapsed);
-        assert_eq!(expansion(files, Group::Staged), Expanded);
+        if !combined {
+            assert_eq!(expansion(files, Group::Staged), Expanded);
+        }
         assert_eq!(
             files.entries(Layout::Tree).map(|rows| rows.len()),
             [counts[0], counts[1] - 2]
@@ -60,12 +62,23 @@ fn worktree_folding_keyboard_preserves_hidden_checks_and_group_navigation() {
             .position(|row| row.cursor(Group::Unstaged) == files.cursor)
             .unwrap()
             + 1;
-        for _ in 0..steps {
-            key(&mut s, KeyCode::Up);
-        }
-        assert_eq!(s.mode.file_session().unwrap().group(), Some(Group::Staged));
-        for _ in 0..steps {
-            key(&mut s, KeyCode::Down);
+        if combined {
+            command(&mut s, "repo diff staged");
+            wait(&mut s);
+            assert_eq!(
+                expansion(s.mode.file_session().unwrap(), Group::Staged),
+                Expanded
+            );
+            command(&mut s, "repo diff unstaged");
+            wait(&mut s);
+        } else {
+            for _ in 0..steps {
+                key(&mut s, KeyCode::Up);
+            }
+            assert_eq!(s.mode.file_session().unwrap().group(), Some(Group::Staged));
+            for _ in 0..steps {
+                key(&mut s, KeyCode::Down);
+            }
         }
         assert_eq!(
             s.mode.file_session().unwrap().cursor,
@@ -149,7 +162,7 @@ fn worktree_search_reveals_matches_and_restores_browsing_folds() {
         expansion(s.mode.file_session().unwrap(), Group::Unstaged),
         Expanded
     );
-    assert_eq!(s.mode.file_session().unwrap().rows().len(), 2);
+    assert_eq!(s.mode.file_session().unwrap().rows().len(), 1);
     key(&mut s, KeyCode::Esc);
     render(&mut s, 160, 40);
     assert_eq!(

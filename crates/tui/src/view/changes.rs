@@ -39,8 +39,7 @@ pub(super) fn render(
         let mut outline = true;
         match focus {
             Focus::Files => {
-                let title = name(&session.files.snapshot.path);
-                files::render(frame, area, &mut session.files, &title, files_options, hits);
+                files::render(frame, area, &mut session.files, "", files_options, hits);
             }
             Focus::Preview => {
                 let mut retained_hits = crate::pointer::Map::default();
@@ -102,5 +101,48 @@ pub(super) fn render(
         if outline && focus == session.focus && session.files.recovery.selected().is_none() {
             highlight_border(frame, area);
         }
+        if focus == Focus::Files && area.width >= 4 && area.height >= 1 {
+            groups(
+                frame,
+                Rect::new(area.x + 1, area.y, area.width - 2, 1),
+                session,
+                hits,
+            );
+        }
+    }
+}
+
+fn groups(frame: &mut Frame, area: Rect, session: &Session, hits: &mut crate::pointer::Map) {
+    use crate::files::Group;
+    let cells = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
+    let counts = session
+        .files
+        .snapshot
+        .changes
+        .iter()
+        .fold([0usize; 2], |mut counts, change| {
+            counts[Group::of(change.area).index()] += 1;
+            counts
+        });
+    for (group, cell) in [Group::Unstaged, Group::Staged]
+        .into_iter()
+        .zip(cells.iter())
+    {
+        let style = if group == session.active_group() {
+            Style::default()
+                .fg(ACCENT)
+                .bg(crate::appearance::SELECTION)
+                .bold()
+        } else {
+            Style::default().fg(MUTED)
+        };
+        let label = format!("{} · {}", group.label(), counts[group.index()]);
+        frame.render_widget(
+            Paragraph::new(label)
+                .alignment(ratatui::layout::Alignment::Center)
+                .style(style),
+            *cell,
+        );
+        hits.button(*cell, crate::pointer::Action::ChangesGroup(group));
     }
 }

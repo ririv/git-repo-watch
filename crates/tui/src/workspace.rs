@@ -174,7 +174,7 @@ impl Workspace {
                 session.files = Panel::Ready(files)
             }
             Mode::Changes(view) if view.files.snapshot.path == session.path => {
-                session.files = Panel::Ready(view.files)
+                session.files = Panel::Ready(view.combined_files())
             }
             Mode::History(view) if view.session().references.path == session.path => {
                 session.history = Panel::Ready(view.session().clone())
@@ -329,7 +329,7 @@ impl Screen {
                     {
                         if let Mode::Changes(current) = &mut self.mode {
                             current.refreshed(files.snapshot);
-                            session.files = Panel::Ready(current.files.clone());
+                            session.files = Panel::Ready(current.combined_files());
                         }
                     }
                     Ok(mut files)

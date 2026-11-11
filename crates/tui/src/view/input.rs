@@ -571,7 +571,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         _ => i18n::tr!(ActionCancel),
                     },
                 },
-                i18n::tr!(ConfirmSelectHint),
+                if matches!(operation, Confirmation::DiscardFile { .. }) {
+                    i18n::tr!(ConfirmReviewHint)
+                } else {
+                    i18n::tr!(ConfirmSelectHint)
+                },
             ),
             Mode::PushTarget(session) => (
                 i18n::tr!(PushTargetBranch),

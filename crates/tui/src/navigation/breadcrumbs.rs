@@ -11,6 +11,7 @@ pub(crate) enum Level {
     Repository,
     Pane(crate::workspace::Section),
     History,
+    ChangesParent,
     Commit,
     Branches,
     Stashes,
@@ -76,6 +77,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level, 
                 View::History => Level::History,
                 View::Branches => Level::Branches,
                 View::Stashes => Level::Stashes,
+                View::Diff if matches!(mode, Mode::Changes(_)) => Level::ChangesParent,
                 View::Diff | View::Files => Level::PageRoot,
             },
         ),
@@ -146,9 +148,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level, 
                 }
             }
         }
-        Mode::Changes(_) if !matches!(page, Page::View(View::Diff)) => {
-            push(i18n::tr!(ChangesTitle).into(), Level::Page)
-        }
+        Mode::Changes(session) => push(session.active_group().label().into(), Level::Page),
         Mode::Composition(_) | Mode::CompositionWaiting(_) => {
             entries.push((
                 i18n::tr!(ComposeTitle).into(),
@@ -206,6 +206,16 @@ impl Screen {
             }
             if matches!(page, Page::Detail | Page::View(_)) {
                 previous_repository = path;
+            }
+            if page == Page::View(View::Diff)
+                && parts
+                    .first()
+                    .is_some_and(|(label, _, _)| label == i18n::tr!(Worktree))
+                && trail
+                    .last()
+                    .is_some_and(|crumb| crumb.label == i18n::tr!(Worktree))
+            {
+                parts.remove(0);
             }
             let count = parts.len();
             for (position, (label, level, maturity)) in parts.into_iter().enumerate() {

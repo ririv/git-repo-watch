@@ -3,7 +3,9 @@ mod discard;
 pub(crate) mod edit;
 mod load;
 mod partial;
-use crate::{FileSession, Mode, Screen, Service, document, spinner, workspace::Arrangement};
+use crate::{
+    FileSession, Mode, Screen, Service, document, files::Group, spinner, workspace::Arrangement,
+};
 use engine::local::files::{Change, Files};
 use std::{sync::Arc, time::Instant};
 
@@ -59,6 +61,8 @@ pub(crate) struct SelectionKey {
 #[derive(Debug)]
 pub(super) struct Session {
     pub files: FileSession,
+    inactive: FileSession,
+    active: Group,
     pub return_to: ReturnTo,
     pub focus: Focus,
     pub arrangement: Arrangement,
@@ -94,9 +98,26 @@ impl Session {
         }
     }
 
-    pub fn new(files: FileSession, return_to: ReturnTo) -> Self {
+    pub fn new(files: FileSession, return_to: ReturnTo, target: Option<Group>) -> Self {
+        let active = target.unwrap_or_else(|| {
+            if files
+                .snapshot
+                .changes
+                .iter()
+                .any(|change| Group::of(change.area) == Group::Unstaged)
+                || files.snapshot.changes.is_empty()
+            {
+                Group::Unstaged
+            } else {
+                Group::Staged
+            }
+        });
+        let inactive = files.clone().with_scope(Some(active.other()));
+        let files = files.with_scope(Some(active));
         Self {
             files,
+            inactive,
+            active,
             return_to,
             focus: Focus::Files,
             arrangement: Arrangement::Tiled,
@@ -108,6 +129,27 @@ impl Session {
             bookmark: None,
         }
     }
+    pub fn active_group(&self) -> Group {
+        self.active
+    }
+
+    pub fn select_group(&mut self, group: Group) {
+        self.focus = Focus::Files;
+        if self.active == group {
+            return;
+        }
+        std::mem::swap(&mut self.files, &mut self.inactive);
+        self.active = group;
+        self.preview = Preview::Empty;
+        self.loader.clear();
+        self.feedback.finish();
+        self.bookmark = None;
+    }
+
+    pub fn combined_files(&self) -> FileSession {
+        self.files.clone().with_scope(None)
+    }
+
     pub fn refreshed(&mut self, snapshot: Files) {
         self.bookmark = match &self.preview {
             Preview::Ready {
@@ -127,6 +169,7 @@ impl Session {
             Preview::Loading(_) => self.bookmark.take(),
             _ => None,
         };
+        self.inactive = self.inactive.refreshed(snapshot.clone());
         self.files = self.files.refreshed(snapshot);
         self.revision += 1;
     }
@@ -242,6 +285,16 @@ impl Session {
     }
 }
 impl Screen {
+    pub(crate) fn select_changes_group(&mut self, group: Group) -> bool {
+        let Mode::Changes(session) = &mut self.mode else {
+            return false;
+        };
+        session.select_group(group);
+        self.poll_changes();
+        self.sync_bar();
+        true
+    }
+
     pub(super) fn poll_changes(&mut self) -> bool {
         match &mut self.mode {
             Mode::Changes(session) => {

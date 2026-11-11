@@ -66,7 +66,8 @@ impl Context {
             && !(self == Self::Diff(DiffContext::History)
                 && matches!(
                     command.action,
-                    Action::Stage
+                    Action::DiffGroup(_)
+                        | Action::Stage
                         | Action::Unstage
                         | Action::FileLayoutMenu
                         | Action::FileLayout(_)

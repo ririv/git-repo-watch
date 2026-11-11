@@ -30,13 +30,15 @@ impl FileSession {
                 continue;
             }
             let group = Group::from_index(group);
-            rows.push(Row::Header {
-                group,
-                count: changes
-                    .iter()
-                    .filter(|change| Group::of(change.area) == group)
-                    .count(),
-            });
+            if self.scope().is_none() {
+                rows.push(Row::Header {
+                    group,
+                    count: changes
+                        .iter()
+                        .filter(|change| Group::of(change.area) == group)
+                        .count(),
+                });
+            }
             for entry in entries {
                 rows.push(Row::Entry {
                     group,

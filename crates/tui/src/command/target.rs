@@ -16,7 +16,7 @@ pub(super) enum Requirement {
     LocalRefresh,
     IndexSelection,
     DiffSelection,
-    WorktreeFile,
+    WorktreeFiles,
     Conflict,
     BranchList,
     HistoryGraph,
@@ -110,6 +110,7 @@ impl Action {
             | StashDrop
             | Log
             | Diff
+            | DiffGroup(_)
             | BrowseFiles
             | Commit
             | CommitGenerate
@@ -125,7 +126,7 @@ impl Action {
             Refresh => Requirement::LocalRefresh,
             Stage | Unstage => Requirement::IndexSelection,
             Discard | PartialSelectMenu | PartialSelect(_) => Requirement::DiffSelection,
-            DiscardFile => Requirement::WorktreeFile,
+            DiscardFile => Requirement::WorktreeFiles,
             ConflictMenu | ConflictView(_) => Requirement::Conflict,
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
@@ -289,19 +290,49 @@ impl Screen {
                 Ok(_) => Present,
                 Err(reason) => Unavailable(reason),
             },
-            IndexSelection => Status::requiring(
-                self::IndexSelection::current(self).is_some(),
-                Unavailable(i18n::tr!(ChangesSelectionRequired)),
-            ),
-            DiffSelection => Status::requiring(
-                !self.tasks.session.open() && self.diff_selection_target().is_some(),
-                OutOfScope(i18n::tr!(CommandRequiresWorktreePreview)),
-            ),
-            WorktreeFile if self.tasks.session.open() || self.worktree_file_list().is_none() => {
+            IndexSelection => {
+                let Some(target) = self::IndexSelection::current(self) else {
+                    return Unavailable(i18n::tr!(ChangesSelectionRequired));
+                };
+                let group = match target {
+                    self::IndexSelection::Files(files) => files.scope().or_else(|| files.group()),
+                    self::IndexSelection::Diff(session) => Some(session.active_group()),
+                };
+                match (group, action) {
+                    (Some(crate::files::Group::Staged), Action::Stage) => {
+                        OutOfScope(i18n::tr!(CommandNeedsUnstaged))
+                    }
+                    (Some(crate::files::Group::Unstaged), Action::Unstage) => {
+                        OutOfScope(i18n::tr!(CommandNeedsStaged))
+                    }
+                    _ => Present,
+                }
+            }
+            DiffSelection => match self.diff_selection_target() {
+                Some(session) if !self.tasks.session.open() => {
+                    if action == Action::Discard
+                        && session.active_group() == crate::files::Group::Staged
+                    {
+                        OutOfScope(i18n::tr!(CommandNeedsUnstaged))
+                    } else {
+                        Present
+                    }
+                }
+                _ => OutOfScope(i18n::tr!(CommandRequiresWorktreePreview)),
+            },
+            WorktreeFiles if self.tasks.session.open() || self.worktree_file_list().is_none() => {
                 OutOfScope(i18n::tr!(DiscardFileSelect))
             }
-            WorktreeFile => Status::requiring(
-                selection.worktree_file().is_some(),
+            WorktreeFiles
+                if self
+                    .worktree_file_list()
+                    .and_then(|files| files.scope().or_else(|| files.group()))
+                    == Some(crate::files::Group::Staged) =>
+            {
+                OutOfScope(i18n::tr!(CommandNeedsUnstaged))
+            }
+            WorktreeFiles => Status::requiring(
+                !selection.worktree_files().is_empty(),
                 Unavailable(i18n::tr!(DiscardFileSelect)),
             ),
             Conflict => Status::requiring(

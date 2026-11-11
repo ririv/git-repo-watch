@@ -442,7 +442,7 @@ fn file_paths_deduplicate_the_same_marked_file_across_staged_and_unstaged_groups
     let Mode::Changes(session) = &s.mode else {
         panic!("changes expected")
     };
-    assert_eq!(session.files.selected.len(), 2);
+    assert_eq!(session.files.selected.len(), 1);
     local_copy(&mut s);
     assert_eq!(copied(&mut s, &rx), "same.rs");
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -502,6 +502,7 @@ fn background_reads_cannot_replace_an_empty_scoped_command_or_its_copy_selection
                 if succeeds {
                     Ok(Outcome::Opened(Box::new(crate::navigation::Content::Diff(
                         FileSession::new(service.files(&path, &cancel)?),
+                        None,
                     ))))
                 } else {
                     anyhow::bail!("read failed after opening the command")
