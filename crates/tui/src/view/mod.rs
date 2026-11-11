@@ -146,6 +146,9 @@ fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     render_content(frame, screen);
+    if screen.history_preview.area.is_none() {
+        screen.history_preview.hide();
+    }
     screen.background.apply(frame.buffer_mut());
 }
 fn render_content(frame: &mut Frame, screen: &mut Screen) {
@@ -155,6 +158,7 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) {
         screen.focus_mode = crate::focus::State::Inactive;
     }
     screen.graphics.begin_frame();
+    screen.history_preview.area = None;
     screen.body_area = None;
     screen.input_area = None;
     screen.repository_area = None;

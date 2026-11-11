@@ -53,6 +53,27 @@ impl Screen {
                 };
                 session.choose(index);
             }
+            Action::HistoryFiles => {
+                if self.history_preview.area.is_none() {
+                    return false;
+                }
+                let Mode::History(view) = &mut self.mode else {
+                    return false;
+                };
+                let history::View::Graph(session) = view.as_mut() else {
+                    return false;
+                };
+                if !self.config.mouse.select_pane && session.focus != history::GraphFocus::Files {
+                    return false;
+                }
+                session.focus = history::GraphFocus::Files;
+            }
+            Action::Scroll(ScrollTarget::HistoryFiles, offset) => {
+                if self.history_preview.area.is_none() {
+                    return false;
+                }
+                self.history_preview.offset = offset.min(self.history_preview.maximum);
+            }
             Action::HistoryMenu(input) => return self.history_menu_pointer(input),
             Action::ToggleCommit(index) => {
                 let Mode::History(view) = &mut self.mode else {
@@ -303,6 +324,7 @@ impl Screen {
                     Mode::History(view) => match view.as_mut() {
                         history::View::Graph(session) if index < session.records.len() => {
                             session.selection.settle();
+                            session.focus = history::GraphFocus::Graph;
                             session.state.select(Some(index));
                         }
                         _ => return false,

@@ -48,6 +48,9 @@ impl Screen {
             },
             Mode::History(view) => match view.as_mut() {
                 history::View::Graph(session) => {
+                    if session.focus == history::GraphFocus::Files {
+                        return false;
+                    }
                     session.horizontal.advance(delta);
                     return true;
                 }

@@ -164,6 +164,7 @@ fn screen(service: Service) -> Screen {
         window_focus: crate::live::WindowFocus::Focused,
         auto_fetch: Default::default(),
         overview: Default::default(),
+        history_preview: Default::default(),
         replay: Default::default(),
         workspace: Default::default(),
         workspace_areas: Vec::new(),

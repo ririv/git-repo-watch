@@ -31,7 +31,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
-        if Some(section) == focused && screen.focused_replay_control().is_none() {
+        if Some(section) == focused
+            && screen.focused_replay_control().is_none()
+            && !(section == Section::History && screen.history_preview.area.is_some())
+        {
             highlight_border(frame, pane_area);
         } else if focused.is_none() && section == selected {
             highlight_border_with(frame, pane_area, input::active_accent(screen));
@@ -129,6 +132,8 @@ fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
             frame,
             history_area,
             session,
+            screen.config.file_icons.into(),
+            &mut screen.history_preview,
             &mut screen.graphics,
             &mut screen.pointer,
         );
@@ -138,6 +143,8 @@ fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
                 frame,
                 history_area,
                 graph,
+                screen.config.file_icons.into(),
+                &mut screen.history_preview,
                 &mut screen.graphics,
                 &mut screen.pointer,
             ),

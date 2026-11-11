@@ -38,6 +38,7 @@ pub(crate) enum ScrollTarget {
     InspectionReview,
     InspectionReviewHorizontal,
     HistoryHorizontal,
+    HistoryFiles,
     DiffHorizontal,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -47,6 +48,7 @@ pub(crate) enum Action {
     ManagementToggle(usize),
     BrowserDirectory(usize),
     PushRemote(usize),
+    HistoryFiles,
     HistoryMenu(crate::history::menu::PointerInput),
     RepositoryMenu(crate::repository_list::Menu),
     DragRows {

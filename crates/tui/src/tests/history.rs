@@ -367,3 +367,191 @@ fn empty_graph_and_root_without_changes_are_explicit_and_read_errors_restore_the
     assert_eq!(graph(&s).selected().unwrap().oid, oid);
     assert!(s.service.store.report().unwrap().is_none());
 }
+
+fn preview(s: &mut Screen, width: u16, height: u16) -> String {
+    render(s, width, height);
+    let start = Instant::now();
+    while matches!(
+        s.history_preview.content,
+        crate::history::preview::Content::Loading(_)
+    ) {
+        s.poll(&Cancel::default());
+        assert!(
+            start.elapsed() < Duration::from_secs(5),
+            "history preview did not finish"
+        );
+        thread::sleep(Duration::from_millis(2));
+    }
+    render(s, width, height)
+}
+
+#[test]
+fn graph_preview_lists_first_parent_and_root_changes_and_clears_stale_files() {
+    let f = merged();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    command(&mut s, "repo log");
+    wait(&mut s);
+    let text = preview(&mut s, 160, 36);
+    assert!(text.contains("feature.ts"), "{text}");
+    assert!(text.contains(&format!("{} · 1", i18n::tr!(HistoryChanges))));
+    assert!(!text.contains("export const feature"));
+    let crate::history::preview::Content::Ready {
+        key: request,
+        changes,
+    } = &s.history_preview.content
+    else {
+        panic!()
+    };
+    assert_eq!(request.oid, graph(&s).selected().unwrap().oid);
+    assert_eq!(changes[0].kind, engine::local::history::Kind::Added);
+    key(&mut s, KeyCode::Down);
+    let text = render(&mut s, 160, 36);
+    let sidebar = text
+        .lines()
+        .filter_map(|line| line.split_once("││").map(|(_, right)| right))
+        .collect::<Vec<_>>()
+        .join("\n");
+    assert!(
+        !sidebar.contains("feature.ts"),
+        "previous commit files survived selection: {text}"
+    );
+    let text = preview(&mut s, 160, 36);
+    assert!(text.contains("main.ts"), "{text}");
+    key(&mut s, KeyCode::End);
+    let text = preview(&mut s, 160, 36);
+    assert!(text.contains(i18n::tr!(HistoryNoChanges)), "{text}");
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    assert!(s.service.store.report().unwrap().is_none());
+    render(&mut s, 80, 24);
+    assert!(matches!(
+        s.history_preview.content,
+        crate::history::preview::Content::Hidden
+    ));
+    assert!(s.history_preview.area.is_none());
+    assert!(preview(&mut s, 160, 36).contains(i18n::tr!(HistoryNoChanges)));
+}
+
+#[test]
+fn graph_preview_has_independent_keyboard_and_wheel_scrolling() {
+    let f = support::Fixture::create();
+    for n in 0..40 {
+        support::write(
+            f.repo.join(format!("file-{n:02}.txt")),
+            "body should not be previewed\n",
+        );
+    }
+    support::git(&f.repo, &["add", "."]);
+    support::git(&f.repo, &["commit", "-m", "many files"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    let text = preview(&mut s, 160, 36);
+    assert!(
+        text.contains("file-00.txt") && !text.contains("file-39.txt"),
+        "{text}"
+    );
+    assert!(!text.contains("body should not be previewed"));
+    let selected = graph(&s).state.selected();
+    command(&mut s, "focus");
+    render(&mut s, 160, 36);
+    assert_eq!(s.focus_mode, crate::focus::State::Selecting);
+    key(&mut s, KeyCode::Right);
+    render(&mut s, 160, 36);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Files);
+    key(&mut s, KeyCode::End);
+    let text = render(&mut s, 160, 36);
+    assert!(
+        text.contains("file-39.txt") && !text.contains("file-00.txt"),
+        "{text}"
+    );
+    assert_eq!(graph(&s).state.selected(), selected);
+    let area = s.history_preview.area.unwrap();
+    let offset = s.history_preview.offset;
+    s.mouse(
+        crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollUp,
+            column: area.x + 1,
+            row: area.y + 1,
+            modifiers: KeyModifiers::NONE,
+        },
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert_eq!(s.history_preview.offset, offset - 3);
+    assert_eq!(graph(&s).state.selected(), selected);
+    key(&mut s, KeyCode::Left);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Graph);
+    key(&mut s, KeyCode::Down);
+    assert_ne!(graph(&s).state.selected(), selected);
+    preview(&mut s, 160, 36);
+    command(&mut s, "focus");
+    render(&mut s, 160, 36);
+    assert_eq!(s.focus_mode, crate::focus::State::Selecting);
+    key(&mut s, KeyCode::Right);
+    render(&mut s, 160, 36);
+    key(&mut s, KeyCode::Enter);
+    render(&mut s, 80, 24);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Graph);
+}
+
+#[test]
+fn graph_preview_renders_deleted_modified_and_renamed_paths_with_trailing_markers() {
+    let f = support::Fixture::create();
+    f.commit("old-name.txt", "unchanged rename contents\n");
+    f.commit("delete.txt", "delete\n");
+    f.commit("modify.txt", "before\n");
+    support::git(&f.repo, &["mv", "old-name.txt", "新名字.txt"]);
+    support::git(&f.repo, &["rm", "delete.txt"]);
+    support::write(f.repo.join("modify.txt"), "after\n");
+    support::git(&f.repo, &["add", "."]);
+    support::git(&f.repo, &["commit", "-m", "varied changes"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    let text = preview(&mut s, 160, 36);
+    for (path, marker) in [
+        ("delete.txt", 'D'),
+        ("modify.txt", 'M'),
+        ("新名字.txt", 'R'),
+    ] {
+        let line = text
+            .lines()
+            .filter_map(|line| line.split_once("││").map(|(_, right)| right))
+            .find(|line| line.contains(path))
+            .unwrap_or_else(|| panic!("{path}: {text}"));
+        assert!(
+            line.trim_end_matches('│').trim_end().ends_with(marker),
+            "{line}"
+        );
+    }
+    assert!(text.contains("old-name.txt → 新名字.txt"), "{text}");
+}
+
+#[test]
+fn maximized_repository_history_focuses_file_preview_and_keeps_repository_navigation() {
+    let f = merged();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+    s.switch_repository_section(crate::workspace::Section::History);
+    command(&mut s, "zoom");
+    assert_eq!(s.page, Page::Detail);
+    assert!(preview(&mut s, 160, 36).contains("feature.ts"));
+    command(&mut s, "focus");
+    render(&mut s, 160, 36);
+    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Files);
+    let selected = graph(&s).state.selected();
+    key(&mut s, KeyCode::Down);
+    assert_eq!(graph(&s).state.selected(), selected);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Graph);
+    command(&mut s, "focus");
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(s.mode, Mode::Files(_)));
+    assert_eq!(s.page, Page::Detail);
+}

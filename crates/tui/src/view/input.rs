@@ -255,6 +255,11 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             crate::stashes::View::Diff { .. } => i18n::tr!(StashDiffHint),
         },
         Mode::History(view) => match view.as_ref() {
+            crate::history::View::Graph(session)
+                if session.focus == crate::history::GraphFocus::Files =>
+            {
+                i18n::tr!(PgdnScrollEscBackCommands)
+            }
             crate::history::View::Graph(session) if session.selection.active() => {
                 i18n::tr!(HistorySelectionHint)
             }

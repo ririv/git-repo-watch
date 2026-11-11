@@ -2,11 +2,12 @@
 mod actions;
 pub(crate) mod menu;
 mod menu_actions;
+pub(crate) mod preview;
 mod selection;
 mod session;
 use crate::document;
 use engine::local::history::Detail;
-pub(super) use session::Session;
+pub(super) use session::{GraphFocus, Session};
 use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

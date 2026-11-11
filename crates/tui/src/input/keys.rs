@@ -288,6 +288,29 @@ impl Screen {
             Mode::Branches(view) => self.branch_key(view, key),
             Mode::History(mut view) => {
                 match view.as_mut() {
+                    history::View::Graph(session)
+                        if session.focus == history::GraphFocus::Files =>
+                    {
+                        match key.code {
+                            KeyCode::Up => self.history_preview.scroll(-1),
+                            KeyCode::Down => self.history_preview.scroll(1),
+                            KeyCode::PageUp => self.history_preview.scroll(-10),
+                            KeyCode::PageDown => self.history_preview.scroll(10),
+                            KeyCode::Home => self.history_preview.offset = 0,
+                            KeyCode::End => {
+                                self.history_preview.offset = self.history_preview.maximum
+                            }
+                            KeyCode::Esc | KeyCode::Left => {
+                                session.focus = history::GraphFocus::Graph
+                            }
+                            KeyCode::Enter => {
+                                self.mode = Mode::History(view);
+                                self.open_history_commit();
+                                return Ok(false);
+                            }
+                            _ => {}
+                        }
+                    }
                     history::View::Graph(session) => match key.code {
                         KeyCode::Char(' ') | KeyCode::Insert if session.selection.active() => {
                             if let Err(error) = session.mark(history::SelectionAction::Toggle) {

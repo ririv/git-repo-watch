@@ -17,9 +17,17 @@ pub(crate) struct Record {
     pub route: graph::Row,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum GraphFocus {
+    #[default]
+    Graph,
+    Files,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Session {
     pub source: u64,
+    pub focus: GraphFocus,
     pub references: Arc<References>,
     pub records: Arc<Vec<Record>>,
     pub continuation: Continuation,
@@ -33,6 +41,7 @@ pub(crate) struct Session {
 impl Session {
     pub fn new(page: Page, cancel: &Cancel) -> Result<Self> {
         let mut session = Self {
+            focus: GraphFocus::Graph,
             source: NEXT_SOURCE.fetch_add(1, Ordering::Relaxed),
             references: page.references.clone(),
             records: Arc::new(Vec::new()),
@@ -52,6 +61,7 @@ impl Session {
     }
     pub fn refreshed(&self, mut next: Self) -> Self {
         let selected = self.selected().map(|entry| entry.oid);
+        next.focus = self.focus;
         next.query = self.query.clone();
         next.horizontal = self.horizontal.clone();
         next.selection = self.selection.clone();

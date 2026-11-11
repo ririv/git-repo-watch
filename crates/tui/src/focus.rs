@@ -24,6 +24,11 @@ impl Screen {
                 crate::inspection::Focus::Preview => i18n::tr!(FileDiff),
             };
         }
+        if let Some(session) = self.history_graph_target()
+            && session.focus == crate::history::GraphFocus::Files
+        {
+            return i18n::tr!(HistoryChanges);
+        }
         match &self.mode {
             Mode::Composition(session) => match session.focus {
                 crate::composition::Focus::Commits => i18n::tr!(ComposePending),
@@ -63,7 +68,8 @@ impl Screen {
         }
     }
     pub(crate) fn pane_navigation_available(&self) -> bool {
-        matches!(self.mode, Mode::Browser(_) | Mode::Changes(_))
+        (self.history_graph_target().is_some() && self.history_preview.area.is_some())
+            || matches!(self.mode, Mode::Browser(_) | Mode::Changes(_))
             || self.mode.inspection().is_some()
             || matches!(&self.mode, Mode::Composition(session) if matches!(session.state, crate::composition::State::Browsing))
             || (self.page == Page::Detail
@@ -121,6 +127,24 @@ impl Screen {
                 (focus, _) => focus,
             };
             return;
+        }
+        if self.history_preview.area.is_some()
+            && let Mode::History(view) = &mut self.mode
+            && let crate::history::View::Graph(session) = view.as_mut()
+        {
+            use crate::history::GraphFocus::{Files, Graph};
+            match (session.focus, direction) {
+                (Graph, Right) => {
+                    session.focus = Files;
+                    return;
+                }
+                (Files, Left) => {
+                    session.focus = Graph;
+                    return;
+                }
+                _ if self.page != Page::Detail || session.focus == Files => return,
+                _ => {}
+            }
         }
         match &mut self.mode {
             Mode::Composition(session) => {

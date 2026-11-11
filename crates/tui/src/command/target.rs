@@ -388,7 +388,7 @@ impl Screen {
         }
     }
 
-    pub(super) fn history_graph_target(&self) -> Option<&history::Session> {
+    pub(crate) fn history_graph_target(&self) -> Option<&history::Session> {
         match &self.mode {
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(session) => Some(session),

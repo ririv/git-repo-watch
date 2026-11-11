@@ -65,6 +65,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 wrap: screen.config.text_wrap,
             },
             screen.config.file_icons.into(),
+            &mut screen.history_preview,
             &mut screen.graphics,
             &mut screen.pointer,
         ),
@@ -83,6 +84,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     wrap: screen.config.text_wrap,
                 },
                 screen.config.file_icons.into(),
+                &mut screen.history_preview,
                 &mut screen.graphics,
                 &mut screen.pointer,
             );

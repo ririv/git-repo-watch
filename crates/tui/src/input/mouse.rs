@@ -95,6 +95,20 @@ impl Screen {
         if let Some(changed) = self.stash_save_mouse(event, root)? {
             return Ok(changed);
         }
+        if wheel
+            && self.bar.is_plain()
+            && self
+                .history_preview
+                .area
+                .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
+        {
+            match event.kind {
+                MouseEventKind::ScrollUp => self.history_preview.scroll(-3),
+                MouseEventKind::ScrollDown => self.history_preview.scroll(3),
+                _ => return Ok(false),
+            }
+            return Ok(true);
+        }
         let precise = self.config.mouse.precise_click;
         if click
             && self.focused_replay_control().is_some()
@@ -598,6 +612,35 @@ impl Screen {
                 return false;
             }
             inspect.focus = focus;
+            return true;
+        }
+        let graph_area = if self.page == Page::Detail {
+            self.workspace_areas.iter().find_map(|(area, section)| {
+                (*section == crate::workspace::Section::History).then_some(*area)
+            })
+        } else {
+            self.body_area
+        };
+        if graph_area.is_some_and(|area| area.contains(point))
+            && let Mode::History(view) = &mut self.mode
+            && let crate::history::View::Graph(session) = view.as_mut()
+        {
+            if !self.body_area.is_some_and(|area| area.contains(point)) {
+                return false;
+            }
+            let focus = if self
+                .history_preview
+                .area
+                .is_some_and(|area| area.contains(point))
+            {
+                crate::history::GraphFocus::Files
+            } else {
+                crate::history::GraphFocus::Graph
+            };
+            if session.focus != focus && !self.config.mouse.select_pane {
+                return false;
+            }
+            session.focus = focus;
             return true;
         }
         if matches!(self.mode, Mode::CompositionWaiting(_)) {

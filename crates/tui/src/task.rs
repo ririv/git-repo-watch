@@ -133,6 +133,7 @@ impl Screen {
             | self.poll_browser()
             | self.poll_commit_message()
             | self.poll_inspection()
+            | self.history_preview.poll(&self.service)
     }
     pub(super) fn finish(&mut self, outcome: Outcome, origin: Mode, root: &Cancel) {
         self.message.clear();

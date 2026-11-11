@@ -1,7 +1,7 @@
 //! Responsive commit graph, metadata preview and per-parent historical file views.
 pub(super) mod menu;
 mod pixels;
-use super::metadata::{field, time};
+mod preview;
 use super::*;
 use crate::history::{Session, View};
 use crate::search::highlight::{self, Emphasis};
@@ -13,6 +13,7 @@ pub(super) fn render(
     view: &mut View,
     preference: crate::diff::Options,
     icons: crate::file_icons::Display,
+    preview: &mut crate::history::preview::Preview,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -21,6 +22,8 @@ pub(super) fn render(
             frame,
             area,
             session,
+            icons,
+            preview,
             graphics,
             hits,
             name(&session.references.path),
@@ -70,6 +73,8 @@ pub(super) fn panel(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
+    icons: crate::file_icons::Display,
+    preview: &mut crate::history::preview::Preview,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
@@ -77,6 +82,8 @@ pub(super) fn panel(
         frame,
         area,
         session,
+        icons,
+        preview,
         graphics,
         hits,
         i18n::tr!(WorkspaceHistory).into(),
@@ -87,15 +94,20 @@ fn graph(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
+    icons: crate::file_icons::Display,
+    preview: &mut crate::history::preview::Preview,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
     title: String,
 ) {
-    let parts = if area.width >= 120 && !session.records.is_empty() {
+    let parts = if area.width >= 120 && area.height >= 10 && !session.records.is_empty() {
         Layout::horizontal([Constraint::Min(65), Constraint::Length(42)]).split(area)
     } else {
         Layout::horizontal([Constraint::Percentage(100), Constraint::Length(0)]).split(area)
     };
+    if parts[1].is_empty() {
+        session.focus = crate::history::GraphFocus::Graph;
+    }
     let panel = block(title);
     let inner = panel.inner(parts[0]);
     frame.render_widget(panel, parts[0]);
@@ -316,41 +328,9 @@ fn graph(
         }
     }
     if parts[1].width > 0 {
-        let text = if let Some(entry) = session.selected() {
-            let mut lines = vec![
-                field(i18n::tr!(HistoryHash), entry.oid.to_string()),
-                field(i18n::tr!(HistoryAuthor), &entry.author),
-                field(i18n::tr!(HistoryTime), time(entry.seconds)),
-                field(
-                    i18n::tr!(HistoryParents),
-                    if entry.parents().is_empty() {
-                        i18n::tr!(HistoryRoot).into()
-                    } else {
-                        entry
-                            .parents()
-                            .iter()
-                            .map(|oid| oid.to_string()[..12].to_owned())
-                            .collect::<Vec<_>>()
-                            .join(" · ")
-                    },
-                ),
-            ];
-            lines.push(Line::default());
-            lines.push(Line::from(labels(&session.references, entry)));
-            lines.push(Line::default());
-            lines.push(Line::raw(safe(&entry.subject)));
-            Text::from(lines)
-        } else {
-            Text::default()
-        };
-        frame.render_widget(
-            Paragraph::new(text).wrap(Wrap { trim: false }).block(block(
-                session
-                    .selected()
-                    .map(|entry| entry.oid.to_string()[..12].to_owned())
-                    .unwrap_or_else(|| i18n::tr!(HistoryTitle).into()),
-            )),
-            parts[1],
-        );
+        preview::render(frame, parts[1], session, preview, icons, hits);
+    }
+    if session.focus == crate::history::GraphFocus::Graph {
+        highlight_border(frame, parts[0]);
     }
 }
