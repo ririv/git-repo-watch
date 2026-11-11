@@ -215,6 +215,11 @@ fn browsing_hint(screen: &Screen) -> &'static str {
     if screen.focused_replay_control().is_some() {
         return i18n::tr!(ReplayControlsHint);
     }
+    if matches!(input_mode(screen), Mode::Files(files) if files.horizontal.overflowing())
+        || matches!(input_mode(screen), Mode::Changes(session) if session.focus == crate::changes::Focus::Files && session.files.horizontal.overflowing())
+    {
+        return i18n::tr!(WorktreeHorizontalHint);
+    }
     match input_mode(screen) {
         Mode::Browsing => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),

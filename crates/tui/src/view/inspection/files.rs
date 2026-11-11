@@ -1,7 +1,7 @@
 //! Changed files retain the shared trailing status markers and precise hit regions.
 use super::*;
 use crate::search::highlight::{self, Emphasis};
-use engine::local::{files::Location, history::Kind};
+use engine::local::history::Kind;
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -28,12 +28,6 @@ pub(super) fn render(
             .iter()
             .enumerate()
             .map(|(index, change)| {
-                let path = match &change.location {
-                    Location::Path(path) => path.display().to_string(),
-                    Location::Rename { before, after } | Location::Copy { before, after } => {
-                        format!("{} → {}", before.display(), after.display())
-                    }
-                };
                 let color = match change.kind {
                     Kind::Added => GOOD,
                     Kind::Deleted => BAD,
@@ -41,7 +35,7 @@ pub(super) fn render(
                     Kind::Renamed | Kind::Copied => ACCENT,
                 };
                 let path = highlight::line(
-                    Line::raw(safe(&path)),
+                    crate::view::files::path_line(&change.location, &change.location.display()),
                     &commit.query,
                     Emphasis::at(index, selection),
                 );

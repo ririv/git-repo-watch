@@ -2,6 +2,7 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    WorktreeHorizontalHint,
     CopyConflictUnavailable,
     CopyConflictVersions,
     CopyConflictResult,
@@ -1308,6 +1309,8 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::WorktreeHorizontalHint, Language::Chinese) => "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选",
+            (Self::WorktreeHorizontalHint, Language::English) => "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check",
             (Self::CopyConflictUnavailable, Language::Chinese) => "冲突版本无法完整读取为文本",
             (Self::CopyConflictUnavailable, Language::English) => {
                 "Conflict versions cannot be read completely as text"

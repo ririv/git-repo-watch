@@ -65,6 +65,7 @@ pub(super) struct FileSession {
     scope: Option<Group>,
     pub cursor: Cursor,
     pub offset: usize,
+    pub horizontal: crate::horizontal::Viewport,
     pub selected: Marks,
     pub query: String,
     pub recovery: crate::replay::controls::Focus,
@@ -94,6 +95,7 @@ impl FileSession {
             scope: None,
             cursor,
             offset: 0,
+            horizontal: Default::default(),
             selected: Marks::default(),
             query: String::new(),
             recovery: Default::default(),
@@ -112,6 +114,7 @@ impl FileSession {
             &next.snapshot.operation.state,
         );
         next.offset = self.offset;
+        next.horizontal = self.horizontal.clone();
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
         next.folding = self.folding.clone();

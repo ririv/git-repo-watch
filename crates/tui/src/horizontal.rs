@@ -16,7 +16,6 @@ impl Viewport {
     pub fn offset(&self) -> usize {
         self.offset
     }
-    #[cfg(test)]
     pub fn overflowing(&self) -> bool {
         self.maximum > 0
     }

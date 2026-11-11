@@ -334,6 +334,16 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
+                ScrollTarget::WorktreeHorizontal => {
+                    let files = match &mut self.mode {
+                        Mode::Files(files) => files,
+                        Mode::Changes(session) if session.focus == changes::Focus::Files => {
+                            &mut session.files
+                        }
+                        _ => return false,
+                    };
+                    files.horizontal.seek(offset);
+                }
                 ScrollTarget::Files => {
                     let files = match &mut self.mode {
                         Mode::Files(files) => files,

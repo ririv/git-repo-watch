@@ -26,6 +26,20 @@ impl Screen {
             return false;
         }
         let content = match &mut self.mode {
+            Mode::Files(files) => {
+                if !files.horizontal.overflowing() {
+                    return false;
+                }
+                files.horizontal.advance(delta);
+                return true;
+            }
+            Mode::Changes(session) if session.focus == changes::Focus::Files => {
+                if !session.files.horizontal.overflowing() {
+                    return false;
+                }
+                session.files.horizontal.advance(delta);
+                return true;
+            }
             Mode::Browser(session) => {
                 match session.focus {
                     crate::browser::Focus::Tree => session.horizontal.advance(delta),

@@ -3,6 +3,15 @@ use super::*;
 use crate::files::{Group, list::Row};
 use crate::search::highlight::{self, Emphasis};
 
+enum Label {
+    Header(Line<'static>),
+    Entry {
+        line: Line<'static>,
+        marker: Option<(char, Color)>,
+        selected: bool,
+    },
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -19,6 +28,7 @@ pub(super) fn render(
     let rows = session.list(options.layout);
     if rows.is_empty() {
         session.offset = 0;
+        session.horizontal.constrain(0);
         frame.render_widget(
             Paragraph::new(match (session.has_changes(), session.scope()) {
                 (true, _) => i18n::tr!(FileListNoMatches),
@@ -31,10 +41,10 @@ pub(super) fn render(
         );
         return;
     }
-    let items = rows
+    let labels = rows
         .iter()
         .map(|row| match row {
-            Row::Header { group, count } => ListItem::new(Line::styled(
+            Row::Header { group, count } => Label::Header(Line::styled(
                 format!(
                     "{} · {}",
                     match group {
@@ -46,7 +56,47 @@ pub(super) fn render(
                 Style::default().fg(ACCENT).bold(),
             )),
             Row::Entry { group, entry, .. } => {
-                item(session, entry, *group, &changes, options.icons, inner.width)
+                label(session, entry, *group, &changes, options.icons)
+            }
+        })
+        .collect::<Vec<_>>();
+    let pinned = usize::from((super::checkbox::WIDTH + 1).min(inner.width));
+    let path_width = usize::from(inner.width).saturating_sub(pinned + 2);
+    session.horizontal.constrain(
+        labels
+            .iter()
+            .filter_map(|label| match label {
+                Label::Entry { line, .. } => Some(line.width().saturating_sub(pinned + path_width)),
+                Label::Header(_) => None,
+            })
+            .max()
+            .unwrap_or(0),
+    );
+    let items = labels
+        .into_iter()
+        .map(|label| match label {
+            Label::Header(line) => ListItem::new(line),
+            Label::Entry {
+                line,
+                marker,
+                selected,
+            } => {
+                let mut visible = crate::horizontal::clip(&line, 0, pinned);
+                visible.spans.extend(
+                    crate::horizontal::clip(
+                        &line,
+                        pinned + session.horizontal.offset(),
+                        path_width,
+                    )
+                    .spans,
+                );
+                let visible = match marker {
+                    Some((marker, color)) => {
+                        marked_line(&visible, marker, color, usize::from(inner.width))
+                    }
+                    None => visible,
+                };
+                ListItem::new(visible).style(row_style(selected))
             }
         })
         .collect::<Vec<_>>();
@@ -77,6 +127,13 @@ pub(super) fn render(
         session.offset,
         crate::pointer::ScrollTarget::Files,
     );
+    session.horizontal.render_on_border(
+        frame,
+        area,
+        inner.x + pinned as u16..inner.right().saturating_sub(2),
+        hits,
+        crate::pointer::ScrollTarget::WorktreeHorizontal,
+    );
     for (visible, row) in rows
         .iter()
         .skip(session.offset)
@@ -93,14 +150,13 @@ pub(super) fn render(
     }
 }
 
-fn item(
+fn label(
     session: &FileSession,
     entry: &crate::files::tree::Row,
     group: Group,
     changes: &[&Change],
     icons: crate::file_icons::Display,
-    width: u16,
-) -> ListItem<'static> {
+) -> Label {
     let selected = entry.cursor(group) == session.cursor;
     let emphasis = if selected {
         Emphasis::Current
@@ -129,7 +185,11 @@ fn item(
                 )
                 .spans,
             );
-            ListItem::new(Line::from(spans)).style(row_style(selected))
+            Label::Entry {
+                line: Line::from(spans),
+                marker: None,
+                selected,
+            }
         }
         crate::files::tree::Row::File {
             index,
@@ -139,20 +199,23 @@ fn item(
             let change = changes[*index];
             spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
             spans.extend(icons.file(change.location.name()));
-            spans.extend(highlight::line(Line::raw(safe(label)), &session.query, emphasis).spans);
-            ListItem::new(marked_line(
-                &Line::from(spans),
-                change.kind,
-                if change.kind == 'U' {
-                    BAD
-                } else if group == Group::Staged {
-                    GOOD
-                } else {
-                    WARN
-                },
-                usize::from(width),
-            ))
-            .style(row_style(selected))
+            spans.extend(
+                highlight::line(path_line(&change.location, label), &session.query, emphasis).spans,
+            );
+            Label::Entry {
+                line: Line::from(spans),
+                marker: Some((
+                    change.kind,
+                    if change.kind == 'U' {
+                        BAD
+                    } else if group == Group::Staged {
+                        GOOD
+                    } else {
+                        WARN
+                    },
+                )),
+                selected,
+            }
         }
     }
 }
@@ -173,4 +236,45 @@ pub(super) fn marked_line(
             .push(Span::styled(marker.to_string(), Style::default().fg(color)));
     }
     line
+}
+
+/// Render rename separators as structure, without styling arrows inside real filenames.
+pub(super) fn path_line(location: &engine::local::files::Location, label: &str) -> Line<'static> {
+    use engine::local::files::Location;
+    match location {
+        Location::Path(_) => Line::raw(safe(label)),
+        Location::Rename { before, after } | Location::Copy { before, after } => Line::from(vec![
+            Span::raw(safe(&before.to_string_lossy())),
+            Span::styled(" → ", Style::default().fg(ACCENT).bold()),
+            Span::raw(safe(&after.to_string_lossy())),
+        ]),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn rename_separator_has_its_own_style_and_literal_filename_arrows_are_unchanged() {
+        use engine::local::files::Location;
+        let path = Location::Rename {
+            before: "old/目录/a.ts".into(),
+            after: "new/目录/a.ts".into(),
+        };
+        let line = path_line(&path, &path.display());
+        assert_eq!(line.to_string(), "old/目录/a.ts → new/目录/a.ts".to_owned());
+        assert_eq!(line.spans[1].style.fg, Some(crate::view::ACCENT));
+        assert!(
+            line.spans[1]
+                .style
+                .add_modifier
+                .contains(ratatui::style::Modifier::BOLD)
+        );
+        assert_eq!(line.spans[0].style.fg, None);
+        assert_eq!(line.spans[2].style.fg, None);
+        let name = "literal → arrow.ts";
+        let literal = path_line(&Location::Path(name.into()), name);
+        assert_eq!(literal.spans.len(), 1);
+        assert_eq!(literal.spans[0].style, ratatui::style::Style::default());
+    }
 }

@@ -87,7 +87,10 @@ pub(super) fn render(
                         Kind::Renamed | Kind::Copied => ACCENT,
                     };
                     let mut spans = icons.file(change.location.name());
-                    spans.push(Span::raw(safe(&change.location.display())));
+                    spans.extend(
+                        crate::view::files::path_line(&change.location, &change.location.display())
+                            .spans,
+                    );
                     crate::view::files::marked_line(
                         &Line::from(spans),
                         change.kind.symbol(),
