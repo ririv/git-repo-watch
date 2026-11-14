@@ -5154,10 +5154,10 @@ impl Message {
             }
             (Self::BrowserPlaceholder, Language::Chinese) => "搜索仓库文件路径，或输入 / 查看命令",
             (Self::BrowserHint, Language::English) => {
-                "↑↓ select · ←→ pan · Enter open/toggle · /focus panes · //zoom maximize · Esc back"
+                "↑↓ select · ←→ pan · Enter/Space open/toggle · /focus panes · //zoom maximize · Esc back"
             }
             (Self::BrowserHint, Language::Chinese) => {
-                "↑↓选择 · ←→横移 · Enter 打开/折叠 · /focus 面板 · /zoom 放大 · Esc 返回"
+                "↑↓选择 · ←→横移 · Enter/Space 打开/折叠 · /focus 面板 · /zoom 放大 · Esc 返回"
             }
             (Self::BrowserLoading, Language::English) => "Loading directory…",
             (Self::BrowserLoading, Language::Chinese) => "正在读取目录…",

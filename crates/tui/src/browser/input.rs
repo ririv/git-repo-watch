@@ -20,7 +20,7 @@ impl Screen {
             KeyCode::PageDown if session.focus == Focus::Tree => session.advance(10),
             KeyCode::Home if session.focus == Focus::Tree => session.select(0),
             KeyCode::End if session.focus == Focus::Tree => session.select(usize::MAX),
-            KeyCode::Enter if session.focus == Focus::Tree => session.toggle(),
+            KeyCode::Enter | KeyCode::Char(' ') if session.focus == Focus::Tree => session.toggle(),
             KeyCode::Up => {
                 session.pane().position.scroll = session.pane().position.scroll.saturating_sub(1)
             }

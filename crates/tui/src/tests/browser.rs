@@ -39,6 +39,48 @@ pub(super) fn text(s: &mut Screen) -> String {
 }
 
 #[test]
+fn space_activates_tree_entries_like_enter_without_consuming_search_or_command_spaces() {
+    let f = support::Fixture::create();
+    std::fs::create_dir(f.repo.join("src")).unwrap();
+    f.commit("src/hello world.txt", "hello world\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    command(&mut s, "repo files");
+    ready(&mut s);
+    select(&mut s, "src");
+    key(&mut s, KeyCode::Char(' '));
+    ready(&mut s);
+    assert!(session(&mut s).expanded(std::path::Path::new("src")));
+    assert_eq!(session(&mut s).focus, Focus::Tree);
+    assert!(s.bar.editor().text.is_empty());
+    key(&mut s, KeyCode::Char(' '));
+    assert!(!session(&mut s).expanded(std::path::Path::new("src")));
+    key(&mut s, KeyCode::Enter);
+    ready(&mut s);
+    select(&mut s, "src/hello world.txt");
+    key(&mut s, KeyCode::Char(' '));
+    assert_eq!(session(&mut s).focus, Focus::Preview);
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(session(&mut s).focus, Focus::Preview);
+    key(&mut s, KeyCode::Esc);
+    s.paste("hello");
+    key(&mut s, KeyCode::Char(' '));
+    s.paste("world");
+    ready(&mut s);
+    assert_eq!(s.bar.editor().text, "hello world");
+    assert_eq!(session(&mut s).focus, Focus::Tree);
+    assert_eq!(session(&mut s).rows().len(), 1);
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Char('/'));
+    key(&mut s, KeyCode::Char(' '));
+    assert!(s.bar.command_input().is_some());
+    assert_eq!(session(&mut s).focus, Focus::Tree);
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    s.shutdown();
+}
+
+#[test]
 fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unchanged() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);

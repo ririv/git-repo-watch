@@ -576,7 +576,8 @@ impl Screen {
             && (matches!(
                 self.mode,
                 Mode::Management(_) | Mode::Files(_) | Mode::Changes(_)
-            ) || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
+            ) || matches!(&self.mode, Mode::Browser(session) if session.focus == crate::browser::Focus::Tree)
+                || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
         {
             return Ok(BarEvent::Pass);
         }
