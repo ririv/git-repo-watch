@@ -89,7 +89,7 @@ fn context_global_hint_only_appears_when_another_slash_switches_scope() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
-        let global_hint = i18n::tr!(ContextGlobalCommandHint)
+        let global_hint = i18n::tr!(CommandScopedCandidateKeys)
             .split(" · ")
             .next()
             .unwrap();

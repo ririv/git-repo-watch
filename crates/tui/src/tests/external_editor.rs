@@ -118,7 +118,7 @@ fn editor_setting_is_one_parameter_command_with_detected_candidates_and_persiste
     assert!(
         matches!(&s.bar, bar::InputBar::Command { menu: Menu::Values(values), .. } if values.entries().any(|entry| entry.token == "git"))
     );
-    assert!(render(&mut s, 120, 36).contains("Enter 应用"));
+    assert!(render(&mut s, 120, 36).contains(i18n::tr!(CommandEnterFillValue)));
     for (w, h) in [(120, 36), (44, 18), (1, 1)] {
         render(&mut s, w, h);
     }

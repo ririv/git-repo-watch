@@ -54,6 +54,62 @@ fn current_feedback_stays_visible_with_historical_failures_at_every_width() {
 }
 
 #[test]
+fn enter_hints_follow_parameter_selection_navigation_and_execution_without_running_the_action() {
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let f = support::Fixture::create();
+        let (_home, mut s) = fixture(vec![f.repo.clone()]);
+        s.paste("//repo diff layout");
+        assert!(
+            s.command_enter_hint()
+                .unwrap()
+                .contains(i18n::tr!(CommandEnterParameters))
+        );
+        key(&mut s, KeyCode::Enter);
+        let hint = s.command_enter_hint().unwrap();
+        let choices = super::options::choices(&s);
+        assert!(hint.contains(i18n::tr!(CommandEnterApply)));
+        assert!(!hint.contains(choices.options[choices.selected].description.text()));
+        key(&mut s, KeyCode::Down);
+        assert_eq!(s.command_enter_hint().unwrap(), hint);
+        assert!(render(&mut s, 120, 30).contains(&hint));
+        assert_eq!(s.diff_preference, crate::diff::Preference::Auto);
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
+        s.paste("//repo log");
+        assert!(
+            s.command_enter_hint()
+                .unwrap()
+                .contains(i18n::tr!(CommandEnterOpen))
+        );
+        key(&mut s, KeyCode::Esc);
+        s.paste("//repo push");
+        assert!(
+            s.command_enter_hint()
+                .unwrap()
+                .contains(i18n::tr!(CommandEnterRun))
+        );
+        assert!(
+            !s.command_enter_hint()
+                .unwrap()
+                .contains(i18n::CommandSummary::Push.text())
+        );
+        assert!(s.repository_tasks.is_empty());
+        key(&mut s, KeyCode::Esc);
+        s.paste("//repos add");
+        key(&mut s, KeyCode::Enter);
+        assert!(
+            s.command_enter_hint()
+                .unwrap()
+                .contains(i18n::tr!(CommandEnterRequired))
+        );
+        let text = render(&mut s, 120, 30);
+        assert!(text.contains(i18n::tr!(CommandEnterRequired)));
+        s.shutdown();
+    }
+}
+
+#[test]
 fn recent_background_completion_stays_visible_beside_an_older_unresolved_failure() {
     let (_home, mut s) = fixture(vec![]);
     let failed = Run::begin(

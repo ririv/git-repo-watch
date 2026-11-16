@@ -674,6 +674,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             ),
         }
     };
+    let command_hint = if screen.focus_mode == crate::focus::State::Inactive
+        && matches!(bar, crate::bar::InputBar::Command { .. })
+        && matches!(content, Content::Editable { .. })
+    {
+        screen.command_enter_hint()
+    } else {
+        None
+    };
+    let hint = command_hint.as_deref().unwrap_or(hint);
     let task_hint = task_hint(screen);
     let hint = task_hint.unwrap_or(hint);
     let hint = if task_hint.is_none()
