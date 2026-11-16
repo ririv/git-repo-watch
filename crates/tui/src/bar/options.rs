@@ -72,7 +72,7 @@ impl Screen {
                 .command_availability(option.value.action(), path.as_deref(), selection)
                 .reason()
         {
-            self.message = reason.to_owned();
+            self.message = crate::message::Message::error(reason.to_owned());
             return true;
         }
         if key.code == KeyCode::Enter
@@ -115,7 +115,8 @@ impl Screen {
             }
             KeyCode::Enter => {
                 let Some(editor) = candidates.choose() else {
-                    self.message = i18n::tr!(NoMatchingOptions).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(NoMatchingOptions).into());
                     return true;
                 };
                 input.replace_canonical(editor);

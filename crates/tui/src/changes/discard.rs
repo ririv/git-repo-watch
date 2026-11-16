@@ -42,7 +42,7 @@ impl Screen {
         let snapshot = match self.discard_file_target(path, selection) {
             Ok(files) => files.snapshot.clone(),
             Err(reason) => {
-                self.message = reason.into();
+                self.message = crate::message::Message::error(reason.into());
                 return;
             }
         };

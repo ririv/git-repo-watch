@@ -36,7 +36,7 @@ impl Screen {
                 true
             }
             Err(error) => {
-                self.message = format!("{error:#}");
+                self.message = crate::message::Message::error(format!("{error:#}"));
                 false
             }
         }
@@ -50,7 +50,8 @@ impl Screen {
                     _ => Vec::new(),
                 };
                 if paths.is_empty() {
-                    self.message = i18n::tr!(ScanEmptySelection).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(ScanEmptySelection).into());
                     return;
                 }
                 self.start(

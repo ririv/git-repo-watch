@@ -137,18 +137,19 @@ impl Screen {
         selection: &crate::clipboard::Selection,
     ) {
         let Some(root) = root else {
-            self.message = i18n::tr!(SelectARepositoryFirst).into();
+            self.message = crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
             return;
         };
         let Some(target) = selection.editor_target(&root) else {
-            self.message = i18n::tr!(ExternalEditorSelectionRequired).into();
+            self.message =
+                crate::message::Message::error(i18n::tr!(ExternalEditorSelectionRequired).into());
             return;
         };
         if let Err(error) =
             self.external_editor
                 .submit(root, target, self.config.editor.clone(), &self.service)
         {
-            self.message = format!("{error:#}");
+            self.message = crate::message::Message::error(format!("{error:#}"));
         }
     }
     pub(crate) fn poll_external_editor(&mut self) -> bool {
@@ -156,9 +157,19 @@ impl Screen {
             return false;
         };
         match result {
-            Ok(Some(path)) => self.message = i18n::tf!(ExternalEditorOpened, path.display()),
+            Ok(Some(path)) => {
+                self.message = crate::message::Message::information(i18n::tf!(
+                    ExternalEditorOpened,
+                    path.display()
+                ))
+            }
             Ok(None) => {}
-            Err(error) => self.message = format!("{}: {error}", i18n::tr!(ExternalEditorFailed)),
+            Err(error) => {
+                self.message = crate::message::Message::error(format!(
+                    "{}: {error}",
+                    i18n::tr!(ExternalEditorFailed)
+                ))
+            }
         }
         true
     }

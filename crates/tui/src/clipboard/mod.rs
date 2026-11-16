@@ -57,8 +57,14 @@ impl Screen {
     }
     pub(crate) fn submit_clipboard(&mut self, payload: anyhow::Result<Payload>) {
         match payload.and_then(|payload| self.clipboard.submit(payload)) {
-            Ok(()) => self.message = format!("{}…", i18n::tr!(CopyWriting)),
-            Err(error) => self.message = format!("{}: {error:#}", i18n::tr!(CopyFailed)),
+            Ok(()) => {
+                self.message =
+                    crate::message::Message::information(format!("{}…", i18n::tr!(CopyWriting)))
+            }
+            Err(error) => {
+                self.message =
+                    crate::message::Message::error(format!("{}: {error:#}", i18n::tr!(CopyFailed)))
+            }
         }
     }
     pub(crate) fn poll_clipboard(&mut self) -> bool {
@@ -66,8 +72,14 @@ impl Screen {
             return false;
         };
         self.message = match result {
-            Ok(()) => format!("{}: {}", i18n::tr!(CopySucceeded), target.label()),
-            Err(error) => format!("{}: {error}", i18n::tr!(CopyFailed)),
+            Ok(()) => crate::message::Message::information(format!(
+                "{}: {}",
+                i18n::tr!(CopySucceeded),
+                target.label()
+            )),
+            Err(error) => {
+                crate::message::Message::error(format!("{}: {error}", i18n::tr!(CopyFailed)))
+            }
         };
         true
     }

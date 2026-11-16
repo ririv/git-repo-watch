@@ -37,6 +37,7 @@ mod links;
 mod live;
 mod loading;
 mod markdown;
+mod message;
 mod multiline_editor;
 mod mutations;
 mod navigation;
@@ -311,7 +312,7 @@ struct Screen {
     settings_focus: Option<settings::Focus>,
     input_surface: view::input::Surface,
     scroll: usize,
-    message: String,
+    message: message::Message,
     tasks: task_center::Center,
     check_task: Option<checks::CheckTask>,
     repository_tasks: BTreeMap<PathBuf, repository_tasks::Task>,
@@ -385,7 +386,7 @@ impl Screen {
             settings_focus: None,
             input_surface: Default::default(),
             scroll: 0,
-            message: String::new(),
+            message: message::Message::default(),
             tasks: Default::default(),
             check_task: None,
             repository_tasks: BTreeMap::new(),
@@ -623,8 +624,14 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
             if let Some(plan) = screen.external_editor.take_terminal() {
                 let result = guard.editor(&plan)?;
                 screen.message = match result {
-                    Ok(()) => i18n::tf!(ExternalEditorOpened, plan.target.display()),
-                    Err(error) => format!("{}: {error:#}", i18n::tr!(ExternalEditorFailed)),
+                    Ok(()) => message::Message::information(i18n::tf!(
+                        ExternalEditorOpened,
+                        plan.target.display()
+                    )),
+                    Err(error) => message::Message::error(format!(
+                        "{}: {error:#}",
+                        i18n::tr!(ExternalEditorFailed)
+                    )),
                 };
                 terminal.clear()?;
                 (screen.graphics, screen.background) = graphics::Display::detect();

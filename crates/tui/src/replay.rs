@@ -66,7 +66,7 @@ impl Screen {
         draft: CommandDraft,
     ) {
         let Some(path) = draft.path.clone() else {
-            self.message = i18n::tr!(SelectARepositoryFirst).into();
+            self.message = crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
             return;
         };
         self.start_repository(

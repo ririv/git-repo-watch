@@ -89,7 +89,7 @@ impl Screen {
                 match stash::SelectedFiles::new(selection.marked_files().iter().cloned()) {
                     Ok(files) => SaveMode::Selected { files },
                     Err(error) => {
-                        self.message = format!("{error:#}");
+                        self.message = crate::message::Message::error(format!("{error:#}"));
                         return;
                     }
                 }

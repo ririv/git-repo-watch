@@ -41,26 +41,29 @@ impl Screen {
             Mode::PushTarget(session) => session.insert(text),
             Mode::Composition(session) => match &mut session.state {
                 crate::composition::State::Editing(editor) => {
-                    self.message = editor
-                        .insert(text)
-                        .err()
-                        .map(|_| i18n::tr!(AgentMessageInvalid).to_owned())
-                        .unwrap_or_default();
+                    self.message = crate::message::Message::error(
+                        editor
+                            .insert(text)
+                            .err()
+                            .map(|_| i18n::tr!(AgentMessageInvalid).to_owned())
+                            .unwrap_or_default(),
+                    );
                 }
                 crate::composition::State::Browsing => self.bar_paste(text),
                 _ => {}
             },
             Mode::PromptEditor(session) => {
                 self.message = match session.insert(text) {
-                    Ok(()) => String::new(),
-                    Err(error) => format!("{error:#}"),
+                    Ok(()) => crate::message::Message::information(String::new()),
+                    Err(error) => crate::message::Message::error(format!("{error:#}")),
                 };
             }
             Mode::CommitMessage { editor, .. } if self.bar.is_plain() => {
                 if let Some(editor) = editor.editable()
                     && editor.insert(text).is_err()
                 {
-                    self.message = i18n::tr!(AgentMessageInvalid).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(AgentMessageInvalid).into());
                 }
             }
             Mode::CommitMessage { .. } => {}
@@ -244,7 +247,7 @@ impl Screen {
                         let prompt = session.prompt();
                         self.mode = Mode::PromptEditor(session);
                         if let Err(error) = prompt.validate() {
-                            self.message = format!("{error:#}");
+                            self.message = crate::message::Message::error(format!("{error:#}"));
                         } else {
                             self.start(
                                 i18n::tr!(AgentPrompt),
@@ -262,8 +265,8 @@ impl Screen {
                     }
                     _ => {
                         self.message = match session.key(key) {
-                            Ok(()) => String::new(),
-                            Err(error) => format!("{error:#}"),
+                            Ok(()) => crate::message::Message::information(String::new()),
+                            Err(error) => crate::message::Message::error(format!("{error:#}")),
                         };
                     }
                 }
@@ -322,7 +325,7 @@ impl Screen {
                     history::View::Graph(session) => match key.code {
                         KeyCode::Char(' ') | KeyCode::Insert if session.selection.active() => {
                             if let Err(error) = session.mark(history::SelectionAction::Toggle) {
-                                self.message = format!("{error:#}");
+                                self.message = crate::message::Message::error(format!("{error:#}"));
                             }
                         }
                         KeyCode::Esc if session.selection.active() => {
@@ -355,7 +358,7 @@ impl Screen {
                             }
                             let delta = if key.code == KeyCode::Up { -1 } else { 1 };
                             if let Err(error) = session.extend_selection(delta) {
-                                self.message = format!("{error:#}");
+                                self.message = crate::message::Message::error(format!("{error:#}"));
                             }
                         }
                         KeyCode::Up => session.advance(-1),
@@ -574,14 +577,18 @@ impl Screen {
                         if let Some(editor) = editor.editable()
                             && editor.key(key).is_err()
                         {
-                            self.message = i18n::tr!(AgentMessageInvalid).into();
+                            self.message = crate::message::Message::error(
+                                i18n::tr!(AgentMessageInvalid).into(),
+                            );
                         }
                     }
                     _ if editor.focused() => {
                         if let Some(editor) = editor.editable()
                             && editor.key(key).is_err()
                         {
-                            self.message = i18n::tr!(AgentMessageInvalid).into();
+                            self.message = crate::message::Message::error(
+                                i18n::tr!(AgentMessageInvalid).into(),
+                            );
                         }
                     }
                     _ => {}
@@ -603,7 +610,8 @@ impl Screen {
                         return Ok(false);
                     }
                     confirmation::Input::Return => {
-                        self.message = i18n::tr!(Cancelled).into();
+                        self.message =
+                            crate::message::Message::information(i18n::tr!(Cancelled).into());
                         if matches!(self.page, Page::View(_)) {
                             self.return_to_view();
                         }

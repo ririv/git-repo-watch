@@ -82,7 +82,7 @@ impl Screen {
             return;
         };
         if !controls::enabled(active, control) {
-            self.message = i18n::tr!(ReplayResolveFirst).into();
+            self.message = crate::message::Message::error(i18n::tr!(ReplayResolveFirst).into());
             return;
         }
         let path = files.snapshot.path.clone();

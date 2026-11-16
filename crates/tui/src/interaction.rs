@@ -125,7 +125,12 @@ impl Screen {
         };
         match result {
             Ok(()) => self.config.interaction_mode = target,
-            Err(error) => self.message = format!("{}: {error:#}", i18n::tr!(InteractionSaveFailed)),
+            Err(error) => {
+                self.message = crate::message::Message::error(format!(
+                    "{}: {error:#}",
+                    i18n::tr!(InteractionSaveFailed)
+                ))
+            }
         }
         // 快速连续切换只保存最终意图；前一次写入结束后串行处理，避免乱序覆盖。
         if latest != target {

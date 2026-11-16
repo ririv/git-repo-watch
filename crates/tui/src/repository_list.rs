@@ -91,7 +91,7 @@ impl Screen {
     }
     pub(crate) fn list_menu(&mut self, menu: Menu) {
         if !self.repository_list_active() {
-            self.message = i18n::tr!(RepositoryListOnly).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryListOnly).into());
             return;
         }
         let kind = match menu {
@@ -103,7 +103,7 @@ impl Screen {
 
     pub(crate) fn filter_repositories(&mut self, filter: Filter) {
         if !self.repository_list_active() {
-            self.message = i18n::tr!(RepositoryListOnly).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryListOnly).into());
             return;
         }
         let path = self.selected_path();
@@ -112,7 +112,7 @@ impl Screen {
     }
     pub(crate) fn sort_repositories(&mut self, order: Order) {
         if !self.repository_list_active() {
-            self.message = i18n::tr!(RepositoryListOnly).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryListOnly).into());
             return;
         }
         let path = self.selected_path();

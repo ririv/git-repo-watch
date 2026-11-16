@@ -130,7 +130,7 @@ impl Screen {
             }
             Preparation::Current => {
                 self.mode = origin;
-                self.message = i18n::tr!(SyncCurrent).into();
+                self.message = crate::message::Message::information(i18n::tr!(SyncCurrent).into());
             }
         }
     }

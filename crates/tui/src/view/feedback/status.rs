@@ -1,7 +1,8 @@
-//! One bounded status line combines runtime progress with actionable task history.
+//! One primary notice owns the status line; task counts use only spare space.
 use super::*;
 
 enum Notice {
+    Message(crate::message::Message),
     Running(String),
     Cancelling(String),
     Failure(String),
@@ -9,11 +10,22 @@ enum Notice {
 impl Notice {
     fn span(self) -> Span<'static> {
         let (text, color) = match self {
+            Self::Message(message) => {
+                let color = if message.is_error() {
+                    BAD
+                } else {
+                    Color::Reset
+                };
+                (message.as_str().to_owned(), color)
+            }
             Self::Running(text) => (text, ACCENT),
             Self::Cancelling(text) => (text, WARN),
             Self::Failure(text) => (text, BAD),
         };
-        Span::styled(safe(text.trim()), Style::default().fg(color))
+        Span::styled(
+            safe(text.lines().next().unwrap_or("").trim()),
+            Style::default().fg(color),
+        )
     }
 }
 
@@ -47,38 +59,33 @@ fn repository_activity(screen: &Screen) -> Option<Notice> {
     })
 }
 
-fn activities(screen: &Screen) -> Vec<Notice> {
-    if let Some(error) = &screen.tasks.error {
-        return vec![Notice::Failure(format!(
-            "{}: {error}",
-            i18n::tr!(TasksStorageError)
-        ))];
+fn primary_notice(screen: &Screen) -> Option<Notice> {
+    if !screen.message.is_empty() {
+        return Some(Notice::Message(screen.message.clone()));
     }
     if let Mode::Error { title, .. } = &screen.mode {
-        return vec![Notice::Failure(format!(
+        return Some(Notice::Failure(format!(
             "{}: {title}",
             i18n::tr!(OperationIncomplete)
-        ))];
-    }
-    let mut notices = Vec::new();
-    if let Some(error) = screen.live.error() {
-        notices.push(Notice::Failure(error));
+        )));
     }
     if let Mode::Busy(pending) = &screen.mode {
         match pending.state {
-            TaskState::Cancelling => notices.push(Notice::Cancelling(format!(
-                "{} {}: {}",
-                pending.animation.symbol(),
-                i18n::tr!(Cancelling),
-                pending.title
-            ))),
+            TaskState::Cancelling => {
+                return Some(Notice::Cancelling(format!(
+                    "{} {}: {}",
+                    pending.animation.symbol(),
+                    i18n::tr!(Cancelling),
+                    pending.title
+                )));
+            }
             TaskState::Running if pending.feedback.visible() => {
-                notices.push(Notice::Running(format!(
+                return Some(Notice::Running(format!(
                     "{} {}: {}",
                     pending.animation.symbol(),
                     i18n::tr!(RunningAlt),
                     pending.title
-                )))
+                )));
             }
             TaskState::Running => {}
         }
@@ -86,20 +93,30 @@ fn activities(screen: &Screen) -> Vec<Notice> {
     if matches!(screen.mode, Mode::CommitMessage { .. })
         && let Some(label) = screen.commit_generator.label()
     {
-        notices.push(Notice::Running(label));
+        return Some(Notice::Running(label));
     }
     if let Some(notice) = repository_activity(screen) {
-        notices.push(notice);
+        return Some(notice);
     }
     if let Some(task) = &screen.check_task {
-        notices.push(match task.state() {
+        return Some(match task.state() {
             TaskState::Running => Notice::Running(task.summary()),
             TaskState::Cancelling => Notice::Cancelling(task.summary()),
         });
-    } else if matches!(screen.snapshot.activity, Activity::Running) {
-        notices.push(Notice::Running(i18n::tr!(CheckingAltAlt).into()));
     }
-    notices
+    if matches!(screen.snapshot.activity, Activity::Running) {
+        return Some(Notice::Running(i18n::tr!(CheckingAltAlt).into()));
+    }
+    if let Some(message) = screen.tasks.recent_notice() {
+        return Some(Notice::Message(message.clone()));
+    }
+    if let Some(error) = &screen.tasks.error {
+        return Some(Notice::Failure(format!(
+            "{}: {error}",
+            i18n::tr!(TasksStorageError)
+        )));
+    }
+    screen.live.error().map(Notice::Failure)
 }
 
 fn fit(line: &Line<'_>, width: usize) -> Line<'static> {
@@ -119,7 +136,6 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
     if let Some(notice) = screen.exit_sequence.notice() {
         return fit(&Line::styled(notice, Style::default().fg(WARN)), width);
     }
-    let notices = activities(screen);
     let pending = screen
         .tasks
         .records
@@ -132,69 +148,35 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
         .iter()
         .filter(|record| record.active())
         .count();
-    if notices.is_empty() {
-        if pending + running > 0 {
-            let mut line = Line::default();
-            if running > 0 {
-                line.spans.push(Span::styled(
-                    format!("{} ", screen.tasks.animation.symbol()),
-                    Style::default().fg(ACCENT),
-                ));
-            }
-            line.spans
-                .extend(super::super::tasks::summary::footer(pending, running).spans);
-            return fit(&line, width);
+    let tail = super::super::tasks::summary::footer(pending, running);
+    let Some(notice) = primary_notice(screen) else {
+        if pending + running == 0 {
+            return Line::default();
         }
-        let text = if !screen.message.is_empty()
-            && !screen
-                .tasks
-                .records
-                .iter()
-                .any(|record| record.active() || record.pending())
-        {
-            screen.message.lines().next().unwrap_or("").to_owned()
-        } else {
-            screen.tasks.footer_text()
-        };
-        return fit(
-            &Line::styled(
-                safe(&text),
-                Style::default().fg(if pending > 0 { WARN } else { MUTED }),
-            ),
-            width,
-        );
-    }
-    let mut main = Line::default();
-    for notice in notices {
-        if !main.spans.is_empty() {
-            main.spans
-                .push(Span::styled(" · ", Style::default().fg(MUTED)));
+        let mut line = Line::default();
+        if running > 0 {
+            line.spans.push(Span::styled(
+                format!("{} ", screen.tasks.animation.symbol()),
+                Style::default().fg(ACCENT),
+            ));
         }
-        main.spans.push(notice.span());
-    }
-    let mut tail = if pending + running > 0 {
-        super::super::tasks::summary::counts(pending, running)
-    } else {
-        Line::default()
+        line.spans.extend(tail.spans);
+        return fit(&line, width);
     };
-    let full_tail = super::super::tasks::summary::footer(pending, running);
-    // 窄屏先省略任务入口提示，再缩短进度；待处理提醒优先保留。
-    if main.width() + 3 + full_tail.width() <= width {
-        tail = full_tail;
+    let mut main = Line::from(notice.span());
+    // 只有完整提示与统计都能放下时才显示统计，绝不为计数截短当前提示。
+    if main.width() + tail.width() + 3 <= width {
+        main.spans
+            .push(Span::styled(" · ", Style::default().fg(MUTED)));
+        main.spans.extend(tail.spans);
+        return main;
     }
-    if tail.spans.is_empty() {
-        return fit(&main, width);
+    let link = super::super::tasks::summary::entry();
+    if main.width() + link.width() + 3 <= width {
+        main.spans
+            .push(Span::styled(" · ", Style::default().fg(MUTED)));
+        main.spans.extend(link.spans);
+        return main;
     }
-    if tail.width() + 4 > width {
-        return fit(
-            &Line::styled(format!("! {pending}"), Style::default().fg(WARN)),
-            width,
-        );
-    }
-    let mut result = fit(&main, width - tail.width() - 3);
-    result
-        .spans
-        .push(Span::styled(" · ", Style::default().fg(MUTED)));
-    result.spans.extend(tail.spans);
-    result
+    fit(&main, width)
 }

@@ -13,14 +13,14 @@ impl Screen {
             || (selection.is_error()
                 && !matches!(action, Action::Copy | Action::Quit | Action::Tasks))
         {
-            self.message = i18n::tr!(NoMatchingCommands).into();
+            self.message = crate::message::Message::error(i18n::tr!(NoMatchingCommands).into());
             return Ok(false);
         }
         if let Some(reason) = self
             .command_availability(action, path.as_deref(), &selection)
             .reason()
         {
-            self.message = reason.to_owned();
+            self.message = crate::message::Message::error(reason.to_owned());
             return Ok(false);
         }
         if !matches!(
@@ -95,7 +95,8 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Files, path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::BrowserDiff => self.open_browser_diff(),
@@ -137,14 +138,16 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Stashes, path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Fetch => {
                 if let Some(path) = path {
                     self.fetch_repository(path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Replay(kind) => {
@@ -157,7 +160,8 @@ impl Screen {
                     draft.selection = selection;
                     self.prepare_replay(kind, commits, draft);
                 } else {
-                    self.message = i18n::tr!(ReplaySelectCommit).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(ReplaySelectCommit).into());
                 }
             }
             Action::ReplayControl(control) => {
@@ -200,7 +204,8 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Branches, path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Quit => return Ok(true),
@@ -208,7 +213,8 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_repository(path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Repositories => self.open_repository_list(path),
@@ -285,7 +291,8 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::History, path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::LogMore => self.more_history(),
@@ -309,14 +316,16 @@ impl Screen {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Diff, path);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::DiffGroup(group) => {
                 if let Some(path) = path {
                     self.open_changes_group(path, group);
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Commit | Action::CommitGenerate | Action::Push => {
@@ -347,7 +356,8 @@ impl Screen {
                         )
                     }
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into()
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into())
                 }
             }
             Action::Terminal => {
@@ -365,7 +375,8 @@ impl Screen {
                         },
                     );
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Remove => {
@@ -376,7 +387,8 @@ impl Screen {
                         choice: Default::default(),
                     }
                 } else {
-                    self.message = i18n::tr!(SelectARepositoryFirst).into()
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into())
                 }
             }
             Action::FetchAll => self.start_check(checks::CheckTarget::All),
@@ -524,20 +536,22 @@ impl Screen {
                 return;
             }
             None => {
-                self.message = i18n::tr!(ChangesSelectionRequired).into();
+                self.message =
+                    crate::message::Message::error(i18n::tr!(ChangesSelectionRequired).into());
                 return;
             }
         };
         let selected = session.selection();
         if selected.is_empty() {
-            self.message = i18n::tr!(NoActionableFilesInThisArea).into();
+            self.message =
+                crate::message::Message::error(i18n::tr!(NoActionableFilesInThisArea).into());
             return;
         }
         if selected
             .iter()
             .any(|change| (change.area == Area::Staged) != (action == IndexAction::Unstage))
         {
-            self.message = i18n::tr!(ChangesWrongArea).into();
+            self.message = crate::message::Message::error(i18n::tr!(ChangesWrongArea).into());
             return;
         }
         self.start_repository(

@@ -62,7 +62,7 @@ impl Screen {
         let target = match Target::current(self) {
             Ok(target) => target,
             Err(reason) => {
-                self.message = reason.into();
+                self.message = crate::message::Message::error(reason.into());
                 return;
             }
         };

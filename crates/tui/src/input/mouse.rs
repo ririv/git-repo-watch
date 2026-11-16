@@ -230,8 +230,11 @@ impl Screen {
             self.clicks.reset();
             self.scroll_input.keyboard(std::time::Instant::now());
             self.message = match self.link_opener.submit(target) {
-                Ok(()) => i18n::tr!(LinkOpening).into(),
-                Err(error) => format!("{}: {error:#}", i18n::tr!(LinkOpenFailed)),
+                Ok(()) => crate::message::Message::information(i18n::tr!(LinkOpening).into()),
+                Err(error) => crate::message::Message::error(format!(
+                    "{}: {error:#}",
+                    i18n::tr!(LinkOpenFailed)
+                )),
             };
             return Ok(true);
         }

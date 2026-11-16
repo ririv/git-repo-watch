@@ -200,12 +200,13 @@ impl Screen {
         }
         if request.cancel.is_cancelled() {
             editor.restore();
-            self.message = i18n::tr!(AgentCancelled).into();
+            self.message = crate::message::Message::information(i18n::tr!(AgentCancelled).into());
         } else {
             match result {
                 Ok(message) => {
                     editor.accept(message);
-                    self.message = i18n::tr!(AgentGenerated).into();
+                    self.message =
+                        crate::message::Message::information(i18n::tr!(AgentGenerated).into());
                 }
                 Err(error) => {
                     editor.restore();
@@ -223,17 +224,17 @@ impl Screen {
             return;
         }
         if editor.text().trim().is_empty() {
-            self.message = i18n::tr!(EnterACommitMessage).into();
+            self.message = crate::message::Message::error(i18n::tr!(EnterACommitMessage).into());
             return;
         }
         let plan = plan.clone();
         let message = editor.text().to_owned();
         if self.repository_tasks.contains_key(&plan.path) {
-            self.message = i18n::tr!(RepositoryTaskBusy).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskBusy).into());
             return;
         }
         if self.repository_tasks.len() >= self.config.max_concurrency {
-            self.message = i18n::tr!(RepositoryTaskLimit).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskLimit).into());
             return;
         }
         self.start_repository(

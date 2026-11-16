@@ -39,7 +39,7 @@ impl crate::Screen {
             .selected()
             .filter(|entry| entry.status().is_some_and(|status| status.changed()))
         else {
-            self.message = i18n::tr!(BrowserNoDiff).into();
+            self.message = crate::message::Message::information(i18n::tr!(BrowserNoDiff).into());
             return;
         };
         let root = session.root.clone();

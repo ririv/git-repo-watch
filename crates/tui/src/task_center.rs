@@ -42,13 +42,13 @@ pub(crate) struct Center {
     pub animation: crate::spinner::Spinner,
     worker: Option<Worker>,
     refreshed: Option<Instant>,
-    observed: Option<(String, Instant)>,
-    completion: Option<(String, Instant)>,
+    observed: Option<(crate::message::Message, Instant)>,
+    completion: Option<(crate::message::Message, Instant)>,
     pending_requests: usize,
     clicks: crate::input::clicks::Clicks,
 }
 impl Center {
-    fn observe(&mut self, text: String, now: Instant) {
+    fn observe(&mut self, text: crate::message::Message, now: Instant) {
         self.observed = Some((text, now));
     }
     fn connect(&mut self, store: engine::state::Store) {
@@ -91,32 +91,17 @@ impl Center {
             .min(self.records.len().saturating_sub(1));
         self.selection = self.records.get(cursor).map(|r| r.id.clone());
     }
-    pub fn footer_text(&self) -> String {
-        let pending = self.records.iter().filter(|r| r.pending()).count();
-        let running = self.records.iter().filter(|r| r.active()).count();
-        if let Some(error) = &self.error {
-            return format!(
-                "{}: {} · {}",
-                i18n::tr!(TasksStorageError),
-                error,
-                i18n::tr!(TasksOpenCommand)
-            );
-        }
-        if pending + running > 0 {
-            let summary = i18n::tf!(TasksSummary, pending = pending, running = running);
-            return if running > 0 {
-                format!("{} {summary}", self.animation.symbol())
-            } else {
-                summary
-            };
-        }
+    pub(crate) fn recent_notice(&self) -> Option<&crate::message::Message> {
         self.completion
             .as_ref()
             .filter(|(_, at)| at.elapsed() < Duration::from_secs(5))
-            .or(self.observed.as_ref())
-            .filter(|(_, at)| at.elapsed() < Duration::from_secs(5))
-            .map(|(text, _)| text.lines().next().unwrap_or("").to_owned())
-            .unwrap_or_default()
+            .or_else(|| {
+                self.observed
+                    .as_ref()
+                    .filter(|(_, at)| at.elapsed() < Duration::from_secs(5))
+            })
+            .map(|(text, _)| text)
+            .filter(|text| !text.is_empty())
     }
 }
 impl Drop for Center {
@@ -137,9 +122,7 @@ impl Screen {
     pub(crate) fn poll_tasks(&mut self) -> bool {
         let mut changed = false;
         let now = Instant::now();
-        if self.tasks.observed.as_ref().map(|(text, _)| text.as_str())
-            != Some(self.message.as_str())
-        {
+        if self.tasks.observed.as_ref().map(|(text, _)| text) != Some(&self.message) {
             self.tasks.observe(self.message.clone(), now);
             changed = true;
         } else if let Some((text, at)) = &mut self.tasks.observed
@@ -194,7 +177,11 @@ impl Screen {
                                     .any(|old| old.id == record.id && old.active())
                             }) {
                                 self.tasks.completion = Some((
-                                    format!("{} · {}", record.spec.title, i18n::tr!(TasksSuccess)),
+                                    crate::message::Message::information(format!(
+                                        "{} · {}",
+                                        record.spec.title,
+                                        i18n::tr!(TasksSuccess)
+                                    )),
                                     now,
                                 ));
                             }
@@ -256,7 +243,9 @@ impl Screen {
             return;
         }
         match record.spec.retry {
-            Retry::Unavailable => self.message = i18n::tr!(TasksUnavailable).into(),
+            Retry::Unavailable => {
+                self.message = crate::message::Message::error(i18n::tr!(TasksUnavailable).into())
+            }
             Retry::FetchAll => {
                 self.start_check_retry(checks::CheckTarget::All, parent);
             }
@@ -464,8 +453,11 @@ mod tests {
     fn success_notice_expires_after_five_seconds() {
         let mut center = Center::default();
         center.observe("done".into(), Instant::now() - Duration::from_secs(4));
-        assert_eq!(center.footer_text(), "done");
+        assert_eq!(
+            center.recent_notice().map(|message| message.as_str()),
+            Some("done")
+        );
         center.observe("done".into(), Instant::now() - Duration::from_secs(5));
-        assert_eq!(center.footer_text(), "");
+        assert!(center.recent_notice().is_none());
     }
 }

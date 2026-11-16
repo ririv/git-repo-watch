@@ -88,7 +88,7 @@ impl Screen {
             self.focus_mode = State::Selecting;
             self.message.clear();
         } else {
-            self.message = i18n::tr!(PaneUnavailable).into();
+            self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into());
         }
     }
     pub(crate) fn focus_key(&mut self, key: KeyEvent) -> bool {

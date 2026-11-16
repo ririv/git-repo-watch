@@ -370,9 +370,9 @@ fn task_details_have_semantic_styles_and_scroll_all_failure_output() {
         ));
         assert!(styled(
             if language == i18n::Language::Chinese {
-                "待"
+                "未"
             } else {
-                "N"
+                "U"
             },
             Color::LightRed,
             true

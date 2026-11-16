@@ -18,7 +18,7 @@ impl Screen {
     }
     pub(crate) fn select_partial(&mut self, mode: edit::Granularity) {
         let Mode::Changes(session) = &mut self.mode else {
-            self.message = i18n::tr!(PartialSelectRequired).into();
+            self.message = crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
             return;
         };
         match &mut session.preview {
@@ -35,17 +35,20 @@ impl Screen {
             Preview::Ready {
                 editing: edit::State::Unavailable(reason),
                 ..
-            } => self.message = reason.clone(),
-            _ => self.message = i18n::tr!(PartialSelectRequired).into(),
+            } => self.message = crate::message::Message::error(reason.clone()),
+            _ => {
+                self.message =
+                    crate::message::Message::error(i18n::tr!(PartialSelectRequired).into())
+            }
         }
     }
     pub(crate) fn edit_partial(&mut self, action: partial::Action) {
         let Mode::Changes(session) = &self.mode else {
-            self.message = i18n::tr!(PartialSelectRequired).into();
+            self.message = crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
             return;
         };
         if session.focus != Focus::Preview {
-            self.message = i18n::tr!(PartialSelectRequired).into();
+            self.message = crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
             return;
         }
         let plan = match &session.preview {
@@ -62,7 +65,7 @@ impl Screen {
         let plan = match plan {
             Ok(plan) => plan,
             Err(error) => {
-                self.message = format!("{error:#}");
+                self.message = crate::message::Message::error(format!("{error:#}"));
                 return;
             }
         };
@@ -74,7 +77,7 @@ impl Screen {
                     plan.snapshot().change().location.display()
                 ),
                 Err(error) => {
-                    self.message = format!("{error:#}");
+                    self.message = crate::message::Message::error(format!("{error:#}"));
                     return;
                 }
             };
@@ -110,7 +113,8 @@ impl Screen {
                 Some(Area::Staged) => partial::Action::Unstage,
                 Some(Area::Unstaged | Area::Untracked) => partial::Action::Stage,
                 None => {
-                    self.message = i18n::tr!(PartialSelectRequired).into();
+                    self.message =
+                        crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
                     return;
                 }
             },

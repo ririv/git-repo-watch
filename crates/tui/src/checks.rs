@@ -233,7 +233,8 @@ impl Screen {
     ) {
         if let CheckTarget::Repository(path) = target {
             if self.auto_fetch.running(&path) {
-                self.message = i18n::tr!(CheckAlreadyRunning).into();
+                self.message =
+                    crate::message::Message::error(i18n::tr!(CheckAlreadyRunning).into());
                 return;
             }
             let existed = self.repository_tasks.contains_key(&path);
@@ -264,7 +265,7 @@ impl Screen {
             return;
         }
         if self.check_task.is_some() {
-            self.message = i18n::tr!(CheckAlreadyRunning).into();
+            self.message = crate::message::Message::error(i18n::tr!(CheckAlreadyRunning).into());
             return;
         }
         let paths = match &target {
@@ -312,9 +313,13 @@ impl Screen {
             Some(task) => {
                 task.cancel.cancel();
                 task.state = TaskState::Cancelling;
-                self.message = i18n::tr!(CheckCancelRequested).into();
+                self.message =
+                    crate::message::Message::information(i18n::tr!(CheckCancelRequested).into());
             }
-            None => self.message = i18n::tr!(NoBackgroundCheck).into(),
+            None => {
+                self.message =
+                    crate::message::Message::information(i18n::tr!(NoBackgroundCheck).into())
+            }
         }
     }
     pub(crate) fn animate_check(&mut self) -> bool {
@@ -356,7 +361,10 @@ impl Screen {
                         changed = true;
                     }
                     Ok(Event::Progress(service::Event::NotificationProblem(notice))) => {
-                        self.message = i18n::tf!(SystemNotificationFailedNotice, notice = notice);
+                        self.message = crate::message::Message::error(i18n::tf!(
+                            SystemNotificationFailedNotice,
+                            notice = notice
+                        ));
                         changed = true;
                     }
                     Ok(Event::Done(result)) => {
@@ -406,7 +414,7 @@ impl Screen {
                         report: Box::new(report),
                         scope,
                     };
-                    self.message = format!(
+                    self.message = crate::message::Message::information(format!(
                         "{} · {} {} · {} {} · {} {}",
                         i18n::tr!(HomeCheckComplete),
                         i18n::tr!(Clean),
@@ -415,12 +423,17 @@ impl Screen {
                         stats.needs_attention,
                         i18n::tr!(Failed),
                         stats.failed
-                    );
+                    ));
                 }
                 Err(error) if error.downcast_ref::<engine::cancel::Cancelled>().is_some() => {
-                    self.message = i18n::tr!(CheckCancelledRetained).into();
+                    self.message = crate::message::Message::information(
+                        i18n::tr!(CheckCancelledRetained).into(),
+                    );
                 }
-                Err(error) => self.message = i18n::tf!(ErrorE, e = format!("{error:#}")),
+                Err(error) => {
+                    self.message =
+                        crate::message::Message::error(i18n::tf!(ErrorE, e = format!("{error:#}")))
+                }
             }
             match self.service.store.running() {
                 Ok(running) => {
@@ -430,7 +443,9 @@ impl Screen {
                         service::Activity::Idle
                     }
                 }
-                Err(error) => self.message.push_str(&i18n::tf!(RefreshFailedE, e = error)),
+                Err(error) => self
+                    .message
+                    .append_error(&i18n::tf!(RefreshFailedE, e = error)),
             }
             changed = true;
         }

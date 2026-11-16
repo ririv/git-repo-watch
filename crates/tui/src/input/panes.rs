@@ -51,7 +51,7 @@ impl Screen {
                 };
                 self.switch_repository_section(target);
             }
-            _ => self.message = i18n::tr!(PaneUnavailable).into(),
+            _ => self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into()),
         }
     }
     pub(super) fn zoom_pane(&mut self) {
@@ -78,7 +78,7 @@ impl Screen {
                 Arrangement::Maximized => Arrangement::Tiled,
             };
         } else {
-            self.message = i18n::tr!(PaneUnavailable).into();
+            self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into());
         }
     }
 }

@@ -152,7 +152,9 @@ fn check_progress_and_cancellation_share_the_last_row_without_moving_input() {
         s.cancel_check();
         let summary = s.check_task.as_ref().unwrap().summary().trim().to_owned();
         let text = render(&mut s, 100, 32);
-        assert!(text.lines().last().unwrap().contains(&summary), "{text}");
+        let last = text.lines().last().unwrap();
+        assert!(last.contains(i18n::tr!(CheckCancelRequested)), "{text}");
+        assert!(!last.contains(&summary), "{text}");
         assert!(!text.lines().next().unwrap().contains(&summary));
         gate.release();
         poll_background_until(&mut s, |s| s.check_task.is_none());
@@ -244,14 +246,20 @@ fn external_progress_and_pending_failures_remain_visible_in_small_windows() {
         let last = text.lines().last().unwrap();
         assert!(last.contains(i18n::tr!(CheckingAltAlt)), "{text}");
         assert!(
-            last.contains(&format!("1 {}", i18n::tr!(TasksPending))),
+            last.contains(&i18n::tf!(TaskFailuresCount, pending = 1)),
             "{text}"
         );
         assert!(last.contains(i18n::tr!(TasksOpenCommand)), "{text}");
         assert!(!last.contains("Alt+Enter"), "{text}");
         assert!(!text.contains("failure details"));
         let text = render(&mut s, 8, 4);
-        assert!(text.lines().last().unwrap().contains("! 1"), "{text}");
+        assert!(
+            text.lines()
+                .last()
+                .unwrap()
+                .contains(i18n::tr!(CheckingAltAlt).chars().next().unwrap()),
+            "{text}"
+        );
         s.shutdown();
     }
 }

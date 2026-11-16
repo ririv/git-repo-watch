@@ -33,7 +33,8 @@ fn heading(record: &Record, width: usize, animation: &str) -> Vec<Line<'static>>
         14
     } else {
         17
-    };
+    }
+    .max(status.width());
     let title_width = width.saturating_sub(status_width + time.width() + 2);
     let title = truncate(&title, title_width);
     vec![Line::from(vec![

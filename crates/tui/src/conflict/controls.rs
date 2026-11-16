@@ -91,7 +91,7 @@ impl Screen {
         let path = self.scope_path();
         let selection = self.copy_selection();
         if let Some(reason) = self.conflict_control_reason(action) {
-            self.message = reason;
+            self.message = crate::message::Message::error(reason);
             return;
         }
         if let Mode::Changes(session) = &mut self.mode {

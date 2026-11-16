@@ -235,7 +235,10 @@ impl Screen {
         if let Some(text) = submitted
             && let Err(error) = self.service.store.record_command(&text)
         {
-            self.message = i18n::tf!(SaveCommandHistoryFailed, format!("{error:#}"));
+            self.message = crate::message::Message::error(i18n::tf!(
+                SaveCommandHistoryFailed,
+                format!("{error:#}")
+            ));
         }
         result
     }
@@ -334,7 +337,7 @@ impl Screen {
                     .command_availability(action, path.as_deref(), selection)
                     .reason()
             {
-                self.message = reason.to_owned();
+                self.message = crate::message::Message::error(reason.to_owned());
                 return Ok(BarEvent::Handled);
             }
         }
@@ -379,7 +382,8 @@ impl Screen {
                                 return self.bar_key_inner(key, root, submitted);
                             }
                         } else {
-                            self.message = i18n::tr!(NoMatchingOptions).into();
+                            self.message =
+                                crate::message::Message::error(i18n::tr!(NoMatchingOptions).into());
                         }
                     }
                     _ => {
@@ -433,7 +437,9 @@ impl Screen {
                         && let Some((argument, value)) = command::argument_input(&query)
                     {
                         if !argument.action().available(&self.config) {
-                            self.message = i18n::tr!(NoMatchingCommands).into();
+                            self.message = crate::message::Message::error(
+                                i18n::tr!(NoMatchingCommands).into(),
+                            );
                             return Ok(BarEvent::Handled);
                         }
                         if let command::ArgumentAction::Option(kind) = argument {
@@ -446,7 +452,10 @@ impl Screen {
                                     self.sync_bar();
                                     self.activate(action, target, selection, root)?;
                                 }
-                                Err(error) => self.message = format!("{error:#}"),
+                                Err(error) => {
+                                    self.message =
+                                        crate::message::Message::error(format!("{error:#}"))
+                                }
                             }
                             return Ok(BarEvent::Handled);
                         }
@@ -494,10 +503,15 @@ impl Screen {
                                         value,
                                         draft,
                                     ),
-                                    Err(error) => self.message = format!("{error:#}"),
+                                    Err(error) => {
+                                        self.message =
+                                            crate::message::Message::error(format!("{error:#}"))
+                                    }
                                 }
                             }
-                            Err(error) => self.message = format!("{error:#}"),
+                            Err(error) => {
+                                self.message = crate::message::Message::error(format!("{error:#}"))
+                            }
                         }
                     } else if let Some(command) = matches.get(*selected) {
                         if command.action.argument().is_some()
@@ -518,7 +532,8 @@ impl Screen {
                             }
                         }
                     } else {
-                        self.message = i18n::tr!(NoMatchingCommands).into();
+                        self.message =
+                            crate::message::Message::error(i18n::tr!(NoMatchingCommands).into());
                     }
                 }
                 _ => {

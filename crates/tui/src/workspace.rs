@@ -350,7 +350,7 @@ impl Screen {
                     Ok(files) => session.files = Panel::Ready(files),
                     Err(error) => {
                         if self.page == Page::Detail && focus == Some(Section::Worktree) {
-                            self.message = error.clone();
+                            self.message = crate::message::Message::error(error.clone());
                         }
                         session.files = Panel::Failed(error);
                     }
@@ -387,7 +387,7 @@ impl Screen {
                     Ok(view) => session.history = Panel::Ready(view.session().clone()),
                     Err(error) => {
                         if self.page == Page::Detail && focus == Some(Section::History) {
-                            self.message = error.clone();
+                            self.message = crate::message::Message::error(error.clone());
                         }
                         session.history = Panel::Failed(error);
                     }

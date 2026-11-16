@@ -116,7 +116,7 @@ pub(crate) fn review(plan: &Plan) -> String {
 impl Screen {
     pub(crate) fn prepare_mutation(&mut self, request: Request, draft: CommandDraft) {
         let Some(path) = draft.path.clone() else {
-            self.message = i18n::tr!(SelectARepositoryFirst).into();
+            self.message = crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
             return;
         };
         let effect = if matches!(request, Request::Pull | Request::Sync) {
@@ -180,7 +180,7 @@ impl Screen {
         self.start_check_retry(crate::checks::CheckTarget::Repository(path), parent);
     }
     pub(crate) fn refresh_mutated_view(&mut self) {
-        self.message = i18n::tr!(MutationComplete).into();
+        self.message = crate::message::Message::information(i18n::tr!(MutationComplete).into());
         if let Mode::History(view) = &self.mode {
             self.open_history(view.session().references.path.clone());
         }

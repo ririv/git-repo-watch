@@ -146,8 +146,10 @@ impl crate::Screen {
             return false;
         };
         self.message = match result {
-            Ok(()) => i18n::tr!(LinkRequested).into(),
-            Err(error) => format!("{}: {error}", i18n::tr!(LinkOpenFailed)),
+            Ok(()) => crate::message::Message::information(i18n::tr!(LinkRequested).into()),
+            Err(error) => {
+                crate::message::Message::error(format!("{}: {error}", i18n::tr!(LinkOpenFailed)))
+            }
         };
         true
     }

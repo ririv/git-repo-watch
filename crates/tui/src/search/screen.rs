@@ -42,7 +42,7 @@ impl Screen {
     }
     pub(crate) fn search_menu(&mut self) {
         if self.search_support().mode().is_none() {
-            self.message = i18n::tr!(SearchUnavailable).into();
+            self.message = crate::message::Message::error(i18n::tr!(SearchUnavailable).into());
             return;
         }
         self.open_option_menu(

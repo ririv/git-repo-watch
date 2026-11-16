@@ -74,7 +74,8 @@ impl Screen {
     pub(crate) fn set_diff_layout(&mut self, preference: crate::diff::Preference) {
         self.diff_preference = preference;
         self.save_view_preference(Edit::DiffLayout(preference.into()));
-        self.message = i18n::tf!(DiffLayoutSelected, preference.label());
+        self.message =
+            crate::message::Message::information(i18n::tf!(DiffLayoutSelected, preference.label()));
     }
     pub(crate) fn set_diff_context(&mut self, context: crate::diff::Context) {
         self.diff_context = context;
@@ -87,7 +88,10 @@ impl Screen {
         match result {
             Ok(()) => edit.apply(&mut self.config.view),
             Err(error) => {
-                self.message = format!("{}: {error:#}", i18n::tr!(ViewPreferenceSaveFailed))
+                self.message = crate::message::Message::error(format!(
+                    "{}: {error:#}",
+                    i18n::tr!(ViewPreferenceSaveFailed)
+                ))
             }
         }
         true

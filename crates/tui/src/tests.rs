@@ -57,6 +57,7 @@ mod prefix_selection;
 mod preview_loading;
 mod push;
 mod recovery_controls;
+mod release_interaction;
 mod replay;
 mod replay_batch;
 mod repository_list;
@@ -157,7 +158,7 @@ fn screen(service: Service) -> Screen {
         settings_focus: None,
         input_surface: Default::default(),
         scroll: 0,
-        message: String::new(),
+        message: crate::message::Message::default(),
         tasks: Default::default(),
         check_task: None,
         repository_tasks: BTreeMap::new(),

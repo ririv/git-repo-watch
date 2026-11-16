@@ -77,11 +77,11 @@ impl Screen {
         task: impl FnOnce(Arc<Service>, Cancel, &mut Progress) -> Result<Outcome> + Send + 'static,
     ) {
         if self.repository_tasks.contains_key(&path) {
-            self.message = i18n::tr!(RepositoryTaskBusy).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskBusy).into());
             return;
         }
         if self.repository_tasks.len() >= self.config.max_concurrency {
-            self.message = i18n::tr!(RepositoryTaskLimit).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskLimit).into());
             return;
         }
         let requested = if effect == Effect::RepositoryWrite {
@@ -367,17 +367,24 @@ impl Screen {
                         let origin = self.take_mode();
                         self.finish(outcome, origin, root);
                     } else if let Outcome::PushPrepared(preparation) = outcome {
-                        self.message = crate::push::preparation_notice(&preparation).into();
+                        self.message = crate::message::Message::information(
+                            crate::push::preparation_notice(&preparation).into(),
+                        );
                     } else {
-                        self.message =
-                            i18n::tf!(RepositoryTaskCompleted, view::name(&path), task.title);
+                        self.message = crate::message::Message::information(i18n::tf!(
+                            RepositoryTaskCompleted,
+                            view::name(&path),
+                            task.title
+                        ));
                     }
                 }
                 Err(error) => {
                     if task.effect == Effect::Check
                         && error.downcast_ref::<engine::cancel::Cancelled>().is_some()
                     {
-                        self.message = i18n::tr!(CheckCancelledRetained).into();
+                        self.message = crate::message::Message::information(
+                            i18n::tr!(CheckCancelledRetained).into(),
+                        );
                         continue;
                     }
                     let detail = if matches!(
@@ -418,7 +425,7 @@ impl Screen {
                                 _ => i18n::tr!(ReplayPaused),
                             };
                             self.open_view(crate::navigation::View::Diff, path.clone());
-                            self.message = message.into();
+                            self.message = crate::message::Message::error(message.into());
                             continue;
                         }
                         let mut origin = self.take_mode();
@@ -438,8 +445,12 @@ impl Screen {
                             scroll: 0,
                         };
                     } else {
-                        self.message =
-                            format!("{} · {}: {}", view::name(&path), task.title, detail);
+                        self.message = crate::message::Message::error(format!(
+                            "{} · {}: {}",
+                            view::name(&path),
+                            task.title,
+                            detail
+                        ));
                     }
                 }
             }
@@ -469,7 +480,7 @@ impl Screen {
             return false;
         };
         task.cancel.cancel();
-        self.message = i18n::tr!(Cancelling).into();
+        self.message = crate::message::Message::information(i18n::tr!(Cancelling).into());
         true
     }
 }

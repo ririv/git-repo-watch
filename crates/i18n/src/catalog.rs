@@ -2271,8 +2271,8 @@ impl Message {
             }
             (Self::TasksEmpty, Language::English) => "No tasks yet",
             (Self::TasksEmpty, Language::Chinese) => "暂无任务",
-            (Self::TasksPending, Language::English) => "Needs action",
-            (Self::TasksPending, Language::Chinese) => "待处理",
+            (Self::TasksPending, Language::English) => "Unresolved failure",
+            (Self::TasksPending, Language::Chinese) => "未处理失败",
             (Self::TasksEntrySuffix, Language::English) => "",
             (Self::TasksEntrySuffix, Language::Chinese) => " 任务",
             (Self::TasksOpenCommand, Language::English) => "/tasks",
@@ -2296,10 +2296,10 @@ impl Message {
                 "此任务不支持直接重试，请查看详情后重新执行操作。"
             }
             (Self::TasksSummary, Language::English) => {
-                "{pending} pending · {running} running · /tasks"
+                "Unresolved failures: {pending} · Running: {running} · /tasks"
             }
             (Self::TasksSummary, Language::Chinese) => {
-                "{pending} 待处理 · {running} 运行中 · /tasks 任务"
+                "{pending} 未处理失败 · {running} 运行中 · /tasks 任务"
             }
             (Self::TasksDetailsHint, Language::English) => {
                 "↑↓ scroll · c cancel · r retry · d mark handled · Esc return"
@@ -5860,14 +5860,14 @@ macro_rules! tf {
     };
     (TaskCounts $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("{pending} pending · {running} running" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中" $(, $($args)*)?),
+            $crate::Language::English => format!("Unresolved failures: {pending} · Running: {running}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 未处理失败 · {running} 运行中" $(, $($args)*)?),
         }
     };
     (TasksSummary $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("{pending} pending · {running} running · /tasks" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 待处理 · {running} 运行中 · /tasks 任务" $(, $($args)*)?),
+            $crate::Language::English => format!("Unresolved failures: {pending} · Running: {running} · /tasks" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 未处理失败 · {running} 运行中 · /tasks 任务" $(, $($args)*)?),
         }
     };
     (LinkPathMissing $(, $($args:tt)*)?) => {

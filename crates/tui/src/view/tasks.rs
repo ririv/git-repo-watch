@@ -89,12 +89,19 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .notice()
         .or(screen.tasks.error.as_deref())
         .unwrap_or(&screen.message);
+    let notice_color = if screen.exit_sequence.notice().is_some() {
+        WARN
+    } else if screen.tasks.error.is_some() || screen.message.is_error() {
+        BAD
+    } else {
+        MUTED
+    };
     frame.render_widget(
         Paragraph::new(truncate(
             notice.lines().next().unwrap_or(""),
             parts[3].width.into(),
         ))
-        .style(Style::default().fg(WARN)),
+        .style(Style::default().fg(notice_color)),
         footer_text_area(parts[3]),
     );
     match &mut screen.tasks.session {

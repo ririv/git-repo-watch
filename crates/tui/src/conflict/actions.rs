@@ -29,7 +29,7 @@ impl Screen {
             return;
         };
         if !view.resolution.resolved() {
-            self.message = i18n::tr!(ReplayResolveFirst).into();
+            self.message = crate::message::Message::error(i18n::tr!(ReplayResolveFirst).into());
             return;
         }
         let Some(change) = session.files.current().cloned() else {
@@ -88,11 +88,11 @@ impl Screen {
         selection: &crate::clipboard::Selection,
     ) {
         let Some(resolution) = selection.conflict_resolution().cloned() else {
-            self.message = i18n::tr!(ConflictFileRequired).into();
+            self.message = crate::message::Message::error(i18n::tr!(ConflictFileRequired).into());
             return;
         };
         let Some(path) = path.map(std::path::Path::to_owned) else {
-            self.message = i18n::tr!(ConflictFileRequired).into();
+            self.message = crate::message::Message::error(i18n::tr!(ConflictFileRequired).into());
             return;
         };
         self.start_repository(
@@ -115,7 +115,7 @@ impl Screen {
         review: String,
     ) {
         if !self.conflict_plan_current(&plan, Some(plan.path())) {
-            self.message = i18n::tr!(ConflictResolveChanged).into();
+            self.message = crate::message::Message::error(i18n::tr!(ConflictResolveChanged).into());
             return;
         }
         let origin = Box::new(self.take_mode());
@@ -133,7 +133,7 @@ impl Screen {
         plan: engine::local::files::conflict::resolve::Plan,
     ) {
         if !self.conflict_plan_current(&plan, Some(plan.path())) {
-            self.message = i18n::tr!(ConflictResolveChanged).into();
+            self.message = crate::message::Message::error(i18n::tr!(ConflictResolveChanged).into());
             return;
         }
         if let Mode::Changes(session) = &mut self.mode
@@ -169,13 +169,13 @@ impl Screen {
         let plan = match plan {
             Ok(plan) => plan,
             Err(error) => {
-                self.message = format!("{error:#}");
+                self.message = crate::message::Message::error(format!("{error:#}"));
                 return;
             }
         };
         let current = self.conflict_plan_current(&plan, path);
         if !current {
-            self.message = i18n::tr!(ConflictResolveChanged).into();
+            self.message = crate::message::Message::error(i18n::tr!(ConflictResolveChanged).into());
             return;
         }
         if let Mode::Changes(session) = &mut self.mode

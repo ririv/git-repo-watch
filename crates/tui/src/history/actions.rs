@@ -14,7 +14,7 @@ impl Screen {
             _ => return,
         };
         if let Err(error) = result {
-            self.message = format!("{error:#}");
+            self.message = crate::message::Message::error(format!("{error:#}"));
         }
     }
     pub(crate) fn open_history(&mut self, path: PathBuf) {
@@ -32,12 +32,12 @@ impl Screen {
     }
     pub(crate) fn more_history(&mut self) {
         let Mode::History(view) = &self.mode else {
-            self.message = i18n::tr!(HistoryRequiresOpen).into();
+            self.message = crate::message::Message::error(i18n::tr!(HistoryRequiresOpen).into());
             return;
         };
         let mut session = view.session().clone();
         let Some(cursor) = session.cursor() else {
-            self.message = i18n::tr!(HistoryNoMore).into();
+            self.message = crate::message::Message::information(i18n::tr!(HistoryNoMore).into());
             return;
         };
         self.start_repository(
@@ -128,12 +128,13 @@ impl Screen {
             View::Commit(commit) => commit.clone(),
             View::Diff { commit, .. } => (**commit).clone(),
             View::Graph(_) => {
-                self.message = i18n::tr!(HistoryOpenCommitFirst).into();
+                self.message =
+                    crate::message::Message::error(i18n::tr!(HistoryOpenCommitFirst).into());
                 return;
             }
         };
         let Some(index) = commit.inspect.selected_index() else {
-            self.message = i18n::tr!(HistoryNoChanges).into();
+            self.message = crate::message::Message::information(i18n::tr!(HistoryNoChanges).into());
             return;
         };
         let theme = self.background.syntax_theme();

@@ -155,9 +155,10 @@ impl Screen {
             Outcome::RegistrationsAdded(count) => {
                 self.mode = origin;
                 if let Err(error) = self.reload(root) {
-                    self.message = format!("{error:#}");
+                    self.message = crate::message::Message::error(format!("{error:#}"));
                 } else {
-                    self.message = i18n::tf!(AddedRepositories, count);
+                    self.message =
+                        crate::message::Message::information(i18n::tf!(AddedRepositories, count));
                 }
                 if let Mode::Management(session) = &mut self.mode {
                     session.refresh(&self.config.repositories);
@@ -193,7 +194,7 @@ impl Screen {
                     )));
                 } else if let Some(notice) = plan.notice() {
                     self.mode = origin;
-                    self.message = notice.into();
+                    self.message = crate::message::Message::information(notice.into());
                 } else {
                     self.mode = Mode::Confirm {
                         operation: Confirmation::Mutation {
@@ -209,36 +210,38 @@ impl Screen {
                 self.mode = origin;
                 self.refresh_mutated_view();
                 if let engine::operations::mutation::Change::FetchSkipped { reason } = change {
-                    self.message = reason.label().into();
+                    self.message = crate::message::Message::information(reason.label().into());
                 } else if let engine::operations::mutation::Change::Synchronized {
                     result: change,
                 } = change
                 {
-                    self.message = change.detail();
+                    self.message = crate::message::Message::information(change.detail());
                 }
             }
             Outcome::Checked(report) => {
                 self.mode = origin;
-                self.message = report
-                    .execution
-                    .as_ref()
-                    .and_then(|execution| execution.repositories.first())
-                    .and_then(|timing| {
-                        timing
-                            .steps
-                            .iter()
-                            .find_map(|record| match &record.outcome {
-                                engine::workflow::StepOutcome::Skipped { reason }
-                                    if record.step == engine::workflow::Step::Fetch =>
-                                {
-                                    Some(reason.label().to_owned())
-                                }
-                                _ => None,
-                            })
-                    })
-                    .unwrap_or_else(|| {
-                        i18n::tf!(CheckOneComplete, report.repositories[0].path().display())
-                    });
+                self.message = crate::message::Message::information(
+                    report
+                        .execution
+                        .as_ref()
+                        .and_then(|execution| execution.repositories.first())
+                        .and_then(|timing| {
+                            timing
+                                .steps
+                                .iter()
+                                .find_map(|record| match &record.outcome {
+                                    engine::workflow::StepOutcome::Skipped { reason }
+                                        if record.step == engine::workflow::Step::Fetch =>
+                                    {
+                                        Some(reason.label().to_owned())
+                                    }
+                                    _ => None,
+                                })
+                        })
+                        .unwrap_or_else(|| {
+                            i18n::tf!(CheckOneComplete, report.repositories[0].path().display())
+                        }),
+                );
             }
             Outcome::History(view) => {
                 self.workspace.save(origin);
@@ -246,7 +249,10 @@ impl Screen {
             }
             Outcome::TerminalOpened(path) => {
                 self.mode = origin;
-                self.message = i18n::tf!(RepositoryTerminalOpened, path.display());
+                self.message = crate::message::Message::information(i18n::tf!(
+                    RepositoryTerminalOpened,
+                    path.display()
+                ));
             }
             Outcome::Files(snapshot) => match origin {
                 Mode::Changes(mut session) => {
@@ -296,7 +302,7 @@ impl Screen {
             }
             Outcome::Committed(result) => {
                 self.mode = Mode::Browsing;
-                self.message = i18n::tf!(
+                self.message = crate::message::Message::information(i18n::tf!(
                     CommittedRepositoryUpdated,
                     &result.oid[..12],
                     if result.review == engine::operations::commit::Review::Changed {
@@ -304,7 +310,7 @@ impl Screen {
                     } else {
                         ""
                     }
-                );
+                ));
             }
             Outcome::Published(result) => match result {
                 Publication::Pushed { target } => {
@@ -312,12 +318,12 @@ impl Screen {
                         Mode::PushConfirm { .. } | Mode::PushTarget(_) => Mode::Browsing,
                         origin => origin,
                     };
-                    self.message = i18n::tf!(
+                    self.message = crate::message::Message::information(i18n::tf!(
                         PushedRepositoryUpdated,
                         target.branch,
                         target.remote,
                         target.remote_ref
-                    )
+                    ))
                 }
                 Publication::Failed { phase, error, .. } => {
                     self.mode = Mode::Error {
@@ -331,7 +337,8 @@ impl Screen {
             Outcome::TextWrapConfigured(enabled) => {
                 self.config.text_wrap = enabled;
                 self.mode = origin;
-                self.message = i18n::tr!(PreferenceSaved).into();
+                self.message =
+                    crate::message::Message::information(i18n::tr!(PreferenceSaved).into());
             }
             Outcome::Text(message) => {
                 if matches!(origin, Mode::Management(_)) {
@@ -340,9 +347,9 @@ impl Screen {
                     self.workspace.save(origin);
                     self.mode = Mode::Browsing;
                 }
-                self.message = message;
+                self.message = crate::message::Message::information(message);
                 if let Err(e) = self.reload(root) {
-                    self.message.push_str(&i18n::tf!(RefreshFailedE, e = e))
+                    self.message.append_error(&i18n::tf!(RefreshFailedE, e = e))
                 }
                 if let Mode::Management(session) = &mut self.mode {
                     session.refresh(&self.config.repositories);

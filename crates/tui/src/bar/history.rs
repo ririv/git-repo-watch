@@ -40,7 +40,10 @@ impl Screen {
                     self.message.clear();
                 }
                 Err(error) => {
-                    self.message = i18n::tf!(ReadCommandHistoryFailed, format!("{error:#}"))
+                    self.message = crate::message::Message::error(i18n::tf!(
+                        ReadCommandHistoryFailed,
+                        format!("{error:#}")
+                    ))
                 }
             }
             return true;

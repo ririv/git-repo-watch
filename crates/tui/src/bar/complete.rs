@@ -113,7 +113,7 @@ impl Screen {
                 };
             }
             Err(error) => {
-                self.message = error.clone();
+                self.message = crate::message::Message::error(error.clone());
                 *menu = Menu::Failed(error);
             }
         }

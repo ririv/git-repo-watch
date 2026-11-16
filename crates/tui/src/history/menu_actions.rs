@@ -37,7 +37,8 @@ impl Screen {
         };
         let commits = session.picks();
         if !session.selection.open_actions(commits, allowed) {
-            self.message = i18n::tr!(HistorySelectionRequired).into();
+            self.message =
+                crate::message::Message::error(i18n::tr!(HistorySelectionRequired).into());
         } else {
             self.message.clear();
             self.clicks.reset();

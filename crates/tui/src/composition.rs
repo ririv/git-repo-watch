@@ -174,15 +174,17 @@ impl Screen {
                 return;
             }
             let Some(path) = path else {
-                self.message = i18n::tr!(SelectARepositoryFirst).into();
+                self.message =
+                    crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 return;
             };
             if self.repository_tasks.contains_key(&path) {
-                self.message = i18n::tr!(RepositoryTaskBusy).into();
+                self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskBusy).into());
                 return;
             }
             if self.repository_tasks.len() >= self.config.max_concurrency {
-                self.message = i18n::tr!(RepositoryTaskLimit).into();
+                self.message =
+                    crate::message::Message::error(i18n::tr!(RepositoryTaskLimit).into());
                 return;
             }
             let origin = match self.take_mode() {
@@ -206,7 +208,7 @@ impl Screen {
             return;
         }
         let Mode::Composition(session) = &mut self.mode else {
-            self.message = i18n::tr!(ComposeSelected).into();
+            self.message = crate::message::Message::error(i18n::tr!(ComposeSelected).into());
             return;
         };
         if !matches!(session.state, State::Browsing) {
@@ -233,10 +235,12 @@ impl Screen {
             }
             _ => session.change(action),
         };
-        self.message = result
-            .err()
-            .map(|error| format!("{error:#}"))
-            .unwrap_or_default();
+        self.message = crate::message::Message::error(
+            result
+                .err()
+                .map(|error| format!("{error:#}"))
+                .unwrap_or_default(),
+        );
         self.sync_bar();
     }
     pub(crate) fn compose_submit(&mut self) {
@@ -248,11 +252,11 @@ impl Screen {
         };
         let path = session.prepared.snapshot.path.clone();
         if self.repository_tasks.contains_key(&path) {
-            self.message = i18n::tr!(RepositoryTaskBusy).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskBusy).into());
             return;
         }
         if self.repository_tasks.len() >= self.config.max_concurrency {
-            self.message = i18n::tr!(RepositoryTaskLimit).into();
+            self.message = crate::message::Message::error(i18n::tr!(RepositoryTaskLimit).into());
             return;
         }
         let prepared = session.prepared.clone();
@@ -280,11 +284,15 @@ impl Screen {
         match progress {
             Progress::More { prepared, result } => {
                 self.mode = Mode::Composition(Box::new(Session::new(prepared)));
-                self.message = i18n::tf!(CommittedRepositoryUpdated, &result.oid[..12], "");
+                self.message = crate::message::Message::information(i18n::tf!(
+                    CommittedRepositoryUpdated,
+                    &result.oid[..12],
+                    ""
+                ));
             }
             Progress::Complete { .. } => {
                 self.mode = Mode::Browsing;
-                self.message = i18n::tr!(ComposeDone).into();
+                self.message = crate::message::Message::information(i18n::tr!(ComposeDone).into());
             }
         }
         self.sync_bar();
@@ -306,7 +314,8 @@ impl Screen {
                 (KeyCode::Esc, _) => session.restore(),
                 (KeyCode::Char('s'), KeyModifiers::CONTROL) => {
                     if editor.text().trim().is_empty() {
-                        self.message = i18n::tr!(EnterACommitMessage).into();
+                        self.message =
+                            crate::message::Message::error(i18n::tr!(EnterACommitMessage).into());
                     } else {
                         session.prepared.plan.commits[session.selected].message =
                             editor.text().into();
@@ -316,7 +325,8 @@ impl Screen {
                 }
                 _ => {
                     if editor.key(key).is_err() {
-                        self.message = i18n::tr!(AgentMessageInvalid).into();
+                        self.message =
+                            crate::message::Message::error(i18n::tr!(AgentMessageInvalid).into());
                     }
                 }
             },
@@ -338,11 +348,13 @@ impl Screen {
                 KeyCode::Enter => {
                     let id = unit.clone();
                     let destination = *target;
-                    self.message = session
-                        .move_unit(&id, destination)
-                        .err()
-                        .map(|error| format!("{error:#}"))
-                        .unwrap_or_default();
+                    self.message = crate::message::Message::error(
+                        session
+                            .move_unit(&id, destination)
+                            .err()
+                            .map(|error| format!("{error:#}"))
+                            .unwrap_or_default(),
+                    );
                     session.restore();
                 }
                 _ => {}

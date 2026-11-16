@@ -448,10 +448,10 @@ impl Screen {
             }
             result => {
                 self.mode = Mode::Workflow(session);
-                self.message = match result {
+                self.message = crate::message::Message::error(match result {
                     Err(error) => format!("{error:#}"),
                     _ => String::new(),
-                };
+                });
             }
         }
     }
