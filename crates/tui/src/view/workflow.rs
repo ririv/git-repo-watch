@@ -1,74 +1,8 @@
 //! Workflow composition and contextual controls render in separate fixed panels.
 use super::*;
-use crate::workflow::{Action, Session};
+use crate::workflow::Session;
 use engine::workflow::Step;
-use unicode_width::UnicodeWidthStr;
 
-fn action_index(action: Action) -> usize {
-    Action::ALL
-        .iter()
-        .position(|item| *item == action)
-        .expect("workflow action")
-}
-fn controls(
-    frame: &mut Frame,
-    area: Rect,
-    session: &Session,
-    actions: &[Action],
-    pointer: &mut crate::pointer::Map,
-) {
-    let mut x = 0u16;
-    let labels = actions
-        .iter()
-        .map(|action| {
-            let label = format!("[ {} ]", session.action_label(*action));
-            let start = x;
-            x = x.saturating_add(label.width() as u16 + 2);
-            (*action, start, label)
-        })
-        .collect::<Vec<_>>();
-    let shift = labels
-        .iter()
-        .find(|(action, _, _)| session.action_selected(*action))
-        .map_or(0, |(_, start, label)| {
-            start
-                .saturating_add(label.width() as u16)
-                .saturating_sub(area.width)
-        });
-    for (action, start, label) in labels {
-        let width = label.width() as u16;
-        if start.saturating_add(width) <= shift {
-            continue;
-        }
-        let clipped = shift.saturating_sub(start) as usize;
-        let label = label.chars().skip(clipped).collect::<String>();
-        let rect = Rect::new(
-            area.x.saturating_add(start.saturating_sub(shift)),
-            area.y,
-            width.saturating_sub(clipped as u16),
-            area.height.min(1),
-        )
-        .intersection(area);
-        let enabled = session.enabled(action);
-        let style = if !enabled {
-            Style::default().fg(MUTED)
-        } else if session.action_selected(action) {
-            selected_style().fg(ACCENT).bold()
-        } else {
-            Style::default()
-                .fg(if action == Action::Save { GOOD } else { ACCENT })
-                .bold()
-        };
-        frame.render_widget(Paragraph::new(label).style(style), rect);
-        if enabled {
-            pointer.item(
-                rect,
-                crate::pointer::Target::WorkflowActions,
-                action_index(action),
-            );
-        }
-    }
-}
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -204,23 +138,16 @@ fn render_actions(
     pointer: &mut crate::pointer::Map,
 ) {
     let panel =
-        block(i18n::tr!(WorkflowControls)).padding(ratatui::widgets::Padding::horizontal(1));
+        block(i18n::tr!(WorkflowSelectedStep)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
     frame.render_widget(panel, area);
     if inner.is_empty() {
         session.revealed = None;
         return;
     }
-    let footer_height = 1;
-    let controls_height = u16::from(inner.height >= 2);
-    let heading_height = u16::from(inner.height >= 3);
-    let parts = Layout::vertical([
-        Constraint::Length(heading_height),
-        Constraint::Min(0),
-        Constraint::Length(controls_height),
-        Constraint::Length(footer_height),
-    ])
-    .split(inner);
+    let heading_height = u16::from(inner.height >= 2);
+    let parts =
+        Layout::vertical([Constraint::Length(heading_height), Constraint::Min(0)]).split(inner);
     let step = session.selected_step();
     frame.render_widget(
         Paragraph::new(Line::from(vec![
@@ -235,20 +162,6 @@ fn render_actions(
         ])),
         parts[0],
     );
-    if session.cursor.row().index() < 3 {
-        controls(
-            frame,
-            parts[2],
-            session,
-            &[Action::Toggle, Action::Up, Action::Down],
-            pointer,
-        );
-    } else {
-        frame.render_widget(
-            Paragraph::new(i18n::tr!(WorkflowFixedInspect)).style(Style::default().fg(MUTED)),
-            parts[2],
-        );
-    }
     let description = Paragraph::new(step.description())
         .style(Style::default().fg(MUTED))
         .wrap(Wrap { trim: false });
@@ -269,11 +182,4 @@ fn render_actions(
         crate::pointer::ScrollTarget::Text,
     );
     crate::scrollbar::vertical(frame, area, parts[1], line_count, session.scroll);
-    controls(
-        frame,
-        parts[3],
-        session,
-        &[Action::Save, Action::Cancel],
-        pointer,
-    );
 }

@@ -22,11 +22,7 @@ impl Scope {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Focus {
-    Message,
-    Actions(confirmation::Choice),
-}
+pub(crate) type Focus = crate::input_pages::Selection<confirmation::Choice>;
 #[derive(Debug)]
 pub(crate) struct Session {
     pub plan: SavePlan,
@@ -41,17 +37,18 @@ impl Session {
         Self {
             message: Editor::new(plan.message.input().into()),
             plan,
-            focus: Focus::Message,
+            focus: Focus::new(crate::input_pages::Availability::Actions(
+                confirmation::Choice::Execute,
+            )),
             scroll: 0,
             origin: Box::new(origin),
             draft,
         }
     }
     pub fn toggle_mode(&mut self) {
-        self.focus = match self.focus {
-            Focus::Message => Focus::Actions(confirmation::Choice::Execute),
-            Focus::Actions(_) => Focus::Message,
-        };
+        self.focus.toggle(crate::input_pages::Availability::Actions(
+            confirmation::Choice::Execute,
+        ));
     }
 }
 pub(crate) fn review(plan: &SavePlan) -> String {
@@ -115,7 +112,7 @@ impl Screen {
     pub(crate) fn stash_save_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
         match key.code {
             KeyCode::Esc if matches!(session.focus, Focus::Actions(_)) => {
-                session.focus = Focus::Message
+                session.focus = Focus::Input
             }
             KeyCode::Esc => {
                 self.cancel_stash_save(*session);
@@ -126,7 +123,7 @@ impl Screen {
             KeyCode::PageUp => session.scroll = session.scroll.saturating_sub(10),
             KeyCode::PageDown => session.scroll = session.scroll.saturating_add(10),
             KeyCode::Enter => match session.focus {
-                Focus::Message => session.focus = Focus::Actions(confirmation::Choice::Execute),
+                Focus::Input => session.focus = Focus::Actions(confirmation::Choice::Execute),
                 Focus::Actions(confirmation::Choice::Return) => {
                     self.cancel_stash_save(*session);
                     return;
@@ -148,10 +145,10 @@ impl Screen {
                 });
             }
             KeyCode::Char(_) if matches!(session.focus, Focus::Actions(_)) => {
-                session.focus = Focus::Message;
+                session.focus = Focus::Input;
                 session.message.key(key);
             }
-            _ if session.focus == Focus::Message => session.message.key(key),
+            _ if session.focus == Focus::Input => session.message.key(key),
             _ => {}
         }
         self.mode = Mode::StashSave(session);
@@ -212,7 +209,7 @@ impl Screen {
                 .body_area
                 .is_some_and(|body| crate::view::stash_save::message_area(body).contains(point))
             {
-                session.focus = Focus::Message;
+                session.focus = Focus::Input;
                 self.clicks.reset();
                 return Ok(Some(true));
             }

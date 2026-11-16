@@ -28,6 +28,10 @@ pub enum Plan {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
+    ResolveConflict {
+        file: std::path::PathBuf,
+        intent: crate::local::files::conflict::resolve::Intent,
+    },
     ReplaySequence {
         commits: Vec<String>,
     },
@@ -70,6 +74,10 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "change", rename_all = "snake_case")]
 pub enum Change {
+    ResolvedConflict {
+        file: std::path::PathBuf,
+        intent: crate::local::files::conflict::resolve::Intent,
+    },
     ReplayedSequence {
         commits: Vec<String>,
     },

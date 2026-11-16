@@ -66,9 +66,7 @@ pub(super) fn render(
                         document::render(frame, area, content, scroll, preference, graphics, hits);
                         if let crate::document::View::Conflict(view) = content.as_ref() {
                             outline = false;
-                            if session.focus == Focus::Preview
-                                && session.files.recovery.selected().is_none()
-                            {
+                            if session.focus == Focus::Preview && !session.files.recovery.active() {
                                 super::conflict::highlight(frame, area, view.mode, view.focus());
                             }
                         }
@@ -98,7 +96,7 @@ pub(super) fn render(
                 }
             }
         }
-        if outline && focus == session.focus && session.files.recovery.selected().is_none() {
+        if outline && focus == session.focus && !session.files.recovery.active() {
             highlight_border(frame, area);
         }
         if focus == Focus::Files && area.width >= 4 && area.height >= 1 {

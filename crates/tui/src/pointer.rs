@@ -44,6 +44,11 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    ConflictControl(crate::conflict::controls::Action),
+    ConflictBlock {
+        index: usize,
+        focus: crate::conflict::Focus,
+    },
     DiffLine(engine::local::files::partial::LineId),
     Management(crate::management::Action),
     ManagementToggle(usize),

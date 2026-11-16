@@ -41,7 +41,7 @@ fn object(repo: &git2::Repository, oid: git2::Oid, mode: u32) -> Result<Version>
         mode,
     })
 }
-pub(super) fn working(path: &Path) -> Result<Version> {
+pub(crate) fn working(path: &Path) -> Result<Version> {
     let mut file = match OpenOptions::new()
         .read(true)
         .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)

@@ -7,10 +7,55 @@ use crate::{
 
 impl Screen {
     pub(super) fn precise_action(&mut self, action: Action) -> bool {
-        if !matches!(action, Action::ReplayControl(_)) {
-            self.close_replay_controls();
+        let reading_conflict = self.focused_conflict_control().is_some()
+            && matches!(
+                action,
+                Action::Scroll(
+                    ScrollTarget::Conflict(_) | ScrollTarget::ConflictHorizontal(_),
+                    _
+                )
+            );
+        if !reading_conflict
+            && !matches!(
+                action,
+                Action::Management(_)
+                    | Action::ReplayControl(_)
+                    | Action::ConflictControl(_)
+                    | Action::ConflictBlock { .. }
+            )
+        {
+            self.dismiss_input_actions();
         }
         match action {
+            Action::ConflictControl(action) => self.perform_conflict_control(action),
+            Action::ConflictBlock { index, focus } => {
+                let Mode::Changes(session) = &mut self.mode else {
+                    return false;
+                };
+                let changes::Preview::Ready {
+                    content, scroll, ..
+                } = &mut session.preview
+                else {
+                    return false;
+                };
+                let crate::document::View::Conflict(view) = content.as_mut() else {
+                    return false;
+                };
+                if (session.focus != changes::Focus::Preview || view.focus() != focus)
+                    && !self.config.mouse.select_pane
+                {
+                    return false;
+                }
+                if !view.resolution.choose(index) {
+                    return false;
+                }
+                session.focus = changes::Focus::Preview;
+                view.select(focus, scroll);
+                view.refresh_selection();
+                let offset = *scroll;
+                view.seek_selected(scroll);
+                view.retain_selection_scroll(offset, scroll);
+            }
             Action::DiffLine(id) => {
                 let Mode::Changes(session) = &mut self.mode else {
                     return false;
@@ -201,7 +246,7 @@ impl Screen {
                         return false;
                     }
                     session.state.select(Some(index));
-                    session.focus = crate::management::Focus::List;
+                    session.focus = crate::management::Focus::Input;
                 }
 
                 Target::ReplayParent => {

@@ -7,7 +7,15 @@ use ratatui::{Frame, buffer::CellDiffOption, layout::Rect};
 pub(crate) enum Surface {
     #[default]
     Plain,
+    Actions {
+        area: Rect,
+        selected: Option<(crate::pointer::Hit, &'static str)>,
+    },
     Prefix(Rect),
+    Conflict {
+        area: Rect,
+        selected: crate::conflict::controls::Action,
+    },
     Recovery {
         area: Rect,
         selected: engine::operations::replay::Control,
@@ -21,9 +29,11 @@ impl Surface {
     fn area(&self) -> Option<Rect> {
         match *self {
             Self::Plain => None,
-            Self::Prefix(area) | Self::Recovery { area, .. } | Self::Confirmation { area, .. } => {
-                Some(area)
-            }
+            Self::Actions { area, .. }
+            | Self::Conflict { area, .. }
+            | Self::Prefix(area)
+            | Self::Recovery { area, .. }
+            | Self::Confirmation { area, .. } => Some(area),
         }
     }
     pub fn update(&mut self, frame: &mut Frame, next: Self) {

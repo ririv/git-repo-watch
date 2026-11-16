@@ -54,6 +54,14 @@ impl Screen {
         self.refresh_option_candidates();
     }
     pub(super) fn option_candidate_key(&mut self, key: KeyEvent) -> bool {
+        if key.code == KeyCode::Esc
+            && matches!(&self.bar, InputBar::Command { input, menu: Menu::Options(_), .. }
+                if command::argument_input(&input.query()).is_some_and(|(argument, _)| argument.options() == Some(Kind::ConflictAccept)))
+        {
+            self.sync_bar();
+            self.message.clear();
+            return true;
+        }
         if key.code == KeyCode::Enter
             && let InputBar::Command {
                 menu: Menu::Options(candidates),

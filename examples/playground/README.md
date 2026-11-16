@@ -67,7 +67,7 @@ python3 examples/playground/create.py --case stash-preview
 | `ahead` | 当前分支 ↑1 ↓0，适合推送和同步确认 |
 | `behind` | 当前分支 ↑0 ↓1，适合快进拉取和同步 |
 | `diverged` | 当前分支 ↑1 ↓1，适合验证分叉提示 |
-| `cherry-pick-conflict` | 已停在真实 cherry-pick 冲突，可测试解决、暂存、继续、跳过和中止 |
+| `cherry-pick-conflict` | 两个文件共四个真实冲突块，另有自动合并的非冲突修改，可测试选块、采用、撤销、重置、暂存和继续 |
 | `revert-conflict` | 已停在真实 revert 冲突，可测试撤销的恢复流程 |
 | `no-remote` | 未配置远程，适合检查正常状态和同步提示 |
 | `cherry-pick-batch` | 干净的 main 与未合入的 feature/batch；三个连续提交包含先新增再修改同一文件，可测试批量顺序 |
@@ -85,6 +85,24 @@ python3 examples/playground/create.py --case stash-preview
 ## 批量拣选演练
 
 `cherry-pick-batch` 的 `feature/batch` 有三条提交，分别带 `example/batch-1`、`example/batch-2`、`example/batch-3` 标签，均未合入当前 `main`。在历史图执行 `/repo log select` 进入选择模式，用 `Space` 或 `Shift+↑↓` 勾选三条“批量演练”提交后按 `Enter` 打开操作菜单，选择“拣选所选提交”后预览，预览将按 1、2、3 排列；第二条修改第一条新增的文件，可验证提交依赖和实际执行顺序。
+
+## 内置冲突解决演练
+
+```sh
+python3 examples/playground/create.py --case cherry-pick-conflict
+```
+
+沿用同一个演练仓库，不需要另外创建或登记仓库。目录已存在时指定新的 `--directory`，生成器不会覆盖已有演练。按生成器打印的命令启动 `gw`，执行 `/repo diff`。
+
+- `src/config.ts` 有一个问候文案冲突。
+- `src/合并演练.ts` 有三个分开的冲突块，分别修改标题、主题和重试次数。`localOnly` 与 `incomingOnly` 是两侧各自修改、由 Git 自动合并的内容，应在采用或重置后继续保留。
+- `example/conflict` 是本次正在拣选的提交；基础、左、右均保存在真实 Git 索引阶段中。
+
+进入冲突文件后默认打开底部“冲突处理”页。↑↓ 选择冲突块，←→ 选择左（当前）、右（传入）或双方，Enter 采用。采用不会自动暂存，最后一块处理完成后自动选中“暂存”。暂存当前文件后继续处理另一文件；全部冲突暂存后，底部转到 Git 流程的“继续”，确认后完成原来的拣选。
+
+“撤销”恢复最近一次采用或重置。“重置”会先显示确认页，默认取消；确认后从基础、左、右重建当前文件全部冲突块，同时保留自动合并的内容。
+
+Shift+Tab 在输入、冲突处理和 Git 流程间循环，右上角显示页码，切换不改变布局高度。Tab 仍只负责补全。场景改变后选择合适的默认页，同一场景中手动选择的页与搜索／命令草稿会保留。所有操作均针对当前演练仓库。
 
 ## Stash 内容预览演练
 

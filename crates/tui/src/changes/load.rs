@@ -74,12 +74,26 @@ impl Loader {
                         ));
                     let content = if change.kind == 'U' {
                         let snapshot = service.conflict(&request.snapshot, change, &task_cancel)?;
+                        let working = engine::local::files::conflict::working(
+                            &request.snapshot,
+                            change,
+                            &task_cancel,
+                        )?;
+                        let resolution = crate::conflict::resolution::Session::new(
+                            engine::local::files::conflict::resolve::Snapshot::capture(
+                                &request.snapshot,
+                                change,
+                                &working,
+                                &task_cancel,
+                            ),
+                        );
                         let pairs = crate::conflict::pair::Pairs::prepare(
                             &snapshot,
-                            &document,
+                            &working,
                             &task_cancel,
                         )?;
                         let result = crate::conflict::result::View::prepare(
+                            working,
                             document,
                             change,
                             request.key.theme,
@@ -90,6 +104,7 @@ impl Loader {
                                 snapshot,
                                 result,
                                 pairs,
+                                resolution,
                                 request.key.theme,
                                 &task_cancel,
                             )?,

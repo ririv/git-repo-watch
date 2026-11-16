@@ -56,7 +56,7 @@ pub(super) fn render(
         block(i18n::tr!(StashMessageOptional)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(message);
     frame.render_widget(panel, message);
-    if session.focus == Focus::Message {
+    if session.focus == Focus::Input {
         highlight_border(frame, message);
     }
     if inner.is_empty() {
@@ -72,7 +72,7 @@ pub(super) fn render(
         Span::raw(text)
     };
     frame.render_widget(Paragraph::new(span), inner);
-    if session.focus == Focus::Message {
+    if session.focus == Focus::Input {
         frame.set_cursor_position(((inner.x + cursor).min(inner.right() - 1), inner.y));
     }
 }

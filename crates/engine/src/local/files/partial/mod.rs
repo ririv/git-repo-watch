@@ -20,12 +20,12 @@ pub enum Action {
     Discard,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-enum Version {
+pub(crate) enum Version {
     Absent,
     Text { data: Arc<str>, mode: u32 },
 }
 impl Version {
-    fn text(&self) -> &str {
+    pub(crate) fn text(&self) -> &str {
         match self {
             Self::Absent => "",
             Self::Text { data, .. } => data,

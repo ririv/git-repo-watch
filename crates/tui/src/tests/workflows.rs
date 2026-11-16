@@ -26,6 +26,14 @@ fn click_item(screen: &mut Screen, target: Target, index: usize) {
         .unwrap();
 }
 fn click_action(screen: &mut Screen, action: Edit) {
+    let page = if matches!(action, Edit::Save | Edit::Cancel) {
+        crate::input_pages::Pair::Actions
+    } else {
+        crate::input_pages::Pair::Content
+    };
+    if session(screen).page() != page {
+        key(screen, KeyCode::BackTab);
+    }
     let index = Edit::ALL.iter().position(|item| *item == action).unwrap();
     click_item(screen, Target::WorkflowActions, index);
 }
@@ -54,7 +62,7 @@ fn keyboard_checkboxes_and_save_are_reachable_without_switching_focus_modes() {
         Plan::fetch()
     );
     key(&mut s, KeyCode::Down);
-    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::BackTab);
     assert!(matches!(
         session(&s).cursor,
         Cursor::Footer {
@@ -143,84 +151,65 @@ fn row_controls_move_the_selected_operation_and_preserve_saved_order() {
 }
 
 #[test]
-fn all_available_steps_and_save_controls_are_visible_in_both_languages() {
+fn workflow_action_pages_share_the_footer_and_leave_body_geometry_unchanged() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "schedule actions");
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
-            let lines = text.lines().collect::<Vec<_>>();
-            let actions_border = lines
-                .iter()
-                .position(|line| line.contains(i18n::tr!(WorkflowControls)))
-                .unwrap();
-            assert!(lines[actions_border].starts_with('┌'), "{text}");
-            assert!(
-                lines[actions_border - 1].trim_end().ends_with('┘'),
-                "{text}"
-            );
-            for y in 0..height {
-                for x in 0..width {
-                    match s.pointer.hit(Position::new(x, y)) {
-                        Some(Hit::Item(Target::WorkflowToggle | Target::WorkflowSteps, _)) => {
-                            assert!(usize::from(y) < actions_border, "{text}");
-                        }
-                        Some(Hit::Item(Target::WorkflowActions, _)) => {
-                            assert!(usize::from(y) > actions_border, "{text}");
-                        }
-                        _ => {}
-                    }
-                }
-            }
+            let body = s.body_area;
+            let input = s.input_area.unwrap();
+            let description = session(&s).revealed.unwrap().1;
             for step in [Step::Fetch, Step::Pull, Step::Push, Step::Inspect] {
                 assert!(text.contains(step.token()), "{text}");
             }
-            assert!(text.contains("[✓]"), "{text}");
-            assert!(text.contains("[ ]"), "{text}");
-            assert!(text.contains(i18n::tr!(WorkflowSave)), "{text}");
-            assert!(text.contains(i18n::tr!(WorkflowCancel)), "{text}");
-            assert!(
-                text.contains(i18n::tr!(WorkflowEnableStep))
-                    || text.contains(i18n::tr!(WorkflowDisableStep)),
-                "{text}"
-            );
+            assert_eq!(s.footer_page_number(), Some((1, 2)));
+            let cursor = session(&s).cursor;
+            key(&mut s, KeyCode::Tab);
+            assert_eq!(session(&s).cursor, cursor);
+            for page in [2, 1] {
+                key(&mut s, KeyCode::BackTab);
+                let text = render(&mut s, width, height);
+                assert_eq!(s.footer_page_number(), Some((page, 2)));
+                assert_eq!(s.body_area, body);
+                assert_eq!(s.input_area, Some(input));
+                assert_eq!(session(&s).revealed.unwrap().1, description);
+                for y in 0..height {
+                    for x in 0..width {
+                        if matches!(
+                            s.pointer.hit(Position::new(x, y)),
+                            Some(Hit::Item(Target::WorkflowActions, _))
+                        ) {
+                            assert!(input.contains(Position::new(x, y)), "{text}");
+                        }
+                    }
+                }
+                if page == 2 {
+                    assert!(text.contains(i18n::tr!(WorkflowSave)), "{text}");
+                    assert!(text.contains(i18n::tr!(WorkflowCancel)), "{text}");
+                }
+            }
         }
-        let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
-        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
-        assert!(
-            terminal
-                .backend()
-                .buffer()
-                .content
-                .iter()
-                .any(|cell| cell.fg == ratatui::style::Color::LightGreen
-                    && cell.bg == ratatui::style::Color::Rgb(25, 65, 95))
-        );
     }
 }
 
 #[test]
-fn narrow_editor_reveals_footer_controls_and_precise_click_setting_is_respected() {
+fn narrow_workflow_actions_reveal_selected_choices_and_escape_returns_to_step_actions() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "schedule actions");
-    for code in [
-        KeyCode::End,
-        KeyCode::Left,
-        KeyCode::Home,
-        KeyCode::Down,
-        KeyCode::Right,
-    ] {
-        key(&mut s, code);
-        render(&mut s, 28, 8);
-    }
-    key(&mut s, KeyCode::End);
-    let text = render(&mut s, 28, 8);
+    key(&mut s, KeyCode::BackTab);
+    key(&mut s, KeyCode::Right);
+    let text = render(&mut s, 12, 9);
     assert!(text.contains(i18n::tr!(WorkflowCancel)), "{text}");
+    assert_eq!(s.footer_page_number(), Some((2, 2)));
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.footer_page_number(), Some((1, 2)));
+    assert!(matches!(s.mode, Mode::Workflow(_)));
     s.config.mouse.precise_click = false;
     click_item(&mut s, Target::WorkflowToggle, 1);
     assert_eq!(session(&s).steps(), Plan::fetch().steps());
-    key(&mut s, KeyCode::Char(' '));
+    key(&mut s, KeyCode::Esc);
     assert!(matches!(s.mode, Mode::Browsing));
 }
 
@@ -255,12 +244,6 @@ fn selection_and_checkbox_changes_keep_workflow_regions_fixed() {
             .map(|index| Hit::Item(Target::WorkflowToggle, index))
             .collect::<Vec<_>>();
         items.push(Hit::Item(Target::WorkflowSteps, 3));
-        for action in [Edit::Save, Edit::Cancel] {
-            items.push(Hit::Item(
-                Target::WorkflowActions,
-                Edit::ALL.iter().position(|item| *item == action).unwrap(),
-            ));
-        }
         items
             .into_iter()
             .map(|hit| {
@@ -280,8 +263,9 @@ fn selection_and_checkbox_changes_keep_workflow_regions_fixed() {
             let expected = anchors(&s, width, height);
             let description = session(&s).revealed.unwrap().1;
             // 焦点经过每个步骤和底部按钮，列表与说明区域始终保持位置。
-            let navigation =
-                std::iter::repeat_n(KeyCode::Down, 6).chain(std::iter::repeat_n(KeyCode::Up, 6));
+            let navigation = std::iter::repeat_n(KeyCode::Down, 6)
+                .chain(std::iter::repeat_n(KeyCode::Up, 6))
+                .chain([KeyCode::BackTab, KeyCode::BackTab]);
             // 加入、移除步骤及显示校验错误同样不改变页面结构。
             let editing = [
                 KeyCode::Home,

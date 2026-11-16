@@ -67,6 +67,14 @@ impl Context {
                 && matches!(
                     command.action,
                     Action::DiffGroup(_)
+                        | Action::ConflictMenu
+                        | Action::ConflictView(_)
+                        | Action::ConflictAcceptMenu
+                        | Action::ConflictAccept(_)
+                        | Action::ConflictBlockMenu
+                        | Action::ConflictBlock(_)
+                        | Action::ConflictReset
+                        | Action::ConflictUndo
                         | Action::Stage
                         | Action::Unstage
                         | Action::FileLayoutMenu

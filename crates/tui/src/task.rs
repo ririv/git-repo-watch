@@ -142,6 +142,10 @@ impl Screen {
         }
         match outcome {
             Outcome::DiscardFilePrepared(plan) => self.review_discard_file(plan, origin),
+            Outcome::ConflictResetPrepared { plan, review } => {
+                self.mode = origin;
+                self.review_conflict_reset(*plan, review);
+            }
             Outcome::Scanned(report) => {
                 self.enter_management(
                     crate::management::Session::scanned(*report, &self.config.repositories),

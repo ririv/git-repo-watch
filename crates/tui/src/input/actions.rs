@@ -38,12 +38,28 @@ impl Screen {
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {
-                    editor.focus(crate::commit_form::Focus::Message);
+                    editor.focus(crate::commit_form::Focus::Input);
                 }
             }
             Action::CommitGenerate if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 self.generate_commit_message()
             }
+            Action::ConflictAcceptMenu => self.open_conflict_controls(),
+            Action::ConflictBlockMenu => {
+                self.open_option_menu(command::options::Kind::ConflictBlock, path, selection)
+            }
+            Action::ConflictBlock(direction) => self.navigate_conflict(direction),
+            Action::ConflictAccept(choice) => self.accept_conflict(
+                crate::conflict::resolution::Action::Accept(choice),
+                path.as_deref(),
+                &selection,
+            ),
+            Action::ConflictReset => self.reset_conflict(path.as_deref(), &selection),
+            Action::ConflictUndo => self.accept_conflict(
+                crate::conflict::resolution::Action::Undo,
+                path.as_deref(),
+                &selection,
+            ),
             Action::ConflictMenu => {
                 self.open_option_menu(command::options::Kind::Conflict, path, selection)
             }
@@ -503,6 +519,12 @@ impl Screen {
         use command::target::IndexSelection;
         let session = match IndexSelection::current(self) {
             Some(IndexSelection::Files(files)) => files.clone(),
+            Some(IndexSelection::Conflict(_)) => {
+                if action == IndexAction::Stage {
+                    self.stage_conflict();
+                }
+                return;
+            }
             Some(IndexSelection::Diff(_)) => {
                 self.edit_partial(match action {
                     IndexAction::Stage => engine::local::files::partial::Action::Stage,
@@ -547,6 +569,10 @@ impl Screen {
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {
+            Confirmation::ConflictReset { plan, origin, .. } => {
+                self.mode = *origin;
+                self.execute_conflict_reset(*plan);
+            }
             Confirmation::DiscardFile { plan, origin, .. } => {
                 self.mode = *origin;
                 self.execute_discard_file(plan);

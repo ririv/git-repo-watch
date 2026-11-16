@@ -2,6 +2,10 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CommandSummary {
+    ConflictAccept,
+    ConflictBlock,
+    ConflictUndo,
+    ConflictReset,
     Conflict,
     BranchFilter,
     HistoryParent,
@@ -113,6 +117,15 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::ConflictAccept, Language::Chinese) => "采用当前冲突块的版本",
+            (Self::ConflictAccept, Language::English) => "Resolve selected conflict block",
+            (Self::ConflictBlock, Language::Chinese) => "选择冲突块",
+            (Self::ConflictBlock, Language::English) => "Select a conflict block",
+            (Self::ConflictReset, Language::Chinese) => "重置当前文件的冲突结果",
+            (Self::ConflictReset, Language::English) => "Reset this file’s conflict result",
+            (Self::ConflictUndo, Language::Chinese) => "撤销上次冲突处理",
+            (Self::ConflictUndo, Language::English) => "Undo last conflict change",
+
             (Self::Conflict, Language::Chinese) => "冲突版本显示",
             (Self::Conflict, Language::English) => "Conflict versions",
             (Self::ExternalEditorOpen, Language::English) => "Open in editor",

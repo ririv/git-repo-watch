@@ -1,6 +1,8 @@
 //! Immutable index stages remain separate from the editable worktree result.
 mod alignment;
 pub mod pair;
+pub mod resolve;
+mod working;
 use super::{
     Change, Files,
     patch::Source,
@@ -14,6 +16,7 @@ pub use alignment::{Cell, Comparison, Row};
 use anyhow::{Context, Result, ensure};
 use git2::{FileMode, IndexEntry, Oid, Repository};
 use std::path::PathBuf;
+pub use working::read as working;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Role {

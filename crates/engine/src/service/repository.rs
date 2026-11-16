@@ -209,6 +209,31 @@ impl Service {
         };
         self.refresh_after_write(path, result, vec![], operation)
     }
+    pub fn resolve_conflict(
+        &self,
+        plan: &files::conflict::resolve::Plan,
+        cancel: &Cancel,
+    ) -> Result<Files> {
+        let _lock = self.repository_lock(plan.path(), cancel)?;
+        let result = files::conflict::resolve::execute(plan, cancel);
+        let file = plan.file().to_owned();
+        let intent = plan.intent();
+        let completion = state::Completion::capture(&result, cancel, |_| {
+            operations::mutation::Change::ResolvedConflict {
+                file: file.clone(),
+                intent,
+            }
+        });
+        self.refresh_after_write(
+            plan.path(),
+            result,
+            vec![],
+            state::Operation::Workspace {
+                action: operations::mutation::Action::ResolveConflict { file, intent },
+                completion,
+            },
+        )
+    }
     pub fn prepare_commit(&self, path: &Path, cancel: &Cancel) -> Result<CommitPlan> {
         let _lock = self.repository_lock(path, cancel)?;
         local::review::prepare(path)

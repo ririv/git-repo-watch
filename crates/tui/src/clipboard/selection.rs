@@ -142,6 +142,7 @@ pub(crate) enum Selection {
         marked: Vec<engine::local::files::Location>,
         diff_selection: Option<changes::SelectionKey>,
         worktree_files: Vec<engine::local::files::Change>,
+        conflict: Option<Box<crate::conflict::resolution::Session>>,
     },
     HistoricalDiff {
         content: Content,
@@ -170,6 +171,12 @@ impl Selection {
         }
     }
 
+    pub fn conflict_resolution(&self) -> Option<&crate::conflict::resolution::Session> {
+        match self {
+            Self::Diff { conflict, .. } => conflict.as_deref(),
+            _ => None,
+        }
+    }
     pub fn copy_scope(&self) -> Option<Scope> {
         Some(match self {
             Self::None => return None,
@@ -384,6 +391,7 @@ impl Screen {
                 marked: marked_paths(files),
                 diff_selection: None,
                 worktree_files: files.discard_selection(),
+                conflict: None,
             },
             Mode::Changes(session) => Selection::Diff {
                 working: session.files.working_target(),
@@ -396,6 +404,9 @@ impl Screen {
                 } else {
                     None
                 },
+                conflict: self
+                    .conflict_view()
+                    .map(|view| Box::new(view.resolution.clone())),
                 content: match session.focus {
                     changes::Focus::Files => file_paths(&session.files),
                     changes::Focus::Preview => match &session.preview {
@@ -471,6 +482,7 @@ impl Screen {
                     workspace::Section::Worktree => Selection::Diff {
                         diff_selection: None,
                         worktree_files: Vec::new(),
+                        conflict: None,
                         working: match &session.files {
                             workspace::Panel::Ready(files) => files.working_target(),
                             _ => None,

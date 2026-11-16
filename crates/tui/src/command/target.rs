@@ -76,13 +76,16 @@ impl File<'_> {
 pub(crate) enum IndexSelection<'a> {
     Files(&'a crate::FileSession),
     Diff(&'a changes::Session),
+    Conflict(&'a crate::conflict::View),
 }
 impl<'a> IndexSelection<'a> {
     pub fn current(screen: &'a Screen) -> Option<Self> {
         match &screen.mode {
-            Mode::Changes(session) if session.focus == changes::Focus::Preview => {
-                Some(Self::Diff(session))
-            }
+            Mode::Changes(session) if session.focus == changes::Focus::Preview => Some(
+                screen
+                    .conflict_view()
+                    .map_or(Self::Diff(session), Self::Conflict),
+            ),
             Mode::Changes(session) => Some(Self::Files(&session.files)),
             Mode::Files(files) => Some(Self::Files(files)),
             _ => None,
@@ -127,7 +130,10 @@ impl Action {
             Stage | Unstage => Requirement::IndexSelection,
             Discard | PartialSelectMenu | PartialSelect(_) => Requirement::DiffSelection,
             DiscardFile => Requirement::WorktreeFiles,
-            ConflictMenu | ConflictView(_) => Requirement::Conflict,
+            ConflictMenu | ConflictView(_) | ConflictAcceptMenu | ConflictAccept(_)
+            | ConflictBlockMenu | ConflictBlock(_) | ConflictReset | ConflictUndo => {
+                Requirement::Conflict
+            }
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
             LogSelect | LogSelection(_) => Requirement::HistorySelection,
@@ -297,6 +303,7 @@ impl Screen {
                 let group = match target {
                     self::IndexSelection::Files(files) => files.scope().or_else(|| files.group()),
                     self::IndexSelection::Diff(session) => Some(session.active_group()),
+                    self::IndexSelection::Conflict(_) => None,
                 };
                 match (group, action) {
                     (Some(crate::files::Group::Staged), Action::Stage) => {

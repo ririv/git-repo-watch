@@ -84,20 +84,6 @@ impl Cursor {
             Self::Footer { row, .. } => row,
         }
     }
-    fn position(self) -> usize {
-        match self {
-            Self::Step { index, .. } => index,
-            Self::Inspect => 3,
-            Self::Footer {
-                action: FooterAction::Save,
-                ..
-            } => 4,
-            Self::Footer {
-                action: FooterAction::Cancel,
-                ..
-            } => 5,
-        }
-    }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
@@ -205,25 +191,49 @@ impl Session {
         }
         true
     }
-    fn move_cursor(&mut self, delta: isize, wrap: bool) {
-        let position = self.cursor.position() as isize + delta;
-        let position = if wrap {
-            position.rem_euclid(6) as usize
-        } else {
-            position.clamp(0, 5) as usize
-        };
-        match position {
-            0..=3 => {
-                self.select(position);
+    pub fn page(&self) -> crate::input_pages::Pair {
+        match self.cursor {
+            Cursor::Step { .. } | Cursor::Inspect => crate::input_pages::Pair::Content,
+            Cursor::Footer { .. } => crate::input_pages::Pair::Actions,
+        }
+    }
+    pub fn page_actions(&self) -> &'static [Action] {
+        match self.page() {
+            crate::input_pages::Pair::Content => &[Action::Toggle, Action::Up, Action::Down],
+            crate::input_pages::Pair::Actions => &[Action::Save, Action::Cancel],
+        }
+    }
+    fn cycle_page(&mut self) {
+        let row = self.cursor.row();
+        match self.page().next() {
+            crate::input_pages::Pair::Content => {
+                self.select(row.index());
             }
-            4 => self.set_cursor(Cursor::Footer {
-                row: self.cursor.row(),
+            crate::input_pages::Pair::Actions => self.set_cursor(Cursor::Footer {
+                row,
                 action: FooterAction::Save,
             }),
-            _ => self.set_cursor(Cursor::Footer {
-                row: self.cursor.row(),
-                action: FooterAction::Cancel,
+        }
+    }
+    fn move_row(&mut self, delta: isize) {
+        let index = self
+            .cursor
+            .row()
+            .index()
+            .saturating_add_signed(delta)
+            .min(3);
+        match self.cursor {
+            Cursor::Footer { action, .. } => self.set_cursor(Cursor::Footer {
+                row: if index == 3 {
+                    Row::Inspect
+                } else {
+                    Row::Optional(index)
+                },
+                action,
             }),
+            _ => {
+                self.select(index);
+            }
         }
     }
     pub fn enabled(&self, action: Action) -> bool {
@@ -285,18 +295,17 @@ impl Session {
     }
     pub fn key(&mut self, key: KeyCode) -> Result<Input> {
         match key {
+            KeyCode::Esc if self.page() == crate::input_pages::Pair::Actions => self.cycle_page(),
             KeyCode::Esc => return Ok(Input::Cancel),
-            KeyCode::Up => self.move_cursor(-1, false),
-            KeyCode::Down => self.move_cursor(1, false),
-            KeyCode::Tab => self.move_cursor(1, true),
-            KeyCode::BackTab => self.move_cursor(-1, true),
+            KeyCode::Up => self.move_row(-1),
+            KeyCode::Down => self.move_row(1),
+            KeyCode::BackTab => self.cycle_page(),
             KeyCode::Home => {
                 self.select(0);
             }
-            KeyCode::End => self.set_cursor(Cursor::Footer {
-                row: self.cursor.row(),
-                action: FooterAction::Cancel,
-            }),
+            KeyCode::End => {
+                self.move_row(3);
+            }
             KeyCode::Left | KeyCode::Right => match self.cursor {
                 Cursor::Step { index, action } => {
                     let actions = [RowAction::Toggle, RowAction::Up, RowAction::Down]

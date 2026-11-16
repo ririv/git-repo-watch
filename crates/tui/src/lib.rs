@@ -30,6 +30,7 @@ mod graphics;
 mod history;
 mod horizontal;
 mod input;
+mod input_pages;
 mod inspection;
 mod interaction;
 mod layout_picker;
@@ -157,6 +158,11 @@ impl Mode {
 }
 #[derive(Debug)]
 enum Confirmation {
+    ConflictReset {
+        plan: Box<engine::local::files::conflict::resolve::Plan>,
+        review: String,
+        origin: Box<Mode>,
+    },
     DiscardFile {
         plan: Box<engine::local::files::discard::Plan>,
         review: String,
@@ -227,6 +233,10 @@ enum WorkerEvent {
 #[derive(Debug)]
 enum Outcome {
     DiscardFilePrepared(Box<engine::local::files::discard::Plan>),
+    ConflictResetPrepared {
+        plan: Box<engine::local::files::conflict::resolve::Plan>,
+        review: String,
+    },
     Scanned(Box<engine::discovery::Report>),
     RegistrationsAdded(usize),
     Opened(Box<navigation::Content>),

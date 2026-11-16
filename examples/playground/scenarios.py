@@ -3,6 +3,7 @@ from enum import Enum
 from seed import Seed
 from submodules import attach
 from metadata import prepare as metadata
+from conflict_resolution import create as resolve_conflicts
 
 
 from stash_preview import create as stash_preview
@@ -62,9 +63,7 @@ def diverged(seed: Seed):
 
 
 def cherry_pick_conflict(seed: Seed):
-    seed.repo.write("src/config.ts", 'export const greeting = "当前分支的问候";\n')
-    seed.repo.commit("当前分支修改问候文案")
-    seed.repo.conflict("cherry-pick", "example/cherry-pick")
+    resolve_conflicts(seed)
 
 
 def revert_conflict(seed: Seed):

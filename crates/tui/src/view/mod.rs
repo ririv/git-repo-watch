@@ -203,6 +203,7 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) {
         tasks::render(frame, screen, area);
         return;
     }
+    screen.normalize_input_page();
     let mut header = if area.height >= 6 {
         header(screen, area)
     } else {

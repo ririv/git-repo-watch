@@ -10,6 +10,7 @@ from create import generate
 from git_repo import Clock, Git
 from scenarios import Case
 from submodules import MODULE_PATH
+from conflict_resolution import PATH as CONFLICT_PATH
 
 
 class PlaygroundTests(unittest.TestCase):
@@ -35,7 +36,16 @@ class PlaygroundTests(unittest.TestCase):
                         self.assertEqual(repo.run("check-ignore", "cache/ignored.tmp"), "cache/ignored.tmp")
                     elif case == Case.CHERRY_PICK_CONFLICT:
                         self.assertTrue(repo.run("ls-files", "--unmerged"))
-                        self.assertEqual(repo.run("rev-parse", "CHERRY_PICK_HEAD"), manifest["refs"]["example/cherry-pick"])
+                        self.assertEqual(repo.run("rev-parse", "CHERRY_PICK_HEAD"), manifest["refs"]["example/conflict"])
+                        conflicted = repo.run("diff", "--name-only", "--diff-filter=U").splitlines()
+                        self.assertEqual(len(conflicted), 2)
+                        result = (repo.path / CONFLICT_PATH).read_text(encoding="utf-8")
+                        self.assertEqual(result.count("<<<<<<<"), 3)
+                        self.assertIn("export const localOnly = true;", result)
+                        self.assertIn("export const incomingOnly = true;", result)
+                        # 基础、左、右来自真实索引阶段，重置和比较均能使用。
+                        for stage in (1, 2, 3):
+                            self.assertTrue(repo.run("show", f":{stage}:{CONFLICT_PATH}"))
                         repo.run("cherry-pick", "--abort")
                         self.assertEqual(repo.run("status", "--porcelain=v1"), "")
                     elif case == Case.REVERT_CONFLICT:

@@ -1,5 +1,4 @@
 //! Discovery review shares list geometry with repository management and pointer hit regions.
-mod actions;
 use super::*;
 use crate::management::{Selection, Session, Source, Status};
 use crate::pointer::{Action as PointerAction, Target};
@@ -28,10 +27,6 @@ pub(super) fn render(
         Constraint::Length(header_height),
         Constraint::Min(0),
         Constraint::Length(detail_height),
-        Constraint::Length(match session.source {
-            Source::Managed => 0,
-            Source::Scan { .. } => 1,
-        }),
     ])
     .split(inner);
     if let Source::Scan { root, excluded } = &session.source {
@@ -179,8 +174,5 @@ pub(super) fn render(
                 ),
             parts[3],
         );
-    }
-    if matches!(session.source, Source::Scan { .. }) {
-        actions::render(frame, parts[4], session, hits);
     }
 }

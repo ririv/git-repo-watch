@@ -1,4 +1,6 @@
 //! Bordered input with explicit editable and locked states.
+pub(in crate::view) mod actions;
+mod conflict;
 mod prefix;
 mod surface;
 use super::feedback::Preview;
@@ -97,10 +99,6 @@ impl Footer {
             return Self::Compact { hint, preview };
         }
         match input_mode(screen) {
-            Mode::Workflow(_) => Self::Compact {
-                hint: task_hint(screen).unwrap_or(i18n::tr!(WorkflowEditorHint)),
-                preview,
-            },
             Mode::Composition(session)
                 if matches!(session.state, crate::composition::State::Editing(_)) =>
             {
@@ -185,6 +183,9 @@ pub(crate) fn content_area(area: Rect) -> Rect {
 }
 
 enum Content<'a> {
+    Actions {
+        items: Vec<actions::Item>,
+    },
     CommandEntry,
     Editable {
         editor: &'a Editor,
@@ -200,6 +201,9 @@ enum Content<'a> {
     CommitActions {
         draft: &'a crate::commit_form::Draft,
     },
+    Conflict {
+        selected: crate::conflict::controls::Action,
+    },
     Recovery {
         selected: engine::operations::replay::Control,
         enabled: [bool; 3],
@@ -212,6 +216,9 @@ enum Content<'a> {
 }
 
 fn browsing_hint(screen: &Screen) -> &'static str {
+    if screen.focused_conflict_control().is_some() {
+        return i18n::tr!(ConflictControlsHint);
+    }
     if screen.focused_replay_control().is_some() {
         return i18n::tr!(ReplayControlsHint);
     }
@@ -326,9 +333,20 @@ fn browsing_hint(screen: &Screen) -> &'static str {
                     crate::changes::edit::Granularity::Line => i18n::tr!(PartialLineHint),
                 }
             }
-            crate::changes::Focus::Preview if matches!(&session.preview, crate::changes::Preview::Ready {content,..} if matches!(content.as_ref(), crate::document::View::Conflict(_))) =>
-            {
-                i18n::tr!(ConflictInputHint)
+            crate::changes::Focus::Preview if matches!(&session.preview, crate::changes::Preview::Ready {content,..} if matches!(content.as_ref(), crate::document::View::Conflict(_))) => {
+                if screen
+                    .conflict_view()
+                    .is_some_and(|view| view.resolution.resolved())
+                {
+                    i18n::tr!(ConflictResolvedHint)
+                } else if screen
+                    .conflict_view()
+                    .is_some_and(|view| view.resolution.reason().is_some())
+                {
+                    i18n::tr!(ConflictReadingHint)
+                } else {
+                    i18n::tr!(ConflictInputHint)
+                }
             }
             crate::changes::Focus::Preview if screen.config.text_wrap => {
                 i18n::tr!(WrappedDiffPreviewHint)
@@ -362,6 +380,39 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             i18n::tr!(HistoryActionsTitle),
             Content::Locked(i18n::tf!(HistoryActionsCount, count = menu.count())),
             i18n::tr!(HistoryActionsHint),
+        )
+    } else if let Mode::Management(session) = mode
+        && let crate::management::Focus::Actions(crate::management::Controls { selected, .. }) =
+            session.focus
+    {
+        (
+            i18n::tr!(ScanActionsTitle),
+            Content::Actions {
+                items: actions::management(session, selected),
+            },
+            i18n::tr!(ScanActionsHint),
+        )
+    } else if let Mode::Workflow(session) = mode {
+        (
+            if session.page() == crate::input_pages::Pair::Content {
+                i18n::tr!(WorkflowControls)
+            } else {
+                i18n::tr!(WorkflowFinishTitle)
+            },
+            Content::Actions {
+                items: actions::workflow(session),
+            },
+            if session.page() == crate::input_pages::Pair::Content {
+                i18n::tr!(WorkflowEditorHint)
+            } else {
+                i18n::tr!(WorkflowFinishHint)
+            },
+        )
+    } else if let Some(selected) = screen.focused_conflict_control() {
+        (
+            i18n::tr!(ConflictControlsTitle),
+            Content::Conflict { selected },
+            i18n::tr!(ConflictControlsHint),
         )
     } else if let Some(selected) = screen.focused_replay_control() {
         let (_, operation) = screen
@@ -552,6 +603,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 Content::Choices {
                     choice: *choice,
                     execute: match operation {
+                        Confirmation::ConflictReset { .. } => i18n::tr!(ConflictResetCommand),
                         Confirmation::DiscardFile { .. } => i18n::tr!(DiscardFile),
                         Confirmation::Partial { .. } => i18n::tr!(PartialDiscard),
                         Confirmation::Schedule(operation) => match operation {
@@ -633,14 +685,19 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     let hint = if task_hint.is_none()
         && (bar.is_plain() || matches!(bar, crate::bar::InputBar::Command { .. }))
         && (screen.replay_controls().is_some()
+            || matches!(&screen.mode, Mode::Management(session) if matches!(session.source, crate::management::Source::Scan { .. }) && matches!(session.focus, crate::management::Focus::Input) && (bar.command_input().is_some() || !bar.editor().text.is_empty()))
             || matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active() && !session.picks().is_empty())))
         && screen.focused_replay_control().is_none()
+        && screen.focused_conflict_control().is_none()
     {
         format!("{} · {hint}", i18n::tr!(ReplayControlsEntryHint))
     } else {
         hint.to_owned()
     };
-    let show_cursor = task_hint.is_none() && screen.focused_replay_control().is_none();
+    let show_cursor = !matches!(&content, Content::Actions { .. })
+        && task_hint.is_none()
+        && screen.focused_replay_control().is_none()
+        && screen.focused_conflict_control().is_none();
     let title = if matches!(bar, crate::bar::InputBar::Search(_))
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
@@ -650,7 +707,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         title.to_owned()
     };
-    let active = !matches!(mode, Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Message)
+    let active = !matches!(mode, Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Input)
         && !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
         && matches!(
             content,
@@ -658,6 +715,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 | Content::Editable { .. }
                 | Content::Choices { .. }
                 | Content::Recovery { .. }
+                | Content::Actions { .. }
+                | Content::Conflict { .. }
                 | Content::CommitActions { .. }
                 | Content::StashActions { .. }
                 | Content::Layout { .. }
@@ -715,10 +774,28 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             block = block.title(format!(" {} ", title.trim()));
         }
     }
+    if area.height >= 3
+        && let Some((current, total)) = screen.footer_page_number()
+    {
+        block = block.title_top(Line::from(format!(" {current}/{total} ")).right_aligned());
+    }
     let inner = block.inner(area);
     frame.render_widget(block, area);
     let mut surface = Surface::Plain;
     match content {
+        Content::Actions { items } => {
+            let selected = items.iter().find(|item| {
+                matches!(
+                    item.state,
+                    actions::State::Selected | actions::State::SelectedDisabled
+                )
+            });
+            surface = Surface::Actions {
+                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
+                selected: selected.map(|item| (item.target.hit(), item.label)),
+            };
+            actions::render(frame, inner, &items, &mut screen.pointer);
+        }
         Content::CommandEntry => {
             let width = inner.width.saturating_sub(2) as usize;
             frame.render_widget(
@@ -810,19 +887,19 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 );
             }
         }
+        Content::Conflict { selected } => {
+            surface = Surface::Conflict {
+                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
+                selected,
+            };
+            conflict::render(frame, screen, inner, selected);
+        }
         Content::Recovery { selected, enabled } => {
             surface = Surface::Recovery {
                 area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
                 selected,
             };
-            super::replay::controls::render(
-                frame,
-                inner,
-                selected,
-                enabled,
-                &mut screen.pointer,
-                INPUT_ACCENT,
-            );
+            super::replay::controls::render(frame, inner, selected, enabled, &mut screen.pointer);
         }
         Content::StashActions { session } => {
             for (area, choice) in super::stash_save::actions(inner) {

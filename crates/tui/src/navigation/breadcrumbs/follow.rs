@@ -112,7 +112,8 @@ impl Screen {
                 Mode::CompositionWaiting(waiting) => *waiting.origin,
                 Mode::StashSave(session) => *session.origin,
                 Mode::Confirm { operation, .. } => match operation {
-                    crate::Confirmation::DiscardFile { origin, .. }
+                    crate::Confirmation::ConflictReset { origin, .. }
+                    | crate::Confirmation::DiscardFile { origin, .. }
                     | crate::Confirmation::Partial { origin, .. }
                     | crate::Confirmation::Remove { origin, .. }
                     | crate::Confirmation::Configure { origin, .. }

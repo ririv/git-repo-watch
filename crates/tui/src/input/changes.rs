@@ -7,13 +7,17 @@ use crate::{
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 impl Screen {
-    pub(super) fn changes_key(&mut self, mut session: Box<crate::changes::Session>, key: KeyEvent) {
+    pub(crate) fn changes_key(&mut self, mut session: Box<crate::changes::Session>, key: KeyEvent) {
         let empty = self.bar.editor().text.is_empty();
         if empty && matches!(key.code, KeyCode::Esc | KeyCode::Left) {
             if session.arrangement == Arrangement::Maximized {
                 session.arrangement = Arrangement::Tiled;
             } else if session.focus == Focus::Preview {
                 session.focus = Focus::Files;
+                self.mode = Mode::Changes(session);
+                self.show_input_page(crate::input_pages::Page::Input);
+                self.poll_changes();
+                return;
             } else {
                 if matches!(self.page, crate::Page::View(_)) {
                     self.mode = Mode::Changes(session);
@@ -42,6 +46,20 @@ impl Screen {
                     session.focus = Focus::Preview
                 }
                 _ => {}
+            }
+        } else if let Preview::Ready {
+            content, scroll, ..
+        } = &mut session.preview
+            && let crate::document::View::Conflict(view) = content.as_mut()
+            && (view.resolution.reason().is_none() || view.resolution.resolved())
+        {
+            match key.code {
+                KeyCode::Enter | KeyCode::Char(' ') if key.code == KeyCode::Enter || empty => {
+                    self.mode = Mode::Changes(session);
+                    self.open_conflict_controls();
+                    return;
+                }
+                _ => view.navigate(key, scroll),
             }
         } else if key.code == KeyCode::Char(' ') && empty {
             self.mode = Mode::Changes(session);

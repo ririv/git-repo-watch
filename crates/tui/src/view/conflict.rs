@@ -72,10 +72,17 @@ pub(super) fn render(
         hits,
     );
     if let Some(area) = areas.result {
+        let label = view.resolution.label();
+        let (working, selected, resolution) = view.result_review();
         result::render(
             frame,
             area,
-            &mut view.result,
+            result::Review {
+                view: working,
+                selected,
+                label: &label,
+                resolution,
+            },
             &mut positions[1],
             options,
             graphics,
@@ -94,8 +101,9 @@ fn comparison(
     hits: &mut crate::pointer::Map,
 ) {
     let border = block(format!(
-        "{} · {}",
+        "{} · {} · {}",
         i18n::tr!(ConflictCompare),
+        view.resolution.label(),
         safe(&view.title)
     ));
     let content = border.inner(area);
@@ -191,6 +199,42 @@ fn comparison(
                 },
                 view.horizontal.offset().min(cache.maxima[n]),
             );
+        }
+        for (row, at) in cache
+            .anchors
+            .iter()
+            .skip(*scroll)
+            .take(body.height as usize)
+            .enumerate()
+        {
+            if let Some(index) = view
+                .coordinate(n, *at)
+                .line()
+                .and_then(|line| view.block_at(n, line))
+            {
+                hits.button(
+                    Rect::new(body.x, body.y + row as u16, body.width, 1),
+                    crate::pointer::Action::ConflictBlock {
+                        index,
+                        focus: Focus::Compare,
+                    },
+                );
+            }
+            if view
+                .coordinate(n, *at)
+                .line()
+                .is_some_and(|line| view.selected_line(n, line))
+            {
+                frame.buffer_mut().set_style(
+                    Rect::new(
+                        body.x,
+                        body.y + row as u16,
+                        view.gutter(n).min(body.width as usize) as u16,
+                        1,
+                    ),
+                    Style::default().bg(SELECTION).fg(Color::White).bold(),
+                );
+            }
         }
         let x = if panel.right() < content.right() {
             panel.right()

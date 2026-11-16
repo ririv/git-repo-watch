@@ -10,6 +10,8 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
+    ConflictAccept,
+    ConflictBlock,
     Conflict,
     StashPreview,
     StashSave,
@@ -36,6 +38,8 @@ pub(crate) enum Kind {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
+    ConflictAccept(engine::local::files::conflict::resolve::Choice),
+    ConflictBlock(crate::conflict::resolution::Direction),
     Conflict(crate::conflict::DisplayMode),
     StashPreview(engine::local::stash::preview::Scope),
     StashSave(crate::stash_save::Scope),
@@ -68,6 +72,31 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::ConflictAccept(engine::local::files::conflict::resolve::Choice::Left),
+        token: "left",
+        description: M::ConflictAcceptLeft,
+    },
+    Option {
+        value: Value::ConflictAccept(engine::local::files::conflict::resolve::Choice::Right),
+        token: "right",
+        description: M::ConflictAcceptRight,
+    },
+    Option {
+        value: Value::ConflictAccept(engine::local::files::conflict::resolve::Choice::Both),
+        token: "both",
+        description: M::ConflictAcceptBoth,
+    },
+    Option {
+        value: Value::ConflictBlock(crate::conflict::resolution::Direction::Previous),
+        token: "previous",
+        description: M::ConflictBlockPrevious,
+    },
+    Option {
+        value: Value::ConflictBlock(crate::conflict::resolution::Direction::Next),
+        token: "next",
+        description: M::ConflictBlockNext,
+    },
     Option {
         value: Value::Conflict(crate::conflict::DisplayMode::Overview),
         token: "overview",
@@ -416,6 +445,8 @@ impl Value {
         match self {
             Self::StashPreview(scope) => Action::StashPreview(scope),
             Self::Conflict(value) => Action::ConflictView(value),
+            Self::ConflictAccept(choice) => Action::ConflictAccept(choice),
+            Self::ConflictBlock(direction) => Action::ConflictBlock(direction),
             Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::LogSelection(value) => Action::LogSelection(value),
@@ -448,6 +479,8 @@ impl Value {
         match self {
             Self::StashPreview(_) => Kind::StashPreview,
             Self::Conflict(_) => Kind::Conflict,
+            Self::ConflictAccept(_) => Kind::ConflictAccept,
+            Self::ConflictBlock(_) => Kind::ConflictBlock,
             Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::LogSelection(_) => Kind::LogSelection,
@@ -477,6 +510,8 @@ impl Kind {
         match self {
             Self::StashPreview => Action::StashPreviewMenu,
             Self::Conflict => Action::ConflictMenu,
+            Self::ConflictAccept => Action::ConflictAcceptMenu,
+            Self::ConflictBlock => Action::ConflictBlockMenu,
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::LogSelection => Action::LogSelect,
@@ -516,7 +551,7 @@ impl Kind {
                 Value::StashPreview(detail.scope)
             }
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
-            Self::LogSelection => return None,
+            Self::LogSelection | Self::ConflictAccept | Self::ConflictBlock => return None,
             Self::ComposeOrder | Self::StashSave => return None,
             Self::DiffHeader => Value::DiffHeader(screen.diff_header),
             Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),

@@ -40,10 +40,20 @@ impl Columns {
             .unwrap_or(0);
         let minimum_description = entries
             .iter()
-            .map(|entry| entry.description.width())
+            .map(|entry| {
+                entry.description.width().min(
+                    if matches!(
+                        &entry.availability,
+                        command::availability::Availability::Unavailable(_)
+                    ) {
+                        40
+                    } else {
+                        16
+                    },
+                )
+            })
             .max()
-            .unwrap_or(0)
-            .min(16);
+            .unwrap_or(0);
         let value = entries
             .iter()
             .map(|entry| entry.value.width())

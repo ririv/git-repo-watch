@@ -2,20 +2,32 @@
 use super::*;
 use crate::conflict::result::{Content, View};
 
+pub(super) struct Review<'a> {
+    pub view: &'a mut View,
+    pub selected: &'a std::collections::BTreeSet<usize>,
+    pub label: &'a str,
+    pub resolution: &'a crate::conflict::resolution::Session,
+}
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
-    view: &mut View,
+    review: Review<'_>,
     scroll: &mut usize,
     options: crate::diff::Options,
     graphics: &mut crate::graphics::Display,
     hits: &mut crate::pointer::Map,
 ) {
+    let Review {
+        view,
+        selected,
+        label,
+        resolution,
+    } = review;
     if let Content::Document(document) = &mut view.content {
         super::super::document::render(frame, area, document, scroll, options, graphics, hits);
         return;
     }
-    let border = block(i18n::tr!(ConflictResult));
+    let border = block(format!("{} · {}", i18n::tr!(ConflictResult), label));
     let inner = border.inner(area);
     frame.render_widget(border, area);
     if inner.is_empty() {
@@ -58,6 +70,34 @@ pub(super) fn render(
             fixed.min(body.width as usize),
             view.horizontal.offset(),
         );
+    }
+    for (row, line) in cache
+        .anchors
+        .iter()
+        .skip(*scroll)
+        .take(body.height as usize)
+        .enumerate()
+    {
+        if let Some(index) = resolution.block_index(*line) {
+            hits.button(
+                Rect::new(body.x, body.y + row as u16, body.width, 1),
+                crate::pointer::Action::ConflictBlock {
+                    index,
+                    focus: Focus::Result,
+                },
+            );
+        }
+        if selected.contains(line) {
+            frame.buffer_mut().set_style(
+                Rect::new(
+                    body.x,
+                    body.y + row as u16,
+                    gutter.min(body.width as usize) as u16,
+                    1,
+                ),
+                Style::default().bg(SELECTION).fg(Color::White).bold(),
+            );
+        }
     }
     crate::scrollbar::vertical(frame, area, body, cache.rows.len(), *scroll);
     hits.vertical(

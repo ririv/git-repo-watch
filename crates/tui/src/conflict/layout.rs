@@ -128,6 +128,7 @@ impl View {
         self.horizontal
             .constrain(maxima.into_iter().max().unwrap_or(0));
         let target = match (revealed.or(anchor), self.reveal) {
+            (_, Reveal::At(line)) => Some(line),
             (Some(anchor), _) => Some(anchor),
             (None, Reveal::FirstChange) if *scroll == 0 => match self.active_comparison() {
                 Comparison::Text(rows) => rows

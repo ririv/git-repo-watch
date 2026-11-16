@@ -59,6 +59,22 @@ impl Screen {
             return Availability::Unavailable(Problem::Reason(reason.into()));
         }
         let reason = match action {
+            ConflictAcceptMenu | ConflictAccept(_) | ConflictBlockMenu | ConflictBlock(_) => {
+                match self.conflict_view() {
+                    Some(view) => view.resolution.reason().map(str::to_owned),
+                    None => Some(i18n::tr!(ConflictFileRequired).into()),
+                }
+            }
+            ConflictReset => match self.conflict_view() {
+                Some(view) => view.resolution.reset_reason().map(str::to_owned),
+                None => Some(i18n::tr!(ConflictFileRequired).into()),
+            },
+            ConflictUndo => match self.conflict_view() {
+                Some(view) if view.resolution.undo().is_some() => None,
+                Some(_) => Some(i18n::tr!(ConflictUndoUnavailable).into()),
+                None => Some(i18n::tr!(ConflictFileRequired).into()),
+            },
+
             ConflictView(crate::conflict::DisplayMode::Pair(target)) => self
                 .conflict_view()
                 .and_then(|view| view.pairs.reason(target))
@@ -235,6 +251,20 @@ impl Screen {
         let staged = action == Action::Unstage;
         let files = match IndexSelection::current(self) {
             Some(IndexSelection::Files(files)) => files,
+            Some(IndexSelection::Conflict(view)) => {
+                return if staged {
+                    Err(Problem::WrongArea(
+                        engine::local::files::IndexAction::Unstage,
+                    ))
+                } else if view.resolution.resolved() {
+                    Ok(IndexTarget::Files {
+                        count: 1,
+                        group: crate::files::Group::Unstaged,
+                    })
+                } else {
+                    Err(Problem::Reason(i18n::tr!(ReplayResolveFirst).into()))
+                };
+            }
             Some(IndexSelection::Diff(session)) => {
                 return match &session.preview {
                     changes::Preview::Ready {

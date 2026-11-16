@@ -170,7 +170,8 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     );
                     return;
                 }
-                Confirmation::Partial { review, .. } => review.clone(),
+                Confirmation::Partial { review, .. }
+                | Confirmation::ConflictReset { review, .. } => review.clone(),
                 Confirmation::Schedule(operation) => match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnableConfirmation),
                     engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisableConfirmation),

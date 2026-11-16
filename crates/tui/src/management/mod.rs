@@ -34,6 +34,13 @@ pub(crate) enum Action {
     Back,
 }
 impl Action {
+    pub const ALL: [Self; 2] = [Self::Apply, Self::Back];
+    pub fn next(self) -> Self {
+        match self {
+            Self::Apply => Self::Back,
+            Self::Back => Self::Apply,
+        }
+    }
     pub fn label(self) -> &'static str {
         match self {
             Self::Apply => i18n::tr!(ScanAddSelected),
@@ -41,11 +48,12 @@ impl Action {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Focus {
-    List,
-    Actions(usize),
+#[derive(Debug)]
+pub(crate) struct Controls {
+    pub selected: Action,
+    pub draft: Box<crate::bar::InputBar>,
 }
+pub(crate) type Focus = crate::input_pages::Selection<Controls>;
 #[derive(Debug)]
 pub(crate) struct Session {
     pub source: Source,
@@ -101,7 +109,7 @@ impl Session {
             entries,
             state,
             query: String::new(),
-            focus: Focus::List,
+            focus: Focus::new(crate::input_pages::Availability::InputOnly),
         }
     }
     pub fn title(&self) -> &'static str {
@@ -110,10 +118,21 @@ impl Session {
             Source::Scan { .. } => i18n::tr!(ScanResults),
         }
     }
+    pub fn available_actions(&self) -> crate::input_pages::Availability<Action> {
+        use crate::input_pages::Availability;
+        match self.source {
+            Source::Managed => Availability::InputOnly,
+            Source::Scan { .. } => Availability::Actions(if self.selection().is_empty() {
+                Action::Back
+            } else {
+                Action::Apply
+            }),
+        }
+    }
     pub fn actions(&self) -> &'static [Action] {
         match self.source {
             Source::Managed => &[],
-            Source::Scan { .. } => &[Action::Apply, Action::Back],
+            Source::Scan { .. } => &Action::ALL,
         }
     }
     pub fn rows(&self) -> Vec<usize> {

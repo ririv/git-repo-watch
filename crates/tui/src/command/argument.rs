@@ -220,6 +220,12 @@ impl Action {
             }
             Self::LogSelect => Some(ArgumentAction::Option(super::options::Kind::LogSelection)),
             Self::ConflictMenu => Some(ArgumentAction::Option(super::options::Kind::Conflict)),
+            Self::ConflictAcceptMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::ConflictAccept))
+            }
+            Self::ConflictBlockMenu => {
+                Some(ArgumentAction::Option(super::options::Kind::ConflictBlock))
+            }
             Self::BranchFilterMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::BranchFilter))
             }
@@ -295,18 +301,29 @@ impl Command {
     }
 }
 pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
-    let canonical = COMMANDS.iter().find_map(|command| {
-        let argument = command.action.argument()?;
-        let input = input.trim_start();
-        if !input
-            .get(..command.name.len())?
-            .eq_ignore_ascii_case(command.name)
-        {
-            return None;
-        }
-        let value = input.get(command.name.len()..)?.strip_prefix(' ')?;
-        Some((argument, value))
-    });
+    if let Some(exact) = COMMANDS
+        .iter()
+        .find(|command| command.name.eq_ignore_ascii_case(input.trim()))
+        && (input.trim_start().len() == exact.name.len() || exact.action.argument().is_none())
+    {
+        return None;
+    }
+    let canonical = COMMANDS
+        .iter()
+        .filter_map(|command| {
+            let argument = command.action.argument()?;
+            let input = input.trim_start();
+            if !input
+                .get(..command.name.len())?
+                .eq_ignore_ascii_case(command.name)
+            {
+                return None;
+            }
+            let value = input.get(command.name.len()..)?.strip_prefix(' ')?;
+            Some((command.name.len(), argument, value))
+        })
+        .max_by_key(|(length, _, _)| *length)
+        .map(|(_, argument, value)| (argument, value));
     if canonical.is_some() {
         return canonical;
     }

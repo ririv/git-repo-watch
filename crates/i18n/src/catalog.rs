@@ -3,6 +3,35 @@ use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
     WorktreeHorizontalHint,
+    ConflictControlsTitle,
+    ConflictControlsHint,
+    ConflictChoiceLeft,
+    ConflictChoiceRight,
+    ConflictChoiceBoth,
+    ConflictChoiceUndo,
+    ConflictChoiceReset,
+    ConflictChoiceStage,
+    ConflictReadingHint,
+    ConflictResolvedHint,
+    ConflictAcceptLeft,
+    ConflictAcceptRight,
+    ConflictAcceptBoth,
+    ConflictResolveUnsupported,
+    ConflictResolveChanged,
+    ConflictMarkersInvalid,
+    ConflictBlockRequired,
+    ConflictAcceptCommand,
+    ConflictBlockCommand,
+    ConflictBlockPrevious,
+    ConflictBlockNext,
+    ConflictResetCommand,
+    ConflictResetConfirm,
+    ConflictResetUnsupported,
+    ConflictUndoCommand,
+    ConflictUndoUnavailable,
+    ConflictResolvedPendingStage,
+    ConflictBlockCount,
+
     CopyConflictUnavailable,
     CopyConflictVersions,
     CopyConflictResult,
@@ -88,6 +117,9 @@ pub enum Message {
     ScanHint,
     ManageHint,
     ScanActionsHint,
+    ScanActionsTitle,
+    WorkflowFinishTitle,
+    WorkflowFinishHint,
     ScanTemporaryExclusions,
 
     PushConfirmationNeeded,
@@ -1311,6 +1343,98 @@ impl Message {
         match (self, language) {
             (Self::WorktreeHorizontalHint, Language::Chinese) => "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选",
             (Self::WorktreeHorizontalHint, Language::English) => "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check",
+            (Self::ConflictControlsTitle, Language::Chinese) => "冲突处理",
+            (Self::ConflictControlsTitle, Language::English) => "Resolve conflicts",
+            (Self::ConflictControlsHint, Language::Chinese) => {
+                "Shift+Tab 切换页 · ←→选项 · ↑↓选块 · Enter 执行 · Esc 输入"
+            }
+            (Self::ConflictControlsHint, Language::English) => {
+                "Shift+Tab next page · ←→ action · ↑↓ block · Enter run · Esc input"
+            }
+            (Self::ConflictChoiceLeft, Language::Chinese) => "左（当前）",
+            (Self::ConflictChoiceLeft, Language::English) => "Left (current)",
+            (Self::ConflictChoiceRight, Language::Chinese) => "右（传入）",
+            (Self::ConflictChoiceRight, Language::English) => "Right (incoming)",
+            (Self::ConflictChoiceBoth, Language::Chinese) => "双方",
+            (Self::ConflictChoiceBoth, Language::English) => "Both",
+            (Self::ConflictChoiceUndo, Language::Chinese) => "撤销",
+            (Self::ConflictChoiceUndo, Language::English) => "Undo",
+            (Self::ConflictChoiceReset, Language::Chinese) => "重置",
+            (Self::ConflictChoiceReset, Language::English) => "Reset",
+            (Self::ConflictChoiceStage, Language::Chinese) => "暂存",
+            (Self::ConflictChoiceStage, Language::English) => "Stage",
+
+            (Self::ConflictReadingHint, Language::Chinese) => {
+                "↑↓滚动 · PgUp/PgDn 翻页 · /editor 编辑 · Esc 文件"
+            }
+            (Self::ConflictReadingHint, Language::English) => {
+                "↑↓ scroll · PgUp/PgDn page · /editor edit · Esc files"
+            }
+            (Self::ConflictResolvedHint, Language::Chinese) => {
+                "Enter/Space 操作栏 · ↑↓滚动 · Esc 文件 · / 查看命令"
+            }
+            (Self::ConflictResolvedHint, Language::English) => {
+                "Enter/Space actions · ↑↓ scroll · Esc files · / commands"
+            }
+            (Self::ConflictAcceptLeft, Language::Chinese) => "采用左（当前）",
+            (Self::ConflictAcceptLeft, Language::English) => "Accept left (current)",
+            (Self::ConflictAcceptRight, Language::Chinese) => "采用右（传入）",
+            (Self::ConflictAcceptRight, Language::English) => "Accept right (incoming)",
+            (Self::ConflictAcceptBoth, Language::Chinese) => "保留双方（左后右）",
+            (Self::ConflictAcceptBoth, Language::English) => "Keep both (left then right)",
+            (Self::ConflictResolveUnsupported, Language::Chinese) => {
+                "此文件无法进行内置冲突处理，请使用编辑器"
+            }
+            (Self::ConflictResolveUnsupported, Language::English) => {
+                "This file requires an external editor to resolve"
+            }
+            (Self::ConflictResolveChanged, Language::Chinese) => "文件或仓库已变化，请刷新后重试",
+            (Self::ConflictResolveChanged, Language::English) => {
+                "File or repository changed; refresh before resolving"
+            }
+            (Self::ConflictMarkersInvalid, Language::Chinese) => {
+                "冲突标记不完整或存在嵌套，请使用编辑器"
+            }
+            (Self::ConflictMarkersInvalid, Language::English) => {
+                "Incomplete or nested conflict markers; use an editor"
+            }
+            (Self::ConflictBlockRequired, Language::Chinese) => "没有待处理的冲突块",
+            (Self::ConflictBlockRequired, Language::English) => "No unresolved conflict block",
+            (Self::ConflictAcceptCommand, Language::Chinese) => "采用当前冲突块的版本",
+            (Self::ConflictAcceptCommand, Language::English) => {
+                "Resolve the selected conflict block"
+            }
+            (Self::ConflictBlockCommand, Language::Chinese) => "选择冲突块",
+            (Self::ConflictBlockCommand, Language::English) => "Select a conflict block",
+            (Self::ConflictBlockPrevious, Language::Chinese) => "上一个冲突块",
+            (Self::ConflictBlockPrevious, Language::English) => "Previous conflict block",
+            (Self::ConflictBlockNext, Language::Chinese) => "下一个冲突块",
+            (Self::ConflictBlockNext, Language::English) => "Next conflict block",
+            (Self::ConflictResetCommand, Language::Chinese) => "重置冲突结果",
+            (Self::ConflictResetCommand, Language::English) => "Reset conflict result",
+            (Self::ConflictResetConfirm, Language::Chinese) => {
+                "重置当前文件的全部解决结果，重新生成冲突块。请检查将被覆盖的内容。"
+            }
+            (Self::ConflictResetConfirm, Language::English) => {
+                "Reset all resolutions in this file and recreate its conflict blocks. Review the content that will be replaced."
+            }
+            (Self::ConflictResetUnsupported, Language::Chinese) => {
+                "此文件的冲突无法用内置文本合并重置"
+            }
+            (Self::ConflictResetUnsupported, Language::English) => {
+                "This conflict cannot be reset with the built-in text merger"
+            }
+            (Self::ConflictUndoCommand, Language::Chinese) => "撤销上次冲突处理",
+            (Self::ConflictUndoCommand, Language::English) => "Undo last conflict change",
+            (Self::ConflictUndoUnavailable, Language::Chinese) => "没有可撤销的冲突处理",
+            (Self::ConflictUndoUnavailable, Language::English) => "No conflict resolution to undo",
+            (Self::ConflictResolvedPendingStage, Language::Chinese) => "冲突块已处理，待暂存",
+            (Self::ConflictResolvedPendingStage, Language::English) => {
+                "Blocks resolved; stage the result"
+            }
+            (Self::ConflictBlockCount, Language::Chinese) => "冲突块 {current}/{total}",
+            (Self::ConflictBlockCount, Language::English) => "Conflict {current}/{total}",
+
             (Self::CopyConflictUnavailable, Language::Chinese) => "冲突版本无法完整读取为文本",
             (Self::CopyConflictUnavailable, Language::English) => {
                 "Conflict versions cannot be read completely as text"
@@ -1338,10 +1462,10 @@ impl Message {
             (Self::CopyConflictVersions, Language::Chinese) => "复制冲突版本",
             (Self::CopyConflictVersions, Language::English) => "Copy conflict versions",
             (Self::ConflictInputHint, Language::Chinese) => {
-                "↑↓滚动 · ←→平移 · //focus 切换区域 · /editor 编辑 · Esc 返回"
+                "↑↓选择冲突块 · Enter/Space 操作栏 · PgUp/PgDn 滚动 · ←→平移 · Esc 文件"
             }
             (Self::ConflictInputHint, Language::English) => {
-                "↑↓ scroll · ←→ pan · //focus panes · /editor edit · Esc back"
+                "↑↓ conflict blocks · Enter/Space actions · PgUp/PgDn scroll · ←→ pan · Esc files"
             }
             (Self::ConflictBase, Language::Chinese) => "基础",
             (Self::ConflictBase, Language::English) => "Base",
@@ -1372,10 +1496,10 @@ impl Message {
                 "This version is not plain text; line comparison is unavailable"
             }
             (Self::ConflictResultHint, Language::Chinese) => {
-                "包含基础：/repo diff conflict include-base · 编辑：/editor"
+                "采用：/repo diff conflict accept · 编辑：/editor"
             }
             (Self::ConflictResultHint, Language::English) => {
-                "Base: /repo diff conflict include-base · Edit: /editor"
+                "Accept: /repo diff conflict accept · Edit: /editor"
             }
             (Self::SearchTargetContent, Language::English) => "content",
             (Self::SearchTargetContent, Language::Chinese) => "内容",
@@ -1548,18 +1672,24 @@ impl Message {
             (Self::ScanEmptySelection, Language::English) => "Select repositories to add",
             (Self::ScanEmptySelection, Language::Chinese) => "请勾选要添加的仓库",
             (Self::ScanHint, Language::English) => {
-                "Space/Ins mark · Ctrl+A all · Shift+Tab options · Enter select · Esc back"
+                "Space/Ins mark · Ctrl+A all · Shift+Tab actions · Enter mark · Esc back"
             }
             (Self::ScanHint, Language::Chinese) => {
-                "Space/Ins 勾选 · Ctrl+A 全选 · Shift+Tab 选项 · Enter 确认 · Esc 返回"
+                "Space/Ins 勾选 · Ctrl+A 全选 · Shift+Tab 操作 · Enter 勾选 · Esc 返回"
             }
             (Self::ManageHint, Language::English) => "↑↓ select · / commands · Esc back",
             (Self::ManageHint, Language::Chinese) => "↑↓选择 · / 命令 · Esc 返回",
+            (Self::ScanActionsTitle, Language::English) => "Scan actions",
+            (Self::ScanActionsTitle, Language::Chinese) => "扫描操作",
+            (Self::WorkflowFinishTitle, Language::English) => "Save workflow",
+            (Self::WorkflowFinishTitle, Language::Chinese) => "保存流程",
+            (Self::WorkflowFinishHint, Language::English) => "←→ choose · Enter/Space run · Shift+Tab step actions · Esc back",
+            (Self::WorkflowFinishHint, Language::Chinese) => "←→选择 · Enter/Space 执行 · Shift+Tab 步骤操作 · Esc 返回",
             (Self::ScanActionsHint, Language::English) => {
-                "←→ actions · Enter run · Shift+Tab input · Esc back"
+                "←→ choose · Enter/Space run · Shift+Tab input · Esc input"
             }
             (Self::ScanActionsHint, Language::Chinese) => {
-                "←→选择操作 · Enter 执行 · Shift+Tab 输入 · Esc 返回"
+                "←→选择 · Enter/Space 执行 · Shift+Tab 输入 · Esc 输入"
             }
             (Self::ScanTemporaryExclusions, Language::English) => "Skipped for this scan",
             (Self::ScanTemporaryExclusions, Language::Chinese) => "本次跳过",
@@ -1688,8 +1818,8 @@ impl Message {
             (Self::ReplayControlsHint, Language::Chinese) => {
                 "←→选择 · Enter 预览 · Shift+Tab 输入 · Esc 返回"
             }
-            (Self::ReplayControlsEntryHint, Language::English) => "Shift+Tab: switch mode",
-            (Self::ReplayControlsEntryHint, Language::Chinese) => "Shift+Tab 切换模式",
+            (Self::ReplayControlsEntryHint, Language::English) => "Shift+Tab: next page",
+            (Self::ReplayControlsEntryHint, Language::Chinese) => "Shift+Tab 切换页",
             (Self::ReplayContinueShort, Language::English) => "Continue",
             (Self::ReplayContinueShort, Language::Chinese) => "继续",
             (Self::ReplaySkipShort, Language::English) => "Skip",
@@ -2897,10 +3027,10 @@ impl Message {
             (Self::WorkflowSelectedStep, Language::English) => "Selected step",
             (Self::WorkflowSelectedStep, Language::Chinese) => "当前步骤",
             (Self::WorkflowEditorHint, Language::English) => {
-                "↑↓ select · Enter/Space toggle · ←→ actions · Esc cancel"
+                "↑↓ step · ←→ action · Enter/Space run · Shift+Tab save/cancel · Esc back"
             }
             (Self::WorkflowEditorHint, Language::Chinese) => {
-                "↑↓选择 · Enter/Space 勾选 · ←→操作 · Esc 取消"
+                "↑↓步骤 · ←→操作 · Enter/Space 执行 · Shift+Tab 保存/取消 · Esc 返回"
             }
             (Self::WorkflowMoveUp, Language::English) => "Move up",
             (Self::WorkflowMoveUp, Language::Chinese) => "上移",
@@ -5593,6 +5723,7 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (ConflictBlockCount $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Conflict {current}/{total}" $(, $($args)*)?), $crate::Language::Chinese => format!("冲突块 {current}/{total}" $(, $($args)*)?), } };
     (ExternalEditorOpened $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Opened in editor: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("已用编辑器打开：{0}" $(, $($args)*)?), } };
     (ExternalEditorMissing $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Editor not found: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("未找到编辑器：{0}" $(, $($args)*)?), } };
     (LocalObservationFailed $(, $($args:tt)*)?) => {

@@ -182,7 +182,8 @@ impl Workspace {
             Mode::StashSave(session) => self.save(*session.origin),
             Mode::Confirm {
                 operation:
-                    crate::Confirmation::DiscardFile { origin, .. }
+                    crate::Confirmation::ConflictReset { origin, .. }
+                    | crate::Confirmation::DiscardFile { origin, .. }
                     | crate::Confirmation::Partial { origin, .. }
                     | crate::Confirmation::Configure { origin, .. }
                     | crate::Confirmation::Mutation { origin, .. }

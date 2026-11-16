@@ -1,6 +1,9 @@
 //! Three immutable Git stages and the editable worktree retain independent viewports.
+mod actions;
+pub(crate) mod controls;
 pub(crate) mod layout;
 pub(crate) mod pair;
+pub(crate) mod resolution;
 pub(crate) mod result;
 use crate::{diff, horizontal, links};
 use engine::{
@@ -69,10 +72,13 @@ pub(crate) struct Column {
 pub(crate) enum Reveal {
     FirstChange,
     Retain,
+    At(usize),
 }
 #[derive(Debug)]
 pub(crate) struct View {
     pub title: String,
+    pub resolution: resolution::Session,
+    selected: [BTreeSet<usize>; 4],
     pub pairs: pair::Pairs,
     pub columns: [Column; 3],
     pub comparison: Comparison,
@@ -87,6 +93,7 @@ pub(crate) struct View {
 }
 #[derive(Debug)]
 pub(crate) struct Position {
+    resolution: resolution::Bookmark,
     overview_focus: Focus,
     mode: DisplayMode,
     scrolls: [usize; VIEWPORTS],
@@ -97,6 +104,7 @@ impl View {
         snapshot: Snapshot,
         result: result::View,
         pairs: pair::Pairs,
+        resolution: resolution::Session,
         theme: highlight::Theme,
         cancel: &Cancel,
     ) -> anyhow::Result<Self> {
@@ -115,7 +123,9 @@ impl View {
             .iter()
             .flatten()
             .any(|mode| modes.iter().flatten().any(|other| mode != other));
-        Ok(Self {
+        let mut view = Self {
+            resolution,
+            selected: Default::default(),
             title: path.display().to_string(),
             pairs,
             columns: [
@@ -132,7 +142,9 @@ impl View {
             scrolls: [0; VIEWPORTS],
             offsets: [0; VIEWPORTS],
             reveal: Reveal::FirstChange,
-        })
+        };
+        view.refresh_selection();
+        Ok(view)
     }
     pub fn focus(&self) -> Focus {
         match self.mode {
@@ -183,6 +195,7 @@ impl View {
         offsets[self.mode.comparison_slot()] = self.horizontal.offset();
         offsets[1] = self.result.offset();
         Position {
+            resolution: self.resolution.bookmark(),
             overview_focus: self.overview_focus,
             mode: self.mode,
             scrolls: self.scrolls(scroll),
@@ -201,6 +214,13 @@ impl View {
         self.horizontal.seek(offset);
         self.result.restore_offset(self.offsets[1]);
         *scroll = self.scrolls[self.slot()];
+        let requested = self
+            .resolution
+            .restore(position.resolution, self.result.source());
+        self.refresh_selection();
+        if matches!(requested, resolution::Reveal::Selected(_)) {
+            self.seek_selected(scroll);
+        }
     }
     pub fn scrolls(&self, scroll: usize) -> [usize; VIEWPORTS] {
         let mut positions = self.scrolls;
@@ -263,6 +283,100 @@ impl View {
                 _ => Cell::Empty,
             },
         }
+    }
+    pub fn refresh_selection(&mut self) {
+        self.selected = Default::default();
+        let Some(block) = self.resolution.block() else {
+            return;
+        };
+        self.selected[3].extend(block.lines.clone());
+        for (n, pair, range, reversed) in [
+            (0, pair::Pair::BaseResult, &block.lines, false),
+            (1, pair::Pair::CurrentResult, &block.left_lines, false),
+            (2, pair::Pair::ResultIncoming, &block.right_lines, true),
+        ] {
+            if let Comparison::Text(rows) = self.pairs.get(pair) {
+                for row in rows {
+                    let (working, input) = if reversed {
+                        (row.base, row.current)
+                    } else {
+                        (row.current, row.base)
+                    };
+                    if working.line().is_some_and(|line| range.contains(&line))
+                        && let Some(line) = input.line()
+                    {
+                        self.selected[n].insert(line);
+                    }
+                }
+            }
+        }
+    }
+    pub fn selected_line(&self, n: usize, line: usize) -> bool {
+        self.selected[n].contains(&line)
+    }
+    pub fn result_review(&mut self) -> (&mut result::View, &BTreeSet<usize>, &resolution::Session) {
+        (&mut self.result, &self.selected[3], &self.resolution)
+    }
+    pub fn seek_selected(&mut self, scroll: &mut usize) {
+        let mut positions = self.scrolls(*scroll);
+        if let Some(block) = self.resolution.block() {
+            self.result.seek(block.lines.start, &mut positions[1]);
+        }
+        if let Comparison::Text(rows) = self.active_comparison() {
+            let target = rows.iter().enumerate().find_map(|(at, _)| {
+                self.mode
+                    .indices()
+                    .iter()
+                    .any(|n| {
+                        self.coordinate(*n, at)
+                            .line()
+                            .is_some_and(|line| self.selected_line(*n, line))
+                    })
+                    .then_some(at)
+            });
+            if let Some(target) = target {
+                self.reveal = Reveal::At(target);
+                self.cache = None;
+            }
+        }
+        self.settle(positions, scroll);
+    }
+    pub fn retain_selection_scroll(&mut self, offset: usize, scroll: &mut usize) {
+        if self.focus() == Focus::Result {
+            self.result.retain();
+        } else {
+            self.reveal = Reveal::Retain;
+        }
+        *scroll = offset;
+        self.scrolls[self.slot()] = offset;
+    }
+    pub fn block_at(&self, column: usize, line: usize) -> Option<usize> {
+        if column == 3 {
+            return self.resolution.block_index(line);
+        }
+        let (pair, reversed) = match column {
+            0 => (pair::Pair::BaseResult, false),
+            1 => (pair::Pair::CurrentResult, false),
+            2 => (pair::Pair::ResultIncoming, true),
+            _ => return None,
+        };
+        let Comparison::Text(rows) = self.pairs.get(pair) else {
+            return None;
+        };
+        rows.iter().find_map(|row| {
+            let (input, working) = if reversed {
+                (row.current, row.base)
+            } else {
+                (row.base, row.current)
+            };
+            (input.line() == Some(line))
+                .then(|| {
+                    working
+                        .line()
+                        .and_then(|line| self.resolution.block_index(line))
+                })
+                .flatten()
+        })
     }
     pub fn export(&self) -> String {
         let mut text = String::new();

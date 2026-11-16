@@ -5,6 +5,10 @@ impl Command {
     pub fn summary(&self) -> Summary {
         match self.action {
             Action::ConflictMenu | Action::ConflictView(_) => Summary::Conflict,
+            Action::ConflictAcceptMenu | Action::ConflictAccept(_) => Summary::ConflictAccept,
+            Action::ConflictBlockMenu | Action::ConflictBlock(_) => Summary::ConflictBlock,
+            Action::ConflictUndo => Summary::ConflictUndo,
+            Action::ConflictReset => Summary::ConflictReset,
             Action::PartialSelectMenu | Action::PartialSelect(_) => Summary::PartialSelect,
             Action::Discard => Summary::PartialDiscard,
             Action::DiscardFile => Summary::DiscardFile,

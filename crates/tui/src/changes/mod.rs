@@ -113,13 +113,20 @@ impl Session {
             }
         });
         let inactive = files.clone().with_scope(Some(active.other()));
-        let files = files.with_scope(Some(active));
+        let mut files = files.with_scope(Some(active));
+        let focus = if files.current().is_some_and(|change| change.kind == 'U') {
+            Focus::Preview
+        } else {
+            Focus::Files
+        };
+        files.recovery = Default::default();
+        files.input_preference = Default::default();
         Self {
             files,
             inactive,
             active,
             return_to,
-            focus: Focus::Files,
+            focus,
             arrangement: Arrangement::Tiled,
             preview: Preview::Empty,
             revision: 0,
@@ -256,6 +263,17 @@ impl Session {
                             review.content.restore_position(reading, &mut scroll);
                         }
                     }
+                    // 仅在新结果载入时前进到暂存，后续轮询不覆盖用户的选项选择。
+                    if matches!(review.content.as_ref(), document::View::Conflict(view) if view.resolution.resolved())
+                        && matches!(
+                            self.files.recovery.conflict(),
+                            Some(crate::conflict::controls::Action::Accept(_))
+                        )
+                    {
+                        self.files
+                            .recovery
+                            .choose_conflict(crate::conflict::controls::Action::Stage);
+                    }
                     Preview::Ready {
                         key,
                         content: review.content,
@@ -296,12 +314,15 @@ impl Screen {
     }
 
     pub(super) fn poll_changes(&mut self) -> bool {
-        match &mut self.mode {
+        let before = self.normalize_input_page();
+        let changed = match &mut self.mode {
             Mode::Changes(session) => {
                 session.files.set_layout(self.file_layout);
                 session.poll_with_theme(&self.service, self.background.syntax_theme())
             }
             _ => false,
-        }
+        };
+        let after = self.normalize_input_page();
+        changed | before | after
     }
 }

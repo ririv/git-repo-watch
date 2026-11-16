@@ -15,8 +15,12 @@ impl Screen {
     pub(crate) fn enter_management(&mut self, session: Session, origin: Mode) {
         self.remember_view(origin);
         self.page = Page::Configuration(Configuration::Repositories);
+        let initial = crate::input_pages::Selection::new(session.available_actions());
         self.mode = Mode::Management(Box::new(session));
         self.sync_bar();
+        if let crate::input_pages::Selection::Actions(selected) = initial {
+            self.open_management_actions(selected);
+        }
     }
     pub(crate) fn scan_command(&mut self, raw: &str) {
         match command::scan::request(raw, self.service.scheduler.user_home()) {
@@ -50,12 +54,89 @@ impl Screen {
             }
         }
     }
-    pub(crate) fn management_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
-        if key.code == KeyCode::Esc && session.focus != Focus::List {
-            session.focus = Focus::List;
-            self.mode = Mode::Management(session);
+    fn open_management_actions(&mut self, selected: Action) {
+        let Mode::Management(session) = &self.mode else {
+            return;
+        };
+        if session.actions().is_empty() || !matches!(session.focus, Focus::Input) {
             return;
         }
+        let draft = Box::new(std::mem::replace(
+            &mut self.bar,
+            crate::bar::InputBar::CommandsOnly,
+        ));
+        let Mode::Management(session) = &mut self.mode else {
+            unreachable!()
+        };
+        session.focus = Focus::Actions(Controls { selected, draft });
+    }
+    pub(crate) fn close_management_actions(&mut self) -> bool {
+        let Mode::Management(session) = &mut self.mode else {
+            return false;
+        };
+        let Some(Controls { draft, .. }) = session.focus.take_actions() else {
+            return false;
+        };
+        self.bar = *draft;
+        if let crate::bar::InputBar::Command { menu, .. } = &mut self.bar
+            && matches!(menu, crate::command::completion::Menu::Loading(_))
+        {
+            *menu = Default::default();
+            self.refresh_option_candidates();
+        }
+        true
+    }
+    pub(crate) fn management_controls_key(&mut self, key: KeyEvent) -> bool {
+        let Mode::Management(session) = &self.mode else {
+            return false;
+        };
+        let crate::input_pages::Availability::Actions(default_action) = session.available_actions()
+        else {
+            return false;
+        };
+        if key.code == KeyCode::BackTab {
+            let next = session.focus.page().next();
+            if next == crate::input_pages::Pair::Content {
+                self.close_management_actions();
+            } else {
+                self.open_management_actions(default_action);
+            }
+            self.view_revision += 1;
+            return true;
+        }
+        let Mode::Management(session) = &mut self.mode else {
+            unreachable!()
+        };
+        let Focus::Actions(Controls { selected, .. }) = &mut session.focus else {
+            return false;
+        };
+        match key.code {
+            KeyCode::Left | KeyCode::Right => *selected = selected.next(),
+            KeyCode::Enter | KeyCode::Char(' ') => {
+                let action = *selected;
+                self.management_action(action);
+            }
+            KeyCode::Esc => {
+                self.close_management_actions();
+            }
+            KeyCode::Tab => {}
+            KeyCode::Up => session.advance(-1),
+            KeyCode::Down => session.advance(1),
+            KeyCode::PageUp => session.advance(-10),
+            KeyCode::PageDown => session.advance(10),
+            KeyCode::Home => session
+                .state
+                .select((!session.rows().is_empty()).then_some(0)),
+            KeyCode::End => session.state.select(session.rows().len().checked_sub(1)),
+            _ => {
+                self.close_management_actions();
+                return false;
+            }
+        }
+        self.view_revision += 1;
+        true
+    }
+    pub(crate) fn management_key(&mut self, mut session: Box<Session>, key: KeyEvent) {
         if key.code == KeyCode::Esc {
             self.mode = Mode::Management(session);
             self.return_to_view();
@@ -64,45 +145,21 @@ impl Screen {
         if key.modifiers == KeyModifiers::CONTROL && key.code == KeyCode::Char('a') {
             session.toggle_all();
         } else {
-            match (session.focus, key.code) {
-                (Focus::List, KeyCode::Up) => session.advance(-1),
-                (Focus::List, KeyCode::Down) => session.advance(1),
-                (Focus::List, KeyCode::PageUp) => session.advance(-10),
-                (Focus::List, KeyCode::PageDown) => session.advance(10),
-                (Focus::List, KeyCode::Home) => session
+            match key.code {
+                KeyCode::Up => session.advance(-1),
+                KeyCode::Down => session.advance(1),
+                KeyCode::PageUp => session.advance(-10),
+                KeyCode::PageDown => session.advance(10),
+                KeyCode::Home => session
                     .state
                     .select((!session.rows().is_empty()).then_some(0)),
-                (Focus::List, KeyCode::End) => {
-                    session.state.select(session.rows().len().checked_sub(1))
-                }
-                (Focus::List, KeyCode::Enter | KeyCode::Insert | KeyCode::Char(' '))
+                KeyCode::End => session.state.select(session.rows().len().checked_sub(1)),
+                KeyCode::Enter | KeyCode::Insert | KeyCode::Char(' ')
                     if matches!(session.source, Source::Scan { .. }) =>
                 {
                     if let Some(index) = session.state.selected() {
                         session.toggle(index);
                     }
-                }
-                (Focus::List, KeyCode::BackTab)
-                    if matches!(session.source, Source::Scan { .. }) =>
-                {
-                    session.focus = Focus::Actions(0)
-                }
-                (Focus::Actions(_), KeyCode::Up | KeyCode::BackTab) => session.focus = Focus::List,
-                (Focus::Actions(index), KeyCode::Left)
-                    if matches!(session.source, Source::Scan { .. }) =>
-                {
-                    session.focus = Focus::Actions(index.saturating_sub(1))
-                }
-                (Focus::Actions(index), KeyCode::Right)
-                    if matches!(session.source, Source::Scan { .. }) =>
-                {
-                    session.focus = Focus::Actions((index + 1).min(session.actions().len() - 1))
-                }
-                (Focus::Actions(index), KeyCode::Enter) => {
-                    let action = session.actions()[index];
-                    self.mode = Mode::Management(session);
-                    self.management_action(action);
-                    return;
                 }
                 _ => {}
             }

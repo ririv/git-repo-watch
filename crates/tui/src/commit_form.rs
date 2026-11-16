@@ -22,11 +22,7 @@ impl Action {
         }
     }
 }
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Focus {
-    Message,
-    Actions(EditAction),
-}
+pub(crate) type Focus = crate::input_pages::Selection<EditAction>;
 #[derive(Debug)]
 pub(crate) enum Draft {
     Editing { editor: Editor, focus: Focus },
@@ -37,7 +33,9 @@ impl Draft {
     pub fn new(message: String) -> Self {
         Self::Editing {
             editor: Editor::new(message, MESSAGE_LIMIT),
-            focus: Focus::Message,
+            focus: Focus::new(crate::input_pages::Availability::Actions(
+                EditAction::Commit,
+            )),
         }
     }
     pub fn text(&self) -> &str {
@@ -50,7 +48,7 @@ impl Draft {
         matches!(
             self,
             Self::Editing {
-                focus: Focus::Message,
+                focus: Focus::Input,
                 ..
             }
         )
@@ -79,7 +77,7 @@ impl Draft {
     pub fn selected(&self) -> Option<Action> {
         match self {
             Self::Editing {
-                focus: Focus::Message,
+                focus: Focus::Input,
                 ..
             } => None,
             Self::Editing {
@@ -97,10 +95,9 @@ impl Draft {
     }
     pub fn toggle_mode(&mut self) {
         if let Self::Editing { focus, .. } = self {
-            *focus = match *focus {
-                Focus::Message => Focus::Actions(EditAction::Commit),
-                Focus::Actions(_) => Focus::Message,
-            };
+            focus.toggle(crate::input_pages::Availability::Actions(
+                EditAction::Commit,
+            ));
         }
     }
     pub fn step(&mut self, backwards: bool, ai: bool) {
@@ -171,7 +168,7 @@ impl Draft {
             Self::Generating { original, .. } | Self::Submitting { editor: original } => {
                 Self::Editing {
                     editor: original,
-                    focus: Focus::Message,
+                    focus: Focus::Input,
                 }
             }
             editing => editing,

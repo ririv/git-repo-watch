@@ -3,35 +3,23 @@ use engine::{
     cancel::Cancel,
     local::files::{
         conflict::{Comparison, Snapshot, pair},
-        patch::Document,
+        patch::Source,
     },
 };
 pub(crate) use pair::Pair;
 #[derive(Debug)]
 pub(crate) struct Pairs([Comparison; Pair::ALL.len()]);
 impl Pairs {
-    pub fn prepare(
-        snapshot: &Snapshot,
-        result: &Document,
-        cancel: &Cancel,
-    ) -> anyhow::Result<Self> {
-        let working = match result {
-            Document::Patch { files, .. } if files.len() == 1 => Some(&files[0].after),
-            Document::Notice(_) => None,
-            _ => anyhow::bail!(i18n::tr!(InvalidDiffStructure)),
-        };
+    pub fn prepare(snapshot: &Snapshot, working: &Source, cancel: &Cancel) -> anyhow::Result<Self> {
         let sources = [
-            Some(snapshot.base.source()),
-            Some(snapshot.current.source()),
-            Some(snapshot.incoming.source()),
+            snapshot.base.source(),
+            snapshot.current.source(),
+            snapshot.incoming.source(),
             working,
         ];
         let compare = |selected: Pair| {
             let [left, right] = *selected.indices();
-            match (sources[left], sources[right]) {
-                (Some(left), Some(right)) => pair::compare(left, right, cancel),
-                _ => Ok(Comparison::NonText),
-            }
+            pair::compare(sources[left], sources[right], cancel)
         };
         Ok(Self([
             compare(Pair::BaseCurrent)?,

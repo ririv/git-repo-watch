@@ -11,6 +11,7 @@ impl Screen {
         }
         self.clicks.reset();
         self.drag = None;
+        self.close_management_actions();
         if matches!(self.bar, crate::bar::InputBar::Layout { .. }) {
             self.restore_layout_input();
         }
@@ -31,7 +32,7 @@ impl Screen {
         }
         match &mut self.mode {
             Mode::StashSave(session) => {
-                session.focus = crate::stash_save::Focus::Message;
+                session.focus = crate::stash_save::Focus::Input;
                 session.message.insert(text);
             }
             Mode::PushTarget(session) => session.insert(text),
@@ -53,7 +54,7 @@ impl Screen {
                 };
             }
             Mode::CommitMessage { editor, .. } if self.bar.is_plain() => {
-                editor.focus(crate::commit_form::Focus::Message);
+                editor.focus(crate::commit_form::Focus::Input);
                 if let Some(editor) = editor.editable()
                     && editor.insert(text).is_err()
                 {
@@ -61,10 +62,7 @@ impl Screen {
                 }
             }
             Mode::CommitMessage { .. } => {}
-            Mode::Management(session) => {
-                session.focus = crate::management::Focus::List;
-                self.bar_paste(text);
-            }
+            Mode::Management(_) => self.bar_paste(text),
             Mode::Browsing
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
@@ -92,7 +90,7 @@ impl Screen {
         if ctrl_c(key) {
             self.view_revision += 1;
             if !self.tasks.session.open()
-                && (self.close_history_actions() || self.close_replay_controls())
+                && (self.close_history_actions() || self.dismiss_input_actions())
             {
                 return Ok(false);
             }
@@ -145,14 +143,9 @@ impl Screen {
         ) {
             self.scroll_input.keyboard(std::time::Instant::now());
         }
-        if self.bar.is_plain()
-            && matches!(
-                key.code,
-                KeyCode::Char(_) | KeyCode::Backspace | KeyCode::Delete
-            )
-            && let Mode::Management(session) = &mut self.mode
-        {
-            session.focus = crate::management::Focus::List;
+        if self.management_controls_key(key) {
+            self.sync_plain_bar();
+            return Ok(false);
         }
         if self.replay_controls_key(key) {
             self.sync_plain_bar();
@@ -467,7 +460,8 @@ impl Screen {
                             self.message.clear();
                             return Ok(false);
                         }
-                        Confirmation::DiscardFile { origin, .. }
+                        Confirmation::ConflictReset { origin, .. }
+                        | Confirmation::DiscardFile { origin, .. }
                         | Confirmation::Partial { origin, .. }
                         | Confirmation::Remove { origin, .. } => *origin,
                         Confirmation::Schedule(_) => Mode::Browsing,
@@ -519,7 +513,7 @@ impl Screen {
                 match key.code {
                     KeyCode::Esc if editor.generating() => self.commit_generator.cancel(),
                     KeyCode::Esc if !editor.focused() => {
-                        editor.focus(crate::commit_form::Focus::Message)
+                        editor.focus(crate::commit_form::Focus::Input)
                     }
                     KeyCode::Esc => {
                         if matches!(self.page, Page::View(_)) {
@@ -535,7 +529,7 @@ impl Screen {
                         editor.step(key.code == KeyCode::Left, self.config.ai.enabled);
                     }
                     KeyCode::Up if !editor.focused() => {
-                        editor.focus(crate::commit_form::Focus::Message);
+                        editor.focus(crate::commit_form::Focus::Input);
                     }
                     KeyCode::Enter if !editor.focused() => {
                         let action = editor.selected().expect("focused commit action");
@@ -562,7 +556,7 @@ impl Screen {
                                 .modifiers
                                 .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
                     {
-                        editor.focus(crate::commit_form::Focus::Message);
+                        editor.focus(crate::commit_form::Focus::Input);
                         if let Some(editor) = editor.editable()
                             && editor.key(key).is_err()
                         {

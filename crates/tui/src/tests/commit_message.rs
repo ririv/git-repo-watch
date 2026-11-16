@@ -45,7 +45,13 @@ fn command_generates_an_editable_draft_without_creating_a_commit() {
             panic!("{:?}", s.mode);
         };
         assert_eq!(editor.text(), "feat: generated message");
-        assert!(render(&mut s, 100, 28).contains("Ctrl+R"));
+        assert!(matches!(
+            editor.selected(),
+            Some(crate::commit_form::Action::Edit(
+                crate::commit_form::EditAction::Commit
+            ))
+        ));
+        assert!(render(&mut s, 100, 28).contains(i18n::tr!(CommitActionsHint)));
         s.paste(" edited");
         assert!(
             matches!(&s.mode, Mode::CommitMessage {editor, ..} if editor.focused() && editor.text().ends_with(" edited"))
@@ -403,7 +409,9 @@ fn generated_body_is_editable_and_committed_intact_without_an_extra_preview() {
         }
         let text = render(&mut s, 100, 28);
         assert!(text.contains("support message bodies") && text.contains("解释为什么需要修改"));
-        assert!(text.contains("Ctrl+S"));
+        assert!(text.contains(i18n::tr!(CommitActionsHint)));
+        assert_eq!(s.footer_page_number(), Some((2, 2)));
+        key(&mut s, KeyCode::BackTab);
         let input_height = s.input_area.unwrap().height;
         // 正文光标移动不改变审核区和消息框的分配高度。
         key(&mut s, KeyCode::Down);
@@ -594,6 +602,7 @@ fn horizontal_actions_support_keyboard_navigation_and_hide_generation_when_ai_is
     s.config.ai.enabled = false;
     command(&mut s, "repo commit");
     wait_generation(&mut s);
+    assert_eq!(s.footer_page_number(), Some((2, 2)));
     s.paste("fix: manual message\n\n正文");
     let selected = |s: &Screen| match &s.mode {
         Mode::CommitMessage { editor, .. } => editor.selected(),

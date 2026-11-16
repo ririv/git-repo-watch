@@ -80,8 +80,8 @@ impl Screen {
             return Ok(false);
         }
         self.view_revision += 1;
-        if wheel {
-            self.close_replay_controls();
+        if wheel && self.focused_conflict_control().is_none() {
+            self.dismiss_input_actions();
         }
         if wheel && self.history_actions().is_some() {
             let code = match event.kind {
@@ -110,6 +110,34 @@ impl Screen {
             return Ok(true);
         }
         let precise = self.config.mouse.precise_click;
+        if click
+            && (matches!(self.mode, Mode::Workflow(_))
+                || matches!(&self.mode, Mode::Management(session) if matches!(session.focus, crate::management::Focus::Actions(_))))
+            && self
+                .input_area
+                .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
+        {
+            if precise && let Some(hit) = self.pointer.hit(Position::new(event.column, event.row)) {
+                return Ok(self.precise_action(hit.action()));
+            }
+            return Ok(precise);
+        }
+        if click
+            && self.focused_conflict_control().is_some()
+            && self
+                .input_area
+                .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
+        {
+            if precise
+                && let Some(crate::pointer::Hit::Button(crate::pointer::Action::ConflictControl(
+                    action,
+                ))) = self.pointer.hit(Position::new(event.column, event.row))
+            {
+                self.perform_conflict_control(action);
+            }
+            return Ok(precise);
+        }
+
         if click
             && self.focused_replay_control().is_some()
             && self
@@ -166,7 +194,7 @@ impl Screen {
                         .inner(ratatui::layout::Margin::new(2, 1))
                         .contains(point)
                 {
-                    editor.focus(crate::commit_form::Focus::Message);
+                    editor.focus(crate::commit_form::Focus::Input);
                     return Ok(true);
                 }
                 if wheel
@@ -316,6 +344,34 @@ impl Screen {
                 Mode::Browser(session) => Some((session.focus, session.presentation().active())),
                 _ => None,
             };
+            if let Some(crate::pointer::Hit::Button(
+                action @ crate::pointer::Action::ConflictBlock { index, .. },
+            )) = hit
+            {
+                if !self.precise_action(action) {
+                    self.clicks.reset();
+                    return Ok(false);
+                }
+                let Mode::Changes(session) = &self.mode else {
+                    unreachable!();
+                };
+                let Some(change) = session.files.current() else {
+                    return Ok(false);
+                };
+                let paired = self.clicks.press(
+                    super::clicks::Identity::ConflictBlock {
+                        repository: session.files.snapshot.path.clone(),
+                        path: change.location.name().to_owned(),
+                        index,
+                    },
+                    Position::new(event.column, event.row),
+                    std::time::Instant::now(),
+                );
+                if paired {
+                    self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
+                }
+                return Ok(true);
+            }
             let focus_before = match &self.mode {
                 Mode::Changes(session) => Some((
                     session.focus,

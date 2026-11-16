@@ -160,3 +160,37 @@ fn oversized_and_nonregular_index_versions_remain_distinct_from_missing_files() 
         }
     ));
 }
+
+#[test]
+fn working_result_is_independent_of_patch_presence_and_keeps_non_text_states_explicit() {
+    let (f, name) = conflict(Some(b"base\n"), Some(b"current\n"), b"incoming\n");
+    let snapshot = files::read(&f.repo).unwrap();
+    let change = snapshot
+        .changes
+        .iter()
+        .find(|change| change.kind == 'U')
+        .unwrap();
+    let index = fs::read(f.repo.join(".git/index")).unwrap();
+    let path = f.repo.join(&name);
+    write(&path, "current\n");
+    let source = conflict::working(&snapshot, change, &Cancel::default()).unwrap();
+    assert!(
+        matches!(source, Source::Text { path, text } if path == Path::new(&name) && text == "current\n")
+    );
+    fs::write(&path, b"binary\0result").unwrap();
+    assert!(matches!(
+        conflict::working(&snapshot, change, &Cancel::default()).unwrap(),
+        Source::Unavailable(SourceOmission::Binary)
+    ));
+    fs::remove_file(&path).unwrap();
+    assert!(matches!(
+        conflict::working(&snapshot, change, &Cancel::default()).unwrap(),
+        Source::Absent
+    ));
+    std::os::unix::fs::symlink("outside", &path).unwrap();
+    assert!(matches!(
+        conflict::working(&snapshot, change, &Cancel::default()).unwrap(),
+        Source::Unavailable(SourceOmission::NonRegular)
+    ));
+    assert_eq!(fs::read(f.repo.join(".git/index")).unwrap(), index);
+}

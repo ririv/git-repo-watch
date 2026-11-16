@@ -69,6 +69,7 @@ pub(super) struct FileSession {
     pub selected: Marks,
     pub query: String,
     pub recovery: crate::replay::controls::Focus,
+    pub input_preference: crate::input_pages::Preference,
     pub search_mode: crate::search::Mode,
     folding: Box<folding::Folding>,
 }
@@ -99,6 +100,7 @@ impl FileSession {
             selected: Marks::default(),
             query: String::new(),
             recovery: Default::default(),
+            input_preference: Default::default(),
             search_mode: Default::default(),
             folding: Default::default(),
         }
@@ -109,6 +111,7 @@ impl FileSession {
             .map(|change| (change.area, change.location.clone()));
         let mut next = Self::new(snapshot);
         next.scope = self.scope;
+        next.input_preference = self.input_preference.clone();
         next.recovery = self.recovery.refreshed(
             &self.snapshot.operation.state,
             &next.snapshot.operation.state,

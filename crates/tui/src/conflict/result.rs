@@ -35,23 +35,14 @@ pub(crate) struct View {
 }
 impl View {
     pub fn prepare(
+        source: Source,
         document: Document,
         change: &Change,
         theme: highlight::Theme,
         cancel: &Cancel,
     ) -> anyhow::Result<Self> {
-        let source = match &document {
-            Document::Patch { files, .. } if files.len() == 1 => match &files[0].after {
-                Source::Text { path, text } => Some(Source::Text {
-                    path: path.clone(),
-                    text: text.clone(),
-                }),
-                _ => None,
-            },
-            _ => None,
-        };
         let content = match source {
-            Some(source) => {
+            source @ Source::Text { .. } => {
                 let limited =
                     matches!(&source, Source::Text {text,..} if text.lines().count() > 50_000);
                 let (body, syntax) = super::prepare_source(source, limited, theme, cancel)?;
@@ -60,7 +51,7 @@ impl View {
                     syntax: syntax.expect("text source syntax label"),
                 }
             }
-            None => Content::Document(document::prepare_change_with_theme(
+            _ => Content::Document(document::prepare_change_with_theme(
                 &change.location.display(),
                 document,
                 change,
@@ -74,6 +65,26 @@ impl View {
             cache: None,
             reveal: Reveal::FirstChange,
         })
+    }
+    pub fn source(&self) -> Option<&str> {
+        match &self.content {
+            Content::Source {
+                body: Body::Text { source, .. },
+                ..
+            } => Some(source),
+            _ => None,
+        }
+    }
+    pub fn seek(&mut self, line: usize, scroll: &mut usize) {
+        if let Some(cache) = &self.cache {
+            *scroll = cache
+                .anchors
+                .iter()
+                .position(|at| *at >= line)
+                .unwrap_or(cache.anchors.len());
+        }
+        self.reveal = Reveal::At(line);
+        self.cache = None;
     }
     pub fn horizontal(&mut self) -> Option<&mut horizontal::Viewport> {
         match &mut self.content {
@@ -172,6 +183,7 @@ impl View {
         }
         self.horizontal.constrain(maximum);
         let target = match (anchor, self.reveal) {
+            (_, Reveal::At(line)) => Some(line),
             (Some(n), _) => Some(n),
             (None, Reveal::FirstChange) => {
                 Some(first.saturating_sub(visible.saturating_sub(1).min(3)))

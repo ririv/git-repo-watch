@@ -39,6 +39,8 @@ def generate(directory: Path, case: Case) -> Path:
         '\n[ai]\nenabled = false\n', encoding="utf-8",
     )
     tags = ["example/base", "example/cherry-pick", "example/revert", "example/merge"]
+    if case == Case.CHERRY_PICK_CONFLICT:
+        tags.append("example/conflict")
     if case == Case.CHERRY_PICK_BATCH:
         tags.extend(f"example/batch-{index}" for index in range(1, 4))
     if case == Case.SUBMODULE:

@@ -78,7 +78,9 @@ fn stash_scope_menu_disables_unmarked_selection_and_completion_keeps_captured_ch
                 .entries
                 .is_empty()
         );
-        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.footer_page_number(), Some((2, 2)));
+        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Changes(_)));
         assert!(s.bar.text().ends_with("save selected"));
         assert_eq!(
@@ -162,7 +164,7 @@ fn all_and_tracked_ignore_checks_and_blank_message_uses_git_default() {
         wait(&mut s);
         assert!(review(&s).plan.files.contains(&PathBuf::from("second")));
         assert!(review(&s).message.text.is_empty());
-        key(&mut s, KeyCode::BackTab);
+        assert_eq!(s.footer_page_number(), Some((2, 2)));
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(
@@ -202,7 +204,10 @@ fn stash_review_pointer_and_tab_choose_actions_and_double_click_matches_enter() 
     };
     s.config.mouse.precise_click = false;
     assert!(!s.mouse(click, &Cancel::default()).unwrap());
-    assert_eq!(review(&s).focus, Focus::Message);
+    assert_eq!(
+        review(&s).focus,
+        Focus::Actions(confirmation::Choice::Execute)
+    );
     s.config.mouse.precise_click = true;
     assert!(s.mouse(click, &Cancel::default()).unwrap());
     assert_eq!(
@@ -309,7 +314,7 @@ fn stash_save_shift_tab_changes_mode_without_losing_text_and_tab_never_saves() {
     s.paste("draft 中文");
     let before = (s.body_area, s.input_area);
     key(&mut s, KeyCode::Tab);
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
     key(&mut s, KeyCode::BackTab);
     assert!(matches!(
         review(&s).focus,
@@ -322,11 +327,11 @@ fn stash_save_shift_tab_changes_mode_without_losing_text_and_tab_never_saves() {
     ));
     key(&mut s, KeyCode::Esc);
     assert_eq!(review(&s).message.text, "draft 中文");
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
     key(&mut s, KeyCode::BackTab);
     s.paste(" 继续编辑");
     assert_eq!(review(&s).message.text, "draft 中文 继续编辑");
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Message);
+    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
     assert_eq!((s.body_area, s.input_area), before);
     assert_eq!(
         std::fs::read_to_string(f.repo.join("draft.txt")).unwrap(),

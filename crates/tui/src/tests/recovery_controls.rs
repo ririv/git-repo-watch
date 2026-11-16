@@ -30,6 +30,19 @@ fn focused(s: &Screen) -> Option<Control> {
 }
 fn backtab(s: &mut Screen) {
     key(s, KeyCode::BackTab);
+    // 本组专测 Git 流程页；完整的三页循环由冲突操作栏用例覆盖。
+    if s.focused_conflict_control().is_some() {
+        key(s, KeyCode::BackTab);
+    }
+}
+fn choose_recovery(s: &mut Screen) {
+    for _ in s.input_pages().all() {
+        if focused(s).is_some() {
+            return;
+        }
+        key(s, KeyCode::BackTab);
+    }
+    assert!(focused(s).is_some(), "recovery page must be available");
 }
 fn reviewed(s: &Screen) -> Control {
     let Mode::Confirm {
@@ -58,7 +71,7 @@ fn keyboard_cycles_content_and_actions_without_scrolling_or_changing_files() {
     let geometry = (s.body_area, s.input_area);
     key(&mut s, KeyCode::Tab);
     assert_eq!(focused(&s), None);
-    s.cycle_pane(false);
+    // 进入冲突已聚焦预览，无需再从文件列表切换。
     backtab(&mut s);
     assert_eq!(focused(&s), Some(Control::Continue));
     key(&mut s, KeyCode::Tab);
@@ -158,9 +171,10 @@ fn resolving_and_staging_enables_keyboard_continue_and_removes_the_toolbar() {
     assert_eq!(s.bar.text(), "/editor");
     key(&mut s, KeyCode::Esc);
     support::write(f.repo.join("conflict.txt"), "resolved\n");
+    command(&mut s, "refresh");
+    wait(&mut s);
     command(&mut s, "repo diff stage");
     wait(&mut s);
-    backtab(&mut s);
     assert_eq!(focused(&s), Some(Control::Continue));
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
@@ -190,11 +204,15 @@ fn worktree_pane_has_keyboard_actions_and_keeps_them_out_of_the_file_list() {
         .unwrap()
         .0;
     assert!(
-        !text
-            .lines()
+        text.lines()
             .any(|line| line.contains(i18n::tr!(ReplayAbortShort)))
     );
     let geometry = (s.body_area, s.input_area);
+    assert_eq!(focused(&s), Some(Control::Continue));
+    backtab(&mut s);
+    assert_eq!(focused(&s), None);
+    render(&mut s, 140, 38);
+    assert_eq!((s.body_area, s.input_area), geometry);
     backtab(&mut s);
     assert_eq!(focused(&s), Some(Control::Continue));
     let text = render(&mut s, 140, 38);
@@ -231,7 +249,7 @@ fn actions_restore_search_drafts_and_typing_from_preview_resumes_file_search() {
         key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Left);
         let original = (s.bar.editor().text.clone(), s.bar.editor().cursor);
-        backtab(&mut s);
+        choose_recovery(&mut s);
         key(&mut s, KeyCode::Right);
         render(&mut s, 100, 30);
         key(&mut s, KeyCode::Esc);
@@ -244,20 +262,20 @@ fn actions_restore_search_drafts_and_typing_from_preview_resumes_file_search() {
         } else {
             vec!['/']
         } {
-            backtab(&mut s);
+            choose_recovery(&mut s);
             key(&mut s, KeyCode::Char(trigger));
             assert!(matches!(s.bar, bar::InputBar::Command { .. }));
             assert_eq!(s.mode.file_session().unwrap().query, "conf");
             key(&mut s, KeyCode::Esc);
         }
-        backtab(&mut s);
+        choose_recovery(&mut s);
         s.paste("/editor");
         assert_eq!(s.bar.text(), "/editor");
         assert_eq!(s.mode.file_session().unwrap().query, "conf");
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Esc); // 清空搜索。
         s.cycle_pane(false);
-        backtab(&mut s);
+        choose_recovery(&mut s);
         assert_eq!(focused(&s), Some(Control::Continue));
         key(&mut s, KeyCode::Char('c'));
         assert_eq!(focused(&s), None);
@@ -267,13 +285,13 @@ fn actions_restore_search_drafts_and_typing_from_preview_resumes_file_search() {
         );
         key(&mut s, KeyCode::Esc);
         s.cycle_pane(false);
-        backtab(&mut s);
+        choose_recovery(&mut s);
         s.paste("中文");
         assert_eq!(s.bar.editor().text, "中文");
         assert_eq!(focused(&s), None);
         key(&mut s, KeyCode::Esc);
         s.cycle_pane(false);
-        backtab(&mut s);
+        choose_recovery(&mut s);
         key(&mut s, KeyCode::Char('/'));
         assert!(matches!(s.bar, bar::InputBar::Command { .. }));
         assert!(
@@ -341,6 +359,7 @@ fn shift_tab_retains_command_drafts_cursors_and_targets_then_tab_still_completes
     key(&mut s, KeyCode::Left);
     let original = (s.bar.text(), s.bar.editor().cursor);
     let toggle = KeyEvent::new(KeyCode::BackTab, KeyModifiers::SHIFT);
+    s.key(toggle, &Cancel::default()).unwrap();
     s.key(toggle, &Cancel::default()).unwrap();
     assert_eq!(focused(&s), Some(Control::Continue));
     key(&mut s, KeyCode::Right);

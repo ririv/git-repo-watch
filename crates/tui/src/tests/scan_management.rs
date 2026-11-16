@@ -42,6 +42,8 @@ fn scan_reviews_before_adding_and_exclusions_do_not_survive_the_request() {
             ),
         );
         wait(&mut s);
+        assert_eq!(s.footer_page_number(), Some((2, 2)));
+        key(&mut s, KeyCode::BackTab);
         let review = session(&mut s);
         assert!(matches!(&review.source, Source::Scan { excluded, .. } if excluded.len() == 2));
         assert_eq!(review.entries.len(), 4);
@@ -182,6 +184,8 @@ fn scan_checkbox_and_apply_button_respect_precise_click_and_selection() {
         Status::New(Selection::Included)
     ));
     render(&mut s, 100, 26);
+    key(&mut s, KeyCode::BackTab);
+    render(&mut s, 100, 26);
     let apply = (0..26)
         .find_map(|y| {
             (0..100).find_map(|x| {
@@ -285,6 +289,94 @@ fn management_uses_the_normal_command_popup_without_a_separate_menu_focus() {
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Repositories);
         assert_eq!(s.service.store.config().unwrap().repositories, before);
+        s.shutdown();
+    }
+}
+
+#[test]
+fn scan_actions_use_the_bottom_input_slot_and_keep_search_command_and_selection_drafts() {
+    use crate::pointer::{Action as PointerAction, Hit};
+    use ratatui::layout::Position;
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let projects = tempfile::tempdir().unwrap();
+        let path = repository(projects.path(), "keep-me");
+        repository(projects.path(), "other");
+        let (_home, mut s) = fixture(vec![]);
+        command(
+            &mut s,
+            &format!("repos scan \"{}\"", projects.path().display()),
+        );
+        wait(&mut s);
+        assert_eq!(s.footer_page_number(), Some((2, 2)));
+        assert!(matches!(
+            session(&mut s).focus,
+            crate::management::Focus::Actions(crate::management::Controls {
+                selected: crate::management::Action::Apply,
+                ..
+            })
+        ));
+        key(&mut s, KeyCode::BackTab);
+        let registered = s.config.repositories.clone();
+        session(&mut s).refresh(&registered);
+        render(&mut s, 120, 32);
+        assert_eq!(s.footer_page_number(), Some((1, 2)));
+        s.paste("keep");
+        let selected = session(&mut s).state.selected();
+        for (width, height) in [(28, 9), (60, 18), (120, 32)] {
+            let text = render(&mut s, width, height);
+            if width >= 60 {
+                assert!(text.contains(i18n::tr!(ReplayControlsEntryHint)), "{text}");
+            }
+            let body = s.body_area;
+            let input = s.input_area.unwrap();
+            assert_eq!(s.footer_page_number(), Some((1, 2)));
+            assert!((0..height).all(|y| (0..width).all(|x| !matches!(
+                s.pointer.hit(Position::new(x, y)),
+                Some(Hit::Button(PointerAction::Management(_)))
+            ))));
+            key(&mut s, KeyCode::BackTab);
+            let text = render(&mut s, width, height);
+            assert_eq!(s.footer_page_number(), Some((2, 2)));
+            assert_eq!(s.body_area, body);
+            assert_eq!(s.input_area, Some(input));
+            assert!(text.contains("2/2"), "{text}");
+            assert!(text.contains(i18n::tr!(ScanActionsTitle)), "{text}");
+            for y in 0..height {
+                for x in 0..width {
+                    if matches!(
+                        s.pointer.hit(Position::new(x, y)),
+                        Some(Hit::Button(PointerAction::Management(_)))
+                    ) {
+                        assert!(input.contains(Position::new(x, y)), "{text}");
+                    }
+                }
+            }
+            let selection = session(&mut s).selection();
+            key(&mut s, KeyCode::Tab);
+            assert_eq!(session(&mut s).selection(), selection);
+            key(&mut s, KeyCode::Esc);
+            assert_eq!(s.bar.editor().text, "keep");
+            assert_eq!(session(&mut s).state.selected(), selected);
+        }
+        s.paste("//");
+        key(&mut s, KeyCode::Char('r'));
+        let draft = s.bar.text();
+        key(&mut s, KeyCode::BackTab);
+        render(&mut s, 120, 32);
+        assert!(s.bar.command_input().is_none());
+        key(&mut s, KeyCode::BackTab);
+        assert_eq!(s.bar.text(), draft);
+        assert!(s.bar.command_input().is_some());
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::BackTab);
+        s.paste("-me");
+        assert_eq!(s.bar.editor().text, "keep-me");
+        assert_eq!(session(&mut s).selected().unwrap().path, path);
+        key(&mut s, KeyCode::BackTab);
+        key(&mut s, KeyCode::Char(' '));
+        wait(&mut s);
+        assert_eq!(s.config.repositories.len(), 2);
         s.shutdown();
     }
 }

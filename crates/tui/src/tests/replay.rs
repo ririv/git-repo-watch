@@ -263,6 +263,8 @@ fn conflicts_survive_restart_and_resolving_via_worktree_clears_the_pending_task(
     assert!(result.contains(i18n::tr!(ConflictResult)), "{result}");
     assert!(result.contains("<<<<<<<"), "{result}");
     support::write(f.repo.join("conflict.txt"), "resolved\n");
+    command(&mut s, "refresh");
+    wait(&mut s);
     command(&mut s, "repo diff stage");
     wait(&mut s);
     assert!(!matches!(s.mode, Mode::Error { .. }), "{:?}", s.mode);
