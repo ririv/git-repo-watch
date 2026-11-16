@@ -12,9 +12,8 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectionAction {
-    Start,
-    Toggle,
-    All,
+    ToggleMode,
+    ToggleCommit,
     Clear,
     Done,
 }

@@ -49,7 +49,7 @@ impl Command {
             }
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
-            Action::LogSelect | Action::LogSelection(_) => Summary::LogSelection,
+            Action::LogSelect => Summary::LogSelection,
             Action::Replay(engine::operations::replay::Kind::CherryPick) => {
                 Summary::ReplayCherryPick
             }

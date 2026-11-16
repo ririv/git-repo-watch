@@ -131,7 +131,7 @@ impl Screen {
                     return false;
                 }
                 session.state.select(Some(index));
-                self.mark_history(history::SelectionAction::Toggle);
+                self.mark_history(history::SelectionAction::ToggleCommit);
             }
             Action::ReplayControl(control) => {
                 self.preview_replay_control(control);

@@ -5,7 +5,6 @@ use engine::{
     local::history::{self, Continuation, Entry, Oid, Page, References},
 };
 use ratatui::widgets::ListState;
-use std::collections::BTreeSet;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 const MAX_LANES: usize = 64;
@@ -126,31 +125,16 @@ impl Session {
     }
     pub fn mark(&mut self, action: super::SelectionAction) -> Result<()> {
         match action {
-            super::SelectionAction::Start => {
-                self.selection.begin();
+            super::SelectionAction::ToggleMode => {
+                if self.selection.active() {
+                    self.selection.finish();
+                } else {
+                    self.selection.begin();
+                }
             }
             super::SelectionAction::Done => self.selection.finish(),
             super::SelectionAction::Clear => self.selection.begin().clear(),
-            super::SelectionAction::All => {
-                let marked = self
-                    .records
-                    .iter()
-                    .filter(|record| self.matches_entry(&record.entry))
-                    .map(|record| record.entry.oid)
-                    .collect::<BTreeSet<_>>();
-                ensure!(
-                    marked.len() <= engine::operations::replay::batch::MAX_COMMITS,
-                    i18n::tr!(ReplayBatchTooLarge)
-                );
-                let current = self.selection.begin();
-                ensure!(
-                    current.union(&marked).count()
-                        <= engine::operations::replay::batch::MAX_COMMITS,
-                    i18n::tr!(ReplayBatchTooLarge)
-                );
-                current.extend(marked);
-            }
-            super::SelectionAction::Toggle => {
+            super::SelectionAction::ToggleCommit => {
                 if let Some(oid) = self.selected().map(|entry| entry.oid) {
                     let marked = self.selection.begin();
                     if !marked.remove(&oid) {

@@ -330,7 +330,8 @@ impl Screen {
                     }
                     history::View::Graph(session) => match key.code {
                         KeyCode::Char(' ') | KeyCode::Insert if session.selection.active() => {
-                            if let Err(error) = session.mark(history::SelectionAction::Toggle) {
+                            if let Err(error) = session.mark(history::SelectionAction::ToggleCommit)
+                            {
                                 self.message = crate::message::Message::error(format!("{error:#}"));
                             }
                         }

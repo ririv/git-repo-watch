@@ -132,8 +132,8 @@ impl CommandSummary {
             (Self::ExternalEditorOpen, Language::Chinese) => "用编辑器打开",
             (Self::ExternalEditorSetting, Language::English) => "Choose editor",
             (Self::ExternalEditorSetting, Language::Chinese) => "选择编辑器",
-            (Self::LogSelection, Language::Chinese) => "勾选提交以批量拣选",
-            (Self::LogSelection, Language::English) => "Select commits for batch cherry-pick",
+            (Self::LogSelection, Language::Chinese) => "切换提交选择模式",
+            (Self::LogSelection, Language::English) => "Toggle commit selection mode",
             (Self::ReplayCherryPick, Language::Chinese) => "将所选提交应用到当前分支",
             (Self::ReplayCherryPick, Language::English) => {
                 "Apply selected commit to current branch"

@@ -218,7 +218,6 @@ impl Action {
             Self::PartialSelectMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::DiffSelection))
             }
-            Self::LogSelect => Some(ArgumentAction::Option(super::options::Kind::LogSelection)),
             Self::ConflictMenu => Some(ArgumentAction::Option(super::options::Kind::Conflict)),
             Self::ConflictAcceptMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::ConflictAccept))

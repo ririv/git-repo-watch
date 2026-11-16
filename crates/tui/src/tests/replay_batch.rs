@@ -86,11 +86,7 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     assert_eq!(s.message, i18n::tr!(HistorySelectionRequired));
     key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s).len(), 1);
-    command(&mut s, "repo log select clear");
-    assert!(marked(&s).is_empty());
-    assert!(render(&mut s, 120, 30).contains("[ ]"));
-    key(&mut s, KeyCode::Insert);
-    command(&mut s, "repo log select done");
+    command(&mut s, "repo log select");
     assert!(marked(&s).is_empty());
     assert!(!render(&mut s, 120, 30).contains("[ ]"));
     command(&mut s, "repo log select");
@@ -270,12 +266,16 @@ fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selec
     key(&mut s, KeyCode::Esc);
     assert!(s.bar.is_plain());
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
-    // 输入仍用于定位；选择命令只作用于已加载且匹配的提交。
+    // 退出选择会清空勾选；已有搜索文字时通过 Insert 重新勾选，搜索仍用于定位。
     s.paste("picked");
     assert_eq!(s.bar.editor().text, "picked");
-    command(&mut s, "repo log select clear");
+    command(&mut s, "repo log select");
     assert!(marked(&s).is_empty());
-    command(&mut s, "repo log select all");
+    command(&mut s, "repo log select");
+    select(&mut s, &first);
+    key(&mut s, KeyCode::Insert);
+    select(&mut s, &second);
+    key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
     key(&mut s, KeyCode::Esc);
     s.paste("//repo log cherry-pick");
@@ -430,7 +430,7 @@ fn selected_commits_and_search_survive_loading_the_next_history_page() {
         .unwrap();
     let mut session = crate::history::Session::new(page, &Cancel::default()).unwrap();
     session
-        .mark(crate::history::SelectionAction::Toggle)
+        .mark(crate::history::SelectionAction::ToggleCommit)
         .unwrap();
     let first = session.selected().unwrap().oid;
     session.search("pages".into());
@@ -459,7 +459,7 @@ fn selected_commits_and_search_survive_loading_the_next_history_page() {
     session.state.select(Some(session.records.len() - 1));
     let oldest = session.selected().unwrap().oid;
     session
-        .mark(crate::history::SelectionAction::Toggle)
+        .mark(crate::history::SelectionAction::ToggleCommit)
         .unwrap();
     let expected = std::iter::once(oldest)
         .chain(before_page)

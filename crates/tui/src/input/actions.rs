@@ -33,8 +33,7 @@ impl Screen {
         }
         match action {
             Action::OpenEditor => self.open_in_editor(path, &selection),
-            Action::LogSelect => self.mark_history(history::SelectionAction::Start),
-            Action::LogSelection(action) => self.mark_history(action),
+            Action::LogSelect => self.mark_history(history::SelectionAction::ToggleMode),
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {

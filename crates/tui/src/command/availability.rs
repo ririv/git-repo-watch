@@ -120,7 +120,7 @@ impl Screen {
             {
                 Some(i18n::tr!(HistoryNoMore).into())
             }
-            LogSelect | LogSelection(_) if self.history_graph_target().is_none() => {
+            LogSelect if self.history_graph_target().is_none() => {
                 Some(i18n::tr!(CommandRequiresHistory).into())
             }
             LogSelect if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),

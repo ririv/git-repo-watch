@@ -72,7 +72,6 @@ pub enum Action {
     LogMore,
     LogParent,
     LogSelect,
-    LogSelection(crate::history::SelectionAction),
     Replay(engine::operations::replay::Kind),
     ReplayControl(engine::operations::replay::Control),
     FileLayoutMenu,
