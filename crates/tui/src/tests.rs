@@ -67,6 +67,7 @@ mod schedule;
 mod scrollbars;
 mod search;
 mod settings_design;
+mod space;
 mod startup;
 mod startup_fetch;
 mod stash_preview;

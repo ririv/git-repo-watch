@@ -1132,7 +1132,7 @@ fn staging_a_resolved_preview_rejects_unreviewed_external_changes() {
     assert!(review(&s).resolution.resolved());
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     support::write(f.repo.join("src/中文 空格.ts"), "external editor result\n");
-    key(&mut s, KeyCode::Char(' '));
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     assert_eq!(

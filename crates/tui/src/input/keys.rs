@@ -87,6 +87,12 @@ impl Screen {
         }
     }
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+        if key.code == KeyCode::Char(' ')
+            && key.modifiers.is_empty()
+            && self.space_behavior() == super::space::Space::Ignore
+        {
+            return Ok(false);
+        }
         let typing = matches!(key.code, KeyCode::Char(c) if c != ' ' || matches!(self.mode, Mode::CommitMessage { .. } | Mode::StashSave(_)))
             && !key
                 .modifiers

@@ -127,7 +127,7 @@ impl Screen {
                         .choose_conflict(selected.step(key.code == KeyCode::Left));
                 }
             }
-            KeyCode::Enter | KeyCode::Char(' ') => self.perform_conflict_control(selected),
+            KeyCode::Enter => self.perform_conflict_control(selected),
             KeyCode::Up
             | KeyCode::Down
             | KeyCode::Home

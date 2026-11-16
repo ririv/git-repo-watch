@@ -374,7 +374,7 @@ fn scan_actions_use_the_bottom_input_slot_and_keep_search_command_and_selection_
         assert_eq!(s.bar.editor().text, "keep-me");
         assert_eq!(session(&mut s).selected().unwrap().path, path);
         key(&mut s, KeyCode::BackTab);
-        key(&mut s, KeyCode::Char(' '));
+        key(&mut s, KeyCode::Enter);
         wait(&mut s);
         assert_eq!(s.config.repositories.len(), 2);
         s.shutdown();

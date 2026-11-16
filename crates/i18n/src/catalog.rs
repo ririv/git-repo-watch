@@ -1716,13 +1716,17 @@ impl Message {
             (Self::ScanActionsTitle, Language::Chinese) => "扫描操作",
             (Self::WorkflowFinishTitle, Language::English) => "Save workflow",
             (Self::WorkflowFinishTitle, Language::Chinese) => "保存流程",
-            (Self::WorkflowFinishHint, Language::English) => "←→ choose · Enter/Space run · Shift+Tab step actions · Esc back",
-            (Self::WorkflowFinishHint, Language::Chinese) => "←→选择 · Enter/Space 执行 · Shift+Tab 步骤操作 · Esc 返回",
+            (Self::WorkflowFinishHint, Language::English) => {
+                "←→ choose · Enter run · Shift+Tab step actions · Esc back"
+            }
+            (Self::WorkflowFinishHint, Language::Chinese) => {
+                "←→选择 · Enter 执行 · Shift+Tab 步骤操作 · Esc 返回"
+            }
             (Self::ScanActionsHint, Language::English) => {
-                "←→ choose · Enter/Space run · Shift+Tab input · Esc input"
+                "←→ choose · Enter run · Shift+Tab input · Esc input"
             }
             (Self::ScanActionsHint, Language::Chinese) => {
-                "←→选择 · Enter/Space 执行 · Shift+Tab 输入 · Esc 输入"
+                "←→选择 · Enter 执行 · Shift+Tab 输入 · Esc 输入"
             }
             (Self::ScanTemporaryExclusions, Language::English) => "Skipped for this scan",
             (Self::ScanTemporaryExclusions, Language::Chinese) => "本次跳过",
@@ -3056,10 +3060,10 @@ impl Message {
             (Self::WorkflowSelectedStep, Language::English) => "Selected step",
             (Self::WorkflowSelectedStep, Language::Chinese) => "当前步骤",
             (Self::WorkflowEditorHint, Language::English) => {
-                "↑↓ step · ←→ action · Enter/Space run · Shift+Tab save/cancel · Esc back"
+                "↑↓ step · Space mark · ←→ action · Enter run · Shift+Tab save/cancel · Esc back"
             }
             (Self::WorkflowEditorHint, Language::Chinese) => {
-                "↑↓步骤 · ←→操作 · Enter/Space 执行 · Shift+Tab 保存/取消 · Esc 返回"
+                "↑↓步骤 · Space 勾选 · ←→操作 · Enter 执行 · Shift+Tab 保存/取消 · Esc 返回"
             }
             (Self::WorkflowMoveUp, Language::English) => "Move up",
             (Self::WorkflowMoveUp, Language::Chinese) => "上移",

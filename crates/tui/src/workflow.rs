@@ -343,16 +343,17 @@ impl Session {
                 }
                 Cursor::Inspect => {}
             },
-            KeyCode::Enter | KeyCode::Char(' ') => {
+            KeyCode::Char(' ') => {
+                if matches!(self.cursor, Cursor::Step { .. }) {
+                    return self.apply(Action::Toggle);
+                }
+            }
+            KeyCode::Enter => {
                 return match self.cursor {
-                    Cursor::Step { action, .. } => self.apply(if key == KeyCode::Char(' ') {
-                        Action::Toggle
-                    } else {
-                        match action {
-                            RowAction::Toggle => Action::Toggle,
-                            RowAction::Up => Action::Up,
-                            RowAction::Down => Action::Down,
-                        }
+                    Cursor::Step { action, .. } => self.apply(match action {
+                        RowAction::Toggle => Action::Toggle,
+                        RowAction::Up => Action::Up,
+                        RowAction::Down => Action::Down,
                     }),
                     Cursor::Inspect => Ok(Input::Pending),
                     Cursor::Footer {

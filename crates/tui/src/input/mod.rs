@@ -12,6 +12,7 @@ mod panes;
 mod precise;
 mod replay;
 pub(crate) mod scroll;
+pub(crate) mod space;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 fn ctrl_c(key: KeyEvent) -> bool {
     key.code == KeyCode::Char('c') && key.modifiers.contains(KeyModifiers::CONTROL)

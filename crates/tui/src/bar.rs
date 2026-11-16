@@ -589,12 +589,7 @@ impl Screen {
             }
         }
         if key.code == KeyCode::Char(' ')
-            && self.bar.editor().text.is_empty()
-            && (matches!(
-                self.mode,
-                Mode::Management(_) | Mode::Files(_) | Mode::Changes(_)
-            ) || matches!(&self.mode, Mode::Browser(session) if session.focus == crate::browser::Focus::Tree)
-                || matches!(&self.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active())))
+            && self.space_behavior() == crate::input::space::Space::Content
         {
             return Ok(BarEvent::Pass);
         }

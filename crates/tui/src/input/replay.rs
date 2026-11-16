@@ -316,7 +316,7 @@ impl Screen {
                     self.message.clear();
                     return true;
                 }
-                KeyCode::Enter | KeyCode::Char(' ') => {
+                KeyCode::Enter => {
                     self.preview_replay_control(self.focused_replay_control().unwrap());
                     return true;
                 }

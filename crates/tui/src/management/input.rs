@@ -120,7 +120,7 @@ impl Screen {
         };
         match key.code {
             KeyCode::Left | KeyCode::Right => *selected = selected.next(),
-            KeyCode::Enter | KeyCode::Char(' ') => {
+            KeyCode::Enter => {
                 let action = *selected;
                 self.management_action(action);
             }
