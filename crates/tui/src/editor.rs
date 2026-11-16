@@ -109,29 +109,31 @@ impl Editor {
         }
     }
     pub fn viewport(&self, width: usize) -> (String, u16) {
-        let before = &self.text[..self.cursor];
-        let mut kept = Vec::new();
+        let (range, cursor) = self.viewport_range(width);
+        (self.text[range].to_owned(), cursor)
+    }
+    pub fn viewport_range(&self, width: usize) -> (std::ops::Range<usize>, u16) {
+        let mut start = self.cursor;
         let mut used = 0;
-        for c in before.chars().rev() {
+        for (index, c) in self.text[..self.cursor].char_indices().rev() {
             let w = c.width().unwrap_or(0);
             if used + w + 1 > width {
                 break;
             }
-            kept.push(c);
+            start = index;
             used += w;
         }
-        kept.reverse();
-        let mut out = kept.into_iter().collect::<String>();
         let cursor_column = used as u16;
         used += 1;
+        let mut end = self.cursor;
         for c in self.text[self.cursor..].chars() {
             let w = c.width().unwrap_or(0);
             if used + w > width {
                 break;
             }
-            out.push(c);
+            end += c.len_utf8();
             used += w;
         }
-        (out, cursor_column)
+        (start..end, cursor_column)
     }
 }

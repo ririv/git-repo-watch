@@ -7,6 +7,7 @@ mod browser;
 mod browser_horizontal;
 mod changes;
 mod command_availability;
+mod command_colors;
 mod command_history;
 mod command_navigation;
 mod command_polish;

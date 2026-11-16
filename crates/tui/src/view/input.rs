@@ -3,6 +3,7 @@ pub(in crate::view) mod actions;
 mod conflict;
 mod prefix;
 mod surface;
+mod syntax;
 use super::feedback::Preview;
 use super::*;
 pub(crate) use surface::Surface;
@@ -851,14 +852,16 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 ));
             }
             let width = inner.width.saturating_sub(2 + prefix_width) as usize;
-            let (text, cursor) = editor.viewport(width);
+            let (visible, cursor) = editor.viewport_range(width);
             let value = if editor.text.is_empty() {
-                Span::styled(
+                vec![Span::styled(
                     truncate(placeholder, width),
                     Style::default().fg(MUTED).add_modifier(Modifier::ITALIC),
-                )
+                )]
+            } else if let Some(command) = command {
+                syntax::spans(command, visible)
             } else {
-                Span::styled(text, input_style)
+                vec![Span::styled(editor.text[visible].to_owned(), input_style)]
             };
             let mut spans = Vec::new();
             if let Some(prefix) = prefix {
@@ -869,7 +872,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 spans.push(Span::raw(" "));
             }
             spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
-            spans.push(value);
+            spans.extend(value);
             frame.render_widget(Paragraph::new(Line::from(spans)).style(input_style), inner);
             if !inner.is_empty()
                 && show_cursor

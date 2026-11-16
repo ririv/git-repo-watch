@@ -13,6 +13,7 @@ pub(crate) mod repository;
 pub(crate) mod scan;
 mod scope;
 mod summary;
+pub(crate) mod syntax;
 pub(crate) mod target;
 #[cfg(test)]
 mod tests;
