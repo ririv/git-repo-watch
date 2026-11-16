@@ -126,7 +126,25 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
         .iter()
         .filter(|record| record.pending())
         .count();
+    let running = screen
+        .tasks
+        .records
+        .iter()
+        .filter(|record| record.active())
+        .count();
     if notices.is_empty() {
+        if pending + running > 0 {
+            let mut line = Line::default();
+            if running > 0 {
+                line.spans.push(Span::styled(
+                    format!("{} ", screen.tasks.animation.symbol()),
+                    Style::default().fg(ACCENT),
+                ));
+            }
+            line.spans
+                .extend(super::super::tasks::summary::footer(pending, running).spans);
+            return fit(&line, width);
+        }
         let text = if !screen.message.is_empty()
             && !screen
                 .tasks
@@ -154,21 +172,12 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
         }
         main.spans.push(notice.span());
     }
-    let mut tail = Line::default();
-    if pending > 0 {
-        tail.spans.push(Span::styled(
-            format!("{pending} {}", i18n::tr!(TasksPending)),
-            Style::default().fg(WARN),
-        ));
-    }
-    let mut full_tail = tail.clone();
-    if pending > 0 {
-        full_tail.spans.push(Span::raw(" · "));
-    }
-    full_tail.spans.push(Span::styled(
-        i18n::tr!(TasksOpenCommand),
-        Style::default().fg(MUTED),
-    ));
+    let mut tail = if pending + running > 0 {
+        super::super::tasks::summary::counts(pending, running)
+    } else {
+        Line::default()
+    };
+    let full_tail = super::super::tasks::summary::footer(pending, running);
     // 窄屏先省略任务入口提示，再缩短进度；待处理提醒优先保留。
     if main.width() + 3 + full_tail.width() <= width {
         tail = full_tail;

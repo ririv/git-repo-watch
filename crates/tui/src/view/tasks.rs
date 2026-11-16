@@ -1,6 +1,7 @@
 //! Task rendering uses journal records; viewing never acknowledges a failure.
 mod detail;
 mod list;
+pub(in crate::view) mod summary;
 use super::*;
 use crate::task_center::Session;
 use engine::tasks::{Outcome as Completion, Record, Resolution, Scope as TaskScope, Source, State};
@@ -49,26 +50,28 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     .split(area);
     let pending = screen.tasks.records.iter().filter(|r| r.pending()).count();
     let running = screen.tasks.records.iter().filter(|r| r.active()).count();
+    let mut heading = Line::from(Span::styled(
+        format!(
+            " {}{} · ",
+            i18n::tr!(Tasks),
+            match &screen.tasks.session {
+                Session::Detail { id, .. } => screen
+                    .tasks
+                    .records
+                    .iter()
+                    .find(|record| record.id == *id)
+                    .map(|record| format!(" › {}", record.spec.title))
+                    .unwrap_or_default(),
+                _ => String::new(),
+            }
+        ),
+        Style::default().fg(ACCENT),
+    ));
+    heading
+        .spans
+        .extend(summary::counts(pending, running).spans);
     frame.render_widget(
-        Paragraph::new(truncate(
-            &format!(
-                " {}{} · {}",
-                i18n::tr!(Tasks),
-                match &screen.tasks.session {
-                    Session::Detail { id, .. } => screen
-                        .tasks
-                        .records
-                        .iter()
-                        .find(|record| record.id == *id)
-                        .map(|record| format!(" › {}", record.spec.title))
-                        .unwrap_or_default(),
-                    _ => String::new(),
-                },
-                i18n::tf!(TaskCounts, pending = pending, running = running)
-            ),
-            parts[0].width.into(),
-        ))
-        .style(Style::default().fg(ACCENT)),
+        Paragraph::new(crate::horizontal::clip(&heading, 0, parts[0].width.into())),
         parts[0],
     );
     let body = parts[1];

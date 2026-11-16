@@ -313,6 +313,7 @@ pub enum Message {
     TasksUnavailable,
     TasksSummary,
     TasksOpenCommand,
+    TasksEntrySuffix,
     TasksDetailsHint,
     TasksInteractive,
     TasksScheduled,
@@ -2272,6 +2273,8 @@ impl Message {
             (Self::TasksEmpty, Language::Chinese) => "暂无任务",
             (Self::TasksPending, Language::English) => "Needs action",
             (Self::TasksPending, Language::Chinese) => "待处理",
+            (Self::TasksEntrySuffix, Language::English) => "",
+            (Self::TasksEntrySuffix, Language::Chinese) => " 任务",
             (Self::TasksOpenCommand, Language::English) => "/tasks",
             (Self::TasksOpenCommand, Language::Chinese) => "/tasks 任务",
             (Self::TasksRunning, Language::English) => "Running",
@@ -5841,6 +5844,18 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("{mode} {target}" $(, $($args)*)?),
             $crate::Language::Chinese => format!("{mode}{target}" $(, $($args)*)?),
+        }
+    };
+    (TaskFailuresCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Unresolved failures: {pending}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{pending} 未处理失败" $(, $($args)*)?),
+        }
+    };
+    (TaskRunningCount $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Running: {running}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{running} 运行中" $(, $($args)*)?),
         }
     };
     (TaskCounts $(, $($args:tt)*)?) => {
