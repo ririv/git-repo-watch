@@ -52,6 +52,8 @@ pub(super) fn render(
         }
         if focus == session.focus {
             highlight_border(frame, area);
+        } else {
+            inactive_selection(frame, area);
         }
     }
 }

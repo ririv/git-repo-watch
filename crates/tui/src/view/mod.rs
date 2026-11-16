@@ -132,6 +132,13 @@ fn highlight_border(frame: &mut Frame, area: Rect) {
     highlight_border_with(frame, area, ACCENT);
 }
 fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
+    if area.width >= 3 && area.height >= 3 {
+        let corner = &mut frame.buffer_mut()[(area.x, area.y)];
+        if matches!(corner.symbol(), "┌" | "╭" | "▸") {
+            corner.set_symbol("▸").set_fg(accent);
+            corner.modifier.insert(Modifier::BOLD);
+        }
+    }
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             if x == area.x || x + 1 == area.right() || y == area.y || y + 1 == area.bottom() {
@@ -140,6 +147,45 @@ fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
                 if cell.fg == BORDER {
                     cell.set_fg(accent);
                 }
+            }
+        }
+    }
+}
+/// Keep inactive cursor positions visible without competing with the keyboard target.
+fn inactive_selection(frame: &mut Frame, area: Rect) {
+    let area = area.intersection(frame.area());
+    for y in area.y..area.bottom() {
+        for x in area.x..area.right() {
+            let cell = &mut frame.buffer_mut()[(x, y)];
+            if cell.bg == SELECTION {
+                cell.set_bg(crate::appearance::INACTIVE_SELECTION);
+            }
+            // 子视图可能已绘制焦点；外层失焦时同时撤销标记与边框，保留标题和滚动条。
+            if cell.symbol() == "▸" && cell.fg == ACCENT && cell.modifier.contains(Modifier::BOLD)
+            {
+                cell.set_symbol("┌").set_fg(BORDER);
+                cell.modifier.remove(Modifier::BOLD);
+            }
+            if cell.fg == ACCENT
+                && matches!(
+                    cell.symbol(),
+                    "─" | "│"
+                        | "┌"
+                        | "┐"
+                        | "└"
+                        | "┘"
+                        | "├"
+                        | "┤"
+                        | "┬"
+                        | "┴"
+                        | "┼"
+                        | "╭"
+                        | "╮"
+                        | "╰"
+                        | "╯"
+                )
+            {
+                cell.set_fg(BORDER);
             }
         }
     }
@@ -285,8 +331,9 @@ mod tests {
                         .into_iter()
                         .map(|pos| (pos, frame.buffer_mut()[pos].clone()))
                         .collect();
-                    if focused {
-                        highlight_border(frame, area);
+                    highlight_border(frame, area);
+                    if !focused {
+                        inactive_selection(frame, area);
                     }
                     for (pos, original) in indicators {
                         assert_eq!(frame.buffer_mut()[pos], original, "indicator at {pos:?}");

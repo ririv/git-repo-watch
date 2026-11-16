@@ -54,6 +54,95 @@ fn current_feedback_stays_visible_with_historical_failures_at_every_width() {
 }
 
 #[test]
+fn workspace_uses_one_active_selection_and_keeps_other_cursor_positions_without_recoloring_statuses()
+ {
+    use crate::{
+        appearance::{Background, INACTIVE_SELECTION, SELECTION},
+        workspace::Section,
+    };
+    let f = support::Fixture::create();
+    f.commit("file.txt", "base\n");
+    support::write(f.repo.join("file.txt"), "modified\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.background = Background::Dark;
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+    s.workspace.session_mut().unwrap().selection = Section::Worktree;
+    key(&mut s, KeyCode::Enter);
+    let before = buffer(&mut s, 160, 40);
+    let files = s
+        .workspace_areas
+        .iter()
+        .find(|(_, section)| *section == Section::Worktree)
+        .unwrap()
+        .0;
+    let branches = s
+        .workspace_areas
+        .iter()
+        .find(|(_, section)| *section == Section::Branches)
+        .unwrap()
+        .0;
+    let selected = |buf: &ratatui::buffer::Buffer, area: ratatui::layout::Rect, color| {
+        (area.y + 1..area.bottom() - 1)
+            .flat_map(|y| (area.x + 1..area.right() - 1).map(move |x| (x, y)))
+            .any(|point| buf[point].bg == color)
+    };
+    assert!(selected(&before, files, SELECTION));
+    assert!(selected(&before, branches, INACTIVE_SELECTION));
+    assert_eq!(before[(files.x, files.y)].symbol(), "▸");
+    s.switch_repository_section(Section::Branches);
+    let after = buffer(&mut s, 160, 40);
+    assert!(selected(&after, files, INACTIVE_SELECTION));
+    assert!(selected(&after, branches, SELECTION));
+    assert_eq!(after[(branches.x, branches.y)].symbol(), "▸");
+    for y in files.y + 1..files.bottom() - 1 {
+        for x in files.x + 1..files.right() - 1 {
+            assert_eq!(before[(x, y)].symbol(), after[(x, y)].symbol());
+            assert_eq!(before[(x, y)].fg, after[(x, y)].fg);
+        }
+    }
+    // 覆盖窄面板及历史面板带内部预览的宽布局，防止子视图留下第二个亮边框。
+    for width in [120, 160, 240] {
+        for focused in [
+            Section::Worktree,
+            Section::History,
+            Section::Branches,
+            Section::Overview,
+        ] {
+            s.switch_repository_section(focused);
+            let output = buffer(&mut s, width, 40);
+            for (area, section) in &s.workspace_areas {
+                let markers = (area.y..area.bottom())
+                    .flat_map(|y| (area.x..area.right()).map(move |x| (x, y)))
+                    .filter(|point| output[*point].symbol() == "▸")
+                    .count();
+                assert_eq!(
+                    markers,
+                    usize::from(*section == focused),
+                    "{width}: {focused:?}, {section:?}"
+                );
+                if *section != focused {
+                    for y in area.y..area.bottom() {
+                        for x in area.x..area.right() {
+                            let cell = &output[(x, y)];
+                            if matches!(cell.symbol(), "─" | "│" | "┌" | "┐" | "└" | "┘")
+                            {
+                                assert_ne!(
+                                    cell.fg,
+                                    ratatui::style::Color::LightBlue,
+                                    "{width}: inactive border {section:?} at {x},{y}"
+                                );
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    s.shutdown();
+}
+
+#[test]
 fn enter_hints_follow_parameter_selection_navigation_and_execution_without_running_the_action() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);

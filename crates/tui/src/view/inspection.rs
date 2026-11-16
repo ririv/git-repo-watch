@@ -52,6 +52,8 @@ pub(super) fn render(
         }
         if focus == commit.focus {
             highlight_border(frame, panel);
+        } else {
+            inactive_selection(frame, panel);
         }
     }
 }

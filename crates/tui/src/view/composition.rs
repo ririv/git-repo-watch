@@ -127,6 +127,8 @@ pub(super) fn render(
     );
     if session.focus == Focus::Commits && !matches!(session.state, State::Editing(_)) {
         highlight_border(frame, steps);
+    } else {
+        inactive_selection(frame, steps);
     }
     crate::scrollbar::vertical(
         frame,
@@ -212,6 +214,8 @@ pub(super) fn render(
     );
     if session.focus == Focus::Units && !matches!(session.state, State::Editing(_)) {
         highlight_border(frame, units);
+    } else {
+        inactive_selection(frame, units);
     }
     crate::scrollbar::vertical(frame, units, unit_inner, ids.len(), session.units.offset());
     if matches!(session.state, State::Browsing) {

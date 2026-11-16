@@ -96,6 +96,9 @@ pub(super) fn render(
                 }
             }
         }
+        if focus != session.focus || session.files.recovery.active() {
+            inactive_selection(frame, area);
+        }
         if outline && focus == session.focus && !session.files.recovery.active() {
             highlight_border(frame, area);
         }

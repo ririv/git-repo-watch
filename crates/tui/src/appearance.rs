@@ -7,6 +7,8 @@ use ratatui::{
 };
 
 pub(crate) const SELECTION: Color = Color::Rgb(25, 65, 95);
+pub(crate) const INACTIVE_SELECTION: Color = Color::Rgb(42, 47, 59);
+const LIGHT_INACTIVE_SELECTION: Color = Color::Rgb(232, 237, 242);
 const LIGHT_SELECTION: Color = Color::Rgb(196, 219, 239);
 const LIGHT_PARAMETER: Color = Color::Rgb(0, 112, 190);
 const LIGHT_VALUE: Color = Color::Rgb(0, 130, 94);
@@ -56,10 +58,21 @@ impl Background {
                     (SELECTION, Color::LightCyan) => SELECTED_PARAMETER,
                     (SELECTION, Color::LightGreen) => SELECTED_VALUE,
                     (SELECTION, Color::LightRed) => diff::REMOVED_MARK,
+                    (INACTIVE_SELECTION, Color::LightCyan) => SELECTED_PARAMETER,
+                    (INACTIVE_SELECTION, Color::LightGreen) => SELECTED_VALUE,
+                    (INACTIVE_SELECTION, Color::LightRed) => diff::REMOVED_MARK,
                     (_, color) => color,
                 };
             }
             // 渲染层统一使用选中色标记，输出前按终端底色映射。
+            if cell.bg == INACTIVE_SELECTION {
+                cell.bg = match self {
+                    Self::Light => LIGHT_INACTIVE_SELECTION,
+                    Self::Dark => INACTIVE_SELECTION,
+                    Self::Unreported => Color::Reset,
+                };
+                continue;
+            }
             if cell.bg != SELECTION {
                 continue;
             }
@@ -121,6 +134,31 @@ mod tests {
             assert_eq!(buffer[(0, 0)].bg, expected);
             if background == Background::Unreported {
                 assert!(buffer[(0, 0)].modifier.contains(Modifier::UNDERLINED));
+            }
+        }
+    }
+
+    #[test]
+    fn inactive_selection_stays_distinct_without_dimming_status_text_or_adding_focus_modifiers() {
+        for background in [Background::Light, Background::Dark, Background::Unreported] {
+            let mut buffer = Buffer::empty(Rect::new(0, 0, 2, 1));
+            buffer[(0, 0)]
+                .set_symbol("M")
+                .set_fg(Color::Yellow)
+                .set_bg(INACTIVE_SELECTION);
+            buffer[(1, 0)]
+                .set_symbol("M")
+                .set_fg(Color::Yellow)
+                .set_bg(SELECTION);
+            background.apply(&mut buffer);
+            assert_eq!(buffer[(0, 0)].fg, Color::Yellow);
+            assert!(
+                !buffer[(0, 0)]
+                    .modifier
+                    .contains(Modifier::BOLD | Modifier::UNDERLINED)
+            );
+            if background != Background::Unreported {
+                assert_ne!(buffer[(0, 0)].bg, buffer[(1, 0)].bg);
             }
         }
     }

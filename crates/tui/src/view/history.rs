@@ -332,5 +332,8 @@ fn graph(
     }
     if session.focus == crate::history::GraphFocus::Graph {
         highlight_border(frame, parts[0]);
+        inactive_selection(frame, parts[1]);
+    } else {
+        inactive_selection(frame, parts[0]);
     }
 }

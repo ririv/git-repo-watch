@@ -31,6 +31,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
+        if Some(section) != focused || screen.focused_replay_control().is_some() {
+            inactive_selection(frame, pane_area);
+        }
         if Some(section) == focused
             && screen.focused_replay_control().is_none()
             && !(section == Section::History && screen.history_preview.area.is_some())
