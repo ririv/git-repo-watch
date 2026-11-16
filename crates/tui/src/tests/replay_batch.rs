@@ -73,33 +73,6 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     );
     key(&mut s, KeyCode::Esc);
     command(&mut s, "repo log select");
-    assert_eq!(super::options::choices(&s).options.len(), 5);
-    assert!(!render(&mut s, 120, 30).contains("[ ]"));
-    let draft = s.bar.text();
-    key(&mut s, KeyCode::Esc);
-    assert!(matches!(
-        s.bar,
-        bar::InputBar::Command {
-            menu: command::completion::Menu::Commands,
-            ..
-        }
-    ));
-    assert_eq!(s.bar.text(), draft);
-    key(&mut s, KeyCode::Esc);
-    assert!(s.bar.is_plain());
-    assert!(!render(&mut s, 120, 30).contains("[ ]"));
-    s.activate(
-        Action::LogSelect,
-        s.scope_path(),
-        s.copy_selection(),
-        &Cancel::default(),
-    )
-    .unwrap();
-    assert_eq!(super::options::choices(&s).options.len(), 5);
-    key(&mut s, KeyCode::Tab);
-    assert!(s.bar.text().ends_with("select start"));
-    assert!(!render(&mut s, 120, 30).contains("[ ]"));
-    key(&mut s, KeyCode::Enter);
     let choosing = render(&mut s, 120, 30);
     assert!(choosing.contains("│[ ]"), "{choosing}");
     assert!(
@@ -120,7 +93,7 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     command(&mut s, "repo log select done");
     assert!(marked(&s).is_empty());
     assert!(!render(&mut s, 120, 30).contains("[ ]"));
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     key(&mut s, KeyCode::Insert);
     key(&mut s, KeyCode::Esc);
     assert!(
@@ -139,7 +112,7 @@ fn selected_count_remains_visible_while_graphics_load_or_are_unavailable() {
     wait(&mut s);
     key(&mut s, KeyCode::Insert);
     assert!(marked(&s).is_empty());
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     key(&mut s, KeyCode::Insert);
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
@@ -169,7 +142,7 @@ fn shift_arrows_extend_shrink_and_start_separate_ranges_with_search_text_present
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     let ids = match &s.mode {
         Mode::History(view) => view
             .session()
@@ -221,7 +194,7 @@ fn selection_space_marks_rows_while_nonempty_search_keeps_spaces_for_editing() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     key(&mut s, KeyCode::Char(' '));
     assert_eq!(marked(&s).len(), 1);
     assert!(s.bar.editor().text.is_empty());
@@ -259,7 +232,7 @@ fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selec
     command(&mut s, "repo log");
     wait(&mut s);
     select(&mut s, &second);
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s).as_slice(), std::slice::from_ref(&second));
     select(&mut s, &first);
@@ -353,7 +326,7 @@ fn a_batch_conflict_opens_files_and_clicking_skip_runs_the_remaining_commits() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     for oid in &commits {
         select(&mut s, oid);
         key(&mut s, KeyCode::Insert);
@@ -508,7 +481,7 @@ fn an_empty_commit_pause_keeps_the_recovery_actions_in_the_changes_view() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select start");
+    command(&mut s, "repo log select");
     for oid in [first, second] {
         select(&mut s, &oid);
         key(&mut s, KeyCode::Insert);

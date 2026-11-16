@@ -514,7 +514,8 @@ impl Screen {
                             }
                         }
                     } else if let Some(command) = matches.get(*selected) {
-                        if command.action.argument().is_some() && command.action != Action::AiPrompt
+                        if command.action.argument().is_some()
+                            && !matches!(command.action, Action::AiPrompt | Action::LogSelect)
                         {
                             selection.complete(input, command);
                             *selected = 0;

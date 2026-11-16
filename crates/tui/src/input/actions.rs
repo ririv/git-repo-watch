@@ -33,9 +33,7 @@ impl Screen {
         }
         match action {
             Action::OpenEditor => self.open_in_editor(path, &selection),
-            Action::LogSelect => {
-                self.open_option_menu(command::options::Kind::LogSelection, path, selection)
-            }
+            Action::LogSelect => self.mark_history(history::SelectionAction::Start),
             Action::LogSelection(action) => self.mark_history(action),
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
