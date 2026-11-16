@@ -89,12 +89,12 @@ fn workspace_uses_one_active_selection_and_keeps_other_cursor_positions_without_
     };
     assert!(selected(&before, files, SELECTION));
     assert!(selected(&before, branches, INACTIVE_SELECTION));
-    assert_eq!(before[(files.x, files.y)].symbol(), "▸");
+    assert_eq!(before[(files.x, files.y)].symbol(), "┌");
     s.switch_repository_section(Section::Branches);
     let after = buffer(&mut s, 160, 40);
     assert!(selected(&after, files, INACTIVE_SELECTION));
     assert!(selected(&after, branches, SELECTION));
-    assert_eq!(after[(branches.x, branches.y)].symbol(), "▸");
+    assert_eq!(after[(branches.x, branches.y)].symbol(), "┌");
     for y in files.y + 1..files.bottom() - 1 {
         for x in files.x + 1..files.right() - 1 {
             assert_eq!(before[(x, y)].symbol(), after[(x, y)].symbol());
@@ -112,15 +112,13 @@ fn workspace_uses_one_active_selection_and_keeps_other_cursor_positions_without_
             s.switch_repository_section(focused);
             let output = buffer(&mut s, width, 40);
             for (area, section) in &s.workspace_areas {
-                let markers = (area.y..area.bottom())
-                    .flat_map(|y| (area.x..area.right()).map(move |x| (x, y)))
-                    .filter(|point| output[*point].symbol() == "▸")
-                    .count();
-                assert_eq!(
-                    markers,
-                    usize::from(*section == focused),
-                    "{width}: {focused:?}, {section:?}"
-                );
+                assert_eq!(output[(area.x, area.y)].symbol(), "┌");
+                if *section == focused {
+                    assert_eq!(
+                        output[(area.x, area.y)].fg,
+                        ratatui::style::Color::LightBlue
+                    );
+                }
                 if *section != focused {
                     for y in area.y..area.bottom() {
                         for x in area.x..area.right() {

@@ -132,13 +132,6 @@ fn highlight_border(frame: &mut Frame, area: Rect) {
     highlight_border_with(frame, area, ACCENT);
 }
 fn highlight_border_with(frame: &mut Frame, area: Rect, accent: Color) {
-    if area.width >= 3 && area.height >= 3 {
-        let corner = &mut frame.buffer_mut()[(area.x, area.y)];
-        if matches!(corner.symbol(), "┌" | "╭" | "▸") {
-            corner.set_symbol("▸").set_fg(accent);
-            corner.modifier.insert(Modifier::BOLD);
-        }
-    }
     for y in area.y..area.bottom() {
         for x in area.x..area.right() {
             if x == area.x || x + 1 == area.right() || y == area.y || y + 1 == area.bottom() {
@@ -160,12 +153,7 @@ fn inactive_selection(frame: &mut Frame, area: Rect) {
             if cell.bg == SELECTION {
                 cell.set_bg(crate::appearance::INACTIVE_SELECTION);
             }
-            // 子视图可能已绘制焦点；外层失焦时同时撤销标记与边框，保留标题和滚动条。
-            if cell.symbol() == "▸" && cell.fg == ACCENT && cell.modifier.contains(Modifier::BOLD)
-            {
-                cell.set_symbol("┌").set_fg(BORDER);
-                cell.modifier.remove(Modifier::BOLD);
-            }
+            // 子视图可能已绘制焦点；外层失焦时撤销亮边框，保留标题和滚动条。
             if cell.fg == ACCENT
                 && matches!(
                     cell.symbol(),
@@ -341,6 +329,7 @@ mod tests {
                 })
                 .unwrap();
             let buffer = terminal.backend().buffer();
+            assert_eq!(buffer[(0, 0)].symbol(), "┌");
             assert_eq!(buffer[(0, 0)].fg, if focused { ACCENT } else { BORDER });
             assert_eq!(buffer[(19, 2)].fg, crate::scrollbar::THUMB_COLOR);
             assert_eq!(buffer[(4, 9)].fg, crate::scrollbar::THUMB_COLOR);
