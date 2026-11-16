@@ -123,7 +123,9 @@ impl Screen {
             KeyCode::PageUp => session.scroll = session.scroll.saturating_sub(10),
             KeyCode::PageDown => session.scroll = session.scroll.saturating_add(10),
             KeyCode::Enter => match session.focus {
-                Focus::Input => session.focus = Focus::Actions(confirmation::Choice::Execute),
+                Focus::Input | Focus::Typing(_) => {
+                    session.focus = Focus::Actions(confirmation::Choice::Execute)
+                }
                 Focus::Actions(confirmation::Choice::Return) => {
                     self.cancel_stash_save(*session);
                     return;
@@ -148,7 +150,7 @@ impl Screen {
                 session.focus = Focus::Input;
                 session.message.key(key);
             }
-            _ if session.focus == Focus::Input => session.message.key(key),
+            _ if session.focus.is_input() => session.message.key(key),
             _ => {}
         }
         self.mode = Mode::StashSave(session);

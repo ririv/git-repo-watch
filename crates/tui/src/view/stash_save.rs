@@ -1,7 +1,7 @@
 //! Stash mode and reviewed files stay above the optional message on one page.
 use super::*;
 use crate::confirmation::Choice;
-use crate::stash_save::{Focus, Session};
+use crate::stash_save::Session;
 
 pub(crate) fn actions(area: Rect) -> Vec<(Rect, Choice)> {
     let padding = u16::from(area.width > 1);
@@ -56,7 +56,7 @@ pub(super) fn render(
         block(i18n::tr!(StashMessageOptional)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(message);
     frame.render_widget(panel, message);
-    if session.focus == Focus::Input {
+    if session.focus.is_input() {
         highlight_border(frame, message);
     }
     if inner.is_empty() {
@@ -72,7 +72,7 @@ pub(super) fn render(
         Span::raw(text)
     };
     frame.render_widget(Paragraph::new(span), inner);
-    if session.focus == Focus::Input {
+    if session.focus.is_input() {
         frame.set_cursor_position(((inner.x + cursor).min(inner.right() - 1), inner.y));
     }
 }

@@ -685,7 +685,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     let hint = if task_hint.is_none()
         && (bar.is_plain() || matches!(bar, crate::bar::InputBar::Command { .. }))
         && (screen.replay_controls().is_some()
-            || matches!(&screen.mode, Mode::Management(session) if matches!(session.source, crate::management::Source::Scan { .. }) && matches!(session.focus, crate::management::Focus::Input) && (bar.command_input().is_some() || !bar.editor().text.is_empty()))
+            || matches!(&screen.mode, Mode::Management(session) if matches!(session.source, crate::management::Source::Scan { .. }) && session.focus.is_input() && (bar.command_input().is_some() || !bar.editor().text.is_empty()))
             || matches!(&screen.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(session) if session.selection.active() && !session.picks().is_empty())))
         && screen.focused_replay_control().is_none()
         && screen.focused_conflict_control().is_none()
@@ -707,7 +707,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         title.to_owned()
     };
-    let active = !matches!(mode, Mode::StashSave(session) if session.focus == crate::stash_save::Focus::Input)
+    let active = !matches!(mode, Mode::StashSave(session) if session.focus.is_input())
         && !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
         && matches!(
             content,

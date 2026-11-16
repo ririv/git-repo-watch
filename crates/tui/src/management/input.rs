@@ -15,7 +15,8 @@ impl Screen {
     pub(crate) fn enter_management(&mut self, session: Session, origin: Mode) {
         self.remember_view(origin);
         self.page = Page::Configuration(Configuration::Repositories);
-        let initial = crate::input_pages::Selection::new(session.available_actions());
+        let initial: crate::input_pages::Selection<Action> =
+            crate::input_pages::Selection::new(session.available_actions());
         self.mode = Mode::Management(Box::new(session));
         self.sync_bar();
         if let crate::input_pages::Selection::Actions(selected) = initial {
@@ -58,7 +59,7 @@ impl Screen {
         let Mode::Management(session) = &self.mode else {
             return;
         };
-        if session.actions().is_empty() || !matches!(session.focus, Focus::Input) {
+        if session.actions().is_empty() || !session.focus.is_input() {
             return;
         }
         let draft = Box::new(std::mem::replace(

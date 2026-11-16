@@ -1,4 +1,5 @@
 //! Finite page sets keep each bottom action bar within three modes.
+mod typing;
 /// Views declare an available action; only this policy decides the initial page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Availability<A> {
@@ -8,11 +9,12 @@ pub(crate) enum Availability<A> {
 
 /// A selected page survives refresh until an explicit transition or a new scene.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Selection<A> {
+pub(crate) enum Selection<A, R = A> {
     Input,
+    Typing(R),
     Actions(A),
 }
-impl<A> Selection<A> {
+impl<A, R> Selection<A, R> {
     pub fn new(available: Availability<A>) -> Self {
         match available {
             Availability::InputOnly => Self::Input,
@@ -21,28 +23,60 @@ impl<A> Selection<A> {
     }
     pub fn page(&self) -> Pair {
         match self {
-            Self::Input => Pair::Content,
+            Self::Input | Self::Typing(_) => Pair::Content,
             Self::Actions(_) => Pair::Actions,
         }
     }
+    pub fn is_input(&self) -> bool {
+        matches!(self, Self::Input | Self::Typing(_))
+    }
     pub fn take_actions(&mut self) -> Option<A> {
         match std::mem::replace(self, Self::Input) {
-            Self::Input => None,
             Self::Actions(action) => Some(action),
+            other => {
+                *self = other;
+                None
+            }
         }
     }
+    pub fn begin_typing<E>(&mut self, split: impl FnOnce(A) -> (R, E)) -> Option<E> {
+        let action = self.take_actions()?;
+        let (resume, effect) = split(action);
+        *self = Self::Typing(resume);
+        Some(effect)
+    }
+    pub fn restore_empty<E>(&mut self, empty: bool, join: impl FnOnce(R) -> (A, E)) -> Option<E> {
+        if !empty || !matches!(self, Self::Typing(_)) {
+            return None;
+        }
+        let Self::Typing(resume) = std::mem::replace(self, Self::Input) else {
+            unreachable!()
+        };
+        let (action, effect) = join(resume);
+        *self = Self::Actions(action);
+        Some(effect)
+    }
     pub fn toggle(&mut self, available: Availability<A>) {
-        if self.take_actions().is_none() {
+        let previous = std::mem::replace(self, Self::Input);
+        if !matches!(previous, Self::Actions(_)) {
             *self = match available {
                 Availability::InputOnly => Self::Input,
                 Availability::Actions(action) => Self::Actions(action),
             };
         }
     }
+}
+impl<A> Selection<A> {
+    pub fn start_typing(&mut self) {
+        self.begin_typing(|action| (action, ()));
+    }
+    pub fn finish_empty(&mut self, empty: bool) {
+        self.restore_empty(empty, |action| (action, ()));
+    }
     pub fn into_value(self, input: A) -> A {
         match self {
             Self::Input => input,
-            Self::Actions(action) => action,
+            Self::Typing(action) | Self::Actions(action) => action,
         }
     }
 }
@@ -129,6 +163,20 @@ impl Scene {
         }
     }
 }
+/// A temporary text edit can return only to an action page.
+#[derive(Debug, Clone)]
+pub(crate) enum ActionPage {
+    Conflict(crate::conflict::controls::Action),
+    Replay(engine::operations::replay::Control),
+}
+impl ActionPage {
+    pub fn page(&self) -> Page {
+        match self {
+            Self::Conflict(_) => Page::Conflict,
+            Self::Replay(_) => Page::Replay,
+        }
+    }
+}
 #[derive(Debug, Default, Clone)]
 pub(crate) enum Preference {
     #[default]
@@ -137,10 +185,15 @@ pub(crate) enum Preference {
         scene: Scene,
         page: Page,
     },
+    Typing {
+        scene: Scene,
+        resume: ActionPage,
+    },
 }
 impl Preference {
-    pub fn resolve(&mut self, scene: &Scene) -> Page {
+    pub fn resolve(&mut self, scene: &Scene, current: Page) -> Page {
         match self {
+            Self::Typing { .. } => current,
             Self::Manual {
                 scene: previous,
                 page,

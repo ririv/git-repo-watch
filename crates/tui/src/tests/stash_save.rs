@@ -314,7 +314,7 @@ fn stash_save_shift_tab_changes_mode_without_losing_text_and_tab_never_saves() {
     s.paste("draft 中文");
     let before = (s.body_area, s.input_area);
     key(&mut s, KeyCode::Tab);
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
+    assert!(review(&s).focus.is_input());
     key(&mut s, KeyCode::BackTab);
     assert!(matches!(
         review(&s).focus,
@@ -327,11 +327,11 @@ fn stash_save_shift_tab_changes_mode_without_losing_text_and_tab_never_saves() {
     ));
     key(&mut s, KeyCode::Esc);
     assert_eq!(review(&s).message.text, "draft 中文");
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
+    assert!(review(&s).focus.is_input());
     key(&mut s, KeyCode::BackTab);
     s.paste(" 继续编辑");
     assert_eq!(review(&s).message.text, "draft 中文 继续编辑");
-    assert_eq!(review(&s).focus, crate::stash_save::Focus::Input);
+    assert!(review(&s).focus.is_input());
     assert_eq!((s.body_area, s.input_area), before);
     assert_eq!(
         std::fs::read_to_string(f.repo.join("draft.txt")).unwrap(),

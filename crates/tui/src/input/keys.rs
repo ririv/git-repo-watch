@@ -5,6 +5,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 use engine::service::ConfigEdit;
 impl Screen {
     pub(crate) fn paste(&mut self, text: &str) {
+        if !text.is_empty() {
+            self.begin_temporary_input();
+        }
+        self.paste_inner(text);
+        self.restore_temporary_input();
+    }
+    fn paste_inner(&mut self, text: &str) {
         self.exit_sequence.reset();
         if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
             return;
@@ -32,7 +39,6 @@ impl Screen {
         }
         match &mut self.mode {
             Mode::StashSave(session) => {
-                session.focus = crate::stash_save::Focus::Input;
                 session.message.insert(text);
             }
             Mode::PushTarget(session) => session.insert(text),
@@ -54,7 +60,6 @@ impl Screen {
                 };
             }
             Mode::CommitMessage { editor, .. } if self.bar.is_plain() => {
-                editor.focus(crate::commit_form::Focus::Input);
                 if let Some(editor) = editor.editable()
                     && editor.insert(text).is_err()
                 {
@@ -82,6 +87,19 @@ impl Screen {
         }
     }
     pub(crate) fn key(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
+        let typing = matches!(key.code, KeyCode::Char(c) if c != ' ' || matches!(self.mode, Mode::CommitMessage { .. } | Mode::StashSave(_)))
+            && !key
+                .modifiers
+                .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT)
+            && key.kind != crossterm::event::KeyEventKind::Release;
+        if typing {
+            self.begin_temporary_input();
+        }
+        let result = self.key_inner(key, root);
+        self.restore_temporary_input();
+        result
+    }
+    fn key_inner(&mut self, key: KeyEvent, root: &Cancel) -> Result<bool> {
         if key.kind == crossterm::event::KeyEventKind::Release {
             return Ok(false);
         }
@@ -556,7 +574,6 @@ impl Screen {
                                 .modifiers
                                 .intersects(KeyModifiers::CONTROL | KeyModifiers::ALT) =>
                     {
-                        editor.focus(crate::commit_form::Focus::Input);
                         if let Some(editor) = editor.editable()
                             && editor.key(key).is_err()
                         {

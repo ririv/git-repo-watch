@@ -53,7 +53,7 @@ pub(crate) struct Controls {
     pub selected: Action,
     pub draft: Box<crate::bar::InputBar>,
 }
-pub(crate) type Focus = crate::input_pages::Selection<Controls>;
+pub(crate) type Focus = crate::input_pages::Selection<Controls, Action>;
 #[derive(Debug)]
 pub(crate) struct Session {
     pub source: Source,

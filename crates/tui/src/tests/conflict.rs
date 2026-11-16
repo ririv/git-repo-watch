@@ -4,7 +4,7 @@ use crate::{
     document::View,
 };
 
-fn automatic_setup() -> (support::Fixture, tempfile::TempDir, Screen) {
+pub(super) fn automatic_setup() -> (support::Fixture, tempfile::TempDir, Screen) {
     let f = support::Fixture::create();
     std::fs::create_dir_all(f.repo.join("src")).unwrap();
     let base = (0..35)

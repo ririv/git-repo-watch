@@ -1814,3 +1814,5 @@ fn cancelling_an_inline_parameter_confirmation_restores_the_file_panel_and_comma
     assert!(s.bar.editor().text.is_empty());
     assert_eq!(s.service.store.config().unwrap().max_concurrency, 4);
 }
+
+mod temporary_input;

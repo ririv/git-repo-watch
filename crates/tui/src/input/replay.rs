@@ -261,10 +261,11 @@ impl Screen {
             && self.focus_mode == crate::focus::State::Inactive
             && let Some(scene) = self.input_scene()
         {
+            let current = self.input_page();
             let preferred = self
                 .preference_mut()
                 .expect("file input preference")
-                .resolve(&scene);
+                .resolve(&scene, current);
             if self.input_pages().position(preferred).is_some() && self.input_page() != preferred {
                 self.apply_input_page(preferred);
             }

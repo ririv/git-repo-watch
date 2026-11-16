@@ -48,7 +48,7 @@ impl Draft {
         matches!(
             self,
             Self::Editing {
-                focus: Focus::Input,
+                focus: Focus::Input | Focus::Typing(_),
                 ..
             }
         )
@@ -77,7 +77,7 @@ impl Draft {
     pub fn selected(&self) -> Option<Action> {
         match self {
             Self::Editing {
-                focus: Focus::Input,
+                focus: Focus::Input | Focus::Typing(_),
                 ..
             } => None,
             Self::Editing {
