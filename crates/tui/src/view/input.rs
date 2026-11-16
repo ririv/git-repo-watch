@@ -1,5 +1,6 @@
 //! Bordered input with explicit editable and locked states.
 pub(in crate::view) mod actions;
+mod argument;
 mod conflict;
 mod prefix;
 mod surface;
@@ -194,9 +195,6 @@ enum Content<'a> {
         placeholder: &'static str,
     },
     Locked(String),
-    Layout {
-        selected: crate::diff::Preference,
-    },
     StashActions {
         session: &'a crate::stash_save::Session,
     },
@@ -429,14 +427,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             },
             i18n::tr!(ReplayControlsHint),
         )
-    } else if let crate::bar::InputBar::Layout { selected, .. } = bar {
-        (
-            i18n::tr!(LayoutPickerTitle),
-            Content::Layout {
-                selected: *selected,
-            },
-            i18n::tr!(LayoutPickerHint),
-        )
     } else if let Mode::Composition(session) = mode
         && !matches!(session.state, crate::composition::State::Browsing)
     {
@@ -529,12 +519,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     match command::argument_input(
                         bar.text().strip_prefix('/').expect("command prefix"),
                     ) {
-                        Some((argument, value))
-                            if argument.options() == Some(command::options::Kind::DiffLayout)
-                                && value.trim().is_empty() =>
-                        {
-                            i18n::tr!(DiffLayoutEntryHint)
-                        }
                         Some((argument, _)) if argument.action().available(&screen.config) => {
                             argument.hint()
                         }
@@ -729,7 +713,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 | Content::Conflict { .. }
                 | Content::CommitActions { .. }
                 | Content::StashActions { .. }
-                | Content::Layout { .. }
         );
     let input_style = Style::default().bg(Color::Reset).fg(Color::Reset);
     let accent = if active {
@@ -874,6 +857,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             }
             spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
             spans.extend(value);
+            if let Some(hint) = command.and_then(|input| {
+                argument::hint(
+                    input,
+                    &screen.config,
+                    width.saturating_sub(usize::from(cursor)),
+                )
+            }) {
+                spans.push(hint);
+            }
             frame.render_widget(Paragraph::new(Line::from(spans)).style(input_style), inner);
             if !inner.is_empty()
                 && show_cursor
@@ -883,21 +875,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     (inner.x + prefix_width + 2 + cursor).min(inner.right() - 1),
                     inner.y,
                 ));
-            }
-        }
-        Content::Layout { selected } => {
-            for (area, preference, label) in layout_picker::options(inner, screen.diff_preference) {
-                frame.render_widget(
-                    Paragraph::new(Span::styled(
-                        label,
-                        if selected == preference {
-                            Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
-                        } else {
-                            Style::default().fg(Color::Gray)
-                        },
-                    )),
-                    area,
-                );
             }
         }
         Content::Conflict { selected } => {

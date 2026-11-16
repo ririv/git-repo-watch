@@ -2,7 +2,7 @@ use super::*;
 use ratatui::layout::Rect;
 
 #[test]
-fn compact_input_keeps_context_drafts_and_layout_picker_clicks_at_the_drawn_position() {
+fn compact_input_keeps_context_drafts_and_parameter_clicks_at_the_drawn_position() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
@@ -14,13 +14,16 @@ fn compact_input_keeps_context_drafts_and_layout_picker_clicks_at_the_drawn_posi
             draw(&mut s, width, height);
             assert_eq!(s.bar.text(), draft);
         }
-        for (width, height) in [(48, 12), (48, 8), (48, 5)] {
+        for (width, height) in [(48, 12), (48, 8)] {
+            command(&mut s, "repo diff layout auto");
             command(&mut s, "repo diff layout");
+            key(&mut s, KeyCode::Down);
             draw(&mut s, width, height);
-            let inner = view::input::content_area(s.input_area.unwrap());
-            let (area, preference, _) = view::layout_picker::options(inner, s.diff_preference)
-                .into_iter()
-                .find(|(_, preference, _)| *preference == crate::diff::Preference::Split)
+            let (area, _) = s
+                .command_items
+                .iter()
+                .find(|(_, index)| *index == 1)
+                .copied()
                 .unwrap();
             assert!(!area.is_empty());
             assert!(
@@ -29,17 +32,14 @@ fn compact_input_keeps_context_drafts_and_layout_picker_clicks_at_the_drawn_posi
                         kind: MouseEventKind::Down(MouseButton::Left),
                         column: area.x,
                         row: area.y,
-                        modifiers: KeyModifiers::NONE,
+                        modifiers: KeyModifiers::NONE
                     },
-                    &Cancel::default(),
+                    &Cancel::default()
                 )
                 .unwrap()
             );
-            assert!(
-                matches!(s.bar, bar::InputBar::Layout { selected, .. } if selected == preference)
-            );
-            key(&mut s, KeyCode::Enter);
-            assert_eq!(s.diff_preference, preference);
+            assert_eq!(s.diff_preference, crate::diff::Preference::Split);
+            assert!(s.bar.is_plain());
         }
         s.shutdown();
     }

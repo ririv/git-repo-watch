@@ -187,10 +187,12 @@ fn description_selection_completes_real_commands_and_returns_parameter_drafts() 
         s.paste("//检查频率");
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
-            assert!(text.contains("/schedule interval <duration>"), "{text}");
+            assert!(text.contains("/schedule interval"), "{text}");
+            assert!(!text.contains("<duration>"), "{text}");
         }
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/schedule interval ");
+        assert!(render(&mut s, 100, 28).contains("<duration>"));
         s.paste("1w");
         key(&mut s, KeyCode::Enter);
         assert!(matches!(s.mode, Mode::Confirm { .. }));
@@ -264,7 +266,13 @@ fn concise_commands_show_values_without_scope_or_detail_rows_and_remain_clickabl
                 assert!(!line.contains(absent), "{line}");
             }
         }
-        assert!(text.contains("agent [codex|claude]"));
+        assert!(!text.contains("[codex|claude]"));
+        assert!(
+            text.lines()
+                .nth(items[0].0.y.into())
+                .unwrap()
+                .contains("agent")
+        );
         assert!(
             items
                 .windows(2)
@@ -301,6 +309,7 @@ fn concise_commands_show_values_without_scope_or_detail_rows_and_remain_clickabl
             .unwrap()
         );
         assert_eq!(s.bar.text(), "/settings ai model ");
+        assert!(render(&mut s, 140, 32).contains("[<model>|default]"));
         assert!(matches!(s.mode, Mode::Browsing));
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),

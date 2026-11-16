@@ -22,7 +22,7 @@ mod help;
 pub(crate) mod history;
 pub(super) mod input;
 pub(crate) mod inspection;
-pub(super) mod layout_picker;
+mod layout_summary;
 mod overview;
 mod prompt;
 mod push;

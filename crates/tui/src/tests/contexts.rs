@@ -109,12 +109,18 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         control(&mut s, 'u');
         s.paste("layout");
         let cursor = s.bar.editor().cursor;
-        key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.bar, bar::InputBar::Layout { .. }));
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Tab);
+        assert!(matches!(
+            s.bar,
+            bar::InputBar::Command {
+                menu: crate::command::completion::Menu::Options(_),
+                ..
+            }
+        ));
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.editor().text, "layout");
-        assert_eq!(s.bar.editor().cursor, cursor);
+        assert_eq!(s.bar.editor().text, "layout ");
+        assert_eq!(s.bar.editor().cursor, cursor + 1);
         assert_eq!(context(&s), Some(Context::Diff(DiffContext::Worktree)));
         control(&mut s, 'u');
         key(&mut s, KeyCode::Backspace);

@@ -25,11 +25,6 @@ pub(crate) struct CommandDraft {
 pub(crate) enum InputBar {
     Search(Editor),
     CommandsOnly,
-    Layout {
-        selected: crate::diff::Preference,
-        command_cursor: usize,
-        draft: CommandDraft,
-    },
     Command {
         input: command::Input,
         selected: usize,
@@ -58,13 +53,11 @@ impl InputBar {
             Self::Search(editor) => editor,
             Self::CommandsOnly => &EMPTY,
             Self::Command { input, .. } => input.editor(),
-            Self::Layout { draft, .. } => draft.input.editor(),
         }
     }
     pub fn text(&self) -> String {
         match self {
             Self::Command { input, .. } => input.text(),
-            Self::Layout { draft, .. } => draft.input.text(),
             Self::Search(editor) => editor.text.clone(),
             Self::CommandsOnly => String::new(),
         }
@@ -104,7 +97,6 @@ impl Screen {
     pub(crate) fn poll_command_repository(&mut self) -> bool {
         let captured = match &self.bar {
             InputBar::Command { repository, .. } => repository.clone(),
-            InputBar::Layout { draft, .. } => draft.repository.clone(),
             _ => Default::default(),
         };
         self.command_repository.poll(&captured, &self.service)
@@ -188,9 +180,6 @@ impl Screen {
     pub(crate) fn bar_paste(&mut self, text: &str) {
         let text = self.command_trigger_text(text);
         let text = text.as_ref();
-        if matches!(self.bar, InputBar::Layout { .. }) {
-            return;
-        }
         if self.bar.is_plain()
             && (self.at_command_entry() || text.starts_with("//"))
             && let Some(body) = text.strip_prefix('/')
@@ -286,12 +275,6 @@ impl Screen {
                 | Mode::Error { .. }
         ) {
             return Ok(BarEvent::Pass);
-        }
-        if self.layout_picker_key(key) {
-            return Ok(BarEvent::Handled);
-        }
-        if self.empty_layout_picker_key(key) {
-            return Ok(BarEvent::Handled);
         }
         if self.command_page_key(key) {
             return Ok(BarEvent::Handled);
@@ -517,17 +500,7 @@ impl Screen {
                             Err(error) => self.message = format!("{error:#}"),
                         }
                     } else if let Some(command) = matches.get(*selected) {
-                        if command.action == Action::DiffLayoutMenu {
-                            let draft = CommandDraft {
-                                input: input.clone(),
-                                path: path.clone(),
-                                selection: selection.clone(),
-                                repository: repository.clone(),
-                                return_to: ReturnTo::Command,
-                            };
-                            let cursor = *selected;
-                            self.open_layout_picker(draft, cursor);
-                        } else if command.action.argument().is_some()
+                        if command.action.argument().is_some()
                             && !matches!(command.action, Action::AiPrompt | Action::LogSelect)
                         {
                             selection.complete(input, command);

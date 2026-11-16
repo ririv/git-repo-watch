@@ -290,16 +290,7 @@ impl Screen {
             }
             Action::LogMore => self.more_history(),
             Action::DiffLayoutMenu => {
-                self.open_layout_picker(
-                    crate::bar::CommandDraft {
-                        input: command::Input::global(Editor::new("/repo diff layout".into())),
-                        repository: self.capture_repository(path.as_deref()),
-                        path,
-                        selection,
-                        return_to: crate::bar::ReturnTo::Command,
-                    },
-                    0,
-                );
+                self.open_option_menu(command::options::Kind::DiffLayout, path, selection);
             }
             Action::Stage | Action::Unstage => {
                 self.edit_files(if action == Action::Stage {

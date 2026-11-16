@@ -125,15 +125,16 @@ fn mouse_and_editor_are_scoped_and_new_files_reset_horizontal_position() {
     assert_eq!(diff(&s).horizontal.offset(), offset);
     key(&mut s, KeyCode::Esc);
     command(&mut s, "repo diff layout");
-    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Down);
     assert!(matches!(
         s.bar,
-        crate::bar::InputBar::Layout {
-            selected: Preference::Split,
+        crate::bar::InputBar::Command {
+            menu: crate::command::completion::Menu::Options(_),
             ..
         }
     ));
     assert_eq!(diff(&s).horizontal.offset(), offset);
+    assert_eq!(s.diff_preference, Preference::Auto);
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     // 预览不接收普通文字；回到文件列表后换文件，新预览具有独立滚动位置。

@@ -13,7 +13,7 @@ fn command_and_picker_choices_survive_restart_without_restoring_transient_select
     command(&mut s, "repo diff view flat");
     assert_eq!(s.file_layout, crate::files::Layout::Flat);
     command(&mut s, "repo diff layout");
-    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.diff_preference, crate::diff::Preference::Split);
     command(&mut s, "repo diff header show");

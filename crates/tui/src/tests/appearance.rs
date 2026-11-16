@@ -60,8 +60,8 @@ fn light_terminal_selection_keeps_menu_and_repository_text_colors() {
 }
 
 #[test]
-fn menu_parameters_and_current_values_deepen_together_on_light_terminals() {
-    for query in ["/", "/search"] {
+fn input_parameters_and_option_current_values_deepen_together_on_light_terminals() {
+    for query in ["/search filter", "/repos filter all"] {
         let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
         s.paste(query);
         let draw = |screen: &mut Screen| {

@@ -218,3 +218,13 @@ fn nested_parameter_commands_choose_the_longest_name_and_keep_bare_undo_unambigu
     assert_eq!(argument_input("repo diff conflict undo "), None);
     assert_eq!(argument_input("repo diff conflict reset "), None);
 }
+
+// 仅供目录断言拼接完整语法；产品界面分别呈现命令名和参数提示。
+impl Command {
+    pub fn usage(&self) -> String {
+        match self.action.argument() {
+            Some(argument) => format!("{} {}", self.name, argument.placeholder()),
+            None => self.name.into(),
+        }
+    }
+}

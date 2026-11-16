@@ -1,5 +1,4 @@
-//! Single-line command rows separate usage, concise descriptions and configuration values.
-mod argument;
+//! Single-line command rows show names, concise descriptions and current values.
 mod elision;
 use super::*;
 use crate::features::Maturity;
@@ -9,8 +8,6 @@ use unicode_width::UnicodeWidthStr;
 struct Entry {
     name: String,
     maturity: Maturity,
-    usage_width: usize,
-    argument: Option<command::ArgumentSyntax>,
     description: String,
     value: String,
     value_kind: ValueKind,
@@ -30,12 +27,7 @@ impl Columns {
     fn fit(entries: &[Entry], width: usize) -> Self {
         let desired_name = entries
             .iter()
-            .map(|entry| entry.usage_width)
-            .max()
-            .unwrap_or(0);
-        let minimum_name = entries
-            .iter()
-            .map(Entry::minimum_usage_width)
+            .map(|entry| entry.name.width())
             .max()
             .unwrap_or(0);
         let minimum_description = entries
@@ -59,12 +51,10 @@ impl Columns {
             .map(|entry| entry.value.width())
             .max()
             .unwrap_or(0);
-        // 优先给说明和当前值留空间；枚举只使用剩余宽度，参数名按完整词省略。
-        let name_budget =
-            width.saturating_sub(minimum_description + 2 + if value > 0 { value + 2 } else { 0 });
-        let name = desired_name.min(name_budget.max(minimum_name)).min(width);
+        // 命令名保留完整宽度；参数语法由输入栏按需呈现。
+        let name = desired_name.min(width);
         let free = width.saturating_sub(name + 2);
-        // 窄屏优先保留命令、参数和短说明；配置值在剩余空间中右对齐。
+        // 窄屏优先保留命令名和短说明；配置值在剩余空间中右对齐。
         let value = value.min(free.saturating_sub(minimum_description + 2));
         let description = free.saturating_sub(if value > 0 { value + 2 } else { 0 });
         Self {
@@ -75,17 +65,9 @@ impl Columns {
     }
 }
 impl Entry {
-    fn minimum_usage_width(&self) -> usize {
-        self.name.width()
-            + match &self.argument {
-                Some(command::ArgumentSyntax::Input(text)) => text.width() + 1,
-                Some(command::ArgumentSyntax::Choices(_)) => " […]".width(),
-                None => 0,
-            }
-    }
     fn item(&self, columns: &Columns) -> ListItem<'static> {
         let name = clipped(&self.name, columns.name);
-        let mut used = name.width();
+        let used = name.width();
         let enabled = matches!(
             self.availability,
             command::availability::Availability::Ready
@@ -104,18 +86,6 @@ impl Entry {
                 Style::default().fg(MUTED)
             },
         )];
-        if let Some(argument) = &self.argument
-            && used < columns.name
-        {
-            let argument = argument::fit(argument, columns.name - used - 1);
-            used += argument.width() + 1;
-            spans.push(Span::styled(
-                format!(" {argument}"),
-                Style::default()
-                    .fg(if enabled { Color::LightCyan } else { MUTED })
-                    .italic(),
-            ));
-        }
         spans.push(Span::raw(" ".repeat(columns.name.saturating_sub(used))));
         field(
             &mut spans,
@@ -319,7 +289,7 @@ fn render_menu(
                 _ => None,
             })
             .or_else(|| repository_list::annotation(command.action, screen))
-            .or_else(|| layout_picker::annotation(command.action, screen, body))
+            .or_else(|| layout_summary::annotation(command.action, screen, body))
             .or_else(|| settings::annotation(command.action, screen))
             .or_else(|| match command.action {
                 Action::PartialSelectMenu => {
@@ -342,8 +312,6 @@ fn render_menu(
                 } else {
                     Maturity::Stable
                 },
-                usage_width: prefix.width() + input.usage(command).width(),
-                argument: command.action.argument().map(|argument| argument.syntax()),
                 description: safe(match availability.label() {
                     None => description,
                     Some(reason) => reason,

@@ -282,12 +282,6 @@ impl Action {
     }
 }
 impl Command {
-    pub fn usage(&self) -> String {
-        match self.action.argument() {
-            Some(argument) => format!("{} {}", self.name, argument.placeholder()),
-            None => self.name.into(),
-        }
-    }
     pub fn completion(&self) -> String {
         format!(
             "/{}{}",

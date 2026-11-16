@@ -248,33 +248,6 @@ impl Screen {
             self.follow_breadcrumb(destination);
             return Ok(true);
         }
-        if matches!(self.bar, bar::InputBar::Layout { .. }) {
-            if precise
-                && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
-                && let Some(input) = self.input_area
-            {
-                let inner = crate::view::input::content_area(input);
-                let choice = crate::view::layout_picker::options(inner, self.diff_preference)
-                    .into_iter()
-                    .find(|(area, _, _)| area.contains(Position::new(event.column, event.row)))
-                    .map(|(_, preference, _)| preference);
-                if let Some(choice) = choice
-                    && let bar::InputBar::Layout { selected, .. } = &mut self.bar
-                {
-                    *selected = choice;
-                    if self.clicks.press(
-                        super::clicks::Identity::Layout(choice),
-                        Position::new(event.column, event.row),
-                        std::time::Instant::now(),
-                    ) {
-                        self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
-                    }
-                    return Ok(true);
-                }
-            }
-            self.clicks.reset();
-            return Ok(false);
-        }
         if precise
             && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
             && let Some(index) = self

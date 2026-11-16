@@ -24,10 +24,7 @@ fn copied(s: &mut Screen, rx: &mpsc::Receiver<String>) -> String {
     text
 }
 fn local_copy(s: &mut Screen) {
-    while matches!(
-        s.bar,
-        bar::InputBar::Command { .. } | bar::InputBar::Layout { .. }
-    ) {
+    while matches!(s.bar, bar::InputBar::Command { .. }) {
         key(s, KeyCode::Esc);
     }
     key(s, KeyCode::Char('/'));

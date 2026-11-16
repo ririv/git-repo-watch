@@ -19,9 +19,6 @@ impl Screen {
         self.clicks.reset();
         self.drag = None;
         self.close_management_actions();
-        if matches!(self.bar, crate::bar::InputBar::Layout { .. }) {
-            self.restore_layout_input();
-        }
         if self.history_actions().is_some() {
             let command = self.command_trigger_text(text).starts_with('/');
             self.close_history_actions();

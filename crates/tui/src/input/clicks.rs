@@ -36,7 +36,6 @@ pub(crate) enum Identity {
         path: PathBuf,
     },
     Repository(PathBuf),
-    Layout(crate::diff::Preference),
     WorktreeDirectory {
         repository: PathBuf,
         group: crate::files::Group,

@@ -21,7 +21,6 @@ impl Screen {
                 Input::Scoped { editor, .. } => editor.text.is_empty(),
                 Input::Global(editor) => editor.text == "/",
             },
-            InputBar::Layout { .. } => false,
         }
     }
     pub(crate) fn command_trigger_key(&self, mut key: KeyEvent) -> KeyEvent {

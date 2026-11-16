@@ -12,10 +12,7 @@ fn history(s: &Screen) -> &command::history::Session {
     history
 }
 fn open(s: &mut Screen) {
-    while matches!(
-        s.bar,
-        bar::InputBar::Command { .. } | bar::InputBar::Layout { .. }
-    ) {
+    while matches!(s.bar, bar::InputBar::Command { .. }) {
         key(s, KeyCode::Esc);
     }
     s.paste("//");

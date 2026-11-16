@@ -41,7 +41,7 @@ mod horizontal;
 mod images;
 mod input_surface;
 mod interrupt;
-mod layout_picker;
+mod layout_options;
 mod light_diff;
 mod links;
 mod live;
@@ -50,6 +50,7 @@ mod navigation;
 mod opening;
 mod options;
 mod overview;
+mod parameter_hints;
 mod partial;
 mod prefix_segments;
 mod prefix_selection;
@@ -205,10 +206,7 @@ fn key(s: &mut Screen, code: KeyCode) -> bool {
         .unwrap()
 }
 fn command(s: &mut Screen, text: &str) {
-    while matches!(
-        s.bar,
-        bar::InputBar::Command { .. } | bar::InputBar::Layout { .. }
-    ) {
+    while matches!(s.bar, bar::InputBar::Command { .. }) {
         key(s, KeyCode::Esc);
     }
     // 既有工作流用显式全局命令；上下文后缀由 contexts 测试直接覆盖。
@@ -1701,7 +1699,7 @@ fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action
 }
 
 #[test]
-fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page() {
+fn parameter_candidates_complete_before_showing_inline_hints_without_changing_the_page() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
@@ -1709,10 +1707,12 @@ fn parameter_candidates_show_usage_and_complete_inline_without_changing_the_page
         s.paste("//repos a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let text = render(&mut s, width, height);
-            assert!(text.contains("/repos add <path>"), "{text}");
+            assert!(text.contains("/repos add"), "{text}");
+            assert!(!text.contains("<path>"), "{text}");
         }
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.bar.text(), "/repos add ");
+        assert!(render(&mut s, 100, 28).contains("<path>"));
         assert!(matches!(s.mode, Mode::Management(_)));
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         key(&mut s, KeyCode::Enter);

@@ -235,7 +235,6 @@ pub enum Message {
     NoMatchingOptions,
     ReadingCommandCandidates,
     ValueCompletionHint,
-    DiffLayoutEntryHint,
     CommandRequiresHistory,
     CommandRequiresBrowser,
     CommandNeedsUnstaged,
@@ -610,8 +609,6 @@ pub enum Message {
     ScheduleAnchorHint,
     SaveScheduleAnchor,
 
-    LayoutPickerTitle,
-    LayoutPickerHint,
     LayoutVisible,
     LayoutCurrent,
 
@@ -2068,12 +2065,6 @@ impl Message {
             (Self::ValueCompletionHint, Language::Chinese) => {
                 "↑↓ 选择 · Tab 补全 · Enter 预览 · Esc 收起"
             }
-            (Self::DiffLayoutEntryHint, Language::English) => {
-                "Enter/Shift+Tab choose layout · Type to complete a value · Esc close"
-            }
-            (Self::DiffLayoutEntryHint, Language::Chinese) => {
-                "Enter/Shift+Tab 选择布局 · 输入参数补全 · Esc 关闭"
-            }
             (Self::CommandRequiresHistory, Language::English) => "Open commit history first",
             (Self::CommandRequiresHistory, Language::Chinese) => "请先打开提交历史",
             (Self::CommandRequiresBrowser, Language::English) => "Open the file browser first",
@@ -3247,14 +3238,6 @@ impl Message {
                 "Save the time basis; auto generates it on enable"
             }
             (Self::SaveScheduleAnchor, Language::Chinese) => "保存时间基准；auto 在启用时自动生成",
-            (Self::LayoutPickerTitle, Language::English) => "Diff layout",
-            (Self::LayoutPickerTitle, Language::Chinese) => "差异布局",
-            (Self::LayoutPickerHint, Language::English) => {
-                "←→ choose · Enter apply · Shift+Tab input · Esc back"
-            }
-            (Self::LayoutPickerHint, Language::Chinese) => {
-                "←→选择 · Enter 应用 · Shift+Tab 输入 · Esc 返回"
-            }
             (Self::LayoutVisible, Language::English) => "showing",
             (Self::LayoutVisible, Language::Chinese) => "当前",
             (Self::LayoutCurrent, Language::English) => "Current",

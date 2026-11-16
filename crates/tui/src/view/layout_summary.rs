@@ -54,20 +54,3 @@ pub(super) fn annotation(action: Action, screen: &Screen, body: Rect) -> Option<
         _ => None,
     }
 }
-pub(crate) fn options(inner: Rect, current: Preference) -> Vec<(Rect, Preference, String)> {
-    let mut x = inner.x.saturating_add(1);
-    Preference::ALL
-        .into_iter()
-        .map(|preference| {
-            let label = format!(
-                " {} {} ",
-                if current == preference { "✓" } else { " " },
-                preference.label()
-            );
-            let width = unicode_width::UnicodeWidthStr::width(label.as_str()) as u16;
-            let area = Rect::new(x, inner.y, width, 1).intersection(inner);
-            x = x.saturating_add(width + 2);
-            (area, preference, label)
-        })
-        .collect()
-}

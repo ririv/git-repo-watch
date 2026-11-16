@@ -60,14 +60,6 @@ pub(crate) struct Options {
     pub context: Context,
 }
 impl Preference {
-    pub const ALL: [Self; 3] = [Self::Auto, Self::Split, Self::Unified];
-    pub fn advance(self, backwards: bool) -> Self {
-        match (self, backwards) {
-            (Self::Auto, false) | (Self::Unified, true) => Self::Split,
-            (Self::Split, false) | (Self::Auto, true) => Self::Unified,
-            (Self::Unified, false) | (Self::Split, true) => Self::Auto,
-        }
-    }
     pub fn label(self) -> &'static str {
         match self {
             Self::Auto => i18n::tr!(DiffAuto),

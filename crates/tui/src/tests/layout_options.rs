@@ -1,8 +1,26 @@
 use super::*;
-use crate::{bar::InputBar, diff::Preference};
+use crate::{
+    bar::InputBar,
+    command::{
+        completion::Menu,
+        options::{Candidates, Value},
+    },
+    diff::Preference,
+};
+
+fn options(s: &Screen) -> &Candidates {
+    let InputBar::Command {
+        menu: Menu::Options(values),
+        ..
+    } = &s.bar
+    else {
+        panic!("layout parameter candidates");
+    };
+    values
+}
 
 #[test]
-fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_the_view() {
+fn layout_parameters_apply_on_enter_and_cancel_to_the_underlying_view() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let f = support::Fixture::create();
@@ -18,47 +36,25 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
         let query = s.mode.file_session().unwrap().query.clone();
         s.paste("//repo diff lay");
         key(&mut s, KeyCode::Enter);
-        assert!(matches!(
-            s.bar,
-            InputBar::Layout {
-                selected: Preference::Unified,
-                ..
-            }
-        ));
-        key(&mut s, KeyCode::Left);
-        assert!(matches!(
-            s.bar,
-            InputBar::Layout {
-                selected: Preference::Split,
-                ..
-            }
-        ));
+        assert_eq!(
+            options(&s).options[options(&s).selected].value,
+            Value::DiffLayout(Preference::Unified)
+        );
+        key(&mut s, KeyCode::Up);
         assert_eq!(s.diff_preference, Preference::Unified);
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/repo diff lay");
+        assert_eq!(s.bar.text(), "/repo diff layout split");
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), "/repo diff lay");
-        assert!(matches!(s.bar, InputBar::Command { .. }));
-        assert!(matches!(&s.mode,Mode::Changes(session) if session.files.query==query));
-        key(&mut s, KeyCode::Enter);
-        key(&mut s, KeyCode::Left);
+        assert_eq!(s.bar.text(), "/repo diff layout split");
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.text(), query);
+        assert_eq!(s.diff_preference, Preference::Unified);
+        command(&mut s, "repo diff layout");
+        key(&mut s, KeyCode::Up);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Split);
-        assert_eq!(s.bar.editor().text, query);
-        assert!(matches!(&s.mode,Mode::Changes(session) if session.files.query==query));
-        command(&mut s, "repo diff layout");
-        key(&mut s, KeyCode::Right);
-        key(&mut s, KeyCode::Right);
-        assert!(matches!(
-            s.bar,
-            InputBar::Layout {
-                selected: Preference::Auto,
-                ..
-            }
-        ));
-        key(&mut s, KeyCode::Enter);
-        assert_eq!(s.diff_preference, Preference::Auto);
-        assert!(s.repository_tasks.is_empty());
+        assert_eq!(s.bar.text(), query);
+        command(&mut s, "repo diff layout auto");
         wait(&mut s);
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
@@ -66,11 +62,12 @@ fn horizontal_layout_picker_applies_on_enter_cancels_to_the_draft_and_retains_th
         );
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
         assert!(s.service.store.report().unwrap().is_none());
+        s.shutdown();
     }
 }
 
 #[test]
-fn chooser_and_current_mark_are_horizontal_at_all_supported_sizes_and_accept_mouse_selection() {
+fn layout_parameters_share_candidate_rendering_and_single_click_applies_the_value() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
@@ -78,46 +75,58 @@ fn chooser_and_current_mark_are_horizontal_at_all_supported_sizes_and_accept_mou
         command(&mut s, "repo diff layout");
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, width, height);
-            assert!(text.contains(i18n::tr!(LayoutPickerTitle)));
-            assert!(text.contains(i18n::tr!(LayoutPickerHint)));
-            let inner = view::input::content_area(s.input_area.unwrap());
-            let line = text.lines().nth(usize::from(inner.y)).unwrap();
-            for preference in Preference::ALL {
-                assert!(line.contains(preference.label()), "{text}");
+            assert_eq!(s.command_items.len(), 3);
+            for token in ["auto", "split", "unified"] {
+                assert!(
+                    s.command_items.iter().any(|(area, _)| text
+                        .lines()
+                        .nth(usize::from(area.y))
+                        .unwrap()
+                        .contains(token)),
+                    "{text}"
+                );
             }
-            assert!(
-                line.contains(&format!("✓ {}", Preference::Auto.label())),
-                "{text}"
-            );
         }
-        let inner = view::input::content_area(s.input_area.unwrap());
-        let (area, _, _) = view::layout_picker::options(inner, Preference::Auto)
-            .into_iter()
-            .find(|(_, p, _)| *p == Preference::Split)
+        let (area, _) = s
+            .command_items
+            .iter()
+            .find(|(_, index)| *index == 1)
+            .copied()
             .unwrap();
-        assert!(
-            s.mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column: area.x,
-                    row: area.y,
-                    modifiers: KeyModifiers::NONE
-                },
-                &Cancel::default()
-            )
-            .unwrap()
-        );
-        assert_eq!(s.diff_preference, Preference::Auto);
-        assert!(matches!(
-            s.bar,
-            InputBar::Layout {
-                selected: Preference::Split,
-                ..
-            }
-        ));
-        key(&mut s, KeyCode::Enter);
+        s.mouse(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column: area.x,
+                row: area.y,
+                modifiers: KeyModifiers::NONE,
+            },
+            &Cancel::default(),
+        )
+        .unwrap();
         assert_eq!(s.diff_preference, Preference::Split);
+        assert!(s.bar.is_plain());
+        s.shutdown();
     }
+}
+
+#[test]
+fn shift_tab_keeps_the_parameter_draft_and_left_right_edit_the_input() {
+    let (_home, mut s) = fixture(vec![]);
+    s.paste("//repo diff layout sp");
+    let draft = s.bar.text();
+    key(&mut s, KeyCode::BackTab);
+    assert_eq!(s.bar.text(), draft);
+    assert_eq!(options(&s).options.len(), 1);
+    let cursor = s.bar.editor().cursor;
+    key(&mut s, KeyCode::Left);
+    assert_eq!(s.bar.editor().cursor, cursor - 1);
+    assert_eq!(s.diff_preference, Preference::Auto);
+    key(&mut s, KeyCode::Right);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "/repo diff layout split");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.diff_preference, Preference::Split);
+    s.shutdown();
 }
 
 #[test]
@@ -171,24 +180,36 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
             &Cancel::default(),
         )
         .unwrap();
-        assert!(matches!(s.bar, InputBar::Layout { .. }));
+        assert!(matches!(
+            s.bar,
+            InputBar::Command {
+                menu: command::completion::Menu::Options(_),
+                ..
+            }
+        ));
         key(&mut s, KeyCode::Esc);
-        assert!(matches!(s.bar, InputBar::Command { selected, .. } if selected == index));
+        assert_eq!(s.bar.text(), "/repo diff layout ");
         key(&mut s, KeyCode::Enter);
-
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, Preference::Split);
         s.paste("//repo diff layout ");
-        key(&mut s, KeyCode::Enter);
         let text = render(&mut s, 100, 28);
-        let current = "✓";
-        assert!(
-            text.contains(&format!("{current} {}", Preference::Split.label())),
-            "{text}"
-        );
-        assert!(!text.contains(&format!("{current} {}", Preference::Unified.label())));
+        for (index, token) in [(1, "split"), (2, "unified")] {
+            let (area, _) = s
+                .command_items
+                .iter()
+                .find(|(_, item)| *item == index)
+                .unwrap();
+            let line = text.lines().nth(usize::from(area.y)).unwrap();
+            assert!(line.contains(token));
+            assert_eq!(
+                line.trim_end_matches(['│', ' ']).ends_with('✓'),
+                token == "split"
+            );
+        }
         assert!(s.repository_tasks.is_empty());
+        s.shutdown();
     }
 }
 
@@ -226,27 +247,4 @@ fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_thei
             "{text}"
         );
     }
-}
-
-#[test]
-fn shift_tab_layout_mode_restores_the_parameter_draft_and_typing_resumes_input() {
-    let (_home, mut s) = fixture(vec![]);
-    s.paste("//repo diff layout sp");
-    let draft = s.bar.text();
-    key(&mut s, KeyCode::BackTab);
-    assert!(matches!(s.bar, InputBar::Layout { .. }));
-    key(&mut s, KeyCode::Right);
-    key(&mut s, KeyCode::Tab);
-    assert_eq!(s.diff_preference, Preference::Auto);
-    key(&mut s, KeyCode::BackTab);
-    assert!(matches!(s.bar, InputBar::Command { .. }));
-    assert_eq!(s.bar.text(), draft);
-    key(&mut s, KeyCode::BackTab);
-    s.paste("lit");
-    assert_eq!(s.bar.text(), "/repo diff layout split");
-    assert!(matches!(s.bar, InputBar::Command { .. }));
-    assert_eq!(s.diff_preference, Preference::Auto);
-    key(&mut s, KeyCode::Enter);
-    assert_eq!(s.diff_preference, Preference::Split);
-    s.shutdown();
 }

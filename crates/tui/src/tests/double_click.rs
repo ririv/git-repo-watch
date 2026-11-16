@@ -176,20 +176,3 @@ fn settings_double_click_toggles_once_and_schedule_double_click_stops_at_confirm
         }
     ));
 }
-
-#[test]
-fn layout_double_click_applies_the_selected_option() {
-    let (_home, mut s) = fixture(vec![]);
-    command(&mut s, "repo diff layout");
-    render(&mut s, 120, 32);
-    let inner = view::input::content_area(s.input_area.unwrap());
-    let (area, _, _) = view::layout_picker::options(inner, s.diff_preference)
-        .into_iter()
-        .find(|(_, choice, _)| *choice == crate::diff::Preference::Split)
-        .unwrap();
-    click(&mut s, area.x, area.y);
-    assert_eq!(s.diff_preference, crate::diff::Preference::Auto);
-    click(&mut s, area.x, area.y);
-    assert_eq!(s.diff_preference, crate::diff::Preference::Split);
-    assert!(matches!(s.bar, crate::bar::InputBar::Search(_)));
-}

@@ -175,7 +175,7 @@ fn exit_prompt_survives_background_feedback_and_is_visible_on_task_pages() {
 }
 
 #[test]
-fn clearing_a_layout_picker_keeps_the_diff_view_and_existing_layout() {
+fn clearing_layout_parameters_keeps_the_diff_view_and_existing_layout() {
     let f = support::Fixture::create();
     support::write(f.repo.join("draft.rs"), "fn draft() {}\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
@@ -183,7 +183,13 @@ fn clearing_a_layout_picker_keeps_the_diff_view_and_existing_layout() {
     wait(&mut s);
     s.paste("draft");
     command(&mut s, "repo diff layout");
-    assert!(matches!(s.bar, bar::InputBar::Layout { .. }));
+    assert!(matches!(
+        s.bar,
+        bar::InputBar::Command {
+            menu: crate::command::completion::Menu::Options(_),
+            ..
+        }
+    ));
     let page = s.page;
     let depth = s.history.len();
     assert!(!interrupt(&mut s));

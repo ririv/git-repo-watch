@@ -13,11 +13,9 @@ impl Screen {
                 path,
                 selection,
                 ..
-            } => match command::argument_input(&input.query()).and_then(|(argument, value)| {
-                argument
-                    .options()
-                    .filter(|kind| *kind != Kind::DiffLayout || !value.trim().is_empty())
-            }) {
+            } => match command::argument_input(&input.query())
+                .and_then(|(argument, _)| argument.options())
+            {
                 Some(kind) if self.command_visible(kind.action(), path.as_deref(), selection) => {
                     Candidates::new(input, kind, self, path.as_deref(), selection)
                 }

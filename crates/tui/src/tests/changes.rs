@@ -93,12 +93,12 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
         command(&mut s, "repo diff layout");
         assert!(matches!(
             s.bar,
-            crate::bar::InputBar::Layout {
-                selected: crate::diff::Preference::Auto,
+            crate::bar::InputBar::Command {
+                menu: crate::command::completion::Menu::Options(_),
                 ..
             }
         ));
-        key(&mut s, KeyCode::Right);
+        key(&mut s, KeyCode::Down);
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.diff_preference, crate::diff::Preference::Split);
         assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -126,12 +126,18 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
             key(&mut s, KeyCode::Down);
         }
         key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.bar, crate::bar::InputBar::Layout { .. }));
-        key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), "/repo diff");
         assert!(matches!(
             s.bar,
-            crate::bar::InputBar::Command { selected: 3, .. }
+            crate::bar::InputBar::Command {
+                menu: crate::command::completion::Menu::Options(_),
+                ..
+            }
+        ));
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.text(), "/repo diff layout ");
+        assert!(matches!(
+            s.bar,
+            crate::bar::InputBar::Command { selected: 0, .. }
         ));
         key(&mut s, KeyCode::Esc);
         command(&mut s, "repo diff");

@@ -282,14 +282,23 @@ fn pending_reads_filter_the_latest_query_and_cancelled_directory_results_do_not_
 }
 
 #[test]
-fn empty_layout_commands_open_the_same_horizontal_picker_and_keep_the_draft_on_cancel() {
+fn empty_layout_commands_open_parameter_candidates_and_keep_the_draft_on_cancel() {
     for suffix in ["", " ", "   "] {
         let (_home, mut s) = fixture(vec![]);
         s.paste(&format!("//repo diff layout{suffix}"));
-        key(&mut s, KeyCode::Enter);
-        assert!(matches!(s.bar, bar::InputBar::Layout { .. }));
+        if suffix.is_empty() {
+            key(&mut s, KeyCode::Enter);
+        }
+        assert!(matches!(
+            s.bar,
+            bar::InputBar::Command {
+                menu: Menu::Options(_),
+                ..
+            }
+        ));
+        let draft = s.bar.text();
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), format!("/repo diff layout{suffix}"));
+        assert_eq!(s.bar.text(), draft);
         assert_eq!(s.diff_preference, crate::diff::Preference::Auto);
         s.shutdown();
     }

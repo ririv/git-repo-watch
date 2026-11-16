@@ -119,15 +119,6 @@ impl Input {
             None => command.name,
         }
     }
-    pub fn usage(&self, command: &Command) -> String {
-        if self.menu_context().is_none() || command.common() {
-            return command.usage();
-        }
-        match command.action.argument() {
-            Some(argument) => format!("{} {}", self.name(command), argument.placeholder()),
-            None => self.name(command).into(),
-        }
-    }
     pub fn replace_canonical(&mut self, editor: Editor) {
         match self.menu_context() {
             None => *self = Self::Global(editor),

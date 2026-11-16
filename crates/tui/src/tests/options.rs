@@ -32,6 +32,12 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
             ),
             ("repos sort", Kind::Sort, 4, "[priority|name|path|updated]"),
             ("repo diff view", Kind::FileView, 2, "[tree|flat]"),
+            (
+                "repo diff layout",
+                Kind::DiffLayout,
+                3,
+                "[auto|split|unified]",
+            ),
             ("repo diff header", Kind::DiffHeader, 2, "[show|hide]"),
             ("repo compose reorder", Kind::ComposeOrder, 2, "[up|down]"),
             ("schedule enabled", Kind::ScheduleEnabled, 2, "[true|false]"),
@@ -97,7 +103,7 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
 }
 
 #[test]
-fn choice_hints_follow_available_columns_and_keep_whole_tokens_and_current_values() {
+fn command_rows_omit_parameters_and_inline_hints_keep_whole_choices_and_current_values() {
     const FULL: &str = "[all|problems|clean|failed|unchecked|no-upstream|pushes]";
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
@@ -109,30 +115,43 @@ fn choice_hints_follow_available_columns_and_keep_whole_tokens_and_current_value
             let text = render(&mut s, width, 30);
             let row = s.command_items[0].0.y as usize;
             let line = text.lines().nth(row).unwrap();
-            assert!(line.contains("/repos filter ["), "{line}");
-            let start = line.find('[').unwrap();
-            let end = start + line[start..].find(']').unwrap();
-            let hint = &line[start..=end];
-            if width >= 140 {
-                assert_eq!(hint, FULL);
-                assert!(
-                    line.contains(i18n::CommandSummary::FilterMenu.text()),
-                    "{line}"
-                );
-            } else {
-                assert!(hint.ends_with("|…]"), "{line}");
-                let visible = hint[1..hint.len() - "|…]".len()].split('|');
-                for (actual, expected) in visible.zip(Kind::Filter.options()) {
-                    assert_eq!(actual, expected.token);
-                }
-            }
+            assert!(line.contains("/repos filter"), "{line}");
+            assert!(!line.contains('['), "{line}");
+            assert!(
+                line.contains(i18n::CommandSummary::FilterMenu.text()),
+                "{line}"
+            );
             assert!(
                 line.trim_end_matches(['│', ' '])
                     .ends_with(Filter::All.label()),
                 "{line}"
             );
         }
-        assert_eq!(s.bar.text(), "/repos filter");
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.text(), "/repos filter ");
+        for width in [140, 60, 140] {
+            let text = render(&mut s, width, 30);
+            let input = s.input_area.unwrap();
+            let line = text.lines().nth(usize::from(input.y + 1)).unwrap();
+            let start = line.find('[').unwrap();
+            let end = start + line[start..].find(']').unwrap();
+            let hint = &line[start..=end];
+            if width >= 140 {
+                assert_eq!(hint, FULL);
+            } else {
+                assert!(hint.ends_with("|…]"), "{line}");
+                for (actual, expected) in hint[1..hint.len() - "|…]".len()]
+                    .split('|')
+                    .zip(Kind::Filter.options())
+                {
+                    assert_eq!(actual, expected.token);
+                }
+            }
+            for (area, _) in &s.command_items {
+                assert!(!text.lines().nth(usize::from(area.y)).unwrap().contains('['));
+            }
+        }
+        assert_eq!(s.bar.text(), "/repos filter ");
         assert_eq!(s.selected_path(), selection);
         assert_eq!(s.filter, Filter::All);
         assert_eq!(

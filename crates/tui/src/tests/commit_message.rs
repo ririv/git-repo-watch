@@ -144,8 +144,13 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model [<model>|default]") && line.contains("Default"))
+                .any(|line| line.contains("model  ")
+                    && !line.contains("[<model>|default]")
+                    && line.contains("Default"))
         );
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.text(), "/settings ai model ");
+        assert!(render(&mut s, 140, 48).contains("[<model>|default]"));
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.page, Page::Configuration(Configuration::General));
         assert_eq!(s.command_context(), Some(command::Context::Ai));
@@ -160,7 +165,8 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model [<model>|default]")
+                .any(|line| line.contains("model  ")
+                    && !line.contains("[<model>|default]")
                     && line.contains("example-model"))
         );
         key(&mut s, KeyCode::Esc);
@@ -170,7 +176,9 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model [<model>|default]") && line.contains("Default"))
+                .any(|line| line.contains("model  ")
+                    && !line.contains("[<model>|default]")
+                    && line.contains("Default"))
         );
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings ai agent claude");
