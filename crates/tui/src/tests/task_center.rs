@@ -263,22 +263,11 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
             let text = render(&mut s, width, 26);
             let (first, id) = s.tasks.rows[0].clone();
             let (second, _) = s.tasks.rows[1].clone();
-            assert_eq!(first.height, 3, "{text}");
+            assert_eq!(first.height, 2, "{text}");
             assert_eq!(second.y, first.bottom(), "{text}");
-            assert!(
-                text.lines()
-                    .nth(usize::from(first.y + 1))
-                    .unwrap()
-                    .contains("├─"),
-                "{text}"
-            );
-            assert!(
-                text.lines()
-                    .nth(usize::from(first.y + 2))
-                    .unwrap()
-                    .contains("╰─"),
-                "{text}"
-            );
+            let reason = text.lines().nth(usize::from(first.y + 1)).unwrap();
+            assert!(reason.contains("╰─"), "{text}");
+            assert!(reason.contains('…'), "{text}");
             let line = text.lines().nth(first.y.into()).unwrap();
             assert!(line.contains(&expected), "{text}");
             assert!(
@@ -288,19 +277,12 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
                     .contains("Authentication failed"),
                 "{text}"
             );
-            assert!(
-                text.lines()
-                    .nth(usize::from(first.y + 2))
-                    .unwrap()
-                    .contains("请重新登录后重试"),
-                "{text}"
-            );
             key(&mut s, KeyCode::Down);
             s.mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
                     column: first.x + 3,
-                    row: first.y + 2,
+                    row: first.y + 1,
                     modifiers: KeyModifiers::NONE,
                 },
                 &Cancel::default(),
@@ -332,11 +314,12 @@ fn stage_timings_have_a_separate_detail_section_and_never_replace_failure_previe
         s.tasks.session = crate::task_center::Session::List;
         let list = render(&mut s, 60, 28);
         assert!(list.contains("Authentication failed"), "{list}");
-        assert!(list.contains("请重新登录后重试"), "{list}");
+        assert!(!list.contains("请重新登录后重试"), "{list}");
         assert!(!list.contains(i18n::tr!(ProgressTimings)), "{list}");
         s.tasks.session = crate::task_center::Session::Detail { id, scroll: 0 };
         let detail = render(&mut s, 110, 34);
         assert!(detail.contains("Authentication failed"), "{detail}");
+        assert!(detail.contains("请重新登录后重试"), "{detail}");
         assert!(detail.contains(i18n::tr!(ProgressTimings)), "{detail}");
         assert!(detail.contains(Stage::FetchingRemote.label()), "{detail}");
         assert!(detail.contains("1.234 s"), "{detail}");

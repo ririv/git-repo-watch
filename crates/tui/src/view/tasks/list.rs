@@ -1,4 +1,4 @@
-//! Task entries reserve separate lines for pending failure reasons.
+//! Task entries reserve one preview line for each pending failure.
 use super::*;
 use unicode_width::UnicodeWidthStr;
 
@@ -70,12 +70,12 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
         .lines()
         .filter(|line| !line.trim().is_empty())
         .flat_map(|line| crate::links::Line::from(Line::raw(line.to_owned())).wrap(width - 2, true))
-        .take(3)
+        .take(2)
         .map(|line| line.text)
         .collect::<Vec<_>>();
-    if lines.len() > 2 {
-        lines.truncate(2);
-        let last = lines.last_mut().expect("two preview lines");
+    if lines.len() > 1 {
+        lines.truncate(1);
+        let last = lines.last_mut().expect("one preview line");
         let shortened = truncate(&last.to_string(), width - 3);
         *last = Line::raw(if shortened.ends_with('…') {
             shortened
@@ -83,20 +83,11 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
             format!("{shortened}…")
         });
     }
-    let count = lines.len();
     lines
         .into_iter()
-        .enumerate()
-        .map(|(index, line)| {
+        .map(|line| {
             Line::from(vec![
-                Span::styled(
-                    if index + 1 == count {
-                        "╰─"
-                    } else {
-                        "├─"
-                    },
-                    Style::default().fg(MUTED),
-                ),
+                Span::styled("╰─", Style::default().fg(MUTED)),
                 Span::styled(line.to_string(), Style::default().fg(BAD)),
             ])
         })
