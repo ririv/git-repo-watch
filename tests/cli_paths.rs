@@ -156,3 +156,84 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
         assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
     }
 }
+
+#[test]
+fn explicit_home_paths_resolve_from_the_process_working_directory() {
+    let f = Fixture::create();
+    let original = fs::read(f.store.config_path()).unwrap();
+    for (cwd, home) in [
+        (f.user_home.as_path(), "应用 数据"),
+        (f.user_home.as_path(), "./应用 数据"),
+        (f.repository.as_path(), "../../应用 数据"),
+        (f.store.config_dir().as_path(), "."),
+    ] {
+        let output = f
+            .command()
+            .current_dir(cwd)
+            .args(["--home", home, "paths"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{home}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let paths: serde_json::Value = serde_json::from_slice(&output.stdout).unwrap();
+        let config = PathBuf::from(paths["config"].as_str().unwrap());
+        assert!(config.is_absolute());
+        assert_eq!(
+            fs::canonicalize(config).unwrap(),
+            fs::canonicalize(f.store.config_path()).unwrap()
+        );
+        let output = f
+            .command()
+            .current_dir(cwd)
+            .args(["--home", home, "config"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{home}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
+}
+
+#[test]
+fn relative_home_initializes_a_new_profile_and_reuses_it_without_touching_other_profiles() {
+    let f = Fixture::create();
+    let original = fs::read(f.store.config_path()).unwrap();
+    let profile = f.repository.parent().unwrap().join("新建 数据");
+    assert!(!profile.exists());
+    for args in [vec!["init"], vec!["interval", "12h"], vec!["config"]] {
+        let output = f
+            .command()
+            .current_dir(&f.repository)
+            .args(["--home", "../新建 数据"])
+            .args(args)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+    assert_eq!(
+        Store::custom(profile).config().unwrap().interval_seconds,
+        43200
+    );
+    assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
+    for args in [vec!["--home"], vec!["--home", "", "init"]] {
+        let output = f
+            .command()
+            .current_dir(&f.repository)
+            .args(args)
+            .output()
+            .unwrap();
+        assert_eq!(output.status.code(), Some(2));
+        assert!(String::from_utf8_lossy(&output.stderr).contains("--home requires a path"));
+    }
+    assert!(!f.repository.join("config.toml").exists());
+}

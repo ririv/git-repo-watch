@@ -53,9 +53,9 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
     let manager = Manager::new()?;
     let store = if args.first().is_some_and(|a| a == "--home") {
         ensure!(args.len() >= 2, i18n::tr!(HomeRequiresAPath));
-        let home = paths::expand_home(&args[1], manager.user_home())?;
+        ensure!(!args[1].is_empty(), i18n::tr!(HomeRequiresAPath));
+        let home = std::path::absolute(paths::expand_home(&args[1], manager.user_home())?)?;
         args.drain(..2);
-        ensure!(home.is_absolute(), i18n::tr!(HomeMustBeAnAbsolutePath));
         state::Store::custom(home)
     } else {
         manager.default_store()

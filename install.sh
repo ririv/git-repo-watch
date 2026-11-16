@@ -1,7 +1,6 @@
 #!/bin/sh
 set -eu
 ROOT=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
-cd "$ROOT"
 . "$ROOT/application.env"
 case "$(uname -s)" in
     Darwin) tools="/usr/bin/git /usr/bin/ssh /usr/bin/osascript /bin/launchctl /usr/bin/plutil" ;;
