@@ -42,6 +42,7 @@ fn command_hint(input: &command::Input) -> &'static str {
             i18n::tr!(ContextGlobalCommandHint)
         }
         command::Input::Scoped { .. } => i18n::tr!(ContextCommandHint),
+        command::Input::Global(editor) if editor.text == "/" => i18n::tr!(CommandHistoryEntryHint),
         command::Input::Global(_) => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
     }
 }
@@ -482,6 +483,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             | Mode::History(_) => {
                 let command = matches!(bar, crate::bar::InputBar::Command { .. });
                 let hint = if matches!(
+                    bar,
+                    crate::bar::InputBar::Command {
+                        menu: command::completion::Menu::History(_),
+                        ..
+                    }
+                ) {
+                    i18n::tr!(CommandHistoryHint)
+                } else if matches!(
                     bar,
                     crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Loading(_),

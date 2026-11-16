@@ -2,6 +2,13 @@
 use crate::{Language, language};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
+    CommandHistory,
+    CommandHistoryEmpty,
+    CommandHistoryEntryHint,
+    CommandHistoryHint,
+    InvalidCommandHistory,
+    ReadCommandHistoryFailed,
+    SaveCommandHistoryFailed,
     WorktreeHorizontalHint,
     ConflictControlsTitle,
     ConflictControlsHint,
@@ -1341,6 +1348,34 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::CommandHistory, Language::Chinese) => "命令历史",
+            (Self::CommandHistory, Language::English) => "Command history",
+            (Self::CommandHistoryEntryHint, Language::Chinese) => {
+                "↑ 首项历史 · ↓候选 · Tab 补全 · Enter 执行 · Esc 清空"
+            }
+            (Self::CommandHistoryEntryHint, Language::English) => {
+                "↑ at top: history · ↓ candidates · Tab complete · Enter run · Esc close"
+            }
+            (Self::CommandHistoryEmpty, Language::Chinese) => "暂无命令历史",
+            (Self::CommandHistoryEmpty, Language::English) => "No command history yet",
+            (Self::CommandHistoryHint, Language::Chinese) => {
+                "↑↓选择 · Enter/Tab 填入 · Esc 返回命令"
+            }
+            (Self::CommandHistoryHint, Language::English) => {
+                "↑↓ select · Enter/Tab fill · Esc commands"
+            }
+            (Self::InvalidCommandHistory, Language::Chinese) => "命令历史格式或容量不受支持",
+            (Self::InvalidCommandHistory, Language::English) => {
+                "Unsupported command history format or size"
+            }
+            (Self::ReadCommandHistoryFailed, Language::Chinese) => "读取命令历史失败：{0}",
+            (Self::ReadCommandHistoryFailed, Language::English) => {
+                "Could not read command history: {0}"
+            }
+            (Self::SaveCommandHistoryFailed, Language::Chinese) => "保存命令历史失败：{0}",
+            (Self::SaveCommandHistoryFailed, Language::English) => {
+                "Could not save command history: {0}"
+            }
             (Self::WorktreeHorizontalHint, Language::Chinese) => "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选",
             (Self::WorktreeHorizontalHint, Language::English) => "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check",
             (Self::ConflictControlsTitle, Language::Chinese) => "冲突处理",
@@ -5723,6 +5758,9 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (ReadCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not read command history: {}", $error), $crate::Language::Chinese => format!("读取命令历史失败：{}", $error) } };
+    (SaveCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not save command history: {}", $error), $crate::Language::Chinese => format!("保存命令历史失败：{}", $error) } };
+
     (ConflictBlockCount $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Conflict {current}/{total}" $(, $($args)*)?), $crate::Language::Chinese => format!("冲突块 {current}/{total}" $(, $($args)*)?), } };
     (ExternalEditorOpened $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Opened in editor: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("已用编辑器打开：{0}" $(, $($args)*)?), } };
     (ExternalEditorMissing $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("Editor not found: {0}" $(, $($args)*)?), $crate::Language::Chinese => format!("未找到编辑器：{0}" $(, $($args)*)?), } };

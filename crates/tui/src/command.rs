@@ -3,6 +3,7 @@ mod argument;
 pub(crate) mod availability;
 pub(crate) mod completion;
 pub(crate) mod context;
+pub(crate) mod history;
 mod input;
 pub(crate) mod loader;
 pub(crate) mod options;

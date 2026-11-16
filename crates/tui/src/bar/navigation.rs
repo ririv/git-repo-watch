@@ -15,6 +15,7 @@ impl Screen {
                 *selected,
                 self.search_commands().expect("command menu").len(),
             ),
+            Menu::History(values) => (values.selected, values.entries.len()),
             Menu::Options(values) => (values.selected, values.options.len()),
             Menu::Directories(values) => (values.selected(), values.names().len()),
             Menu::Values(values) => match values.selected {
@@ -38,6 +39,9 @@ impl Screen {
         };
         match menu {
             Menu::Commands => *selected = next,
+            Menu::History(values) => {
+                values.select(next);
+            }
             Menu::Options(values) => values.selected = next,
             Menu::Directories(values) => {
                 values.select(next);

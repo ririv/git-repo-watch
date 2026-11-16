@@ -208,3 +208,41 @@ pub(super) fn render_options(
         viewport,
     )
 }
+
+pub(super) fn render_history(
+    frame: &mut Frame,
+    screen: &Screen,
+    history: &command::history::Session,
+    body: Rect,
+    viewport: &mut candidates::Viewport,
+) -> Vec<(Rect, usize)> {
+    let areas = candidates::panel(
+        frame,
+        screen,
+        body,
+        history.entries.len(),
+        Some(i18n::tr!(CommandHistory)),
+    );
+    let mut items = history
+        .entries
+        .iter()
+        .map(|entry| {
+            ListItem::new(crate::horizontal::clip(
+                &Line::from(Span::styled(safe(entry), Style::default().fg(ACCENT))),
+                0,
+                usize::from(areas.1.width),
+            ))
+        })
+        .collect::<Vec<_>>();
+    if items.is_empty() {
+        items.push(ListItem::new(i18n::tr!(CommandHistoryEmpty)));
+    }
+    candidates::render_list(
+        frame,
+        areas,
+        items,
+        Some(history.selected),
+        candidates::Source::History(history.entries.clone()),
+        viewport,
+    )
+}

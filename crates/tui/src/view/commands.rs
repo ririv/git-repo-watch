@@ -232,6 +232,11 @@ fn render_menu(
                 completion::render_options(frame, screen, values, body, viewport);
             return;
         }
+        command::completion::Menu::History(history) => {
+            screen.command_items =
+                completion::render_history(frame, screen, history, body, viewport);
+            return;
+        }
         command::completion::Menu::Commands => {}
         command::completion::Menu::Values(values) => {
             screen.command_items = completion::render_values(frame, screen, values, body, viewport);

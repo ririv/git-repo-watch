@@ -52,6 +52,7 @@
 - Recovery commands appear only while cherry-pick or revert is in progress, including after restart. Completing or aborting the sequence marks its matching pending tasks handled while retaining their history.
 
 ## Search and commands
+- With only the global `/` in the input, press `↑` at the first command for history. With a context prefix, arrows only select subcommands. Ordinary lists keep `↑` navigation. Choose with `↑↓`; `Enter`/`Tab` fills the draft, then `Enter` runs it. `Esc` returns to commands. The latest 128 unique submissions persist per data directory; searches and completions are not recorded.
 - When opening a command group, direct entries precede deeper actions; typing still searches all descendants. Temporarily unavailable commands and options keep their positions and show a muted reason; Enter or clicking preserves the draft without starting work. This includes missing commits or operations and an already active display mode. Worktree actions in historical diffs, preview switches for unsupported files, and disabled AI features stay hidden. Selection actions show their file, line or commit count.
 - `/` at the start of the input opens commands; `/` and `、` inside a search remain literal path characters. Pasting a complete `//command` opens global commands from an existing search; closing the menu restores that search.
 - Command, option and directory candidates support `PgUp` / `PgDn` using the visible row count, stopping at either end. After closing options, `Enter` with an empty parameter reopens them without applying a default.

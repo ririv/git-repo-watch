@@ -154,13 +154,18 @@ fn value_completion_preserves_plain_search_and_the_selected_repository_until_exe
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.order, Order::Priority);
     assert_eq!(s.selected_path(), selected);
+    assert_eq!(
+        std::fs::read(s.service.store.config_path()).unwrap(),
+        config
+    );
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.order, Order::Name);
     assert_eq!(s.bar.text(), "中文");
     assert_eq!(s.selected_path(), selected);
+    wait(&mut s);
     assert_eq!(
-        std::fs::read(s.service.store.config_path()).unwrap(),
-        config
+        s.service.store.config().unwrap().view.repository_order,
+        engine::state::view::RepositoryOrder::Name
     );
     s.shutdown();
 }

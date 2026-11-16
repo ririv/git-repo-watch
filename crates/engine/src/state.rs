@@ -1,4 +1,5 @@
 //! Private, atomic persistence and cross-process coordination.
+mod command_history;
 mod configuration;
 mod database;
 mod interaction;

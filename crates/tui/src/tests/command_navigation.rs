@@ -6,6 +6,7 @@ fn candidate(s: &Screen) -> usize {
     match &s.bar {
         bar::InputBar::Command { selected, menu, .. } => match menu {
             Menu::Commands => *selected,
+            Menu::History(values) => values.selected,
             Menu::Options(values) => values.selected,
             Menu::Directories(values) => values.selected(),
             Menu::Values(values) => values.selected.expect("selected repository value"),

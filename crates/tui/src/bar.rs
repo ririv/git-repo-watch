@@ -1,5 +1,6 @@
 //! Persistent input: plain text filters the current list; slash-prefixed text selects commands.
 mod complete;
+mod history;
 mod navigation;
 mod options;
 use crate::{Action, Editor, Mode, Page, Screen, command};
@@ -237,6 +238,24 @@ impl Screen {
         self.message.clear();
     }
     pub(crate) fn bar_key(&mut self, key: KeyEvent, root: &Cancel) -> Result<BarEvent> {
+        if self.command_history_key(key) {
+            return Ok(BarEvent::Handled);
+        }
+        let mut submitted = None;
+        let result = self.bar_key_inner(key, root, &mut submitted);
+        if let Some(text) = submitted
+            && let Err(error) = self.service.store.record_command(&text)
+        {
+            self.message = i18n::tf!(SaveCommandHistoryFailed, format!("{error:#}"));
+        }
+        result
+    }
+    fn bar_key_inner(
+        &mut self,
+        key: KeyEvent,
+        root: &Cancel,
+        submitted: &mut Option<String>,
+    ) -> Result<BarEvent> {
         let key = self.command_trigger_key(key);
         // 错误页开放复制、任务与退出；Esc 先关闭命令，再交给错误页返回。
         if matches!(self.mode, Mode::Error { .. }) && !matches!(self.bar, InputBar::Command { .. })
@@ -374,7 +393,7 @@ impl Screen {
                             *menu = Default::default();
                             self.message.clear();
                             if execute {
-                                return self.bar_key(key, root);
+                                return self.bar_key_inner(key, root, submitted);
                             }
                         } else {
                             self.message = i18n::tr!(NoMatchingOptions).into();
@@ -440,6 +459,7 @@ impl Screen {
                             let selection = selection.clone();
                             match action {
                                 Ok(action) => {
+                                    *submitted = Some(input.text());
                                     self.sync_bar();
                                     self.activate(action, target, selection, root)?;
                                 }
@@ -448,6 +468,7 @@ impl Screen {
                             return Ok(BarEvent::Handled);
                         }
                         if argument.action() == Action::AiPrompt && value.trim().is_empty() {
+                            *submitted = Some(input.text());
                             self.activate(
                                 Action::AiPrompt,
                                 None,
@@ -457,11 +478,18 @@ impl Screen {
                             return Ok(BarEvent::Handled);
                         }
                         if argument == command::ArgumentAction::Scan {
+                            let text = input.text();
                             let value = value.to_owned();
-                            self.scan_command(&value);
+                            if self.scan_command(&value) {
+                                *submitted = Some(text);
+                            }
                             return Ok(BarEvent::Handled);
                         }
-                        match argument.parse(value, self.service.scheduler.user_home()) {
+                        let parsed = argument.parse(value, self.service.scheduler.user_home());
+                        if parsed.is_ok() {
+                            *submitted = Some(input.text());
+                        }
+                        match parsed {
                             Ok(value) if argument == command::ArgumentAction::Editor => {
                                 self.select_editor(value.try_into()?);
                             }
@@ -506,6 +534,7 @@ impl Screen {
                             *selected = 0;
                             self.message.clear();
                         } else {
+                            *submitted = Some(format!("/{}", command.name));
                             let action = command.action;
                             let path = path.clone();
                             let selection = selection.clone();

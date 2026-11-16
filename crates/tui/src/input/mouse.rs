@@ -286,6 +286,11 @@ impl Screen {
         {
             self.clicks.reset();
             match menu {
+                command::completion::Menu::History(history) => {
+                    if !history.select(index) {
+                        return Ok(false);
+                    }
+                }
                 command::completion::Menu::Options(options) => options.selected = index,
                 command::completion::Menu::Directories(directories) => {
                     if !directories.select(index) {

@@ -7,13 +7,14 @@ pub(super) enum Source {
     Options(Vec<command::options::Value>),
     Directories(Vec<String>),
     Values(Vec<String>),
+    History(Vec<String>),
 }
 impl Source {
     fn len(&self) -> usize {
         match self {
             Self::Commands(items) => items.len(),
             Self::Options(items) => items.len(),
-            Self::Directories(items) | Self::Values(items) => items.len(),
+            Self::Directories(items) | Self::Values(items) | Self::History(items) => items.len(),
         }
     }
 }

@@ -6,6 +6,7 @@ use crate::Editor;
 pub(crate) enum Menu {
     #[default]
     Commands,
+    History(super::history::Session),
     Directories(path::Directories),
     Options(super::options::Candidates),
     Values(super::values::Candidates),
@@ -35,7 +36,11 @@ impl Selection for super::values::Candidates {
 impl Menu {
     pub fn selection(&mut self) -> Option<&mut dyn Selection> {
         match self {
-            Self::Commands | Self::Options(_) | Self::Loading(_) | Self::Failed(_) => None,
+            Self::Commands
+            | Self::History(_)
+            | Self::Options(_)
+            | Self::Loading(_)
+            | Self::Failed(_) => None,
             Self::Directories(values) => Some(values),
             Self::Values(values) => Some(values),
         }

@@ -23,16 +23,22 @@ impl Screen {
             self.open_management_actions(selected);
         }
     }
-    pub(crate) fn scan_command(&mut self, raw: &str) {
+    pub(crate) fn scan_command(&mut self, raw: &str) -> bool {
         match command::scan::request(raw, self.service.scheduler.user_home()) {
-            Ok(request) => self.start(
-                i18n::tr!(ActionScan),
-                Effect::ReadOnly,
-                move |service, cancel, _| {
-                    Ok(Outcome::Scanned(Box::new(service.scan(&request, &cancel)?)))
-                },
-            ),
-            Err(error) => self.message = format!("{error:#}"),
+            Ok(request) => {
+                self.start(
+                    i18n::tr!(ActionScan),
+                    Effect::ReadOnly,
+                    move |service, cancel, _| {
+                        Ok(Outcome::Scanned(Box::new(service.scan(&request, &cancel)?)))
+                    },
+                );
+                true
+            }
+            Err(error) => {
+                self.message = format!("{error:#}");
+                false
+            }
         }
     }
     pub(crate) fn management_action(&mut self, action: Action) {
