@@ -54,7 +54,7 @@ fn enter_opens_actions_without_preparing_a_mutation_and_cancel_preserves_marks_a
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "repo log select start");
     mark(&mut s, &first);
     mark(&mut s, &second);
     s.paste("txt");
@@ -116,7 +116,7 @@ fn a_single_marked_commit_is_reverted_even_when_the_cursor_is_on_another_commit(
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "repo log select start");
     mark(&mut s, &marked);
     select(&mut s, &before);
     key(&mut s, KeyCode::Enter);
@@ -153,7 +153,7 @@ fn menu_wheel_and_pointer_follow_preferences_and_copy_only_the_marked_hashes() {
     wait_workspace(&mut s);
     s.workspace.session_mut().unwrap().selection = crate::workspace::Section::History;
     key(&mut s, KeyCode::Enter);
-    command(&mut s, "repo log select");
+    command(&mut s, "repo log select start");
     mark(&mut s, &first);
     mark(&mut s, &second);
     key(&mut s, KeyCode::Enter);
