@@ -141,9 +141,31 @@ fn scoped_and_scrolled_input_keeps_parameter_roles_and_the_original_editing_geom
     };
     *input = Input::new(Some(Context::Branches));
     input.paste("create 功能/中文");
-    let buffer = draw(&mut s, 100);
-    assert_eq!(color(&s, &buffer, "create"), view::ACCENT);
-    assert_eq!(color(&s, &buffer, "功能/中文"), Color::LightCyan);
+    for background in [
+        crate::appearance::Background::Dark,
+        crate::appearance::Background::Light,
+    ] {
+        s.background = background;
+        let buffer = draw(&mut s, 100);
+        assert_eq!(color(&s, &buffer, "/repo branch"), view::ACCENT);
+        assert_eq!(color(&s, &buffer, "create"), view::ACCENT);
+        assert_eq!(
+            color(&s, &buffer, "功能/中文"),
+            match background {
+                crate::appearance::Background::Light => Color::Rgb(0, 112, 190),
+                _ => Color::LightCyan,
+            }
+        );
+        let area = view::input::content_area(s.input_area.unwrap());
+        assert_eq!(
+            buffer[(area.x, area.y)].bg,
+            match background {
+                crate::appearance::Background::Light => Color::Reset,
+                _ => Color::Rgb(34, 52, 65),
+            }
+        );
+    }
+    s.background = crate::appearance::Background::Dark;
     key(&mut s, KeyCode::Esc);
     s.paste(&format!(
         "//repo branch create {}repo branch create",

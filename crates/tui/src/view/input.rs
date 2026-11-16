@@ -868,6 +868,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 spans.extend(prefix::spans(
                     &prefix,
                     command.and_then(|input| input.prefix_selection()),
+                    screen.background,
                 ));
                 spans.push(Span::raw(" "));
             }

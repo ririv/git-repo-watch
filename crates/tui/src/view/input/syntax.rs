@@ -19,15 +19,19 @@ pub(super) fn spans(input: &Input, visible: Range<usize>) -> Vec<Span<'static>> 
             if start >= end {
                 return None;
             }
-            let style = match segment.role {
-                Role::Command => Style::default().fg(ACCENT).bold(),
-                Role::Argument => Style::default().fg(Color::LightCyan),
-                Role::Option => Style::default().fg(WARN).bold(),
-            };
+            let style = style(segment.role);
             Some(Span::styled(
                 input.editor().text[start..end].to_owned(),
                 style,
             ))
         })
         .collect()
+}
+
+pub(super) fn style(role: Role) -> Style {
+    match role {
+        Role::Command => Style::default().fg(ACCENT).bold(),
+        Role::Argument => Style::default().fg(Color::LightCyan),
+        Role::Option => Style::default().fg(WARN).bold(),
+    }
 }

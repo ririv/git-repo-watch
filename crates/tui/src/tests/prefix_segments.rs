@@ -292,7 +292,7 @@ fn partial_highlight_has_distinct_spans_and_survives_narrow_layouts() {
                 let inner = view::input::content_area(s.input_area.unwrap());
                 let slash = &terminal.backend().buffer()[(inner.x, inner.y)];
                 let leaf = &terminal.backend().buffer()[(inner.x + 6, inner.y)];
-                assert_eq!(slash.fg, Color::LightCyan);
+                assert_eq!(slash.fg, view::ACCENT);
                 assert_eq!(slash.bg, Color::Rgb(34, 52, 65));
                 assert_eq!(leaf.symbol(), "b");
                 assert_eq!(leaf.fg, Color::Black);
