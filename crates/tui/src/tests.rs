@@ -8,6 +8,7 @@ mod browser_horizontal;
 mod changes;
 mod command_availability;
 mod command_colors;
+mod command_hierarchy;
 mod command_history;
 mod command_navigation;
 mod command_polish;
@@ -833,14 +834,25 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
             assert_eq!(s.command_items.len(), 8, "{text}");
             assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
             for item in s.search_commands().unwrap().into_iter().take(8) {
-                assert!(text.contains(&format!("/{}", item.name)));
+                assert!(text.contains(item.name.split_whitespace().last().unwrap()));
             }
             for _ in 0..command::COMMANDS.len() {
                 key(&mut s, KeyCode::Down);
             }
             let last = render(&mut s, width, height);
             assert_eq!(s.command_items.len(), 8);
-            assert!(last.contains(s.search_commands().unwrap().last().unwrap().name));
+            assert!(
+                last.contains(
+                    s.search_commands()
+                        .unwrap()
+                        .last()
+                        .unwrap()
+                        .name
+                        .split_whitespace()
+                        .last()
+                        .unwrap()
+                )
+            );
             key(&mut s, KeyCode::Esc);
         }
     }
@@ -863,7 +875,18 @@ fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
         let (_, index) = s.command_items.last().unwrap();
         let commands = s.search_commands().unwrap();
         assert_eq!(*index, commands.len() - 1, "{text}");
-        assert!(text.contains(commands.last().unwrap().name), "{text}");
+        assert!(
+            text.contains(
+                commands
+                    .last()
+                    .unwrap()
+                    .name
+                    .split_whitespace()
+                    .last()
+                    .unwrap()
+            ),
+            "{text}"
+        );
         key(&mut s, KeyCode::Esc);
     }
 }
@@ -1540,9 +1563,9 @@ fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu
     key(&mut s, KeyCode::Char('/'));
     s.paste("/repos");
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "/repos");
+    assert_eq!(s.bar.text(), "/repos ");
     s.select(1);
-    s.paste(" rem");
+    s.paste("rem");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
@@ -1711,7 +1734,10 @@ fn parameter_candidates_complete_before_showing_inline_hints_without_changing_th
         s.paste("//repos a");
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let text = render(&mut s, width, height);
-            assert!(text.contains("/repos add"), "{text}");
+            assert!(
+                text.contains("add") && text.contains(i18n::CommandSummary::Add.text()),
+                "{text}"
+            );
             assert!(!text.contains("<path>"), "{text}");
         }
         key(&mut s, KeyCode::Enter);

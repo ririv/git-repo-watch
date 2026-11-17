@@ -240,6 +240,8 @@ pub enum Message {
     CommandEnterFillValue,
     CommandEnterWaiting,
     CommandCandidateKeys,
+    CommandChildrenKeys,
+    CommandChildrenTitle,
     CommandScopedCandidateKeys,
     CommandCandidateHistoryKeys,
     OptionCompletionHint,
@@ -2084,6 +2086,10 @@ impl Message {
             (Self::CommandEnterWaiting, Language::Chinese) => "正在加载候选",
             (Self::CommandScopedCandidateKeys, Language::English) => "/ global commands · Tab complete · ⌫ edit prefix",
             (Self::CommandScopedCandidateKeys, Language::Chinese) => "/ 全局命令 · Tab 补全 · ⌫ 编辑前缀",
+            (Self::CommandChildrenKeys, Language::English) => "Tab enter subcommands · ↑↓ choose · Esc back",
+            (Self::CommandChildrenKeys, Language::Chinese) => "Tab 进入子命令 · ↑↓选择 · Esc 返回",
+            (Self::CommandChildrenTitle, Language::English) => "{name} subcommands",
+            (Self::CommandChildrenTitle, Language::Chinese) => "{name} 子命令",
             (Self::CommandCandidateKeys, Language::English) => "Tab complete · ↑↓ choose · Esc back",
             (Self::CommandCandidateKeys, Language::Chinese) => "Tab 补全 · ↑↓选择 · Esc 返回",
             (Self::CommandCandidateHistoryKeys, Language::English) => "Tab complete · ↓ choose · ↑ history · Esc close",
@@ -5793,6 +5799,7 @@ impl std::fmt::Display for Message {
 }
 #[macro_export]
 macro_rules! tf {
+    (CommandChildrenTitle $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("{name} subcommands" $(, $($args)*)?), $crate::Language::Chinese => format!("{name} 子命令" $(, $($args)*)?), } };
     (ReadCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not read command history: {}", $error), $crate::Language::Chinese => format!("读取命令历史失败：{}", $error) } };
     (SaveCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not save command history: {}", $error), $crate::Language::Chinese => format!("保存命令历史失败：{}", $error) } };
 

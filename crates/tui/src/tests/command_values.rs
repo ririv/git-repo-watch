@@ -341,9 +341,11 @@ fn unavailable_commands_explain_their_condition_and_file_counts_match_the_select
     }
     s.paste("//repo diff ");
     let text = render(&mut s, 150, 28);
-    assert!(text.lines().any(|line| line.contains("/repo diff stage")
-        && line.contains(&i18n::tf!(CommandTargetFiles, count = 2))));
-    assert!(!text.contains("/repo diff unstage "), "{text}");
+    assert!(
+        text.lines().any(|line| line.contains("stage")
+            && line.contains(&i18n::tf!(CommandTargetFiles, count = 2)))
+    );
+    assert!(!text.contains("unstage "), "{text}");
     let before = support::git(&f.repo, &["diff", "--cached"]);
     key(&mut s, KeyCode::Esc);
     s.paste("//repo diff unstage");

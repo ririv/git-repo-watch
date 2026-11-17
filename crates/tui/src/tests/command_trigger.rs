@@ -142,10 +142,10 @@ fn chinese_trigger_is_a_page_only_toggle_that_persists_without_confirmation() {
                 "settings wrap",
                 "settings interaction",
                 "settings ai",
-                "settings editor",
                 "settings ai agent",
                 "settings ai model",
                 "settings ai prompt",
+                "settings editor",
             ]
         );
         assert!(command::argument_input("settings chinese-command-trigger false").is_none());

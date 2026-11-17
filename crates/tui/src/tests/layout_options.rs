@@ -155,7 +155,7 @@ fn command_annotations_distinguish_auto_from_the_effective_layout_and_track_resi
             );
             assert!(
                 text.lines()
-                    .any(|line| line.contains("/repo diff layout") && line.contains(&expected)),
+                    .any(|line| line.contains("layout") && line.contains(&expected)),
                 "{text}"
             );
         }
@@ -220,8 +220,7 @@ fn layout_state_is_available_without_a_diff_and_historical_previews_resolve_thei
     let text = render(&mut s, 100, 28);
     assert!(
         text.lines()
-            .any(|line| line.contains("/repo diff layout")
-                && line.contains(Preference::Auto.label())),
+            .any(|line| line.contains("layout") && line.contains(Preference::Auto.label())),
         "{text}"
     );
     assert!(!text.contains(&format!("({} ", i18n::tr!(LayoutVisible))));

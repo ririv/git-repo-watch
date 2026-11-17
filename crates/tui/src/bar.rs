@@ -317,6 +317,25 @@ impl Screen {
             return Ok(BarEvent::Handled);
         }
         let matches = self.search_commands().unwrap_or_default();
+        if key.code == KeyCode::Esc
+            && let InputBar::Command {
+                input,
+                selected,
+                menu: command::completion::Menu::Commands,
+                ..
+            } = &mut self.bar
+            && let Some(group) = command::hierarchy::Group::current(input, &matches)
+            && group.location == command::hierarchy::Location::Children
+            && input
+                .query()
+                .trim_end()
+                .eq_ignore_ascii_case(group.parent.name)
+        {
+            input.replace_canonical(Editor::new(format!("/{}", group.parent.name)));
+            *selected = 0;
+            self.message.clear();
+            return Ok(BarEvent::Handled);
+        }
         if key.code == KeyCode::Enter
             && let InputBar::Command {
                 input,
@@ -426,7 +445,13 @@ impl Screen {
                                 return Ok(BarEvent::Handled);
                             }
                         } else {
-                            selection.complete(input, c);
+                            if query.eq_ignore_ascii_case(c.name)
+                                && command::hierarchy::has_children(c, &matches)
+                            {
+                                input.replace_canonical(Editor::new(format!("/{} ", c.name)));
+                            } else {
+                                selection.complete(input, c);
+                            }
                             self.message.clear();
                         }
                         *selected = 0

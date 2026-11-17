@@ -120,7 +120,10 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         assert_eq!(s.search_commands().unwrap().len(), 9);
         let text = render(&mut s, 180, 36);
         for command in s.search_commands().unwrap().into_iter().take(8) {
-            assert!(text.contains(&format!("/{}", command.name)), "{text}");
+            assert!(
+                text.contains(command.name.split_whitespace().last().unwrap()),
+                "{text}"
+            );
         }
         for _ in 0..3 {
             key(&mut s, KeyCode::Down);

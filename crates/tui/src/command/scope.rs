@@ -29,13 +29,16 @@ impl Screen {
         else {
             return None;
         };
-        Some(
-            input
-                .matches()
-                .into_iter()
-                .filter(|command| self.command_visible(command.action, path.as_deref(), selection))
-                .collect(),
-        )
+        let mut candidates = input
+            .matches()
+            .into_iter()
+            .filter(|command| self.command_visible(command.action, path.as_deref(), selection))
+            .collect::<Vec<_>>();
+        if let Some(group) = super::hierarchy::Group::current(input, &candidates) {
+            group.retain_candidates(&mut candidates);
+        }
+        super::hierarchy::arrange(&mut candidates);
+        Some(candidates)
     }
 
     pub(crate) fn out_of_view_command(

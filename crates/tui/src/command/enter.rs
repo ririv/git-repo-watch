@@ -142,6 +142,15 @@ impl Screen {
                     {
                         return Some(format!("{reason} · {keys}"));
                     }
+                    if query.eq_ignore_ascii_case(command.name)
+                        && super::hierarchy::has_children(command, &commands)
+                    {
+                        return Some(format!(
+                            "{} · {}",
+                            command.enter_intent().text(),
+                            i18n::tr!(CommandChildrenKeys)
+                        ));
+                    }
                     command.enter_intent()
                 }
             }

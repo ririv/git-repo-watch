@@ -6,7 +6,7 @@ use ratatui::layout::Alignment;
 use unicode_width::UnicodeWidthStr;
 
 struct Entry {
-    name: String,
+    name: command::hierarchy::Label,
     maturity: Maturity,
     description: String,
     value: String,
@@ -27,7 +27,7 @@ impl Columns {
     fn fit(entries: &[Entry], width: usize) -> Self {
         let desired_name = entries
             .iter()
-            .map(|entry| entry.name.width())
+            .map(|entry| entry.name.branch.width() + entry.name.name.width())
             .max()
             .unwrap_or(0);
         let minimum_description = entries
@@ -66,26 +66,30 @@ impl Columns {
 }
 impl Entry {
     fn item(&self, columns: &Columns) -> ListItem<'static> {
-        let name = clipped(&self.name, columns.name);
-        let used = name.width();
+        let branch = clipped(&self.name.branch, columns.name);
+        let name = clipped(&self.name.name, columns.name.saturating_sub(branch.width()));
+        let used = branch.width() + name.width();
         let enabled = matches!(
             self.availability,
             command::availability::Availability::Ready
         );
-        let mut spans = vec![Span::styled(
-            name,
-            if enabled {
-                Style::default()
-                    .fg(if self.maturity == Maturity::Experimental {
-                        EXPERIMENTAL
-                    } else {
-                        ACCENT
-                    })
-                    .bold()
-            } else {
-                Style::default().fg(MUTED)
-            },
-        )];
+        let mut spans = vec![
+            Span::styled(branch, Style::default().fg(MUTED)),
+            Span::styled(
+                name,
+                if enabled {
+                    Style::default()
+                        .fg(if self.maturity == Maturity::Experimental {
+                            EXPERIMENTAL
+                        } else {
+                            ACCENT
+                        })
+                        .bold()
+                } else {
+                    Style::default().fg(MUTED)
+                },
+            ),
+        ];
         spans.push(Span::raw(" ".repeat(columns.name.saturating_sub(used))));
         field(
             &mut spans,
@@ -234,8 +238,12 @@ fn render_menu(
     let commands = screen.search_commands().expect("command candidates");
     let source =
         candidates::Source::Commands(commands.iter().map(|command| command.name).collect());
+    let group = command::hierarchy::Group::current(input, &commands);
+    let title = group.as_ref().and_then(command::hierarchy::Group::title);
+    let tree = command::hierarchy::Tree::new(group.as_ref(), &commands);
     let entries = commands
-        .into_iter()
+        .iter()
+        .copied()
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
             let availability =
@@ -300,13 +308,8 @@ fn render_menu(
                 }
                 _ => None,
             });
-            let prefix = if input.menu_context().is_some() && !command.common() {
-                ""
-            } else {
-                "/"
-            };
             Entry {
-                name: format!("{prefix}{}", input.name(command)),
+                name: tree.label(input, command),
                 maturity: if command.action.experimental() {
                     Maturity::Experimental
                 } else {
@@ -332,7 +335,7 @@ fn render_menu(
             }
         })
         .collect::<Vec<_>>();
-    let (area, list) = candidates::panel(frame, screen, body, entries.len(), None);
+    let (area, list) = candidates::panel(frame, screen, body, entries.len(), title.as_deref());
     if list.is_empty() {
         return;
     }
