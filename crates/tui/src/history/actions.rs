@@ -31,14 +31,22 @@ impl Screen {
         );
     }
     pub(crate) fn more_history(&mut self) {
-        let Mode::History(view) = &self.mode else {
-            self.message = crate::message::Message::error(i18n::tr!(HistoryRequiresOpen).into());
-            return;
-        };
-        let session = view.session().clone();
-        self.more_history_target(session);
+        let path = self.scope_path();
+        let selection = self.copy_selection();
+        if let Err(error) = self.activate(
+            crate::Action::LogMore,
+            path,
+            selection,
+            &engine::cancel::Cancel::default(),
+        ) {
+            self.message = crate::message::Message::error(format!("{error:#}"));
+        }
     }
-    pub(crate) fn more_history_target(&mut self, mut session: Session) {
+    pub(crate) fn more_history_target(
+        &mut self,
+        mut session: Session,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
         let Some(cursor) = session.cursor() else {
             self.message = crate::message::Message::information(i18n::tr!(HistoryNoMore).into());
             return;
@@ -84,7 +92,11 @@ impl Screen {
             },
         );
     }
-    pub(crate) fn cycle_history_parent_target(&mut self, commit: Commit) {
+    pub(crate) fn cycle_history_parent_target(
+        &mut self,
+        commit: Commit,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
         let crate::inspection::Source::Commit(detail) = &commit.inspect.detail else {
             unreachable!("history commit source")
         };

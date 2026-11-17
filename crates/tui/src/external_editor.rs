@@ -131,7 +131,12 @@ impl Screen {
             },
         );
     }
-    pub(crate) fn open_editor_target(&mut self, root: PathBuf, target: PathBuf) {
+    pub(crate) fn open_editor_target(
+        &mut self,
+        root: PathBuf,
+        target: PathBuf,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
         if let Err(error) =
             self.external_editor
                 .submit(root, target, self.config.editor.clone(), &self.service)

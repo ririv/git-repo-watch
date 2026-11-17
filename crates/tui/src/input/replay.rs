@@ -7,10 +7,7 @@ use crate::{
     replay::controls::{self, Focus},
 };
 use crossterm::event::{KeyCode, KeyEvent};
-use engine::operations::{
-    mutation::Request,
-    replay::{Active, Control, State},
-};
+use engine::operations::replay::{Active, Control, State};
 
 impl Screen {
     pub(crate) fn replay_controls(&self) -> Option<(&crate::FileSession, &Active)> {
@@ -89,9 +86,17 @@ impl Screen {
         self.replay_focus_mut()
             .expect("recovery file view")
             .choose(control);
-        let mut draft = self.mutation_draft(Action::ReplayControl(control), Some(path));
-        draft.return_to = ReturnTo::View;
-        self.prepare_mutation(Request::ReplayControl(control), draft);
+        let selection = self.copy_selection();
+        let result = self
+            .prepare_command(Action::ReplayControl(control), Some(&path), &selection)
+            .and_then(|execution| {
+                execution
+                    .return_to(ReturnTo::View)
+                    .execute(self, &engine::cancel::Cancel::default())
+            });
+        if let Err(error) = result {
+            self.message = crate::message::Message::error(format!("{error:#}"));
+        }
     }
     pub(crate) fn has_conflict_page(&self) -> bool {
         matches!(&self.mode, Mode::Changes(session) if session.files.current().is_some_and(|change| change.kind == 'U'))

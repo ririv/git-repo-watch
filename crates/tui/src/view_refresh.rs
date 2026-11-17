@@ -58,7 +58,12 @@ impl Target {
     }
 }
 impl Screen {
-    pub(crate) fn refresh_target(&mut self, target: Target, cancel: &Cancel) {
+    pub(crate) fn refresh_target(
+        &mut self,
+        target: Target,
+        cancel: &Cancel,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
         self.remote_info.clear();
         match target {
             Target::Report | Target::Configuration => {

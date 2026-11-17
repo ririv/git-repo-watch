@@ -1,6 +1,5 @@
 //! Shared input validation and scrolling primitives.
 mod actions;
-mod bound;
 mod branches;
 mod changes;
 pub(crate) mod clicks;
@@ -9,6 +8,7 @@ pub(crate) mod interrupt;
 mod keys;
 mod mouse;
 mod navigation;
+#[cfg(test)]
 mod panes;
 mod precise;
 mod replay;

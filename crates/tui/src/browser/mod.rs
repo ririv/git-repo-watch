@@ -31,7 +31,12 @@ impl crate::Screen {
         }
         changed
     }
-    pub(crate) fn open_browser_diff_target(&mut self, root: PathBuf, entry: Entry) {
+    pub(crate) fn open_browser_diff_target(
+        &mut self,
+        root: PathBuf,
+        entry: Entry,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
         self.start_repository(
             root.clone(),
             i18n::tr!(FileDiff),

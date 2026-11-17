@@ -46,6 +46,7 @@ impl Screen {
         &mut self,
         path: std::path::PathBuf,
         resolution: super::resolution::Session,
+        _permit: &crate::command::target::ExecutionPermit,
     ) {
         self.start_repository(
             path,
@@ -106,6 +107,7 @@ impl Screen {
         action: Action,
         repository: std::path::PathBuf,
         resolution: super::resolution::Session,
+        _permit: &crate::command::target::ExecutionPermit,
     ) {
         let plan = match action {
             Action::Accept(choice) => resolution.prepare(choice),

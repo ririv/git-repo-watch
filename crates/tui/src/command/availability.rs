@@ -60,6 +60,24 @@ impl Screen {
         let context = CommandContext::new(self, path, selection);
         Availability::Target(context.resolve(action))
     }
+    pub(crate) fn prepare_command(
+        &self,
+        action: Action,
+        path: Option<&Path>,
+        selection: &clipboard::Selection,
+    ) -> anyhow::Result<super::target::Execution> {
+        match self.resolve_command(action, path, selection) {
+            Availability::Target(Target::Ready(target)) => {
+                target.capture(action, path.map(Path::to_owned), selection)
+            }
+            unavailable => anyhow::bail!(
+                "{}",
+                unavailable
+                    .reason()
+                    .expect("unavailable command has a reason")
+            ),
+        }
+    }
     pub(crate) fn command_availability(
         &self,
         action: Action,

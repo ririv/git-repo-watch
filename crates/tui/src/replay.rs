@@ -64,6 +64,7 @@ impl Screen {
         kind: replay::Kind,
         commits: Vec<Oid>,
         draft: CommandDraft,
+        _permit: &crate::command::target::ExecutionPermit,
     ) {
         let Some(path) = draft.path.clone() else {
             self.message = crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());

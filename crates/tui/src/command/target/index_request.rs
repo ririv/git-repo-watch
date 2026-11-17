@@ -2,13 +2,17 @@
 use super::worktree::Index;
 use engine::local::files::{Change, Files, IndexAction, partial};
 
-pub(crate) enum IndexRequest {
+mod execute;
+pub(super) struct IndexRequest {
+    request: Operation,
+}
+enum Operation {
     Files {
         snapshot: Files,
         action: IndexAction,
         changes: Vec<Change>,
     },
-    Partial(partial::Plan),
+    Partial(super::execution::partial::PreparedPartial),
     Conflict {
         snapshot: Files,
         change: Change,
@@ -16,23 +20,25 @@ pub(crate) enum IndexRequest {
     },
 }
 impl Index<'_> {
-    pub fn prepare(self, action: IndexAction) -> anyhow::Result<IndexRequest> {
-        Ok(match self {
+    pub(super) fn prepare(self, action: IndexAction) -> anyhow::Result<IndexRequest> {
+        let request = match self {
             Self::Files {
                 session, changes, ..
-            } => IndexRequest::Files {
+            } => Operation::Files {
                 snapshot: session.snapshot.clone(),
                 action,
                 changes,
             },
-            Self::Partial(target) => IndexRequest::Partial(target.editing.snapshot.prepare(
-                match action {
-                    IndexAction::Stage => partial::Action::Stage,
-                    IndexAction::Unstage => partial::Action::Unstage,
-                },
-                target.editing.selected(),
-            )?),
-            Self::Conflict { session, view } => IndexRequest::Conflict {
+            Self::Partial(target) => Operation::Partial(
+                super::execution::partial::PreparedPartial::new(target.editing.snapshot.prepare(
+                    match action {
+                        IndexAction::Stage => partial::Action::Stage,
+                        IndexAction::Unstage => partial::Action::Unstage,
+                    },
+                    target.editing.selected(),
+                )?),
+            ),
+            Self::Conflict { session, view } => Operation::Conflict {
                 snapshot: session.snapshot.clone(),
                 change: session
                     .current()
@@ -44,6 +50,7 @@ impl Index<'_> {
                     .ok_or_else(|| anyhow::anyhow!(i18n::tr!(ReplayResolveFirst)))?
                     .to_owned(),
             },
-        })
+        };
+        Ok(IndexRequest { request })
     }
 }

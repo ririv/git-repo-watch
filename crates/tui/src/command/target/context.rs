@@ -1,5 +1,5 @@
 //! Build command dependencies from the current view and the captured command selection.
-use super::{Requirement, Resolved, Target};
+use super::{Requirement, Resolved, Target, resolved::Value};
 use crate::{Action, Screen, clipboard};
 use std::path::Path;
 
@@ -23,31 +23,32 @@ impl<'a> CommandContext<'a> {
     pub fn resolve(&self, action: Action) -> Target<Resolved<'a>> {
         self.provide(action)
             .and_then(|target| self.validate(action, target))
+            .map(Resolved::new)
     }
-    fn provide(&self, action: Action) -> Target<Resolved<'a>> {
+    fn provide(&self, action: Action) -> Target<Value<'a>> {
         use Requirement::*;
         match action.requirement() {
-            Global => Target::Ready(Resolved::Global),
-            Repository => self.repository().map(Resolved::Repository),
-            EditorDestination => self.editor().map(Resolved::Destination),
-            TerminalDirectory => self.terminal().map(Resolved::Destination),
-            Clipboard => self.clipboard().map(Resolved::Clipboard),
-            FilePath => self.file().map(Resolved::File),
-            Search => self.search(action).map(Resolved::Search),
-            LocalRefresh => self.refresh().map(Resolved::Refresh),
-            IndexSelection => self.index(action).map(Resolved::Index),
-            DiffSelection => self.partial(action).map(Resolved::Partial),
-            WorktreeFiles => self.worktree_files().map(Resolved::WorktreeFiles),
-            Conflict => self.conflict().map(Resolved::Conflict),
-            BranchList => self.branches().map(Resolved::Branches),
-            HistoryGraph => self.history().map(Resolved::History),
-            HistorySelection => self.history_selection().map(Resolved::History),
-            CommitSelection => self.commits().map(Resolved::Commits),
-            MergeCommit => self.merge_commit().map(Resolved::MergeCommit),
-            StashDetail => self.stash().map(Resolved::Stash),
-            Browser => self.browser().map(Resolved::Browser),
-            PreviewableFile => self.previewable().map(Resolved::Previewable),
-            Composition => self.composition(action).map(Resolved::Composition),
+            Global => Target::Ready(Value::Global),
+            Repository => self.repository().map(Value::Repository),
+            EditorDestination => self.editor().map(Value::Destination),
+            TerminalDirectory => self.terminal().map(Value::Destination),
+            Clipboard => self.clipboard().map(Value::Clipboard),
+            FilePath => self.file().map(Value::File),
+            Search => self.search(action).map(Value::Search),
+            LocalRefresh => self.refresh().map(Value::Refresh),
+            IndexSelection => self.index(action).map(Value::Index),
+            DiffSelection => self.partial(action).map(Value::Partial),
+            WorktreeFiles => self.worktree_files().map(Value::WorktreeFiles),
+            Conflict => self.conflict().map(Value::Conflict),
+            BranchList => self.branches().map(Value::Branches),
+            HistoryGraph => self.history().map(Value::History),
+            HistorySelection => self.history_selection().map(Value::History),
+            CommitSelection => self.commits().map(Value::Commits),
+            MergeCommit => self.merge_commit().map(Value::MergeCommit),
+            StashDetail => self.stash().map(Value::Stash),
+            Browser => self.browser().map(Value::Browser),
+            PreviewableFile => self.previewable().map(Value::Previewable),
+            Composition => self.composition(action).map(Value::Composition),
         }
     }
 }

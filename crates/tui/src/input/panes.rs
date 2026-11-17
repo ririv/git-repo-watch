@@ -1,8 +1,5 @@
 //! Commands switch existing panes without changing their navigation depth.
-use crate::{
-    Mode, Page, Screen,
-    workspace::{Arrangement, Section, Workspace},
-};
+use crate::{Mode, Page, Screen, workspace::Section};
 
 impl Screen {
     #[cfg(test)]
@@ -52,33 +49,6 @@ impl Screen {
                 self.switch_repository_section(target);
             }
             _ => self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into()),
-        }
-    }
-    pub(super) fn zoom_pane(&mut self) {
-        let arrangement = if let Some(inspect) = self.mode.inspection_mut() {
-            Some(&mut inspect.arrangement)
-        } else {
-            match &mut self.mode {
-                Mode::Changes(session) => Some(&mut session.arrangement),
-                Mode::Browser(session) => Some(&mut session.arrangement),
-                mode if self.page == Page::Detail
-                    && Workspace::is_root(mode)
-                    && Section::focused(mode).is_some() =>
-                {
-                    self.workspace
-                        .session_mut()
-                        .map(|session| &mut session.arrangement)
-                }
-                _ => None,
-            }
-        };
-        if let Some(arrangement) = arrangement {
-            *arrangement = match arrangement {
-                Arrangement::Tiled => Arrangement::Maximized,
-                Arrangement::Maximized => Arrangement::Tiled,
-            };
-        } else {
-            self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into());
         }
     }
 }

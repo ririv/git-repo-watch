@@ -66,17 +66,11 @@ fn executing_a_ready_index_target_uses_its_captured_files_after_the_cursor_moves
     wait(&mut s);
     select_file(&mut s, "a.txt");
     let selection = s.copy_selection();
-    let Availability::Target(Target::Ready(target)) =
-        s.resolve_command(Action::Stage, Some(&f.repo), &selection)
-    else {
-        panic!("ready index target")
-    };
-    let execution = target
-        .capture(Action::Stage, Some(f.repo.clone()), &selection)
+    let execution = s
+        .prepare_command(Action::Stage, Some(&f.repo), &selection)
         .unwrap();
     select_file(&mut s, "b.txt");
-    s.execute_bound_command(Action::Stage, execution, selection, &Cancel::default())
-        .unwrap();
+    execution.execute(&mut s, &Cancel::default()).unwrap();
     wait(&mut s);
     assert_eq!(support::git(&f.repo, &["show", ":a.txt"]), "after");
     assert_eq!(support::git(&f.repo, &["show", ":b.txt"]), "before");

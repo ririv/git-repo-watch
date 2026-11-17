@@ -26,7 +26,10 @@ pub(crate) struct Stash<'a> {
     pub session: &'a crate::stashes::Session,
     pub inspect: &'a crate::inspection::Session,
 }
-pub(crate) enum Resolved<'a> {
+pub(crate) struct Resolved<'a> {
+    pub(super) value: Value<'a>,
+}
+pub(super) enum Value<'a> {
     Global,
     Repository(&'a Path),
     Destination(Destination<'a>),
@@ -48,13 +51,18 @@ pub(crate) enum Resolved<'a> {
     Composition(Composition<'a>),
 }
 impl Resolved<'_> {
+    pub(super) fn new(value: Value<'_>) -> Resolved<'_> {
+        Resolved { value }
+    }
+}
+impl Resolved<'_> {
     pub fn is_partial_index(&self) -> bool {
-        matches!(self, Self::Index(worktree::Index::Partial(_)))
+        matches!(self.value, Value::Index(worktree::Index::Partial(_)))
     }
     pub fn label(&self, action: crate::Action, selection: &clipboard::Selection) -> Option<String> {
-        match self {
-            Self::Refresh(target) => Some(target.label().into()),
-            Self::Previewable(target) => {
+        match &self.value {
+            Value::Refresh(target) => Some(target.label().into()),
+            Value::Previewable(target) => {
                 use crate::browser::opening::Presentation;
                 Some(
                     match action {
@@ -71,19 +79,19 @@ impl Resolved<'_> {
                     .into(),
                 )
             }
-            Self::Search(support) if action == crate::Action::SearchMenu => {
+            Value::Search(support) if action == crate::Action::SearchMenu => {
                 support.mode().map(|mode| mode.label().into())
             }
-            Self::Branches(session) if action == crate::Action::BranchFilterMenu => {
+            Value::Branches(session) if action == crate::Action::BranchFilterMenu => {
                 Some(session.filter.title().into())
             }
-            Self::Conflict(target) if action == crate::Action::ConflictMenu => {
+            Value::Conflict(target) if action == crate::Action::ConflictMenu => {
                 Some(target.view.mode.label().into())
             }
-            Self::Partial(target) if action == crate::Action::PartialSelectMenu => {
+            Value::Partial(target) if action == crate::Action::PartialSelectMenu => {
                 Some(target.editing.mode().label().into())
             }
-            Self::Destination(target) => {
+            Value::Destination(target) => {
                 let label = match target.path.strip_prefix(target.root) {
                     Ok(relative) if !relative.as_os_str().is_empty() => relative,
                     _ => target
@@ -94,9 +102,9 @@ impl Resolved<'_> {
                 };
                 Some(label.display().to_string())
             }
-            Self::File(target) => Some(target.label()),
-            Self::Index(target) => Some(target.label()),
-            Self::WorktreeFiles(target) => match target.changes {
+            Value::File(target) => Some(target.label()),
+            Value::Index(target) => Some(target.label()),
+            Value::WorktreeFiles(target) => match target.changes {
                 [] => None,
                 [change] => Some(change.location.display()),
                 files => Some(format!(
@@ -105,18 +113,18 @@ impl Resolved<'_> {
                     i18n::tf!(CommandTargetFiles, count = files.len())
                 )),
             },
-            Self::Clipboard(scope) => selection.amount(*scope).map(|amount| match amount {
+            Value::Clipboard(scope) => selection.amount(*scope).map(|amount| match amount {
                 clipboard::Amount::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
                 clipboard::Amount::Commits(count) => i18n::tf!(CommandTargetCommits, count = count),
             }),
-            Self::Commits(target) => Some(i18n::tf!(
+            Value::Commits(target) => Some(i18n::tf!(
                 CommandTargetCommits,
                 count = match action {
                     crate::Action::Replay(engine::operations::replay::Kind::Revert) => 1,
                     _ => target.marked.len(),
                 }
             )),
-            Self::Repository(_)
+            Value::Repository(_)
                 if matches!(
                     action,
                     crate::Action::StashSaveMode(crate::stash_save::Scope::Selected)

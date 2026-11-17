@@ -1,17 +1,17 @@
 //! Execute an index request captured by the command target resolver.
-use crate::command::target::IndexRequest;
+use super::{IndexRequest, Operation};
 use crate::{Effect, Outcome, Screen};
 use engine::local::files::IndexAction;
 
-impl Screen {
-    pub(crate) fn execute_index_request(&mut self, request: IndexRequest) {
-        match request {
-            IndexRequest::Files {
+impl IndexRequest {
+    pub(in crate::command::target) fn execute(self, screen: &mut Screen) {
+        match self.request {
+            Operation::Files {
                 snapshot,
                 action,
                 changes,
             } => {
-                self.start_repository(
+                screen.start_repository(
                     snapshot.path.clone(),
                     match action {
                         IndexAction::Stage => i18n::tr!(StageSelectedFiles),
@@ -25,13 +25,13 @@ impl Screen {
                     },
                 );
             }
-            IndexRequest::Partial(plan) => self.execute_partial(plan),
-            IndexRequest::Conflict {
+            Operation::Partial(plan) => plan.execute(screen),
+            Operation::Conflict {
                 snapshot,
                 change,
                 displayed,
             } => {
-                self.start_repository(
+                screen.start_repository(
                     snapshot.path.clone(),
                     i18n::tr!(StageSelectedFiles),
                     Effect::IndexWrite,

@@ -7,6 +7,7 @@ impl Screen {
         &mut self,
         snapshot: engine::local::files::Files,
         changes: Vec<engine::local::files::Change>,
+        _permit: &crate::command::target::ExecutionPermit,
     ) {
         self.start_repository(
             snapshot.path.clone(),

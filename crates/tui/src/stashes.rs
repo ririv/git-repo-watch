@@ -202,9 +202,19 @@ impl crate::Screen {
             return;
         };
         let previous = self.mode.inspection().cloned();
-        self.open_stash_detail_target(scope, session, entry, previous);
+        self.read_stash_detail(scope, session, entry, previous);
     }
     pub(crate) fn open_stash_detail_target(
+        &mut self,
+        scope: engine::local::stash::preview::Scope,
+        session: Session,
+        entry: Entry,
+        previous: Option<crate::inspection::Session>,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
+        self.read_stash_detail(scope, session, entry, previous);
+    }
+    fn read_stash_detail(
         &mut self,
         scope: engine::local::stash::preview::Scope,
         session: Session,

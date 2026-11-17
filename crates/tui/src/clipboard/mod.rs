@@ -47,14 +47,6 @@ pub(crate) struct Payload {
     pub text: String,
 }
 impl Screen {
-    pub(crate) fn copy_to_clipboard(
-        &mut self,
-        scope: Scope,
-        selection: Selection,
-        path: Option<std::path::PathBuf>,
-    ) {
-        self.submit_clipboard(selection.payload(scope, path.as_deref()));
-    }
     pub(crate) fn submit_clipboard(&mut self, payload: anyhow::Result<Payload>) {
         match payload.and_then(|payload| self.clipboard.submit(payload)) {
             Ok(()) => {

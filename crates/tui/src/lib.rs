@@ -171,7 +171,7 @@ enum Confirmation {
         origin: Box<Mode>,
     },
     Partial {
-        plan: Box<engine::local::files::partial::Plan>,
+        plan: Box<command::target::PreparedPartial>,
         review: String,
         origin: Box<Mode>,
     },

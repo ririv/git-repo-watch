@@ -1,6 +1,6 @@
 //! Route selected text operations through repository-scoped workers and explicit discard review.
 use super::{Focus, Preview, edit};
-use crate::{Effect, Mode, Outcome, Screen};
+use crate::{Mode, Screen};
 use engine::local::files::{Area, partial};
 
 impl Screen {
@@ -55,45 +55,6 @@ impl Screen {
         {
             self.message = crate::message::Message::error(format!("{error:#}"));
         }
-    }
-    pub(crate) fn apply_partial_plan(&mut self, plan: partial::Plan) {
-        if plan.action() == partial::Action::Discard {
-            let review = match plan.preview() {
-                Ok(patch) => format!(
-                    "{}\n\n{}\n\n{patch}",
-                    i18n::tr!(PartialDiscardConfirm),
-                    plan.snapshot().change().location.display()
-                ),
-                Err(error) => {
-                    self.message = crate::message::Message::error(format!("{error:#}"));
-                    return;
-                }
-            };
-            let origin = Box::new(self.take_mode());
-            self.mode = Mode::Confirm {
-                operation: crate::Confirmation::Partial {
-                    plan: Box::new(plan),
-                    review,
-                    origin,
-                },
-                choice: crate::confirmation::Choice::Return,
-            };
-        } else {
-            self.execute_partial(plan);
-        }
-    }
-    pub(crate) fn execute_partial(&mut self, plan: partial::Plan) {
-        let (title, effect) = match plan.action() {
-            partial::Action::Stage => (i18n::tr!(PartialStage), Effect::IndexWrite),
-            partial::Action::Unstage => (i18n::tr!(PartialUnstage), Effect::IndexWrite),
-            partial::Action::Discard => (i18n::tr!(PartialDiscard), Effect::RepositoryWrite),
-        };
-        self.start_repository(
-            plan.snapshot().files().path.clone(),
-            title,
-            effect,
-            move |service, cancel, _| Ok(Outcome::Files(service.edit_partial(&plan, &cancel)?)),
-        );
     }
     pub(crate) fn toggle_partial(&mut self) {
         let action = match &self.mode {

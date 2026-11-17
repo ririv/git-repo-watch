@@ -113,9 +113,36 @@ impl Screen {
         true
     }
     fn preview_history_action(&mut self, kind: Kind, commits: Vec<engine::local::history::Oid>) {
-        let mut draft = self.mutation_draft(Action::Replay(kind), self.scope_path());
-        draft.return_to = ReturnTo::View;
-        self.prepare_replay(kind, commits, draft);
+        let Some(first) = commits.first().copied() else {
+            self.message = crate::message::Message::error(i18n::tr!(ReplaySelectCommit).into());
+            return;
+        };
+        let mut selection = self.copy_selection();
+        match &mut selection {
+            crate::clipboard::Selection::Log(
+                crate::clipboard::CommitSelection::Graph { oid, marked, .. }
+                | crate::clipboard::CommitSelection::Selected { oid, marked, .. },
+            ) => {
+                *oid = first;
+                *marked = commits;
+            }
+            _ => {
+                self.message =
+                    crate::message::Message::error(i18n::tr!(CommandRequiresHistory).into());
+                return;
+            }
+        }
+        let path = self.scope_path();
+        let result = self
+            .prepare_command(Action::Replay(kind), path.as_deref(), &selection)
+            .and_then(|execution| {
+                execution
+                    .return_to(ReturnTo::View)
+                    .execute(self, &engine::cancel::Cancel::default())
+            });
+        if let Err(error) = result {
+            self.message = crate::message::Message::error(format!("{error:#}"));
+        }
     }
     pub(crate) fn history_menu_pointer(&mut self, input: PointerInput) -> bool {
         let index = match input {
@@ -137,7 +164,14 @@ impl Screen {
             Operation::Revert(oid) => self.preview_history_action(Kind::Revert, vec![oid]),
             Operation::Copy => {
                 let selection = self.copy_selection();
-                self.copy_to_clipboard(crate::clipboard::Scope::Log, selection, self.scope_path());
+                if let Err(error) = self.activate(
+                    Action::Copy,
+                    self.scope_path(),
+                    selection,
+                    &engine::cancel::Cancel::default(),
+                ) {
+                    self.message = crate::message::Message::error(format!("{error:#}"));
+                }
             }
             Operation::Clear => self.mark_history(super::SelectionAction::Clear),
             Operation::Done => self.mark_history(super::SelectionAction::Done),
