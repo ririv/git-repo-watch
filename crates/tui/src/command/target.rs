@@ -136,7 +136,7 @@ impl Action {
             }
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
-            LogSelect => Requirement::HistorySelection,
+            LogSelect | LogSelectAll | LogSelectClear => Requirement::HistorySelection,
             Replay(_) => Requirement::CommitSelection,
             LogParent => Requirement::MergeCommit,
             StashPreviewMenu | StashPreview(_) => Requirement::StashDetail,

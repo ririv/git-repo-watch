@@ -50,6 +50,8 @@ impl Command {
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
             Action::LogSelect => Summary::LogSelection,
+            Action::LogSelectAll => Summary::LogSelectionAll,
+            Action::LogSelectClear => Summary::LogSelectionClear,
             Action::Replay(engine::operations::replay::Kind::CherryPick) => {
                 Summary::ReplayCherryPick
             }

@@ -120,10 +120,19 @@ impl Screen {
             {
                 Some(i18n::tr!(HistoryNoMore).into())
             }
-            LogSelect if self.history_graph_target().is_none() => {
+            LogSelect | LogSelectAll | LogSelectClear if self.history_graph_target().is_none() => {
                 Some(i18n::tr!(CommandRequiresHistory).into())
             }
-            LogSelect if selection.commit().is_none() => Some(i18n::tr!(ReplaySelectCommit).into()),
+            LogSelect | LogSelectAll if selection.commit().is_none() => {
+                Some(i18n::tr!(ReplaySelectCommit).into())
+            }
+            LogSelectAll
+                if self.history_graph_target().is_some_and(|graph| {
+                    graph.records.len() > engine::operations::replay::batch::MAX_COMMITS
+                }) =>
+            {
+                Some(i18n::tr!(ReplayBatchTooLarge).into())
+            }
             PartialSelectMenu | PartialSelect(_) => self.partial_target().err(),
             DiscardFile => self
                 .discard_file_target(path, selection)

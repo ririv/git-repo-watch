@@ -59,6 +59,8 @@ pub enum CommandSummary {
     Log,
     LogMore,
     LogSelection,
+    LogSelectionAll,
+    LogSelectionClear,
     ReplayCherryPick,
     ReplayRevert,
     ReplayContinue,
@@ -134,6 +136,10 @@ impl CommandSummary {
             (Self::ExternalEditorSetting, Language::Chinese) => "选择编辑器",
             (Self::LogSelection, Language::Chinese) => "切换提交选择模式",
             (Self::LogSelection, Language::English) => "Toggle commit selection mode",
+            (Self::LogSelectionAll, Language::Chinese) => "全选已加载提交",
+            (Self::LogSelectionAll, Language::English) => "Select all loaded commits",
+            (Self::LogSelectionClear, Language::Chinese) => "清空勾选，保留选择模式",
+            (Self::LogSelectionClear, Language::English) => "Clear marks, keep selection mode",
             (Self::ReplayCherryPick, Language::Chinese) => "将所选提交应用到当前分支",
             (Self::ReplayCherryPick, Language::English) => {
                 "Apply selected commit to current branch"

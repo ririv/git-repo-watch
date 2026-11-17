@@ -34,6 +34,8 @@ impl Screen {
         match action {
             Action::OpenEditor => self.open_in_editor(path, &selection),
             Action::LogSelect => self.mark_history(history::SelectionAction::ToggleMode),
+            Action::LogSelectAll => self.mark_history(history::SelectionAction::All),
+            Action::LogSelectClear => self.mark_history(history::SelectionAction::Clear),
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {

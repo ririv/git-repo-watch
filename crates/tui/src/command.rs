@@ -73,6 +73,8 @@ pub enum Action {
     LogMore,
     LogParent,
     LogSelect,
+    LogSelectAll,
+    LogSelectClear,
     Replay(engine::operations::replay::Kind),
     ReplayControl(engine::operations::replay::Control),
     FileLayoutMenu,
@@ -198,6 +200,16 @@ pub const COMMANDS: &[Command] = &[
         name: "repo log select",
         action: LogSelect,
         description: i18n::Message::HistorySelect,
+    },
+    Command {
+        name: "repo log select all",
+        action: LogSelectAll,
+        description: i18n::Message::HistorySelectAll,
+    },
+    Command {
+        name: "repo log select clear",
+        action: LogSelectClear,
+        description: i18n::Message::HistorySelectClear,
     },
     Command {
         name: "repo log revert",

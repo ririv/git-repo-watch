@@ -38,6 +38,7 @@ mod help;
 mod history;
 mod history_actions;
 mod history_review;
+mod history_select;
 mod horizontal;
 mod images;
 mod input_surface;

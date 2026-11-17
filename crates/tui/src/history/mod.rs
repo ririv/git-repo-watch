@@ -14,6 +14,7 @@ use std::sync::Arc;
 pub enum SelectionAction {
     ToggleMode,
     ToggleCommit,
+    All,
     Clear,
     Done,
 }

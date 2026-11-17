@@ -132,6 +132,15 @@ impl Session {
                     self.selection.begin();
                 }
             }
+            super::SelectionAction::All => {
+                ensure!(
+                    self.records.len() <= engine::operations::replay::batch::MAX_COMMITS,
+                    i18n::tr!(ReplayBatchTooLarge)
+                );
+                // 历史检索只定位、不隐藏提交；全选始终覆盖已加载的整份列表，不触发分页。
+                *self.selection.begin() =
+                    self.records.iter().map(|record| record.entry.oid).collect();
+            }
             super::SelectionAction::Done => self.selection.finish(),
             super::SelectionAction::Clear => self.selection.begin().clear(),
             super::SelectionAction::ToggleCommit => {
