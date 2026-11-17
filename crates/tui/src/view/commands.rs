@@ -7,6 +7,7 @@ use unicode_width::UnicodeWidthStr;
 
 struct Entry {
     name: command::hierarchy::Label,
+    argument: Option<command::ArgumentAction>,
     maturity: Maturity,
     description: String,
     value: String,
@@ -27,7 +28,11 @@ impl Columns {
     fn fit(entries: &[Entry], width: usize) -> Self {
         let desired_name = entries
             .iter()
-            .map(|entry| entry.name.branch.width() + entry.name.name.width())
+            .map(|entry| {
+                entry.name.branch.width()
+                    + entry.name.name.width()
+                    + entry.argument.map_or(0, |_| 2)
+            })
             .max()
             .unwrap_or(0);
         let minimum_description = entries
@@ -49,7 +54,7 @@ impl Columns {
             .map(|entry| entry.value.width())
             .max()
             .unwrap_or(0);
-        // 命令名保留完整宽度；参数语法由输入栏按需呈现。
+        // 命令名带紧凑参数标记；完整参数语法由输入栏按需呈现。
         let name = desired_name.min(width);
         let free = width.saturating_sub(name + 2);
         // 窄屏优先保留命令名和短说明；配置值在剩余空间中右对齐。
@@ -64,9 +69,12 @@ impl Columns {
 }
 impl Entry {
     fn item(&self, columns: &Columns) -> ListItem<'static> {
-        let branch = clipped(&self.name.branch, columns.name);
-        let name = clipped(&self.name.name, columns.name.saturating_sub(branch.width()));
-        let used = branch.width() + name.width();
+        let marker = self.argument.map_or("", |_| " …");
+        let marker_width = marker.width().min(columns.name);
+        let name_width = columns.name.saturating_sub(marker_width);
+        let branch = clipped(&self.name.branch, name_width);
+        let name = clipped(&self.name.name, name_width.saturating_sub(branch.width()));
+        let used = branch.width() + name.width() + marker_width;
         let enabled = self.availability.is_ready();
         let mut spans = vec![
             Span::styled(branch, Style::default().fg(MUTED)),
@@ -85,6 +93,10 @@ impl Entry {
                 },
             ),
         ];
+        spans.push(Span::styled(
+            clipped(marker, marker_width),
+            Style::default().fg(if enabled { PARAMETER } else { MUTED }),
+        ));
         spans.push(Span::raw(" ".repeat(columns.name.saturating_sub(used))));
         field(
             &mut spans,
@@ -283,6 +295,7 @@ fn render_menu(
             .or_else(|| settings::annotation(command.action, screen));
             Entry {
                 name: tree.label(input, command),
+                argument: command.action.argument(),
                 maturity: if command.action.experimental() {
                     Maturity::Experimental
                 } else {

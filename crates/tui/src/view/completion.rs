@@ -21,7 +21,7 @@ pub(super) fn render(
         .map(|name| {
             ListItem::new(Line::from(Span::styled(
                 truncate(&format!("{name}/"), body.width.saturating_sub(2) as usize),
-                Style::default().fg(ACCENT),
+                Style::default().fg(PARAMETER),
             )))
         })
         .collect::<Vec<_>>();
@@ -81,7 +81,7 @@ pub(super) fn render_values(
             let mut spans = label
                 .spans
                 .into_iter()
-                .map(|span| span.style(Style::default().fg(ACCENT).bold()))
+                .map(|span| span.style(Style::default().fg(PARAMETER).bold()))
                 .collect::<Vec<_>>();
             spans.push(Span::raw(
                 " ".repeat(gap.min(width.saturating_sub(label_width))),
@@ -147,7 +147,7 @@ pub(super) fn render_options(
             let mut spans = vec![Span::styled(
                 truncate(option.token, name_width + 1),
                 if enabled {
-                    Style::default().fg(ACCENT).bold()
+                    Style::default().fg(PARAMETER).bold()
                 } else {
                     Style::default().fg(MUTED)
                 },
@@ -230,8 +230,10 @@ pub(super) fn render_history(
         .entries
         .iter()
         .map(|entry| {
+            let input = command::Input::global(crate::Editor::new(safe(entry)));
+            let spans = command_syntax::spans(&input, 0..input.editor().text.len());
             ListItem::new(crate::horizontal::clip(
-                &Line::from(Span::styled(safe(entry), Style::default().fg(ACCENT))),
+                &Line::from(spans),
                 0,
                 usize::from(areas.1.width),
             ))

@@ -4,7 +4,7 @@ mod argument;
 mod conflict;
 mod prefix;
 mod surface;
-mod syntax;
+use super::command_syntax as syntax;
 use super::feedback::Preview;
 use super::*;
 pub(crate) use surface::Surface;

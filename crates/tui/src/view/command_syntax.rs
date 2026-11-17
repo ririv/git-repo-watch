@@ -1,13 +1,12 @@
-//! Color command roles inside the editor's existing UTF-8 viewport.
+//! Shared syntax colors for editable commands and command history.
 use super::{Span, Style};
 use crate::{
     command::{
         Input,
         syntax::{self, Role},
     },
-    view::{ACCENT, WARN},
+    view::{ACCENT, PARAMETER, WARN},
 };
-use ratatui::style::Color;
 use std::ops::Range;
 
 pub(super) fn spans(input: &Input, visible: Range<usize>) -> Vec<Span<'static>> {
@@ -31,7 +30,7 @@ pub(super) fn spans(input: &Input, visible: Range<usize>) -> Vec<Span<'static>> 
 pub(super) fn style(role: Role) -> Style {
     match role {
         Role::Command => Style::default().fg(ACCENT).bold(),
-        Role::Argument => Style::default().fg(Color::LightCyan),
+        Role::Argument => Style::default().fg(PARAMETER),
         Role::Option => Style::default().fg(WARN).bold(),
     }
 }
