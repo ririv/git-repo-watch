@@ -71,9 +71,31 @@ fn history_records_submissions_with_options_and_fills_without_executing() {
     open(&mut s);
     assert_eq!(
         history(&s).entries,
-        ["/repos filter all", "/repos filter problems"]
+        ["/repos filter problems", "/repos filter all"]
     );
-    key(&mut s, KeyCode::Down);
+    assert_eq!(history(&s).selected, 1);
+    let text = render(&mut s, 100, 28);
+    let latest = s
+        .command_items
+        .iter()
+        .find(|(_, index)| *index == 1)
+        .unwrap()
+        .0;
+    let older = s
+        .command_items
+        .iter()
+        .find(|(_, index)| *index == 0)
+        .unwrap()
+        .0;
+    assert_eq!(latest.y, older.y + 1);
+    assert_eq!(latest.bottom(), s.input_area.unwrap().y);
+    assert!(
+        text.lines()
+            .nth(latest.y as usize)
+            .unwrap()
+            .contains("/repos filter all")
+    );
+    key(&mut s, KeyCode::Up);
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.filter, Filter::All);
     assert_eq!(s.bar.text(), "/repos filter problems");
@@ -84,7 +106,7 @@ fn history_records_submissions_with_options_and_fills_without_executing() {
         ["/repos filter problems", "/repos filter all"]
     );
     open(&mut s);
-    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Up);
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), "/repos filter all");
     assert_eq!(s.filter, Filter::Problems);
@@ -94,7 +116,7 @@ fn history_records_submissions_with_options_and_fills_without_executing() {
     let (area, _) = s
         .command_items
         .iter()
-        .find(|(_, index)| *index == 1)
+        .find(|(_, index)| *index == 0)
         .copied()
         .unwrap();
     s.mouse(
@@ -130,9 +152,22 @@ fn history_is_scrollable_resizable_and_does_not_replace_the_current_draft_on_esc
         s.service.store.record_command(name).unwrap();
     }
     open(&mut s);
-    for _ in 0..8 {
-        key(&mut s, KeyCode::Down);
+    render(&mut s, 100, 28);
+    assert_eq!(history(&s).selected, 9);
+    let page = s.command_items.len();
+    key(&mut s, KeyCode::PageUp);
+    assert_eq!(history(&s).selected, 9 - page);
+    render(&mut s, 100, 28);
+    key(&mut s, KeyCode::PageDown);
+    assert_eq!(history(&s).selected, 9);
+    key(&mut s, KeyCode::Down);
+    assert_eq!(history(&s).selected, 9);
+    for _ in 0..20 {
+        key(&mut s, KeyCode::Up);
     }
+    assert_eq!(history(&s).selected, 0);
+    key(&mut s, KeyCode::Up);
+    assert_eq!(history(&s).selected, 0);
     for (w, h) in [(100, 28), (60, 14), (20, 8), (1, 1), (0, 0), (100, 28)] {
         render(&mut s, w, h);
         if w == 100 {

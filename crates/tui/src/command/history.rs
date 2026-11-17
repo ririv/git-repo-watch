@@ -7,11 +7,11 @@ pub(crate) struct Session {
     pub selected: usize,
 }
 impl Session {
-    pub fn new(entries: Vec<String>) -> Self {
-        Self {
-            entries,
-            selected: 0,
-        }
+    pub fn new(mut entries: Vec<String>) -> Self {
+        // 存储按新到旧返回；菜单紧贴输入栏，从底部最近一条向上浏览。
+        entries.reverse();
+        let selected = entries.len().saturating_sub(1);
+        Self { entries, selected }
     }
     pub fn select(&mut self, index: usize) -> bool {
         if index >= self.entries.len() {
