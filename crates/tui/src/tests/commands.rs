@@ -71,8 +71,9 @@ fn menu_viewport_keeps_selection_visible_on_resize_and_resets_for_new_candidates
     key(&mut s, KeyCode::Esc);
     s.paste("/copy");
     render(&mut s, 100, 28);
-    assert_eq!(s.command_items.len(), 1);
+    assert_eq!(s.command_items.len(), 2);
     assert_eq!(s.command_items[0].1, 0);
+    assert_eq!(s.search_commands().unwrap()[1].action, Action::CopyPath);
     s.paste("-no-matching-command");
     render(&mut s, 100, 28);
     assert!(s.command_items.is_empty());

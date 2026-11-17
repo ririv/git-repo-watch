@@ -617,7 +617,9 @@ impl Candidates {
         let mut options = kind
             .options()
             .filter(|option| {
-                screen.command_visible(option.value.action(), path, selection)
+                screen
+                    .command_availability(option.value.action(), path, selection)
+                    .visible(super::Discovery::Context)
                     && (option.token.starts_with(&needle)
                         || [i18n::Language::Chinese, i18n::Language::English]
                             .iter()

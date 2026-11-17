@@ -131,20 +131,7 @@ impl Screen {
             },
         );
     }
-    pub(crate) fn open_in_editor(
-        &mut self,
-        root: Option<PathBuf>,
-        selection: &crate::clipboard::Selection,
-    ) {
-        let Some(root) = root else {
-            self.message = crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
-            return;
-        };
-        let Some(target) = selection.editor_target(&root) else {
-            self.message =
-                crate::message::Message::error(i18n::tr!(ExternalEditorSelectionRequired).into());
-            return;
-        };
+    pub(crate) fn open_editor_target(&mut self, root: PathBuf, target: PathBuf) {
         if let Err(error) =
             self.external_editor
                 .submit(root, target, self.config.editor.clone(), &self.service)

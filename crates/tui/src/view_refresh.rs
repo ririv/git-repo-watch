@@ -58,14 +58,7 @@ impl Target {
     }
 }
 impl Screen {
-    pub(crate) fn refresh_current_view(&mut self, cancel: &Cancel) {
-        let target = match Target::current(self) {
-            Ok(target) => target,
-            Err(reason) => {
-                self.message = crate::message::Message::error(reason.into());
-                return;
-            }
-        };
+    pub(crate) fn refresh_target(&mut self, target: Target, cancel: &Cancel) {
         self.remote_info.clear();
         match target {
             Target::Report | Target::Configuration => {

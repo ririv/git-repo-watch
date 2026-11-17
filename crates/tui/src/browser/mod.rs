@@ -31,18 +31,7 @@ impl crate::Screen {
         }
         changed
     }
-    pub(super) fn open_browser_diff(&mut self) {
-        let crate::Mode::Browser(session) = &self.mode else {
-            return;
-        };
-        let Some(entry) = session
-            .selected()
-            .filter(|entry| entry.status().is_some_and(|status| status.changed()))
-        else {
-            self.message = crate::message::Message::information(i18n::tr!(BrowserNoDiff).into());
-            return;
-        };
-        let root = session.root.clone();
+    pub(crate) fn open_browser_diff_target(&mut self, root: PathBuf, entry: Entry) {
         self.start_repository(
             root.clone(),
             i18n::tr!(FileDiff),

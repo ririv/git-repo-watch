@@ -122,8 +122,8 @@ fn partial_commands_follow_the_focused_worktree_pane() {
     assert!(listed(&s, Action::Stage));
     key(&mut s, KeyCode::Esc);
     s.paste("//repo diff ");
-    assert!(!listed(&s, Action::Discard));
-    assert!(!listed(&s, Action::PartialSelectMenu));
+    assert!(listed(&s, Action::Discard));
+    assert!(listed(&s, Action::PartialSelectMenu));
 
     command(&mut s, "repo diff discard");
     assert_eq!(s.message, i18n::tr!(CommandRequiresWorktreePreview));
@@ -346,12 +346,17 @@ fn partial_commands_stay_out_of_historical_diffs_and_cannot_modify_them() {
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     for input in ["/", "//repo diff "] {
         s.paste(input);
-        assert!(
-            !s.search_commands().unwrap().iter().any(|command| matches!(
-                command.action,
-                Action::PartialSelectMenu | Action::Discard
-            ))
-        );
+        let actions = s.search_commands().unwrap();
+        for action in [Action::PartialSelectMenu, Action::Discard] {
+            assert_eq!(
+                actions.iter().any(|command| command.action == action),
+                input.starts_with("//")
+            );
+        }
+        if input.starts_with("//") {
+            command(&mut s, "repo diff discard");
+            assert_eq!(s.message, i18n::tr!(CommandRequiresWorktreePreview));
+        }
         key(&mut s, KeyCode::Esc);
     }
     key(&mut s, KeyCode::Char(' '));

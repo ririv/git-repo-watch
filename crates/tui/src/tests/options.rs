@@ -39,7 +39,6 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
                 "[auto|split|unified]",
             ),
             ("repo diff header", Kind::DiffHeader, 2, "[show|hide]"),
-            ("repo compose reorder", Kind::ComposeOrder, 2, "[up|down]"),
             ("schedule enabled", Kind::ScheduleEnabled, 2, "[true|false]"),
             ("repo diff context", Kind::DiffContext, 2, "[full|changes]"),
             ("search", Kind::Search, 2, "[filter|locate]"),

@@ -2,7 +2,7 @@
 use super::{Payload, Scope, Target};
 use crate::{
     Action, Mode, Screen, branches, changes,
-    command::target::{File, HistoricalFile, Status},
+    command::target::{File, HistoricalFile},
     diff, document, history, workspace,
 };
 use anyhow::{Context, Result, bail};
@@ -314,23 +314,6 @@ impl Selection {
             _ => self.commit().into_iter().collect(),
         }
     }
-    pub(crate) fn history_selection_status(&self) -> Status {
-        match self {
-            Self::Log(CommitSelection::Graph { .. } | CommitSelection::Unavailable(_)) => {
-                Status::Present
-            }
-            _ => Status::OutOfScope(i18n::tr!(CommandRequiresHistory)),
-        }
-    }
-
-    pub(crate) fn commit_selection_status(&self) -> Status {
-        match self {
-            Self::Log(selection) if selection.oid().is_some() => Status::Present,
-            Self::Log(_) => Status::Unavailable(i18n::tr!(ReplaySelectCommit)),
-            _ => Status::OutOfScope(i18n::tr!(CommandRequiresHistory)),
-        }
-    }
-
     pub fn annotation(&self, action: Action) -> Option<&'static str> {
         match action {
             Action::BrowserModeMenu => self.opener().map(|target| match target.presentation {

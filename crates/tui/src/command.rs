@@ -23,7 +23,7 @@ pub(crate) mod values;
 pub(crate) use argument::ArgumentSyntax;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
 pub(crate) use context::Context;
-pub(crate) use input::{Input, NamespaceEvent};
+pub(crate) use input::{Discovery, Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Tasks,

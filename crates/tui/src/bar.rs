@@ -461,12 +461,6 @@ impl Screen {
                     if !selection.is_error()
                         && let Some((argument, value)) = command::argument_input(&query)
                     {
-                        if !argument.action().available(&self.config) {
-                            self.message = crate::message::Message::error(
-                                i18n::tr!(NoMatchingCommands).into(),
-                            );
-                            return Ok(BarEvent::Handled);
-                        }
                         if let command::ArgumentAction::Option(kind) = argument {
                             let action = kind.parse(value).map(|value| value.action());
                             let target = path.clone();

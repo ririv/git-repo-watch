@@ -1,333 +1,71 @@
-//! Explain command preconditions and selection amounts without reading repositories.
-use super::target::{IndexSelection, Status};
-use crate::{Action, Mode, Screen, changes, clipboard};
-use engine::local::files::Area;
+//! Feature visibility projects the same resolved target used by command execution.
+use super::target::{CommandContext, Resolved, Target};
+use crate::{Action, Screen, clipboard};
 use std::path::Path;
 
 #[derive(Debug)]
-pub(crate) enum Availability {
-    Ready,
-    Unavailable(Problem),
+pub(crate) enum Availability<T = ()> {
+    Hidden,
+    Target(Target<T>),
 }
-#[derive(Debug)]
-pub(crate) enum Problem {
-    Reason(String),
-    WrongArea(engine::local::files::IndexAction),
-}
-impl Availability {
+impl<T> Availability<T> {
+    pub fn visible(&self, discovery: super::Discovery) -> bool {
+        match self {
+            Self::Hidden => false,
+            Self::Target(Target::OutOfScope(_)) => discovery == super::Discovery::GlobalSearch,
+            Self::Target(Target::Ready(_) | Target::Unavailable(_)) => true,
+        }
+    }
+    pub fn is_ready(&self) -> bool {
+        matches!(self, Self::Target(Target::Ready(_)))
+    }
+    pub fn value(&self) -> Option<&T> {
+        match self {
+            Self::Target(Target::Ready(value)) => Some(value),
+            Self::Hidden | Self::Target(Target::OutOfScope(_) | Target::Unavailable(_)) => None,
+        }
+    }
     pub fn reason(&self) -> Option<&str> {
         match self {
-            Self::Ready => None,
-            Self::Unavailable(Problem::Reason(reason)) => Some(reason),
-            Self::Unavailable(Problem::WrongArea(_)) => Some(i18n::tr!(ChangesWrongArea)),
+            Self::Hidden => Some(i18n::tr!(NoMatchingCommands)),
+            Self::Target(target) => target.reason().map(|reason| reason.text()),
         }
     }
     pub fn label(&self) -> Option<&str> {
         match self {
-            Self::Unavailable(Problem::WrongArea(engine::local::files::IndexAction::Stage)) => {
-                Some(i18n::tr!(CommandNeedsUnstaged))
-            }
-            Self::Unavailable(Problem::WrongArea(engine::local::files::IndexAction::Unstage)) => {
-                Some(i18n::tr!(CommandNeedsStaged))
-            }
-            _ => self.reason(),
+            Self::Hidden => Some(i18n::tr!(NoMatchingCommands)),
+            Self::Target(target) => target.reason().map(|reason| reason.label()),
+        }
+    }
+    pub fn map<U>(self, map: impl FnOnce(T) -> U) -> Availability<U> {
+        match self {
+            Self::Hidden => Availability::Hidden,
+            Self::Target(target) => Availability::Target(target.map(map)),
         }
     }
 }
 impl Screen {
+    pub(crate) fn resolve_command<'a>(
+        &'a self,
+        action: Action,
+        path: Option<&'a Path>,
+        selection: &'a clipboard::Selection,
+    ) -> Availability<Resolved<'a>> {
+        if !action.available(&self.config)
+            || (selection.is_error()
+                && !matches!(action, Action::Copy | Action::Quit | Action::Tasks))
+        {
+            return Availability::Hidden;
+        }
+        let context = CommandContext::new(self, path, selection);
+        Availability::Target(context.resolve(action))
+    }
     pub(crate) fn command_availability(
         &self,
         action: Action,
         path: Option<&Path>,
         selection: &clipboard::Selection,
     ) -> Availability {
-        use Action::*;
-        if let Status::Unavailable(reason) | Status::OutOfScope(reason) =
-            self.target_status(action, path, selection)
-        {
-            return Availability::Unavailable(Problem::Reason(reason.into()));
-        }
-        if matches!(action, Stage | Unstage) {
-            return match self.index_target(action) {
-                Ok(_) => Availability::Ready,
-                Err(problem) => Availability::Unavailable(problem),
-            };
-        }
-        if let Some(reason) =
-            crate::replay::unavailable(path.and_then(|path| self.replay_state(path)), action)
-        {
-            return Availability::Unavailable(Problem::Reason(reason.into()));
-        }
-        let reason = match action {
-            ConflictAcceptMenu | ConflictAccept(_) | ConflictBlockMenu | ConflictBlock(_) => {
-                match self.conflict_view() {
-                    Some(view) => view.resolution.reason().map(str::to_owned),
-                    None => Some(i18n::tr!(ConflictFileRequired).into()),
-                }
-            }
-            ConflictReset => match self.conflict_view() {
-                Some(view) => view.resolution.reset_reason().map(str::to_owned),
-                None => Some(i18n::tr!(ConflictFileRequired).into()),
-            },
-            ConflictUndo => match self.conflict_view() {
-                Some(view) if view.resolution.undo().is_some() => None,
-                Some(_) => Some(i18n::tr!(ConflictUndoUnavailable).into()),
-                None => Some(i18n::tr!(ConflictFileRequired).into()),
-            },
-
-            ConflictView(crate::conflict::DisplayMode::Pair(target)) => self
-                .conflict_view()
-                .and_then(|view| view.pairs.reason(target))
-                .map(str::to_owned),
-            CopyPath => selection
-                .file_target()
-                .filter(|target| target.relative_path().to_str().is_none())
-                .map(|_| i18n::tr!(CopyPathNotUtf8).into()),
-            StashSaveMode(crate::stash_save::Scope::Selected)
-                if selection.marked_file_count() == 0 =>
-            {
-                Some(i18n::tr!(StashSelectFiles).into())
-            }
-            ComposeOrderMenu
-            | Compose(crate::composition::Action::Up | crate::composition::Action::Down) => {
-                match &self.mode {
-                    Mode::Composition(session)
-                        if matches!(session.state, crate::composition::State::Browsing) =>
-                    {
-                        match action {
-                            Compose(crate::composition::Action::Up) if session.selected == 0 => {
-                                Some(i18n::tr!(ComposeFirstStep).into())
-                            }
-                            Compose(crate::composition::Action::Down)
-                                if session.selected + 1 >= session.prepared.plan.commits.len() =>
-                            {
-                                Some(i18n::tr!(ComposeLastStep).into())
-                            }
-                            _ => None,
-                        }
-                    }
-                    _ => Some(i18n::tr!(ComposeSelected).into()),
-                }
-            }
-            Copy => match selection.copy_scope() {
-                Some(scope) => selection.unavailable(scope, path).map(str::to_owned),
-                None => Some(i18n::tr!(CopySelectionRequired).into()),
-            },
-            LogMore
-                if self
-                    .history_graph_target()
-                    .is_some_and(|graph| graph.cursor().is_none()) =>
-            {
-                Some(i18n::tr!(HistoryNoMore).into())
-            }
-            LogSelect | LogSelectAll | LogSelectClear if self.history_graph_target().is_none() => {
-                Some(i18n::tr!(CommandRequiresHistory).into())
-            }
-            LogSelect | LogSelectAll if selection.commit().is_none() => {
-                Some(i18n::tr!(ReplaySelectCommit).into())
-            }
-            LogSelectAll
-                if self.history_graph_target().is_some_and(|graph| {
-                    graph.records.len() > engine::operations::replay::batch::MAX_COMMITS
-                }) =>
-            {
-                Some(i18n::tr!(ReplayBatchTooLarge).into())
-            }
-            PartialSelectMenu | PartialSelect(_) => self.partial_target().err(),
-            DiscardFile => self
-                .discard_file_target(path, selection)
-                .err()
-                .map(str::to_owned),
-            Discard => match self.partial_target() {
-                Err(reason) => Some(reason),
-                Ok(editing) if editing.selected().is_empty() => {
-                    Some(i18n::tr!(PartialSelectionIdle).into())
-                }
-                Ok(editing) if editing.snapshot.change().area == Area::Staged => {
-                    Some(i18n::tr!(CommandNeedsUnstaged).into())
-                }
-                Ok(editing)
-                    if Some(editing.snapshot.files().path.as_path()) != path
-                        || self
-                            .diff_selection_target()
-                            .and_then(|target| target.selection_key())
-                            .as_ref()
-                            != selection.diff_selection() =>
-                {
-                    Some(i18n::tr!(PartialChanged).into())
-                }
-                Ok(_) => None,
-            },
-            BrowserMode(mode) => {
-                use crate::browser::opening::{Presentation, TextMode};
-                match selection.opener().map(|target| target.presentation) {
-                    Some(Presentation::Single(current)) if current == mode => Some(match mode {
-                        TextMode::Source => i18n::tr!(CommandSourceCurrent).into(),
-                        TextMode::Preview => i18n::tr!(CommandPreviewCurrent).into(),
-                    }),
-                    Some(_) => None,
-                    None => Some(i18n::tr!(CommandRequiresPreviewableFile).into()),
-                }
-            }
-            _ => None,
-        };
-        match reason {
-            Some(reason) => Availability::Unavailable(Problem::Reason(reason)),
-            None => Availability::Ready,
-        }
+        self.resolve_command(action, path, selection).map(|_| ())
     }
-    fn partial_target(&self) -> Result<&changes::edit::Session, String> {
-        match self.diff_selection_target().map(|target| &target.preview) {
-            Some(changes::Preview::Ready {
-                editing: changes::edit::State::Ready(editing),
-                ..
-            }) => Ok(editing),
-            Some(changes::Preview::Ready {
-                editing: changes::edit::State::Unavailable(reason),
-                ..
-            }) => Err(reason.clone()),
-            _ => Err(i18n::tr!(PartialSelectRequired).into()),
-        }
-    }
-    pub(crate) fn command_target(
-        &self,
-        action: Action,
-        path: Option<&Path>,
-        selection: &clipboard::Selection,
-    ) -> Option<String> {
-        match action {
-            Action::Refresh => crate::view_refresh::Target::current(self)
-                .ok()
-                .map(|target| target.label().into()),
-            Action::OpenEditor | Action::Terminal => {
-                let root = path?;
-                let target = match action {
-                    Action::OpenEditor => selection.editor_target(root)?,
-                    Action::Terminal => selection.terminal_target(root)?,
-                    _ => unreachable!(),
-                };
-                let label = match target.strip_prefix(root) {
-                    Ok(relative) if !relative.as_os_str().is_empty() => relative,
-                    _ => root.file_name().map(Path::new).unwrap_or(root),
-                };
-                Some(label.display().to_string())
-            }
-            Action::CopyPath => selection.file_target().map(|target| target.label()),
-            Action::DiscardFile => match selection.worktree_files() {
-                [] => None,
-                [change] => Some(change.location.display()),
-                files => Some(format!(
-                    "{} · {}",
-                    i18n::tr!(ChangesUnstaged),
-                    i18n::tf!(CommandTargetFiles, count = files.len())
-                )),
-            },
-            Action::StashSaveMode(crate::stash_save::Scope::Selected) => Some(i18n::tf!(
-                CommandTargetFiles,
-                count = selection.marked_file_count()
-            )),
-            Action::Stage | Action::Unstage => {
-                self.index_target(action).ok().map(|target| match target {
-                    IndexTarget::Files { count, group } => format!(
-                        "{} · {}",
-                        group.label(),
-                        i18n::tf!(CommandTargetFiles, count = count)
-                    ),
-                    IndexTarget::Lines(count) => i18n::tf!(CommandTargetLines, count = count),
-                })
-            }
-            Action::Copy => selection
-                .copy_scope()
-                .and_then(|scope| selection.amount(scope))
-                .map(|amount| match amount {
-                    clipboard::Amount::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
-                    clipboard::Amount::Commits(count) => {
-                        i18n::tf!(CommandTargetCommits, count = count)
-                    }
-                }),
-            Action::Replay(kind) => Some(i18n::tf!(
-                CommandTargetCommits,
-                count = match kind {
-                    engine::operations::replay::Kind::CherryPick => selection.commits().len(),
-                    engine::operations::replay::Kind::Revert =>
-                        usize::from(selection.commit().is_some()),
-                }
-            )),
-            _ => None,
-        }
-    }
-    fn index_target(&self, action: Action) -> Result<IndexTarget, Problem> {
-        let staged = action == Action::Unstage;
-        let files = match IndexSelection::current(self) {
-            Some(IndexSelection::Files(files)) => files,
-            Some(IndexSelection::Conflict(view)) => {
-                return if staged {
-                    Err(Problem::WrongArea(
-                        engine::local::files::IndexAction::Unstage,
-                    ))
-                } else if view.resolution.resolved() {
-                    Ok(IndexTarget::Files {
-                        count: 1,
-                        group: crate::files::Group::Unstaged,
-                    })
-                } else {
-                    Err(Problem::Reason(i18n::tr!(ReplayResolveFirst).into()))
-                };
-            }
-            Some(IndexSelection::Diff(session)) => {
-                return match &session.preview {
-                    changes::Preview::Ready {
-                        editing: changes::edit::State::Ready(editing),
-                        ..
-                    } => {
-                        let count = editing.selected().len();
-                        if count == 0 {
-                            Err(Problem::Reason(i18n::tr!(PartialSelectionIdle).into()))
-                        } else if (editing.snapshot.change().area == Area::Staged) != staged {
-                            Err(Problem::WrongArea(if staged {
-                                engine::local::files::IndexAction::Unstage
-                            } else {
-                                engine::local::files::IndexAction::Stage
-                            }))
-                        } else {
-                            Ok(IndexTarget::Lines(count))
-                        }
-                    }
-                    changes::Preview::Ready {
-                        editing: changes::edit::State::Unavailable(reason),
-                        ..
-                    } => Err(Problem::Reason(reason.clone())),
-                    _ => Err(Problem::Reason(i18n::tr!(PartialSelectRequired).into())),
-                };
-            }
-            None => return Err(Problem::Reason(i18n::tr!(ChangesSelectionRequired).into())),
-        };
-        let files = files.selection();
-        if files.is_empty() {
-            return Err(Problem::Reason(
-                i18n::tr!(NoActionableFilesInThisArea).into(),
-            ));
-        }
-        if files
-            .iter()
-            .any(|change| (change.area == Area::Staged) != staged)
-        {
-            return Err(Problem::WrongArea(if staged {
-                engine::local::files::IndexAction::Unstage
-            } else {
-                engine::local::files::IndexAction::Stage
-            }));
-        }
-        Ok(IndexTarget::Files {
-            count: files.len(),
-            group: crate::files::Group::of(files[0].area),
-        })
-    }
-}
-enum IndexTarget {
-    Files {
-        count: usize,
-        group: crate::files::Group,
-    },
-    Lines(usize),
 }

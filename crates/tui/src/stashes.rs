@@ -202,6 +202,15 @@ impl crate::Screen {
             return;
         };
         let previous = self.mode.inspection().cloned();
+        self.open_stash_detail_target(scope, session, entry, previous);
+    }
+    pub(crate) fn open_stash_detail_target(
+        &mut self,
+        scope: engine::local::stash::preview::Scope,
+        session: Session,
+        entry: Entry,
+        previous: Option<crate::inspection::Session>,
+    ) {
         self.start_repository(
             session.snapshot.path.clone(),
             i18n::tr!(StashRead),

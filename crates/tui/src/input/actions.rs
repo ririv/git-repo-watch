@@ -1,6 +1,6 @@
 //! Explicit command workflows over application services.
 use super::super::*;
-use engine::{local::files::IndexAction, service::ConfigEdit, state};
+use engine::{service::ConfigEdit, state};
 impl Screen {
     pub(crate) fn activate(
         &mut self,
@@ -9,20 +9,26 @@ impl Screen {
         selection: crate::clipboard::Selection,
         root: &Cancel,
     ) -> Result<bool> {
-        if !action.available(&self.config)
-            || (selection.is_error()
-                && !matches!(action, Action::Copy | Action::Quit | Action::Tasks))
-        {
-            self.message = crate::message::Message::error(i18n::tr!(NoMatchingCommands).into());
-            return Ok(false);
-        }
-        if let Some(reason) = self
-            .command_availability(action, path.as_deref(), &selection)
-            .reason()
-        {
-            self.message = crate::message::Message::error(reason.to_owned());
-            return Ok(false);
-        }
+        let execution = match self.resolve_command(action, path.as_deref(), &selection) {
+            command::availability::Availability::Target(command::target::Target::Ready(target)) => {
+                target.capture(action, path.clone(), &selection)
+            }
+            unavailable => {
+                let reason = unavailable
+                    .reason()
+                    .expect("unavailable command has a reason")
+                    .to_owned();
+                self.message = crate::message::Message::error(reason);
+                return Ok(false);
+            }
+        };
+        let execution = match execution {
+            Ok(execution) => execution,
+            Err(error) => {
+                self.message = crate::message::Message::error(format!("{error:#}"));
+                return Ok(false);
+            }
+        };
         if !matches!(
             action,
             Action::Commit | Action::CommitGenerate | Action::Tasks
@@ -31,8 +37,36 @@ impl Screen {
             self.commit_generator.cancel();
             editor.restore();
         }
+        self.execute_bound_command(action, execution, selection, root)
+    }
+    pub(crate) fn activate_local(
+        &mut self,
+        action: Action,
+        path: Option<PathBuf>,
+        selection: crate::clipboard::Selection,
+    ) -> Result<bool> {
         match action {
-            Action::OpenEditor => self.open_in_editor(path, &selection),
+            Action::OpenEditor
+            | Action::Terminal
+            | Action::CopyPath
+            | Action::Copy
+            | Action::Replay(_)
+            | Action::Refresh
+            | Action::Stage
+            | Action::Unstage
+            | Action::Discard
+            | Action::DiscardFile
+            | Action::LogMore
+            | Action::LogParent
+            | Action::BrowserDiff
+            | Action::BrowserLayout(_)
+            | Action::BrowserMode(_)
+            | Action::StashPreview(_)
+            | Action::ConflictAccept(_)
+            | Action::ConflictUndo
+            | Action::ConflictReset => {
+                unreachable!("resolved target owns this command execution")
+            }
             Action::LogSelect => self.mark_history(history::SelectionAction::ToggleMode),
             Action::LogSelectAll => self.mark_history(history::SelectionAction::All),
             Action::LogSelectClear => self.mark_history(history::SelectionAction::Clear),
@@ -50,17 +84,6 @@ impl Screen {
                 self.open_option_menu(command::options::Kind::ConflictBlock, path, selection)
             }
             Action::ConflictBlock(direction) => self.navigate_conflict(direction),
-            Action::ConflictAccept(choice) => self.accept_conflict(
-                crate::conflict::resolution::Action::Accept(choice),
-                path.as_deref(),
-                &selection,
-            ),
-            Action::ConflictReset => self.reset_conflict(path.as_deref(), &selection),
-            Action::ConflictUndo => self.accept_conflict(
-                crate::conflict::resolution::Action::Undo,
-                path.as_deref(),
-                &selection,
-            ),
             Action::ConflictMenu => {
                 self.open_option_menu(command::options::Kind::Conflict, path, selection)
             }
@@ -86,7 +109,6 @@ impl Screen {
                 }
                 self.sync_bar();
             }
-            Action::LogParent => self.cycle_history_parent(),
             Action::SearchMenu => self.search_menu(),
             Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),
@@ -100,7 +122,6 @@ impl Screen {
                         crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
-            Action::BrowserDiff => self.open_browser_diff(),
             Action::BrowserModeMenu => {
                 self.open_option_menu(command::options::Kind::FileMode, path, selection)
             }
@@ -113,24 +134,9 @@ impl Screen {
             Action::ScheduleEnabledMenu => {
                 self.open_option_menu(command::options::Kind::ScheduleEnabled, path, selection)
             }
-            Action::BrowserLayout(_) | Action::BrowserMode(_) => {
-                if let Mode::Browser(session) = &mut self.mode
-                    && let Some(target) = selection.opener()
-                {
-                    match action {
-                        Action::BrowserLayout(layout) => {
-                            session.present(target, target.presentation.with_layout(layout))
-                        }
-                        Action::BrowserMode(mode) => session.open_with(target, mode),
-                        _ => unreachable!(),
-                    }
-                    self.poll_browser();
-                }
-            }
             Action::StashPreviewMenu => {
                 self.open_option_menu(crate::command::options::Kind::StashPreview, path, selection)
             }
-            Action::StashPreview(scope) => self.open_stash_detail(scope),
             Action::StashSave => {
                 self.open_option_menu(command::options::Kind::StashSave, path, selection)
             }
@@ -151,20 +157,6 @@ impl Screen {
                         crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
-            Action::Replay(kind) => {
-                if let Some(commit) = selection.commit() {
-                    let commits = match kind {
-                        engine::operations::replay::Kind::CherryPick => selection.commits(),
-                        engine::operations::replay::Kind::Revert => vec![commit],
-                    };
-                    let mut draft = self.mutation_draft(action, path);
-                    draft.selection = selection;
-                    self.prepare_replay(kind, commits, draft);
-                } else {
-                    self.message =
-                        crate::message::Message::error(i18n::tr!(ReplaySelectCommit).into());
-                }
-            }
             Action::ReplayControl(control) => {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(
@@ -179,23 +171,6 @@ impl Screen {
             Action::Sync => {
                 let draft = self.mutation_draft(action, path);
                 self.prepare_mutation(engine::operations::mutation::Request::Sync, draft);
-            }
-            Action::CopyPath => {
-                let target = selection
-                    .file_target()
-                    .expect("available file path has a target");
-                let text = target
-                    .relative_path()
-                    .to_str()
-                    .expect("available file path is UTF-8");
-                self.submit_clipboard(Ok(crate::clipboard::Payload {
-                    target: crate::clipboard::Target::FilePaths,
-                    text: text.to_owned(),
-                }));
-            }
-            Action::Copy => {
-                let scope = selection.copy_scope().expect("available copy has a source");
-                self.copy_to_clipboard(scope, selection, path);
             }
             Action::FilterMenu => self.list_menu(repository_list::Menu::Filter),
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
@@ -270,7 +245,6 @@ impl Screen {
             }
             Action::InteractionMenu => self.interaction_menu(),
             Action::Interaction(mode) => self.set_interaction(mode),
-            Action::Refresh => self.refresh_current_view(root),
             Action::FileLayoutMenu => {
                 self.open_option_menu(command::options::Kind::FileView, path, selection);
             }
@@ -296,23 +270,13 @@ impl Screen {
                         crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
-            Action::LogMore => self.more_history(),
             Action::DiffLayoutMenu => {
                 self.open_option_menu(command::options::Kind::DiffLayout, path, selection);
-            }
-            Action::Stage | Action::Unstage => {
-                self.edit_files(if action == Action::Stage {
-                    IndexAction::Stage
-                } else {
-                    IndexAction::Unstage
-                });
             }
             Action::PartialSelectMenu => {
                 self.open_option_menu(command::options::Kind::DiffSelection, path, selection);
             }
             Action::PartialSelect(mode) => self.select_partial(mode),
-            Action::Discard => self.edit_partial(engine::local::files::partial::Action::Discard),
-            Action::DiscardFile => self.prepare_discard_file(path.as_deref(), &selection),
             Action::Diff => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Diff, path);
@@ -359,25 +323,6 @@ impl Screen {
                 } else {
                     self.message =
                         crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into())
-                }
-            }
-            Action::Terminal => {
-                if let Some(path) = path {
-                    let directory = selection
-                        .terminal_target(&path)
-                        .expect("available terminal has a directory");
-                    self.start_repository(
-                        path.clone(),
-                        i18n::tr!(OpenRepositoryTerminal),
-                        Effect::Terminal,
-                        move |service, cancel, _| {
-                            service.open_terminal(&path, &directory, &cancel)?;
-                            Ok(Outcome::TerminalOpened(directory))
-                        },
-                    );
-                } else {
-                    self.message =
-                        crate::message::Message::error(i18n::tr!(SelectARepositoryFirst).into());
                 }
             }
             Action::Remove => {
@@ -518,60 +463,6 @@ impl Screen {
         )));
         self.poll_changes();
         self.sync_bar();
-    }
-    pub(crate) fn edit_files(&mut self, action: IndexAction) {
-        use command::target::IndexSelection;
-        let session = match IndexSelection::current(self) {
-            Some(IndexSelection::Files(files)) => files.clone(),
-            Some(IndexSelection::Conflict(_)) => {
-                if action == IndexAction::Stage {
-                    self.stage_conflict();
-                }
-                return;
-            }
-            Some(IndexSelection::Diff(_)) => {
-                self.edit_partial(match action {
-                    IndexAction::Stage => engine::local::files::partial::Action::Stage,
-                    IndexAction::Unstage => engine::local::files::partial::Action::Unstage,
-                });
-                return;
-            }
-            None => {
-                self.message =
-                    crate::message::Message::error(i18n::tr!(ChangesSelectionRequired).into());
-                return;
-            }
-        };
-        let selected = session.selection();
-        if selected.is_empty() {
-            self.message =
-                crate::message::Message::error(i18n::tr!(NoActionableFilesInThisArea).into());
-            return;
-        }
-        if selected
-            .iter()
-            .any(|change| (change.area == Area::Staged) != (action == IndexAction::Unstage))
-        {
-            self.message = crate::message::Message::error(i18n::tr!(ChangesWrongArea).into());
-            return;
-        }
-        self.start_repository(
-            session.snapshot.path.clone(),
-            if action == IndexAction::Stage {
-                i18n::tr!(StageSelectedFiles)
-            } else {
-                i18n::tr!(UnstageSelectedFiles)
-            },
-            Effect::IndexWrite,
-            move |service, cancel, _| {
-                Ok(Outcome::Files(service.edit_index(
-                    &session.snapshot,
-                    action,
-                    &selected,
-                    &cancel,
-                )?))
-            },
-        );
     }
     pub(crate) fn confirm(&mut self, confirmation: Confirmation) {
         match confirmation {

@@ -191,7 +191,9 @@ fn editor_uses_the_target_captured_when_the_global_command_opens() {
         panic!("command draft")
     };
     assert_eq!(
-        s.command_target(Action::OpenEditor, path.as_deref(), selection)
+        s.resolve_command(Action::OpenEditor, path.as_deref(), selection)
+            .value()
+            .and_then(|target| target.label(Action::OpenEditor, selection))
             .as_deref(),
         Some("first 中文.ts")
     );

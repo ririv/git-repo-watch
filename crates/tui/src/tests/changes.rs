@@ -117,7 +117,13 @@ fn diff_prefix_shows_all_subcommands_and_keeps_enter_on_the_changes_entry() {
         s.paste("//di");
         key(&mut s, KeyCode::Tab);
         assert_eq!(s.bar.text(), "/repo diff");
-        assert_eq!(s.search_commands().unwrap().len(), 9);
+        assert_eq!(
+            s.search_commands().unwrap().len(),
+            command::COMMANDS
+                .iter()
+                .filter(|c| c.name == "repo diff" || c.name.starts_with("repo diff "))
+                .count()
+        );
         let text = render(&mut s, 180, 36);
         for command in s.search_commands().unwrap().into_iter().take(8) {
             assert!(

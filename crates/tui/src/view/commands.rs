@@ -33,16 +33,14 @@ impl Columns {
         let minimum_description = entries
             .iter()
             .map(|entry| {
-                entry.description.width().min(
-                    if matches!(
-                        &entry.availability,
-                        command::availability::Availability::Unavailable(_)
-                    ) {
+                entry
+                    .description
+                    .width()
+                    .min(if entry.availability.reason().is_some() {
                         40
                     } else {
                         16
-                    },
-                )
+                    })
             })
             .max()
             .unwrap_or(0);
@@ -69,10 +67,7 @@ impl Entry {
         let branch = clipped(&self.name.branch, columns.name);
         let name = clipped(&self.name.name, columns.name.saturating_sub(branch.width()));
         let used = branch.width() + name.width();
-        let enabled = matches!(
-            self.availability,
-            command::availability::Availability::Ready
-        );
+        let enabled = self.availability.is_ready();
         let mut spans = vec![
             Span::styled(branch, Style::default().fg(MUTED)),
             Span::styled(
@@ -230,11 +225,6 @@ fn render_menu(
             return;
         }
     }
-    use command::target::IndexSelection;
-    let partial_index = matches!(
-        IndexSelection::current(screen),
-        Some(IndexSelection::Diff(_))
-    );
     let commands = screen.search_commands().expect("command candidates");
     let source =
         candidates::Source::Commands(commands.iter().map(|command| command.name).collect());
@@ -246,8 +236,14 @@ fn render_menu(
         .copied()
         .map(|command| {
             let selection = screen.bar.selection().expect("command selection");
-            let availability =
-                screen.command_availability(command.action, path.as_deref(), selection);
+            let resolved = screen.resolve_command(command.action, path.as_deref(), selection);
+            let target = resolved
+                .value()
+                .and_then(|target| target.label(command.action, selection));
+            let partial_index = resolved
+                .value()
+                .is_some_and(|target| target.is_partial_index());
+            let availability = resolved.map(|_| ());
             let description = match command.action {
                 Action::Stage if partial_index => i18n::tr!(PartialStage),
                 Action::Unstage if partial_index => i18n::tr!(PartialUnstage),
@@ -271,7 +267,6 @@ fn render_menu(
                     | Action::ReplayControl(_)
                     | Action::Compose(crate::composition::Action::Open)
             );
-            let target = screen.command_target(command.action, path.as_deref(), selection);
             let value = if repository_action {
                 path.as_deref()
                     .and_then(|path| repository.label(path))
@@ -283,31 +278,9 @@ fn render_menu(
                 None
             }
             .or(target)
-            .or_else(|| match (&screen.mode, command.action) {
-                (Mode::Branches(view), Action::BranchFilterMenu) => {
-                    Some(view.session().filter.title().into())
-                }
-                (Mode::Changes(session), Action::ConflictMenu) => match &session.preview {
-                    crate::changes::Preview::Ready { content, .. } => match content.as_ref() {
-                        crate::document::View::Conflict(view) => Some(view.mode.label().into()),
-                        _ => None,
-                    },
-                    _ => None,
-                },
-                _ => None,
-            })
             .or_else(|| repository_list::annotation(command.action, screen))
             .or_else(|| layout_summary::annotation(command.action, screen, body))
-            .or_else(|| settings::annotation(command.action, screen))
-            .or_else(|| match command.action {
-                Action::PartialSelectMenu => {
-                    screen.partial_mode().map(|mode| mode.label().to_owned())
-                }
-                Action::BrowserLayoutMenu | Action::BrowserModeMenu => {
-                    selection.annotation(command.action).map(str::to_owned)
-                }
-                _ => None,
-            });
+            .or_else(|| settings::annotation(command.action, screen));
             Entry {
                 name: tree.label(input, command),
                 maturity: if command.action.experimental() {
@@ -319,7 +292,7 @@ fn render_menu(
                     None => description,
                     Some(reason) => reason,
                 }),
-                value: if matches!(availability, command::availability::Availability::Ready) {
+                value: if availability.is_ready() {
                     value.unwrap_or_default()
                 } else {
                     String::new()

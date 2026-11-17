@@ -10,6 +10,13 @@ pub(crate) enum NamespaceEvent {
     Close,
 }
 
+/// Explicit global search reveals commands whose targets belong to another scene.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Discovery {
+    Context,
+    GlobalSearch,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) enum Input {
     Global(Editor),
@@ -103,6 +110,14 @@ impl Input {
             .strip_prefix('/')
             .expect("command slash")
             .to_owned()
+    }
+    pub fn discovery(&self) -> Discovery {
+        match self {
+            Self::Global(editor) if !editor.text.trim_start_matches('/').trim().is_empty() => {
+                Discovery::GlobalSearch
+            }
+            Self::Global(_) | Self::Scoped { .. } | Self::Prefix(_) => Discovery::Context,
+        }
     }
     pub fn matches(&self) -> Vec<&'static Command> {
         match self.menu_context() {

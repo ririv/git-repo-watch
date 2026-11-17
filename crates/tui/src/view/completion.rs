@@ -142,7 +142,7 @@ pub(super) fn render_options(
         .iter()
         .map(|option| {
             let availability =
-                screen.command_availability(option.value.action(), path.as_deref(), selection);
+                screen.resolve_command(option.value.action(), path.as_deref(), selection);
             let enabled = availability.reason().is_none();
             let mut spans = vec![Span::styled(
                 truncate(option.token, name_width + 1),
@@ -160,7 +160,10 @@ pub(super) fn render_options(
             let description = match availability.label() {
                 Some(reason) => reason.to_owned(),
                 None => {
-                    match screen.command_target(option.value.action(), path.as_deref(), selection) {
+                    match availability
+                        .value()
+                        .and_then(|target| target.label(option.value.action(), selection))
+                    {
                         Some(count) => format!("{} · {count}", option.description.text()),
                         None => option.description.text().into(),
                     }

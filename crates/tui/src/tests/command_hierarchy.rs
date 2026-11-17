@@ -230,12 +230,19 @@ fn partial_search_connects_every_matched_parent_without_losing_cross_group_resul
                 ("repo compose", "repo compose commit", "├─ commit"),
                 ("repo log", "repo log more", "└─ more"),
             ] {
-                if entry == "//repo commi" && parent != "repo commit" {
+                if (entry == "//repo commi" || entry == "/commi") && parent != "repo commit" {
+                    assert!(!names.contains(&child));
                     continue;
                 }
                 let parent_index = names.iter().position(|name| *name == parent).unwrap();
                 let child_index = names.iter().position(|name| *name == child).unwrap();
-                assert_eq!(child_index, parent_index + 1, "{names:?}");
+                assert!(child_index > parent_index, "{names:?}");
+                assert!(
+                    names[parent_index + 1..child_index]
+                        .iter()
+                        .all(|name| name.starts_with(&format!("{parent} "))),
+                    "{names:?}"
+                );
                 if let bar::InputBar::Command { selected, .. } = &mut s.bar {
                     *selected = child_index;
                 }

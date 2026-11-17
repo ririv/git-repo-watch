@@ -1,5 +1,6 @@
 //! Shared input validation and scrolling primitives.
 mod actions;
+mod bound;
 mod branches;
 mod changes;
 pub(crate) mod clicks;

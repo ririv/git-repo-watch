@@ -77,7 +77,7 @@ fn selection_changes_discard_old_results_and_manual_refresh_rereads_local_config
     assert!(text.contains(second_url), "{text}");
     assert!(!text.contains(first_url), "{text}");
     support::git(&second.repo, &["remote", "remove", "origin"]);
-    s.refresh_current_view(&Cancel::default());
+    command(&mut s, "refresh");
     ready(&mut s);
     let text = render(&mut s, 180, 40);
     assert!(text.contains(i18n::tr!(RemoteNone)), "{text}");

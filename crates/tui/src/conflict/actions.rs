@@ -21,46 +21,6 @@ impl Screen {
             self.sync_bar();
         }
     }
-    pub(crate) fn stage_conflict(&mut self) {
-        let Mode::Changes(session) = &self.mode else {
-            return;
-        };
-        let Some(view) = self.conflict_view() else {
-            return;
-        };
-        if !view.resolution.resolved() {
-            self.message = crate::message::Message::error(i18n::tr!(ReplayResolveFirst).into());
-            return;
-        }
-        let Some(change) = session.files.current().cloned() else {
-            return;
-        };
-        let files = session.files.snapshot.clone();
-        let Some(displayed) = view.result.source().map(str::to_owned) else {
-            return;
-        };
-        self.start_repository(
-            files.path.clone(),
-            i18n::tr!(StageSelectedFiles),
-            Effect::IndexWrite,
-            move |service, cancel, _| {
-                let source = engine::local::files::patch::Source::Text {
-                    path: change.location.name().to_owned(),
-                    text: displayed,
-                };
-                let capture = engine::local::files::conflict::resolve::Snapshot::capture(
-                    &files, &change, &source, &cancel,
-                )?;
-                anyhow::ensure!(capture.blocks().is_empty(), i18n::tr!(ReplayResolveFirst));
-                Ok(Outcome::Files(service.edit_index(
-                    &files,
-                    engine::local::files::IndexAction::Stage,
-                    &[change],
-                    &cancel,
-                )?))
-            },
-        );
-    }
     fn conflict_plan_current(
         &self,
         plan: &engine::local::files::conflict::resolve::Plan,
@@ -82,19 +42,11 @@ impl Screen {
             _ => false,
         }
     }
-    pub(crate) fn reset_conflict(
+    pub(crate) fn reset_conflict_target(
         &mut self,
-        path: Option<&std::path::Path>,
-        selection: &crate::clipboard::Selection,
+        path: std::path::PathBuf,
+        resolution: super::resolution::Session,
     ) {
-        let Some(resolution) = selection.conflict_resolution().cloned() else {
-            self.message = crate::message::Message::error(i18n::tr!(ConflictFileRequired).into());
-            return;
-        };
-        let Some(path) = path.map(std::path::Path::to_owned) else {
-            self.message = crate::message::Message::error(i18n::tr!(ConflictFileRequired).into());
-            return;
-        };
         self.start_repository(
             path,
             i18n::tr!(ConflictResetCommand),
@@ -149,22 +101,18 @@ impl Screen {
             move |service, cancel, _| Ok(Outcome::Files(service.resolve_conflict(&plan, &cancel)?)),
         );
     }
-    pub(crate) fn accept_conflict(
+    pub(crate) fn accept_conflict_target(
         &mut self,
         action: Action,
-        path: Option<&std::path::Path>,
-        selection: &crate::clipboard::Selection,
+        repository: std::path::PathBuf,
+        resolution: super::resolution::Session,
     ) {
-        let captured = selection.conflict_resolution();
-        let plan = match captured {
-            Some(resolution) => match action {
-                Action::Accept(choice) => resolution.prepare(choice),
-                Action::Undo => resolution
-                    .undo()
-                    .cloned()
-                    .ok_or_else(|| anyhow::anyhow!(i18n::tr!(ConflictUndoUnavailable))),
-            },
-            None => Err(anyhow::anyhow!(i18n::tr!(ConflictFileRequired))),
+        let plan = match action {
+            Action::Accept(choice) => resolution.prepare(choice),
+            Action::Undo => resolution
+                .undo()
+                .cloned()
+                .ok_or_else(|| anyhow::anyhow!(i18n::tr!(ConflictUndoUnavailable))),
         };
         let plan = match plan {
             Ok(plan) => plan,
@@ -173,7 +121,7 @@ impl Screen {
                 return;
             }
         };
-        let current = self.conflict_plan_current(&plan, path);
+        let current = self.conflict_plan_current(&plan, Some(&repository));
         if !current {
             self.message = crate::message::Message::error(i18n::tr!(ConflictResolveChanged).into());
             return;
@@ -182,9 +130,7 @@ impl Screen {
             && let Preview::Ready { content, .. } = &mut session.preview
             && let View::Conflict(view) = content.as_mut()
         {
-            view.resolution = captured
-                .expect("validated conflict command capture")
-                .clone();
+            view.resolution = resolution;
             match action {
                 Action::Accept(_) => view.resolution.accepting(&plan),
                 Action::Undo => view.resolution.undoing(),

@@ -86,7 +86,7 @@ fn activate(s: &mut Screen, focus: Focus) {
 fn conflict_preview_omits_partial_diff_commands() {
     let (_f, _home, mut s) = setup();
     activate(&mut s, Focus::Result);
-    s.paste("//repo diff ");
+    s.paste("/");
     assert!(
         s.search_commands()
             .unwrap()

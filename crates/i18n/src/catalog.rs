@@ -274,6 +274,7 @@ pub enum Message {
     ComposeMoveHint,
     ComposeRegenerate,
     ComposeSelected,
+    CommandRequiresComposition,
     ComposePending,
     ComposeUnits,
     ComposeCompleted,
@@ -2189,6 +2190,10 @@ impl Message {
                 "Select a planned commit or change unit first."
             }
             (Self::ComposeSelected, Language::Chinese) => "请先选中计划中的提交或改动块。",
+            (Self::CommandRequiresComposition, Language::English) => {
+                "Open AI commit composition first"
+            }
+            (Self::CommandRequiresComposition, Language::Chinese) => "请先打开 AI 编排提交",
             (Self::ComposePending, Language::English) => "Remaining commits",
             (Self::ComposePending, Language::Chinese) => "待提交",
             (Self::ComposeUnits, Language::English) => "Change units",

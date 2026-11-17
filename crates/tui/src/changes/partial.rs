@@ -43,33 +43,21 @@ impl Screen {
         }
     }
     pub(crate) fn edit_partial(&mut self, action: partial::Action) {
-        let Mode::Changes(session) = &self.mode else {
-            self.message = crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
-            return;
+        let action = match action {
+            partial::Action::Stage => crate::Action::Stage,
+            partial::Action::Unstage => crate::Action::Unstage,
+            partial::Action::Discard => crate::Action::Discard,
         };
-        if session.focus != Focus::Preview {
-            self.message = crate::message::Message::error(i18n::tr!(PartialSelectRequired).into());
-            return;
+        let path = self.scope_path();
+        let selection = self.copy_selection();
+        if let Err(error) =
+            self.activate(action, path, selection, &engine::cancel::Cancel::default())
+        {
+            self.message = crate::message::Message::error(format!("{error:#}"));
         }
-        let plan = match &session.preview {
-            Preview::Ready {
-                editing: edit::State::Ready(editing),
-                ..
-            } => editing.snapshot.prepare(action, editing.selected()),
-            Preview::Ready {
-                editing: edit::State::Unavailable(reason),
-                ..
-            } => Err(anyhow::anyhow!(reason.clone())),
-            _ => Err(anyhow::anyhow!(i18n::tr!(PartialSelectRequired))),
-        };
-        let plan = match plan {
-            Ok(plan) => plan,
-            Err(error) => {
-                self.message = crate::message::Message::error(format!("{error:#}"));
-                return;
-            }
-        };
-        if action == partial::Action::Discard {
+    }
+    pub(crate) fn apply_partial_plan(&mut self, plan: partial::Plan) {
+        if plan.action() == partial::Action::Discard {
             let review = match plan.preview() {
                 Ok(patch) => format!(
                     "{}\n\n{}\n\n{patch}",

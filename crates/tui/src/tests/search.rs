@@ -258,7 +258,10 @@ fn browser_and_graph_offer_only_supported_modes_while_static_pages_offer_none() 
         assert_eq!(s.page, page);
         assert!(s.bar.text().is_empty());
         s.paste("//search");
-        assert!(s.search_commands().unwrap().is_empty());
+        assert_eq!(s.search_commands().unwrap()[0].action, Action::SearchMenu);
+        key(&mut s, KeyCode::Enter);
+        assert_eq!(s.page, page);
+        assert_eq!(s.message, i18n::tr!(SearchUnavailable));
         key(&mut s, KeyCode::Esc);
     }
 }

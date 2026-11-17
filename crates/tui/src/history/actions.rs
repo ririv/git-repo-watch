@@ -35,7 +35,10 @@ impl Screen {
             self.message = crate::message::Message::error(i18n::tr!(HistoryRequiresOpen).into());
             return;
         };
-        let mut session = view.session().clone();
+        let session = view.session().clone();
+        self.more_history_target(session);
+    }
+    pub(crate) fn more_history_target(&mut self, mut session: Session) {
         let Some(cursor) = session.cursor() else {
             self.message = crate::message::Message::information(i18n::tr!(HistoryNoMore).into());
             return;
@@ -81,13 +84,7 @@ impl Screen {
             },
         );
     }
-    pub(crate) fn cycle_history_parent(&mut self) {
-        let Mode::History(view) = &self.mode else {
-            return;
-        };
-        let View::Commit(commit) = view.as_ref() else {
-            return;
-        };
+    pub(crate) fn cycle_history_parent_target(&mut self, commit: Commit) {
         let crate::inspection::Source::Commit(detail) = &commit.inspect.detail else {
             unreachable!("history commit source")
         };

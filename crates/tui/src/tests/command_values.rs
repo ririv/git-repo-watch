@@ -339,7 +339,7 @@ fn unavailable_commands_explain_their_condition_and_file_counts_match_the_select
     } else {
         panic!();
     }
-    s.paste("//repo diff ");
+    s.paste("/");
     let text = render(&mut s, 150, 28);
     assert!(
         text.lines().any(|line| line.contains("stage")

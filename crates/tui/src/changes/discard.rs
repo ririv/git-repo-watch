@@ -1,52 +1,13 @@
 //! Whole-file discard consumes the marked file-list rows or the current file and requires confirmation.
-use crate::{Confirmation, Effect, Mode, Outcome, Screen, clipboard, confirmation::Choice};
+use crate::{Confirmation, Effect, Mode, Outcome, Screen, confirmation::Choice};
 use engine::local::files::discard::{Action, Plan};
-use std::path::Path;
 
 impl Screen {
-    pub(crate) fn discard_file_target(
-        &self,
-        path: Option<&Path>,
-        selection: &clipboard::Selection,
-    ) -> Result<&crate::FileSession, &'static str> {
-        let changes = selection.worktree_files();
-        let files = self
-            .worktree_file_list()
-            .ok_or(i18n::tr!(DiscardFileSelect))?;
-        if changes.is_empty() {
-            return Err(i18n::tr!(DiscardFileSelect));
-        }
-        if Some(files.snapshot.path.as_path()) != path || files.discard_selection() != changes {
-            return Err(i18n::tr!(PartialChanged));
-        }
-        if changes
-            .iter()
-            .any(|change| change.area == crate::Area::Staged)
-        {
-            return Err(i18n::tr!(CommandNeedsUnstaged));
-        }
-        if changes
-            .iter()
-            .any(|change| Action::for_change(change).is_none())
-        {
-            return Err(i18n::tr!(DiscardFileUnsupported));
-        }
-        Ok(files)
-    }
-
-    pub(crate) fn prepare_discard_file(
+    pub(crate) fn prepare_discard_files(
         &mut self,
-        path: Option<&Path>,
-        selection: &clipboard::Selection,
+        snapshot: engine::local::files::Files,
+        changes: Vec<engine::local::files::Change>,
     ) {
-        let snapshot = match self.discard_file_target(path, selection) {
-            Ok(files) => files.snapshot.clone(),
-            Err(reason) => {
-                self.message = crate::message::Message::error(reason.into());
-                return;
-            }
-        };
-        let changes = selection.worktree_files().to_vec();
         self.start_repository(
             snapshot.path.clone(),
             i18n::tr!(DiscardFile),

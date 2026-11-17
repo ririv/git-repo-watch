@@ -97,20 +97,16 @@ impl Screen {
         if let Mode::Changes(session) = &mut self.mode {
             session.files.recovery.choose_conflict(action);
         }
-        match action {
-            Action::Accept(choice) => self.accept_conflict(
-                super::resolution::Action::Accept(choice),
-                path.as_deref(),
-                &selection,
-            ),
-            Action::Undo => {
-                self.accept_conflict(super::resolution::Action::Undo, path.as_deref(), &selection)
-            }
-            Action::Reset => self.reset_conflict(path.as_deref(), &selection),
-            Action::Stage => {
-                self.close_replay_controls();
-                self.stage_conflict();
-            }
+        if action == Action::Stage {
+            self.close_replay_controls();
+        }
+        if let Err(error) = self.activate(
+            action.command(),
+            path,
+            selection,
+            &engine::cancel::Cancel::default(),
+        ) {
+            self.message = crate::message::Message::error(format!("{error:#}"));
         }
     }
     pub(crate) fn conflict_control_key(&mut self, key: crossterm::event::KeyEvent) -> bool {

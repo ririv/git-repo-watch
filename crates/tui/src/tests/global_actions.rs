@@ -27,7 +27,9 @@ fn terminal_uses_captured_directories_and_file_parents_without_changing_selectio
         Some(f.repo.join("中文 目录"))
     );
     assert_eq!(
-        s.command_target(Action::Terminal, path.as_deref(), selection)
+        s.resolve_command(Action::Terminal, path.as_deref(), selection)
+            .value()
+            .and_then(|target| target.label(Action::Terminal, selection))
             .as_deref(),
         Some("中文 目录")
     );

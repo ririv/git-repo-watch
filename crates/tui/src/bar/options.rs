@@ -16,7 +16,11 @@ impl Screen {
             } => match command::argument_input(&input.query())
                 .and_then(|(argument, _)| argument.options())
             {
-                Some(kind) if self.command_visible(kind.action(), path.as_deref(), selection) => {
+                Some(kind)
+                    if self
+                        .command_availability(kind.action(), path.as_deref(), selection)
+                        .visible(command::Discovery::Context) =>
+                {
                     Candidates::new(input, kind, self, path.as_deref(), selection)
                 }
                 _ => None,
