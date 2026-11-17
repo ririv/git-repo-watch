@@ -66,6 +66,7 @@ impl Screen {
                 return;
             }
         };
+        self.remote_info.clear();
         match target {
             Target::Report | Target::Configuration => {
                 self.reload_for_refresh(cancel);

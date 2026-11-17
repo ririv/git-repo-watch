@@ -58,6 +58,7 @@ mod preview_loading;
 mod push;
 mod recovery_controls;
 mod release_interaction;
+mod remotes;
 mod replay;
 mod replay_batch;
 mod repository_list;
@@ -170,6 +171,7 @@ fn screen(service: Service) -> Screen {
         window_focus: crate::live::WindowFocus::Focused,
         auto_fetch: Default::default(),
         overview: Default::default(),
+        remote_info: Default::default(),
         history_preview: Default::default(),
         replay: Default::default(),
         workspace: Default::default(),

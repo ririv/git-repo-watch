@@ -52,6 +52,10 @@ impl Service {
         self.validate_repository(path, cancel)?;
         local::branches::catalog::read(path, cancel)
     }
+    pub fn remotes(&self, path: &Path, cancel: &Cancel) -> Result<Vec<local::remotes::Endpoint>> {
+        self.validate_repository_access(path, cancel)?;
+        local::remotes::read(path, cancel)
+    }
     pub fn overview(&self, path: &Path, cancel: &Cancel) -> Result<local::overview::Snapshot> {
         self.validate_repository(path, cancel)?;
         local::overview::read(path, cancel)

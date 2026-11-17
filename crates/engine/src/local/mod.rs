@@ -7,6 +7,7 @@ pub mod head;
 pub mod history;
 pub(crate) mod index_lock;
 pub mod overview;
+pub mod remotes;
 pub mod review;
 pub mod stash;
 use anyhow::{Context, Result, ensure};

@@ -47,6 +47,7 @@ mod preview;
 mod prompt_editor;
 mod push;
 mod reader;
+mod remote_info;
 mod replay;
 mod repository_list;
 mod repository_tasks;
@@ -323,6 +324,7 @@ struct Screen {
     window_focus: live::WindowFocus,
     auto_fetch: auto_fetch::Controller,
     overview: overview::Overview,
+    remote_info: remote_info::RemoteInfo,
     history_preview: history::preview::Preview,
     replay: replay::Cache,
     workspace: workspace::Workspace,
@@ -397,6 +399,7 @@ impl Screen {
             window_focus: live::WindowFocus::Focused,
             auto_fetch: Default::default(),
             overview: Default::default(),
+            remote_info: Default::default(),
             history_preview: Default::default(),
             replay: Default::default(),
             workspace: Default::default(),
@@ -619,8 +622,10 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.animate_check()
                 | screen.animate_task()
                 | screen.graphics.poll();
-            let changed =
-                changed | screen.overview.poll(&screen.service) | screen.overview.animate();
+            let changed = changed
+                | screen.overview.poll(&screen.service)
+                | screen.overview.animate()
+                | screen.poll_remote_info();
             if let Some(plan) = screen.external_editor.take_terminal() {
                 let result = guard.editor(&plan)?;
                 screen.message = match result {

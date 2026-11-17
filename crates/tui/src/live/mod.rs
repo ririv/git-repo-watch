@@ -216,6 +216,7 @@ impl Screen {
                         controller.pending.insert(path, Change::all());
                         continue;
                     }
+                    self.remote_info.invalidate(&path);
                     let snapshot = observed.snapshot;
                     let previous = self.stored_result_for(&path);
                     controller

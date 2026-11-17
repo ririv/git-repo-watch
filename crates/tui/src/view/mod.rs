@@ -26,6 +26,7 @@ mod layout_summary;
 mod overview;
 mod prompt;
 mod push;
+mod remotes;
 mod replay;
 mod repository;
 mod repository_list;

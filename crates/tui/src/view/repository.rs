@@ -200,6 +200,9 @@ pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope) -> Tex
             ),
         );
     }
+    if scope == Scope::CurrentBranch {
+        text.lines.extend(super::remotes::lines(screen, &row.path));
+    }
     text
 }
 fn detail_text(row: &Row, scope: Scope) -> Text<'static> {

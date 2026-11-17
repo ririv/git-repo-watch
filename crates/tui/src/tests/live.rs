@@ -7,6 +7,7 @@ static NATIVE: std::sync::Mutex<()> = std::sync::Mutex::new(());
 fn tick(s: &mut Screen) {
     s.poll_check();
     s.poll_live();
+    s.poll_remote_info();
     s.poll_workspace();
     s.overview.poll(&s.service);
     s.poll(&Cancel::default());
@@ -305,5 +306,31 @@ fn file_browser_keeps_preview_search_and_reading_position_across_external_save()
         browser::session(&mut s).selected().unwrap().path,
         std::path::Path::new("file.ts")
     );
+    s.shutdown();
+}
+
+#[test]
+fn remote_config_changes_refresh_the_visible_repository_details() {
+    let _native = NATIVE.lock().unwrap();
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.live = live::State::start();
+    until(&mut s, |s| observed(s, &f.repo));
+    until(&mut s, |s| {
+        matches!(
+            s.remote_info.content,
+            crate::remote_info::Content::Ready { .. }
+        )
+    });
+    let url = "https://example.com/team/renamed-project.git";
+    support::git(&f.repo, &["remote", "set-url", "origin", url]);
+    until(&mut s, |s| {
+        matches!(&s.remote_info.content,
+        crate::remote_info::Content::Ready { result: Ok(endpoints), .. }
+            if endpoints.iter().any(|endpoint| endpoint.url == url))
+    });
+    let text = render(&mut s, 180, 40);
+    assert!(text.contains(url), "{text}");
+    assert!(s.service.store.tasks(10).unwrap().is_empty());
     s.shutdown();
 }

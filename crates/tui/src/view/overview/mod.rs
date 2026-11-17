@@ -168,6 +168,7 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         Content::Closed => {}
     }
     if let Some(path) = path {
+        lines.extend(super::remotes::lines(screen, path));
         if presentation == Presentation::Expanded {
             lines.push(Line::default());
         }
