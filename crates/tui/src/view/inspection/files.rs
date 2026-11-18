@@ -11,7 +11,7 @@ pub(super) fn render(
 ) {
     let rows = commit.rows();
     let count = rows.len();
-    let selection = row_selection(commit.files.selected(), count);
+    let mut state = commit.files;
     let title = format!("{} · {}", i18n::tr!(HistoryChanges), rows.len());
     let border = block(title);
     let inner = border.inner(area);
@@ -24,40 +24,39 @@ pub(super) fn render(
             inner,
         );
     } else {
-        let items: Vec<_> = rows
-            .iter()
-            .enumerate()
-            .map(|(index, change)| {
-                let color = match change.kind {
-                    Kind::Added => GOOD,
-                    Kind::Deleted => BAD,
-                    Kind::Modified | Kind::Typechange => WARN,
-                    Kind::Renamed | Kind::Copied => ACCENT,
-                };
-                let path = highlight::line(
-                    crate::view::files::path_line(&change.location, &change.location.display()),
-                    &commit.query,
-                    Emphasis::at(index, selection),
-                );
-                let mut spans = icons.file(change.location.name());
-                spans.extend(path.spans);
-                let path = Line::from(spans);
-                ListItem::new(crate::view::files::marked_line(
-                    &path,
-                    change.kind.symbol(),
-                    color,
-                    inner.width as usize,
-                ))
-                .style(row_style(selection == Some(index)))
-            })
-            .collect();
-        frame.render_stateful_widget(List::new(items), inner, &mut commit.files);
+        let visible = list_window::visible(inner, count, &mut state);
+        let selection = row_selection(state.selected(), count);
+        list_window::render(frame, inner, visible.clone(), |index| {
+            let change = rows[index];
+            let color = match change.kind {
+                Kind::Added => GOOD,
+                Kind::Deleted => BAD,
+                Kind::Modified | Kind::Typechange => WARN,
+                Kind::Renamed | Kind::Copied => ACCENT,
+            };
+            let path = highlight::line(
+                crate::view::files::path_line(&change.location, &change.location.display()),
+                &commit.query,
+                Emphasis::at(index, selection),
+            );
+            let mut spans = icons.file(change.location.name());
+            spans.extend(path.spans);
+            let path = Line::from(spans);
+            ListItem::new(crate::view::files::marked_line(
+                &path,
+                change.kind.symbol(),
+                color,
+                inner.width as usize,
+            ))
+            .style(row_style(selection == Some(index)))
+        });
+        commit.files = state;
         crate::scrollbar::vertical(frame, area, inner, count, commit.files.offset());
-        hits.list(
+        hits.sequential_list(
             area,
             inner,
-            &(0..count).collect::<Vec<_>>(),
-            commit.files.offset(),
+            count,
+            visible,
             crate::pointer::Target::InspectionFiles,
         );
     }

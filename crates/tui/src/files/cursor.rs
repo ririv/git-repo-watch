@@ -3,7 +3,7 @@ use super::{FileSession, Layout, tree::Row};
 use crate::{Area, Change};
 use std::path::PathBuf;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Group {
     Unstaged,
     Staged,
@@ -43,7 +43,7 @@ impl Group {
         }
     }
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum Cursor {
     Empty,
     File(usize),
@@ -84,7 +84,7 @@ impl Row {
 }
 impl FileSession {
     pub fn current(&self) -> Option<&Change> {
-        self.rows().get(self.cursor.index()?).copied()
+        self.change(self.cursor.index()?)
     }
     pub fn group(&self) -> Option<Group> {
         match &self.cursor {
@@ -93,62 +93,33 @@ impl FileSession {
             Cursor::Directory { group, .. } => Some(*group),
         }
     }
-    pub fn entries(&self, layout: Layout) -> [Vec<Row>; 2] {
-        let rows = self.rows();
-        [Group::Staged, Group::Unstaged].map(|group| {
-            let changes = rows
-                .iter()
-                .copied()
-                .enumerate()
-                .filter(|(_, change)| Group::of(change.area) == group)
-                .collect::<Vec<_>>();
-            super::tree::project(&changes, layout, &|head, tip| {
-                self.folding.expansion(group, head, tip, &self.query)
-            })
-        })
-    }
-    fn cursors(&self, layout: Layout) -> Vec<Cursor> {
-        self.entries(layout)
-            .into_iter()
-            .enumerate()
-            .flat_map(|(group, rows)| {
-                rows.into_iter()
-                    .map(move |row| row.cursor(Group::from_index(group)))
-            })
-            .collect()
-    }
     pub fn select_row(&mut self, index: usize, layout: Layout) -> bool {
-        let Some(cursor) = self.cursors(layout).into_iter().nth(index) else {
+        let Some(cursor) = self.list(layout).cursor(index) else {
             return false;
         };
         self.cursor = cursor;
         true
     }
     pub fn move_cursor(&mut self, delta: isize, layout: Layout) {
-        let cursors = self.cursors(layout);
-        if cursors.is_empty() {
-            self.cursor = Cursor::Empty;
-            return;
-        }
-        let index = cursors
-            .iter()
-            .position(|cursor| *cursor == self.cursor)
-            .map_or(0, |index| {
-                index.saturating_add_signed(delta).min(cursors.len() - 1)
-            });
-        self.cursor = cursors[index].clone();
+        let list = self.list(layout);
+        let index = list.item_index(&self.cursor).map_or(0, |index| {
+            index
+                .saturating_add_signed(delta)
+                .min(list.len().saturating_sub(1))
+        });
+        self.cursor = list.cursor(index).unwrap_or(Cursor::Empty);
     }
     pub fn edge(&mut self, last: bool, layout: Layout) {
         if !last {
             self.offset = 0;
         }
-        let mut cursors = self.cursors(layout).into_iter();
-        self.cursor = if last {
-            cursors.next_back()
+        let list = self.list(layout);
+        let index = if last {
+            list.len().saturating_sub(1)
         } else {
-            cursors.next()
-        }
-        .unwrap_or(Cursor::Empty);
+            0
+        };
+        self.cursor = list.cursor(index).unwrap_or(Cursor::Empty);
     }
     #[cfg(test)]
     pub fn switch_group(&mut self, layout: Layout) {
@@ -235,16 +206,15 @@ impl FileSession {
         }
     }
 
-    pub fn check_state(&self, row: &Row, rows: &[&Change]) -> CheckState {
+    pub fn check_state(&self, row: &Row, group: Group) -> CheckState {
+        let Some(marked) = self.selected.indices(group) else {
+            return CheckState::Unchecked;
+        };
+        let indices = self.filtered_indices();
         let checked = row
             .indices()
             .iter()
-            .filter(|index| {
-                let change = rows[**index];
-                self.selected
-                    .indices(Group::of(change.area))
-                    .is_some_and(|marked| marked.contains(&self.change_index(change)))
-            })
+            .filter(|&&index| marked.contains(&indices[index]))
             .count();
         if checked == 0 {
             CheckState::Unchecked

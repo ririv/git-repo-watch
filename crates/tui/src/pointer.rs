@@ -101,6 +101,7 @@ enum Region {
 #[derive(Debug, Clone, PartialEq, Eq)]
 enum Values {
     Rows(Target, Vec<usize>),
+    Sequential(Target, usize),
     Offset(ScrollTarget, usize),
 }
 #[derive(Debug, Default, Clone)]
@@ -156,6 +157,32 @@ impl Map {
             });
         }
     }
+    pub fn sequential_list(
+        &mut self,
+        panel: Rect,
+        content: Rect,
+        count: usize,
+        rows: std::ops::Range<usize>,
+        target: Target,
+    ) {
+        let offset = rows.start;
+        for (row, index) in rows.enumerate() {
+            self.item(
+                Rect::new(content.x, content.y + row as u16, content.width, 1),
+                target,
+                index,
+            );
+        }
+        if count > usize::from(content.height) && !content.is_empty() {
+            self.regions.push(Region::Track {
+                area: crate::scrollbar::vertical_area(panel, content),
+                axis: crate::scrollbar::Axis::Vertical,
+                values: Values::Sequential(target, count),
+                offset,
+            });
+        }
+    }
+
     pub fn vertical(
         &mut self,
         panel: Rect,
@@ -207,6 +234,7 @@ impl Map {
                 };
                 let maximum = match values {
                     Values::Rows(_, rows) => rows.len().saturating_sub(1),
+                    Values::Sequential(_, count) => count.saturating_sub(1),
                     Values::Offset(_, maximum) => *maximum,
                 };
                 let index = (position as usize * maximum
@@ -214,6 +242,7 @@ impl Map {
                     / usize::from(length.saturating_sub(1).max(1));
                 Some(Hit::Scrollbar(match values {
                     Values::Rows(target, rows) => Action::Select(*target, rows[index]),
+                    Values::Sequential(target, _) => Action::Select(*target, index),
                     Values::Offset(target, _) => Action::Scroll(*target, index),
                 }))
             }

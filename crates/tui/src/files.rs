@@ -4,7 +4,7 @@ mod folding;
 pub(crate) mod list;
 pub(crate) use folding::Expansion;
 pub(super) mod tree;
-use crate::{Area, Change, Files};
+use crate::{Change, Files};
 pub(crate) use cursor::{CheckState, Cursor, Group};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -72,6 +72,7 @@ pub(super) struct FileSession {
     pub input_preference: crate::input_pages::Preference,
     pub search_mode: crate::search::Mode,
     folding: Box<folding::Folding>,
+    projection: std::cell::RefCell<list::Projection>,
 }
 impl FileSession {
     pub fn working_target(&self) -> Option<crate::working_target::Target> {
@@ -103,6 +104,7 @@ impl FileSession {
             input_preference: Default::default(),
             search_mode: Default::default(),
             folding: Default::default(),
+            projection: Default::default(),
         }
     }
     pub fn refreshed(&self, snapshot: Files) -> Self {
@@ -222,22 +224,14 @@ impl FileSession {
     }
 
     pub fn rows(&self) -> Vec<&Change> {
-        let mut rows = self
-            .snapshot
-            .changes
+        self.filtered_indices()
             .iter()
-            .filter(|change| {
-                self.scope
-                    .is_none_or(|group| Group::of(change.area) == group)
-                    && self.search_mode.includes(self.matches_change(change))
-            })
-            .collect::<Vec<_>>();
-        rows.sort_by(|a, b| {
-            (a.area != Area::Staged)
-                .cmp(&(b.area != Area::Staged))
-                .then_with(|| a.location.name().cmp(b.location.name()))
-        });
-        rows
+            .map(|&index| &self.snapshot.changes[index])
+            .collect()
+    }
+    pub fn change(&self, index: usize) -> Option<&Change> {
+        let original = *self.filtered_indices().get(index)?;
+        self.snapshot.changes.get(original)
     }
     pub fn matches_change(&self, change: &Change) -> bool {
         change

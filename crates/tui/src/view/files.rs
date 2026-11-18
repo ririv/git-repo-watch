@@ -2,15 +2,7 @@
 use super::*;
 use crate::files::{Group, list::Row};
 use crate::search::highlight::{self, Emphasis};
-
-enum Label {
-    Header(Line<'static>),
-    Entry {
-        line: Line<'static>,
-        marker: Option<(char, Color)>,
-        selected: bool,
-    },
-}
+use unicode_width::UnicodeWidthStr;
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -24,8 +16,8 @@ pub(super) fn render(
     let border = block(title.to_owned());
     let inner = border.inner(area);
     frame.render_widget(border, area);
-    let changes = session.rows();
-    let rows = session.list(options.layout);
+    let list = session.list(options.layout);
+    let rows = &list.rows;
     if rows.is_empty() {
         session.offset = 0;
         session.horizontal.constrain(0);
@@ -41,68 +33,16 @@ pub(super) fn render(
         );
         return;
     }
-    let labels = rows
-        .iter()
-        .map(|row| match row {
-            Row::Header { group, count } => Label::Header(Line::styled(
-                format!(
-                    "{} · {}",
-                    match group {
-                        Group::Staged => i18n::tr!(ChangesStaged),
-                        Group::Unstaged => i18n::tr!(ChangesUnstaged),
-                    },
-                    count
-                ),
-                Style::default().fg(ACCENT).bold(),
-            )),
-            Row::Entry { group, entry, .. } => {
-                label(session, entry, *group, &changes, options.icons)
-            }
-        })
-        .collect::<Vec<_>>();
     let pinned = usize::from((super::checkbox::WIDTH + 1).min(inner.width));
     let path_width = usize::from(inner.width).saturating_sub(pinned + 2);
-    session.horizontal.constrain(
-        labels
-            .iter()
-            .filter_map(|label| match label {
-                Label::Entry { line, .. } => Some(line.width().saturating_sub(pinned + path_width)),
-                Label::Header(_) => None,
-            })
-            .max()
-            .unwrap_or(0),
-    );
-    let items = labels
-        .into_iter()
-        .map(|label| match label {
-            Label::Header(line) => ListItem::new(line),
-            Label::Entry {
-                line,
-                marker,
-                selected,
-            } => {
-                let mut visible = crate::horizontal::clip(&line, 0, pinned);
-                visible.spans.extend(
-                    crate::horizontal::clip(
-                        &line,
-                        pinned + session.horizontal.offset(),
-                        path_width,
-                    )
-                    .spans,
-                );
-                let visible = match marker {
-                    Some((marker, color)) => {
-                        marked_line(&visible, marker, color, usize::from(inner.width))
-                    }
-                    None => visible,
-                };
-                ListItem::new(visible).style(row_style(selected))
-            }
-        })
-        .collect::<Vec<_>>();
-    let selected = rows
-        .iter()
-        .position(|row| row.cursor().as_ref() == Some(&session.cursor));
+    let widest = list.widest(options.icons, |row| {
+        label_width(session, row, options.icons)
+    });
+    session
+        .horizontal
+        .constrain(widest.saturating_sub(pinned + path_width));
+
+    let selected = list.position(&session.cursor);
     let mut offset = session
         .offset
         .min(rows.len().saturating_sub(usize::from(inner.height)));
@@ -117,7 +57,31 @@ pub(super) fn render(
     let mut state = ListState::default()
         .with_offset(offset)
         .with_selected(selected);
-    frame.render_stateful_widget(List::new(items), inner, &mut state);
+    let visible = list_window::visible(inner, rows.len(), &mut state);
+    list_window::render(frame, inner, visible.clone(), |index| match &rows[index] {
+        Row::Header { group, count } => ListItem::new(Line::styled(
+            format!("{} · {count}", group.label()),
+            Style::default().fg(ACCENT).bold(),
+        )),
+        Row::Entry { group, entry, .. } => {
+            let (line, marker) = label(
+                session,
+                entry,
+                *group,
+                options.icons,
+                selected == Some(index),
+            );
+            let mut shown = crate::horizontal::clip(&line, 0, pinned);
+            shown.spans.extend(
+                crate::horizontal::clip(&line, pinned + session.horizontal.offset(), path_width)
+                    .spans,
+            );
+            if let Some((marker, color)) = marker {
+                shown = marked_line(&shown, marker, color, usize::from(inner.width));
+            }
+            ListItem::new(shown).style(row_style(selected == Some(index)))
+        }
+    });
     session.offset = state.offset();
     crate::scrollbar::vertical(frame, area, inner, rows.len(), session.offset);
     hits.vertical(
@@ -134,12 +98,7 @@ pub(super) fn render(
         hits,
         crate::pointer::ScrollTarget::WorktreeHorizontal,
     );
-    for (visible, row) in rows
-        .iter()
-        .skip(session.offset)
-        .take(usize::from(inner.height))
-        .enumerate()
-    {
+    for (visible, row) in rows[visible].iter().enumerate() {
         let Row::Entry { index, .. } = row else {
             continue;
         };
@@ -150,22 +109,66 @@ pub(super) fn render(
     }
 }
 
+fn label_width(session: &FileSession, row: &Row, icons: crate::file_icons::Display) -> usize {
+    use crate::files::tree::Row as File;
+    let Row::Entry { entry, .. } = row else {
+        return 0;
+    };
+    let width = match entry {
+        File::Directory {
+            prefix,
+            label,
+            expansion,
+            ..
+        } => {
+            prefix.width()
+                + safe(label).width()
+                + directory_icon(icons, *expansion)
+                    .iter()
+                    .map(Span::width)
+                    .sum::<usize>()
+        }
+        File::File {
+            index,
+            prefix,
+            label,
+        } => {
+            let change = session.change(*index).expect("visible change");
+            prefix.width()
+                + path_line(&change.location, label).width()
+                + icons
+                    .file(change.location.name())
+                    .iter()
+                    .map(Span::width)
+                    .sum::<usize>()
+        }
+    };
+    usize::from(super::checkbox::WIDTH) + 1 + width
+}
+fn directory_icon(
+    icons: crate::file_icons::Display,
+    expansion: crate::files::Expansion,
+) -> Vec<Span<'static>> {
+    icons.directory_slot(match expansion {
+        crate::files::Expansion::Expanded => crate::file_icons::Folder::Expanded,
+        crate::files::Expansion::Collapsed => crate::file_icons::Folder::Collapsed,
+    })
+}
 fn label(
     session: &FileSession,
     entry: &crate::files::tree::Row,
     group: Group,
-    changes: &[&Change],
     icons: crate::file_icons::Display,
-) -> Label {
-    let selected = entry.cursor(group) == session.cursor;
+    selected: bool,
+) -> (Line<'static>, Option<(char, Color)>) {
     let emphasis = if selected {
         Emphasis::Current
     } else {
         Emphasis::Other
     };
-    let mut spans = super::checkbox::spans(session.check_state(entry, changes));
+    let mut spans = super::checkbox::spans(session.check_state(entry, group));
     spans.push(Span::raw(" "));
-    match entry {
+    let (path, marker) = match entry {
         crate::files::tree::Row::Directory {
             prefix,
             label,
@@ -173,51 +176,32 @@ fn label(
             ..
         } => {
             spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
-            spans.extend(icons.directory_slot(match expansion {
-                crate::files::Expansion::Expanded => crate::file_icons::Folder::Expanded,
-                crate::files::Expansion::Collapsed => crate::file_icons::Folder::Collapsed,
-            }));
-            spans.extend(
-                highlight::line(
-                    Line::styled(safe(label), Style::default().fg(ACCENT)),
-                    &session.query,
-                    emphasis,
-                )
-                .spans,
-            );
-            Label::Entry {
-                line: Line::from(spans),
-                marker: None,
-                selected,
-            }
+            spans.extend(directory_icon(icons, *expansion));
+            (Line::styled(safe(label), Style::default().fg(ACCENT)), None)
         }
         crate::files::tree::Row::File {
             index,
             prefix,
             label,
         } => {
-            let change = changes[*index];
+            let change = session.change(*index).expect("visible change");
             spans.push(Span::styled(prefix.clone(), Style::default().fg(MUTED)));
             spans.extend(icons.file(change.location.name()));
-            spans.extend(
-                highlight::line(path_line(&change.location, label), &session.query, emphasis).spans,
-            );
-            Label::Entry {
-                line: Line::from(spans),
-                marker: Some((
-                    change.kind,
-                    if change.kind == 'U' {
-                        BAD
-                    } else if group == Group::Staged {
-                        GOOD
-                    } else {
-                        WARN
-                    },
-                )),
-                selected,
-            }
+            let color = if change.kind == 'U' {
+                BAD
+            } else if group == Group::Staged {
+                GOOD
+            } else {
+                WARN
+            };
+            (
+                path_line(&change.location, label),
+                Some((change.kind, color)),
+            )
         }
-    }
+    };
+    spans.extend(highlight::line(path, &session.query, emphasis).spans);
+    (Line::from(spans), marker)
 }
 
 /// Keep a file status marker pinned to the last column, clipping only the label.

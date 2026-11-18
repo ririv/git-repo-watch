@@ -9,6 +9,7 @@ use crate::{
     pointer::Target,
     workspace::Arrangement,
 };
+use unicode_width::UnicodeWidthStr;
 
 pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
     let (_, area) = path::areas(area);
@@ -80,99 +81,92 @@ fn tree(
         );
     }
     let rows = session.rows();
-    let selection = row_selection(session.state.selected(), rows.len());
-    let width = parts[1].width as usize;
-    let name_width = if width >= 3 { width - 3 } else { width };
-    let labels = rows
-        .iter()
-        .enumerate()
-        .map(|(index, row)| {
-            let entry = row.entry;
-            let status = entry.status();
-            let color = if status.is_some_and(|status| status.changed()) {
-                WARN
-            } else {
-                Color::Reset
-            };
-            let path = if session.query.is_empty() {
-                entry
-                    .path
-                    .strip_prefix(row.head.parent().expect("nonempty browser path"))
-                    .expect("compact row stays within its parent")
-                    .to_string_lossy()
-            } else {
-                entry.path.to_string_lossy()
-            };
-            let label = if entry.directory() {
-                let mut label = format!("{path}/");
-                let indicator = if session.directory_loading(&entry.path) {
-                    Some(session.spinner())
-                } else if session.directory_notice(&entry.path).is_some() {
-                    Some("!")
-                } else {
-                    None
-                };
-                if let Some(indicator) = indicator {
-                    label.push(' ');
-                    label.push_str(indicator);
-                }
-                label
-            } else {
-                path.to_string()
-            };
-            let mut spans = vec![Span::raw("  ".repeat(row.depth))];
-            if entry.directory() {
-                let folder = if session.expanded(row.head) {
-                    crate::file_icons::Folder::Expanded
-                } else {
-                    crate::file_icons::Folder::Collapsed
-                };
-                spans.extend(icons.directory_slot(folder));
-            } else {
-                spans.extend(icons.slot(&entry.path));
-            }
-            spans.extend(
-                highlight::line(
-                    Line::styled(
-                        safe(&label),
-                        Style::default().fg(if entry.directory() { ACCENT } else { color }),
-                    ),
-                    &session.query,
-                    Emphasis::at(index, selection),
-                )
-                .spans,
-            );
-            let label = Line::from(spans);
-            (label, status.map(|status| status.label()), color)
-        })
-        .collect::<Vec<_>>();
     let count = rows.len();
-    drop(rows);
-    session.horizontal.constrain(
-        labels
-            .iter()
-            .map(|(label, _, _)| label.width())
-            .max()
-            .unwrap_or(0)
-            .saturating_sub(name_width),
-    );
-    let items = labels
-        .into_iter()
-        .enumerate()
-        .map(|(index, (label, status, color))| {
-            let mut line = crate::horizontal::clip(&label, session.horizontal.offset(), name_width);
-            if width >= 3 {
-                line.spans
-                    .push(Span::raw(" ".repeat(width - 2 - line.width())));
-                line.spans.push(Span::styled(
-                    status.unwrap_or_else(|| "  ".into()),
-                    Style::default().fg(color),
-                ));
+    let mut state = session.state;
+    let visible = list_window::visible(parts[1], count, &mut state);
+    let selection = row_selection(state.selected(), count);
+    let width = usize::from(parts[1].width);
+    let name_width = if width >= 3 { width - 3 } else { width };
+    let path = |row: crate::browser::Row<'_>| -> String {
+        let entry = row.entry;
+        let path = if session.query.is_empty() {
+            entry
+                .path
+                .strip_prefix(row.head.parent().expect("nonempty browser path"))
+                .expect("compact row stays within its parent")
+                .to_string_lossy()
+        } else {
+            entry.path.to_string_lossy()
+        };
+        let mut label = safe(&path);
+        if entry.directory() {
+            label.push('/');
+            if let Some(indicator) = if session.directory_loading(&entry.path) {
+                Some(session.spinner())
+            } else if session.directory_notice(&entry.path).is_some() {
+                Some("!")
+            } else {
+                None
+            } {
+                label.push(' ');
+                label.push_str(indicator);
             }
-            ListItem::new(line).style(row_style(selection == Some(index)))
-        })
-        .collect::<Vec<_>>();
-    frame.render_stateful_widget(List::new(items), parts[1], &mut session.state);
+        }
+        label
+    };
+    // 文件浏览的图标栏始终占两列，隐藏图标时也保留宽度。
+    let overflow = rows
+        .iter()
+        .copied()
+        .map(|row| row.depth * 2 + 2 + path(row).width())
+        .max()
+        .unwrap_or(0)
+        .saturating_sub(name_width);
+    let horizontal = session.horizontal.offset().min(overflow);
+    list_window::render(frame, parts[1], visible.clone(), |index| {
+        let row = rows[index];
+        let entry = row.entry;
+        let status = entry.status();
+        let color = if status.is_some_and(|status| status.changed()) {
+            WARN
+        } else {
+            Color::Reset
+        };
+        let mut spans = vec![Span::raw("  ".repeat(row.depth))];
+        if entry.directory() {
+            let folder = if session.expanded(row.head) {
+                crate::file_icons::Folder::Expanded
+            } else {
+                crate::file_icons::Folder::Collapsed
+            };
+            spans.extend(icons.directory_slot(folder));
+        } else {
+            spans.extend(icons.slot(&entry.path));
+        }
+        spans.extend(
+            highlight::line(
+                Line::styled(
+                    path(row),
+                    Style::default().fg(if entry.directory() { ACCENT } else { color }),
+                ),
+                &session.query,
+                Emphasis::at(index, selection),
+            )
+            .spans,
+        );
+        let mut line = crate::horizontal::clip(&Line::from(spans), horizontal, name_width);
+        if width >= 3 {
+            line.spans
+                .push(Span::raw(" ".repeat(width - 2 - line.width())));
+            line.spans.push(Span::styled(
+                status.map_or_else(|| "  ".into(), |status| status.label()),
+                Style::default().fg(color),
+            ));
+        }
+        ListItem::new(line).style(row_style(selection == Some(index)))
+    });
+    session.state = state;
+    session.horizontal.constrain(overflow);
     if count == 0 && session.notice().is_none() {
         frame.render_widget(
             Paragraph::new(i18n::tr!(BrowserEmpty)).style(Style::default().fg(MUTED)),
@@ -180,13 +174,7 @@ fn tree(
         );
     }
     crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
-    hits.list(
-        area,
-        parts[1],
-        &(0..count).collect::<Vec<_>>(),
-        session.state.offset(),
-        Target::Browser,
-    );
+    hits.sequential_list(area, parts[1], count, visible, Target::Browser);
     session.horizontal.render_on_border(
         frame,
         area,

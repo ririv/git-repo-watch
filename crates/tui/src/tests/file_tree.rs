@@ -97,7 +97,7 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
             .find(|row| row.cursor(Group::Unstaged) == files.cursor)
             .unwrap();
         assert_eq!(
-            files.check_state(directory, &files.rows()),
+            files.check_state(directory, Group::Unstaged),
             CheckState::Mixed
         );
         assert!(render(&mut s, 160, 40).contains("[−]"));

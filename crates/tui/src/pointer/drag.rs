@@ -34,6 +34,7 @@ impl Map {
             let length = usize::from(length);
             let maximum = match values {
                 Values::Rows(_, rows) => rows.len().saturating_sub(length),
+                Values::Sequential(_, count) => count.saturating_sub(length),
                 Values::Offset(_, maximum) => *maximum,
             };
             let slider = thumb(length, *offset, maximum);
@@ -75,6 +76,11 @@ impl Grab {
         };
         Some(match &self.values {
             Values::Offset(target, _) => Action::Scroll(*target, offset),
+            Values::Sequential(target, _) => Action::DragRows {
+                target: *target,
+                index: offset,
+                offset,
+            },
             Values::Rows(target, rows) => Action::DragRows {
                 target: *target,
                 index: rows[offset.min(rows.len() - 1)],
@@ -145,6 +151,27 @@ mod tests {
             ScrollTarget::DiffHorizontal,
         );
         assert!(!grab.valid(&map));
+    }
+
+    #[test]
+    fn contiguous_list_uses_global_indices_for_track_clicks_and_drags() {
+        let mut map = Map::default();
+        let panel = Rect::new(0, 0, 20, 12);
+        let content = Rect::new(1, 1, 18, 10);
+        map.sequential_list(panel, content, 12_000, 0..10, Target::History);
+        let grab = map.grab(Position::new(19, 1)).unwrap();
+        assert_eq!(
+            grab.action(Position::new(19, 11)),
+            Some(Action::DragRows {
+                target: Target::History,
+                index: 11_990,
+                offset: 11_990,
+            })
+        );
+        assert_eq!(
+            map.hit(Position::new(19, 10)),
+            Some(Hit::Scrollbar(Action::Select(Target::History, 11_999)))
+        );
     }
 
     #[test]

@@ -166,6 +166,7 @@ fn first_file_reveals_its_group_heading_from_a_scrolled_viewport_in_every_scene(
                 // 复现滚动后第一项恰好位于视口顶端、标题在上一行的情况。
                 files.offset = files
                     .list(layout)
+                    .rows
                     .iter()
                     .position(|row| row.cursor().as_ref() == Some(&files.cursor))
                     .unwrap();

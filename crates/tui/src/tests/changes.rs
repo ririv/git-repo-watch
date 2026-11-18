@@ -199,11 +199,12 @@ fn combined_view_previews_exact_sides_and_keeps_selection_visible_after_navigati
             let selected = review(&s)
                 .files
                 .list(s.file_layout)
-                .into_iter()
+                .rows
+                .iter()
                 .find_map(|row| {
                     let selected = row.cursor().as_ref() == Some(&review(&s).files.cursor);
                     match row {
-                        crate::files::list::Row::Entry { index, .. } if selected => Some(index),
+                        crate::files::list::Row::Entry { index, .. } if selected => Some(*index),
                         _ => None,
                     }
                 })

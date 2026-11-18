@@ -69,6 +69,12 @@ fn labels(references: &References, entry: &Entry) -> Vec<Span<'static>> {
     spans
 }
 
+fn subject(references: &References, entry: &Entry) -> Line<'static> {
+    let mut spans = labels(references, entry);
+    spans.push(Span::raw(safe(&entry.subject)));
+    Line::from(spans)
+}
+
 pub(super) fn panel(
     frame: &mut Frame,
     area: Rect,
@@ -111,7 +117,11 @@ fn graph(
     let panel = block(title);
     let inner = panel.inner(parts[0]);
     frame.render_widget(panel, parts[0]);
-    let query_missing = !session.query.is_empty() && session.matches().is_empty();
+    let query_missing = !session.query.is_empty()
+        && !session
+            .records
+            .iter()
+            .any(|record| session.matches_entry(&record.entry));
     let shallow = session.references.depth == engine::local::history::Depth::Shallow;
     let header_rows = 2 + u16::from(query_missing) + u16::from(shallow);
     let body = Layout::vertical([Constraint::Length(header_rows), Constraint::Min(1)]).split(inner);
@@ -190,16 +200,14 @@ fn graph(
     };
     // 图线与文字共用横向位置，各自只滚动溢出的部分，短哈希始终固定。
     let text_width = graph_area.width.saturating_sub(graph_width + 11) as usize;
-    let lines: Vec<_> = session
-        .records
-        .iter()
-        .map(|record| {
-            let mut spans = labels(&session.references, &record.entry);
-            spans.push(Span::raw(safe(&record.entry.subject)));
-            Line::from(spans)
-        })
-        .collect();
-    let widest = lines.iter().map(Line::width).max().unwrap_or(0);
+    let widest = *session.subject_width.get_or_init(|| {
+        session
+            .records
+            .iter()
+            .map(|record| subject(&session.references, &record.entry).width())
+            .max()
+            .unwrap_or(0)
+    });
     let graph_overflow = if graph_width > 0 {
         session.width.saturating_sub(usize::from(graph_width))
     } else {
@@ -227,13 +235,18 @@ fn graph(
         hits,
         crate::pointer::ScrollTarget::HistoryHorizontal,
     );
-    let selection = row_selection(session.state.selected(), session.records.len());
-    let items: Vec<_> = session
-        .records
-        .iter()
-        .zip(lines)
-        .enumerate()
-        .map(|(index, (record, line))| {
+    let count = session.records.len();
+    let visible = list_window::visible(content_area, count, &mut session.state);
+    let selection = row_selection(session.state.selected(), count);
+    if count == 0 {
+        frame.render_widget(
+            Paragraph::new(i18n::tr!(HistoryEmpty)).style(Style::default().fg(MUTED)),
+            body[1],
+        );
+    } else {
+        list_window::render(frame, content_area, visible.clone(), |index| {
+            let record = &session.records[index];
+            let line = subject(&session.references, &record.entry);
             let selected = selection == Some(index);
             let emphasis = Emphasis::at(index, selection);
             let mut spans = if session.selection.active() {
@@ -269,34 +282,17 @@ fn graph(
                     row_style(selected)
                 },
             )
-        })
-        .collect();
-    if items.is_empty() {
-        frame.render_widget(
-            Paragraph::new(i18n::tr!(HistoryEmpty)).style(Style::default().fg(MUTED)),
-            body[1],
-        );
-    } else {
-        frame.render_stateful_widget(List::new(items), content_area, &mut session.state);
-        crate::scrollbar::vertical(
-            frame,
+        });
+        crate::scrollbar::vertical(frame, parts[0], content_area, count, session.state.offset());
+        hits.sequential_list(
             parts[0],
             content_area,
-            session.records.len(),
-            session.state.offset(),
-        );
-        hits.list(
-            parts[0],
-            content_area,
-            &(0..session.records.len()).collect::<Vec<_>>(),
-            session.state.offset(),
+            count,
+            visible.clone(),
             crate::pointer::Target::History,
         );
         if session.selection.active() {
-            for (row, index) in (session.state.offset()..session.records.len())
-                .take(content_area.height as usize)
-                .enumerate()
-            {
+            for (row, index) in visible.enumerate() {
                 hits.button(
                     Rect::new(
                         content_area.x,

@@ -5,8 +5,8 @@ use engine::{
     local::history::{self, Continuation, Entry, Oid, Page, References},
 };
 use ratatui::widgets::ListState;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::{Arc, OnceLock};
 const MAX_LANES: usize = 64;
 static NEXT_SOURCE: AtomicU64 = AtomicU64::new(1);
 
@@ -34,6 +34,7 @@ pub(crate) struct Session {
     pub query: String,
     pub horizontal: crate::horizontal::Viewport,
     pub width: usize,
+    pub subject_width: OnceLock<usize>,
     pub selection: super::selection::Selection,
     layout: graph::Layout<Oid>,
 }
@@ -49,6 +50,7 @@ impl Session {
             query: String::new(),
             horizontal: Default::default(),
             width: 1,
+            subject_width: OnceLock::new(),
             selection: Default::default(),
             layout: graph::Layout::default(),
         };
@@ -88,6 +90,7 @@ impl Session {
             Arc::ptr_eq(&self.references, &page.references),
             i18n::tr!(HistorySnapshotUnavailable)
         );
+        self.subject_width.take();
         let records = Arc::make_mut(&mut self.records);
         for entry in page.entries {
             cancel.check()?;

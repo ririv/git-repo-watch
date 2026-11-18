@@ -97,6 +97,7 @@ impl FileSession {
         };
         self.folding
             .toggle(group, head.clone(), path, *expansion, &self.query);
+        self.invalidate_layout();
         true
     }
     pub fn locate(&mut self, index: usize) {
@@ -109,18 +110,22 @@ impl FileSession {
         } else {
             &mut self.folding.search[group.index()]
         };
+        let before = collapsed.len();
         collapsed.retain(|head| !path.starts_with(head));
+        if collapsed.len() != before {
+            self.invalidate_layout();
+        }
         self.cursor = Cursor::File(index);
     }
     pub(super) fn ensure_visible(&mut self) {
+        if self.list(Layout::Tree).position(&self.cursor).is_some() {
+            return;
+        }
         let entries = self.entries(Layout::Tree);
         let Some(group) = self.group() else {
             return;
         };
         let rows = &entries[group.index()];
-        if rows.iter().any(|row| row.cursor(group) == self.cursor) {
-            return;
-        }
         let path = match &self.cursor {
             Cursor::File(_) => self.current().expect("focused file").location.name(),
             Cursor::Directory { path, .. } => path,

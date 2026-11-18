@@ -89,9 +89,6 @@ impl Matches {
                 .or_else(|| self.0.first().copied())
         }
     }
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
     pub fn label(&self, current: Option<usize>) -> String {
         match self.0.iter().position(|&i| Some(i) == current) {
             Some(index) => format!("{}/{}", index + 1, self.0.len()),

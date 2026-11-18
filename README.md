@@ -672,6 +672,19 @@ cargo clippy --workspace --locked --all-targets -- -D warnings
 
 GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格式检查、Clippy、全部测试和发布构建。Ubuntu 另验证真实 systemd 用户任务的安装、重复安装、延迟首轮、临时仓库检查和卸载；不使用 Docker。桌面窗口和通知显示仍需相应桌面会话手动验证。工作流在 push、pull request 或手动触发时执行，见 `.github/workflows/ci.yml`。
 
+
+### 长列表滚动实测
+
+在 macOS（Apple Silicon）上，用 79 列 × 44 行的伪终端打开同一个包含 12,001 个改动文件的工作区差异列表。连续发送 90 次向下滚轮事件，从发送事件计时，直到目标文件行出现在终端画面中。
+
+| 版本 | 耗时 |
+| --- | ---: |
+| 优化前 | 26.0 秒 |
+| 优化后 | 0.25 秒 |
+| 安装后的 `gw` 复测 | 0.21 秒 |
+
+TUI 回归测试 729 项通过，1 项跳过。
+
 ## 许可证
 
 项目采用 MIT，见 `LICENSE`。依赖遵守各自许可证；libgit2 的链接例外允许应用采用独立许可证。公开源码与示例配置不得包含真实仓库列表、挂载目录、机器用户名或凭据。
