@@ -271,6 +271,15 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
             let line = text.lines().nth(first.y.into()).unwrap();
             assert!(line.contains(&expected), "{text}");
             assert!(
+                line.trim_start_matches([' ', '│'])
+                    .starts_with("× 中文-repo-0")
+            );
+            let line = text.lines().nth(second.y.into()).unwrap();
+            assert!(
+                line.trim_start_matches([' ', '│'])
+                    .starts_with("✓ 中文-repo-1")
+            );
+            assert!(
                 text.lines()
                     .nth(usize::from(first.y + 1))
                     .unwrap()

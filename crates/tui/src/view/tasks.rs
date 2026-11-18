@@ -5,18 +5,25 @@ pub(in crate::view) mod summary;
 use super::*;
 use crate::task_center::Session;
 use engine::tasks::{Outcome as Completion, Record, Resolution, Scope as TaskScope, Source, State};
-fn label(record: &Record) -> (&'static str, Color) {
+enum Icon {
+    Spinner,
+    Symbol(&'static str),
+}
+
+fn status(record: &Record) -> (Icon, &'static str, Color) {
+    use Icon::{Spinner, Symbol};
+
     match &record.state {
-        State::Running { .. } => (i18n::tr!(TasksRunning), ACCENT),
-        State::Cancelling { .. } => (i18n::tr!(TasksCancelling), WARN),
+        State::Running { .. } => (Spinner, i18n::tr!(TasksRunning), ACCENT),
+        State::Cancelling { .. } => (Symbol("⊘"), i18n::tr!(TasksCancelling), WARN),
         State::Finished {
             outcome: Completion::Succeeded { .. },
             ..
-        } => (i18n::tr!(TasksSuccess), GOOD),
+        } => (Symbol("✓"), i18n::tr!(TasksSuccess), GOOD),
         State::Finished {
             outcome: Completion::Cancelled { .. },
             ..
-        } => (i18n::tr!(TasksCancelled), MUTED),
+        } => (Symbol("−"), i18n::tr!(TasksCancelled), MUTED),
         State::Finished {
             outcome:
                 Completion::Failed {
@@ -24,11 +31,15 @@ fn label(record: &Record) -> (&'static str, Color) {
                     ..
                 },
             ..
-        } => (i18n::tr!(TasksPending), BAD),
+        } => (Symbol("×"), i18n::tr!(TasksPending), BAD),
         State::Finished {
-            outcome: Completion::Failed { .. },
+            outcome:
+                Completion::Failed {
+                    resolution: Resolution::Handled { .. },
+                    ..
+                },
             ..
-        } => (i18n::tr!(TasksFailedHandled), MUTED),
+        } => (Symbol("⊗"), i18n::tr!(TasksFailedHandled), MUTED),
     }
 }
 fn scope(record: &Record) -> String {

@@ -23,7 +23,7 @@ fn section(title: &str, color: Color, width: u16) -> Line<'static> {
     ])
 }
 pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
-    let (status, color) = label(record);
+    let (_, status, color) = status(record);
     let source = match record.spec.source {
         Source::Interactive => i18n::tr!(TasksInteractive),
         Source::Automatic => i18n::tr!(AutoFetch),

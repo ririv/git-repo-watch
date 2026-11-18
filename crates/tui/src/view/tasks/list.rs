@@ -2,13 +2,14 @@
 use super::*;
 use unicode_width::UnicodeWidthStr;
 
-fn heading(record: &Record, width: usize, animation: &str) -> Vec<Line<'static>> {
-    let (status, color) = label(record);
-    let status = if record.active() {
-        format!("{animation} {status}")
-    } else {
-        status.into()
+fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'static>> {
+    let (icon, _, color) = status(record);
+    let symbol = match icon {
+        Icon::Spinner => animation,
+        Icon::Symbol(symbol) => symbol,
     };
+    let status = Span::styled(symbol, Style::default().fg(color).bold());
+    let content_width = width.saturating_sub(symbol.width() + 1);
     let progress = match &record.state {
         State::Running { progress } | State::Cancelling { progress } if !progress.is_empty() => {
             format!(" · {progress}")
@@ -18,36 +19,23 @@ fn heading(record: &Record, width: usize, animation: &str) -> Vec<Line<'static>>
     let title = format!("{} · {}{progress}", scope(record), safe(&record.spec.title));
     let time = local_time(&record.started_at);
     if width < 42 {
-        let status = truncate(&status, width);
-        let available = width.saturating_sub(status.width() + 1);
         return vec![
             Line::from(vec![
-                Span::styled(status, Style::default().fg(color).bold()),
+                status,
                 Span::raw(" "),
-                Span::raw(truncate(&title, available)),
+                Span::raw(truncate(&title, content_width)),
             ]),
             Line::styled(truncate(&time, width), Style::default().fg(MUTED)).right_aligned(),
         ];
     }
-    let status_width = if i18n::language() == i18n::Language::Chinese {
-        14
-    } else {
-        17
-    }
-    .max(status.width());
-    let title_width = width.saturating_sub(status_width + time.width() + 2);
+    let title_width = content_width.saturating_sub(time.width() + 1);
     let title = truncate(&title, title_width);
+    let padding = " ".repeat(title_width.saturating_sub(title.width()) + 1);
     vec![Line::from(vec![
-        Span::styled(
-            format!(
-                "{status}{}",
-                " ".repeat(status_width.saturating_sub(status.width()))
-            ),
-            Style::default().fg(color).bold(),
-        ),
+        status,
         Span::raw(" "),
-        Span::raw(title.clone()),
-        Span::raw(" ".repeat(title_width.saturating_sub(title.width()) + 1)),
+        Span::raw(title),
+        Span::raw(padding),
         Span::styled(time, Style::default().fg(MUTED)),
     ])]
 }
