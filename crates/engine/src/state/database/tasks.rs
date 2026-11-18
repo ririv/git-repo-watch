@@ -1,6 +1,6 @@
 //! Short task transactions preserve concurrent cancellation and acknowledgement.
 use super::*;
-use crate::tasks::{Outcome, Record, Resolution, State};
+use crate::tasks::{FailureRead, Journal, Outcome, Record, Resolution, State};
 use rusqlite::{OptionalExtension, params};
 impl Store {
     pub(crate) fn task_lock_path(&self, id: &str) -> std::path::PathBuf {
@@ -48,20 +48,7 @@ impl Store {
             .query_map([history_limit as i64], |row| row.get::<_, String>(0))?
             .map(|json| Ok(serde_json::from_str::<Record>(&json?)?))
             .collect::<Result<Vec<_>>>()?;
-        // 先拿所有权锁再复读状态；不靠 PID 判断，避免进程号复用及完成时的竞态。
-        for record in &mut records {
-            if !record.active() {
-                continue;
-            }
-            match Lock::acquire(&self.task_lock_path(&record.id)) {
-                Ok(_owner) => {
-                    self.interrupt_task(&record.id)?;
-                    *record = self.task(&record.id)?.context("missing task")?;
-                }
-                Err(error) if error.downcast_ref::<super::super::Busy>().is_some() => {}
-                Err(error) => return Err(error),
-            }
-        }
+        self.recover_interrupted_tasks(&mut records)?;
         records.sort_by(|a, b| {
             a.priority()
                 .cmp(&b.priority())
@@ -69,6 +56,45 @@ impl Store {
                 .then_with(|| b.id.cmp(&a.id))
         });
         Ok(records)
+    }
+
+    pub fn task_journal(
+        &self,
+        history_limit: usize,
+        selected_task: Option<&str>,
+    ) -> Result<Journal> {
+        ensure!(
+            (1..=1000).contains(&history_limit),
+            i18n::tr!(InvalidHistoryLimit)
+        );
+        let Some(db) = Database::read(self)? else {
+            return Ok(Journal::default());
+        };
+        let mut journal = read_journal(&db, history_limit, selected_task)?;
+        if self.recover_interrupted_tasks(&mut journal.records)? {
+            journal = read_journal(&db, history_limit, selected_task)?;
+        }
+        Ok(journal)
+    }
+
+    fn recover_interrupted_tasks(&self, records: &mut [Record]) -> Result<bool> {
+        let mut changed = false;
+        // 先拿所有权锁再复读状态；不靠 PID 判断，避免进程号复用及完成时的竞态。
+        for record in records {
+            if !record.active() {
+                continue;
+            }
+            match Lock::acquire(&self.task_lock_path(&record.id)) {
+                Ok(_owner) => {
+                    self.interrupt_task(&record.id)?;
+                    *record = self.task(&record.id)?.context("missing task")?;
+                    changed = true;
+                }
+                Err(error) if error.downcast_ref::<super::super::Busy>().is_some() => {}
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(changed)
     }
     fn update_task(
         &self,
@@ -114,6 +140,22 @@ impl Store {
             Ok(())
         })
     }
+    pub fn read_task_failure(&self, id: &str) -> Result<()> {
+        self.update_task(id, |record, _tx| {
+            if let State::Finished {
+                outcome: Outcome::Failed { read, .. },
+                ..
+            } = &mut record.state
+                && *read == FailureRead::Unread
+            {
+                *read = FailureRead::Read {
+                    at: crate::state::now(),
+                };
+            }
+            Ok(())
+        })
+    }
+
     pub fn resolve_task(&self, id: &str) -> Result<()> {
         self.update_task(id, |record, _tx| {
             match &mut record.state {
@@ -177,13 +219,47 @@ impl Store {
             if record.active() {
                 record.state = State::Finished {
                     at: crate::state::now(),
-                    outcome: Outcome::Failed {
-                        detail: i18n::tr!(TaskInterrupted).into(),
-                        resolution: Resolution::Pending,
-                    },
+                    outcome: Outcome::failure(i18n::tr!(TaskInterrupted)),
                 };
             }
             Ok(())
         })
     }
+}
+
+fn read_journal(
+    db: &Database,
+    history_limit: usize,
+    selected_task: Option<&str>,
+) -> Result<Journal> {
+    // 未读记录不受历史窗口限制。保留当前选中项，打开旧记录后详情仍可继续阅读。
+    let mut query = db.connection.prepare(
+        r#"
+        WITH unread AS (
+            SELECT id FROM tasks
+            WHERE json_extract(record, '$.state.outcome.status') = 'failed'
+                AND json_extract(record, '$.state.outcome.read.status') = 'unread'
+        ),
+        visible AS (
+            SELECT id FROM tasks WHERE priority = 1 OR id = ?2
+            UNION SELECT id FROM unread
+            UNION SELECT id FROM (
+                SELECT id FROM tasks WHERE priority <> 1 ORDER BY rowid DESC LIMIT ?1
+            )
+        )
+        SELECT tasks.record, unread.id IS NOT NULL
+        FROM visible JOIN tasks USING (id) LEFT JOIN unread USING (id)
+        ORDER BY CASE WHEN tasks.priority = 1 THEN 0 WHEN unread.id IS NOT NULL THEN 1 ELSE 2 END,
+            tasks.rowid DESC
+        "#,
+    )?;
+    let mut journal = Journal::default();
+    for row in query.query_map(params![history_limit as i64, selected_task], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, bool>(1)?))
+    })? {
+        let (json, unread_failure) = row?;
+        journal.records.push(serde_json::from_str(&json)?);
+        journal.unread_failures += usize::from(unread_failure);
+    }
+    Ok(journal)
 }

@@ -4,7 +4,7 @@ mod list;
 pub(in crate::view) mod summary;
 use super::*;
 use crate::task_center::Session;
-use engine::tasks::{Outcome as Completion, Record, Resolution, Scope as TaskScope, Source, State};
+use engine::tasks::{Outcome as Completion, Record, Scope as TaskScope, Source, State};
 enum Icon {
     Spinner,
     Symbol(&'static str),
@@ -25,21 +25,9 @@ fn status(record: &Record) -> (Icon, &'static str, Color) {
             ..
         } => (Symbol("−"), i18n::tr!(TasksCancelled), MUTED),
         State::Finished {
-            outcome:
-                Completion::Failed {
-                    resolution: Resolution::Pending,
-                    ..
-                },
+            outcome: Completion::Failed { .. },
             ..
-        } => (Symbol("×"), i18n::tr!(TasksPending), BAD),
-        State::Finished {
-            outcome:
-                Completion::Failed {
-                    resolution: Resolution::Handled { .. },
-                    ..
-                },
-            ..
-        } => (Symbol("⊗"), i18n::tr!(TasksFailedHandled), MUTED),
+        } => (Symbol("×"), i18n::tr!(TasksFailed), BAD),
     }
 }
 fn scope(record: &Record) -> String {
@@ -59,11 +47,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         Constraint::Length(u16::from(area.height > 3)),
     ])
     .split(area);
-    let pending = screen.tasks.records.iter().filter(|r| r.pending()).count();
+    let failures = screen.tasks.unread_failures;
     let running = screen.tasks.records.iter().filter(|r| r.active()).count();
     let mut heading = Line::from(Span::styled(
         format!(
-            " {}{} · ",
+            " {}{}",
             i18n::tr!(Tasks),
             match &screen.tasks.session {
                 Session::Detail { id, .. } => screen
@@ -78,9 +66,13 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         ),
         Style::default().fg(ACCENT),
     ));
-    heading
-        .spans
-        .extend(summary::counts(pending, running).spans);
+    let counts = summary::counts(failures, running);
+    if !counts.spans.is_empty() {
+        heading
+            .spans
+            .push(Span::styled(" · ", Style::default().fg(MUTED)));
+        heading.spans.extend(counts.spans);
+    }
     frame.render_widget(
         Paragraph::new(crate::horizontal::clip(&heading, 0, parts[0].width.into())),
         parts[0],

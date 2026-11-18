@@ -72,6 +72,17 @@ pub enum Resolution {
     Pending,
     Handled { at: String },
 }
+#[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(tag = "status", rename_all = "snake_case")]
+pub enum FailureRead {
+    #[default]
+    Untracked,
+    Unread,
+    Read {
+        at: String,
+    },
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(tag = "status", rename_all = "snake_case")]
 pub enum Outcome {
@@ -81,6 +92,8 @@ pub enum Outcome {
     Failed {
         detail: String,
         resolution: Resolution,
+        #[serde(default)]
+        read: FailureRead,
     },
     Cancelled {
         detail: String,
@@ -102,6 +115,13 @@ pub struct Record {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub stage_timings: Vec<progress::Measurement>,
 }
+/// Recent task history and its unread failures.
+#[derive(Debug, Default, PartialEq, Eq)]
+pub struct Journal {
+    pub records: Vec<Record>,
+    pub unread_failures: usize,
+}
+
 impl Record {
     pub fn priority(&self) -> u8 {
         match &self.state {
@@ -123,8 +143,28 @@ impl Record {
     pub fn pending(&self) -> bool {
         self.priority() == 0
     }
+    pub fn unread_failure(&self) -> bool {
+        matches!(
+            self.state,
+            State::Finished {
+                outcome: Outcome::Failed {
+                    read: FailureRead::Unread,
+                    ..
+                },
+                ..
+            }
+        )
+    }
 }
 impl Outcome {
+    pub fn failure(detail: impl Into<String>) -> Self {
+        Self::Failed {
+            detail: detail.into(),
+            resolution: Resolution::Pending,
+            read: FailureRead::Unread,
+        }
+    }
+
     pub fn capture<T>(
         result: &Result<T>,
         cancel: &Cancel,
@@ -137,10 +177,7 @@ impl Outcome {
             Err(error) if cancel.is_cancelled() => Self::Cancelled {
                 detail: format!("{error:#}"),
             },
-            Err(error) => Self::Failed {
-                detail: format!("{error:#}"),
-                resolution: Resolution::Pending,
-            },
+            Err(error) => Self::failure(format!("{error:#}")),
         }
     }
 }
@@ -245,10 +282,7 @@ impl Run {
         let stopped = self.monitor.stop().context("task cancellation monitor");
         let outcome = match &stopped {
             Ok(()) => outcome,
-            Err(error) => Outcome::Failed {
-                detail: format!("{error:#}"),
-                resolution: Resolution::Pending,
-            },
+            Err(error) => Outcome::failure(format!("{error:#}")),
         };
         self.store.finish_task(&self.record.id, outcome, timings)?;
         std::fs::remove_file(self.store.task_lock_path(&self.record.id))?;

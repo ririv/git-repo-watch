@@ -232,21 +232,22 @@ fn external_progress_and_pending_failures_remain_visible_in_small_windows() {
         }
         let run = engine::tasks::Run::begin(
             &s.service.store,
-            crate::task_center::spec("failed check", None, engine::tasks::Retry::Unavailable),
+            crate::task_center::spec("failed check", None, engine::tasks::Retry::FetchAll),
             &Cancel::default(),
         )
         .unwrap();
-        run.finish(engine::tasks::Outcome::Failed {
-            detail: "failure details remain in the task view".into(),
-            resolution: engine::tasks::Resolution::Pending,
-        })
+        run.finish(engine::tasks::Outcome::failure(
+            "failure details remain in the task view",
+        ))
         .unwrap();
-        s.tasks.records = s.service.store.tasks(200).unwrap();
+        let journal = s.service.store.task_journal(200, None).unwrap();
+        s.tasks.records = journal.records;
+        s.tasks.unread_failures = journal.unread_failures;
         let text = render(&mut s, 100, 32);
         let last = text.lines().last().unwrap();
         assert!(last.contains(i18n::tr!(CheckingAltAlt)), "{text}");
         assert!(
-            last.contains(&i18n::tf!(TaskFailuresCount, pending = 1)),
+            last.contains(&i18n::tf!(TaskUnreadFailuresCount, failures = 1)),
             "{text}"
         );
         assert!(last.contains(i18n::tr!(TasksOpenCommand)), "{text}");

@@ -1,7 +1,7 @@
 use engine::{
     cancel::Cancel,
     state::Store,
-    tasks::{Outcome, Resolution, Retry, Run, Scope, Source, Spec, State},
+    tasks::{FailureRead, Outcome, Resolution, Retry, Run, Scope, Source, Spec, State},
 };
 use std::{
     thread,
@@ -23,10 +23,7 @@ fn spec() -> Spec {
     }
 }
 fn failed(detail: &str) -> Outcome {
-    Outcome::Failed {
-        detail: detail.into(),
-        resolution: Resolution::Pending,
-    }
+    Outcome::failure(detail)
 }
 #[test]
 fn history_survives_reopening_and_reading_does_not_acknowledge_failure() {
@@ -234,4 +231,61 @@ fn legacy_check_retries_decode_as_canonical_fetch_requests() {
         }
     );
     assert_eq!(serde_json::to_value(one).unwrap()["kind"], "fetch");
+}
+
+#[test]
+fn unread_failures_survive_success_and_reading_preserves_the_original_result() {
+    let (_home, store) = fixture();
+    let cancel = Cancel::default();
+    let begin = || Run::begin(&store, spec(), &cancel).unwrap();
+
+    let older = begin();
+    let older_id = older.record.id.clone();
+    older.finish(failed("older failure")).unwrap();
+    let newer = begin();
+    let newer_id = newer.record.id.clone();
+    newer.finish(failed("newer failure")).unwrap();
+    begin()
+        .finish(Outcome::Succeeded {
+            detail: "success".into(),
+        })
+        .unwrap();
+
+    let journal = store.task_journal(1, None).unwrap();
+    assert_eq!(journal.unread_failures, 2);
+    assert_eq!(journal.records.len(), 3);
+
+    store.read_task_failure(&older_id).unwrap();
+    let reopened = Store::custom(store.config_dir());
+    let journal = reopened.task_journal(1, Some(&older_id)).unwrap();
+    assert_eq!(journal.unread_failures, 1);
+    assert_eq!(journal.records.len(), 3);
+    let opened = reopened.task(&older_id).unwrap().unwrap();
+    assert!(matches!(&opened.state, State::Finished {
+        outcome: Outcome::Failed { detail, resolution: Resolution::Pending, read: FailureRead::Read { .. } }, ..
+    } if detail == "older failure"));
+    reopened.read_task_failure(&older_id).unwrap();
+    assert_eq!(reopened.task(&older_id).unwrap().unwrap(), opened);
+    assert!(reopened.task(&newer_id).unwrap().unwrap().unread_failure());
+}
+
+#[test]
+fn failure_history_without_read_metadata_does_not_create_unread_notifications() {
+    let (_home, store) = fixture();
+    let run = Run::begin(&store, spec(), &Cancel::default()).unwrap();
+    let id = run.record.id.clone();
+    let mut legacy = serde_json::to_value(failed("existing failure")).unwrap();
+    legacy.as_object_mut().unwrap().remove("read");
+    let outcome: Outcome = serde_json::from_value(legacy).unwrap();
+    assert!(matches!(
+        outcome,
+        Outcome::Failed {
+            read: FailureRead::Untracked,
+            ..
+        }
+    ));
+    run.finish(outcome).unwrap();
+    let journal = store.task_journal(10, None).unwrap();
+    assert_eq!(journal.unread_failures, 0);
+    assert_eq!(journal.records[0].id, id);
 }

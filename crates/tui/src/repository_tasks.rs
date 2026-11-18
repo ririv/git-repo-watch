@@ -189,10 +189,7 @@ impl Screen {
             if let Some(run) = run {
                 let completion = match (&outcome, &refresh, &view) {
                     (_, Refresh::Failed(error), _) | (_, _, Err(error)) => {
-                        engine::tasks::Outcome::Failed {
-                            detail: format!("{error:#}"),
-                            resolution: engine::tasks::Resolution::Pending,
-                        }
+                        engine::tasks::Outcome::failure(format!("{error:#}"))
                     }
                     _ => crate::task_center::outcome(&outcome, &task_cancel, &spec.title, effect),
                 };

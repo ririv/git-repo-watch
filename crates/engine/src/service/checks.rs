@@ -476,7 +476,7 @@ pub fn group(paths: &[PathBuf]) -> Groups {
 }
 
 fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outcome {
-    use crate::tasks::{Outcome, Resolution};
+    use crate::tasks::Outcome;
     let Ok(report) = result else {
         return Outcome::capture(result, cancel, |_| unreachable!());
     };
@@ -511,10 +511,7 @@ fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outc
             },
         }
     } else {
-        Outcome::Failed {
-            detail: failures.join("\n\n") + &workflow_detail(report),
-            resolution: Resolution::Pending,
-        }
+        Outcome::failure(failures.join("\n\n") + &workflow_detail(report))
     }
 }
 

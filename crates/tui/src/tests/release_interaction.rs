@@ -1,5 +1,5 @@
 use super::*;
-use engine::tasks::{Outcome as TaskOutcome, Resolution, Retry, Run};
+use engine::tasks::{Outcome as TaskOutcome, Retry, Run};
 
 fn buffer(s: &mut Screen, width: u16, height: u16) -> ratatui::buffer::Buffer {
     let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -14,16 +14,14 @@ fn current_feedback_stays_visible_with_historical_failures_at_every_width() {
         let (_home, mut s) = fixture(vec![]);
         let run = Run::begin(
             &s.service.store,
-            crate::task_center::spec("older failure", None, Retry::Unavailable),
+            crate::task_center::spec("older failure", None, Retry::FetchAll),
             &Cancel::default(),
         )
         .unwrap();
-        run.finish(TaskOutcome::Failed {
-            detail: "old error".into(),
-            resolution: Resolution::Pending,
-        })
-        .unwrap();
-        s.tasks.records = s.service.store.tasks(200).unwrap();
+        run.finish(TaskOutcome::failure("old error")).unwrap();
+        let journal = s.service.store.task_journal(200, None).unwrap();
+        s.tasks.records = journal.records;
+        s.tasks.unread_failures = journal.unread_failures;
         s.message = "Saved settings".into();
         for width in [120, 80, 40, 16] {
             let text = render(&mut s, width, 24);
@@ -34,7 +32,7 @@ fn current_feedback_stays_visible_with_historical_failures_at_every_width() {
             );
             if width >= 80 {
                 assert!(
-                    last.contains(&i18n::tf!(TaskFailuresCount, pending = 1)),
+                    last.contains(&i18n::tf!(TaskUnreadFailuresCount, failures = 1)),
                     "{last}"
                 );
             }
@@ -46,7 +44,7 @@ fn current_feedback_stays_visible_with_historical_failures_at_every_width() {
             text.lines()
                 .last()
                 .unwrap()
-                .contains(i18n::tr!(TasksPending))
+                .contains(&i18n::tf!(TaskUnreadFailuresCount, failures = 1))
         );
         assert!(s.tasks.records[0].pending());
         s.shutdown();
@@ -197,27 +195,24 @@ fn enter_hints_follow_parameter_selection_navigation_and_execution_without_runni
 }
 
 #[test]
-fn recent_background_completion_stays_visible_beside_an_older_unresolved_failure() {
+fn recent_background_completion_stays_visible_beside_an_unread_failure() {
     let (_home, mut s) = fixture(vec![]);
     let failed = Run::begin(
         &s.service.store,
-        crate::task_center::spec("older failure", None, Retry::Unavailable),
+        crate::task_center::spec("older failure", None, Retry::FetchAll),
         &Cancel::default(),
     )
     .unwrap();
-    failed
-        .finish(TaskOutcome::Failed {
-            detail: "old error".into(),
-            resolution: Resolution::Pending,
-        })
-        .unwrap();
+    failed.finish(TaskOutcome::failure("old error")).unwrap();
     let fresh = Run::begin(
         &s.service.store,
         crate::task_center::spec("fresh operation", None, Retry::Unavailable),
         &Cancel::default(),
     )
     .unwrap();
-    s.tasks.records = s.service.store.tasks(200).unwrap();
+    let journal = s.service.store.task_journal(200, None).unwrap();
+    s.tasks.records = journal.records;
+    s.tasks.unread_failures = journal.unread_failures;
     fresh
         .finish(TaskOutcome::Succeeded {
             detail: "done".into(),
@@ -238,7 +233,7 @@ fn recent_background_completion_stays_visible_beside_an_older_unresolved_failure
     let last = text.lines().last().unwrap();
     assert!(last.contains("fresh operation"), "{last}");
     assert!(
-        last.contains(&i18n::tf!(TaskFailuresCount, pending = 1)),
+        last.contains(&i18n::tf!(TaskUnreadFailuresCount, failures = 1)),
         "{last}"
     );
     assert!(s.tasks.records.iter().any(|record| record.pending()));
@@ -307,17 +302,18 @@ fn one_current_error_wins_over_long_local_refresh_errors_and_failure_counts() {
     );
     let failure = Run::begin(
         &s.service.store,
-        crate::task_center::spec("older failure", None, Retry::Unavailable),
+        crate::task_center::spec("older failure", None, Retry::FetchAll),
         &Cancel::default(),
     )
     .unwrap();
-    failure
-        .finish(TaskOutcome::Failed {
-            detail: "old error".into(),
-            resolution: Resolution::Pending,
-        })
-        .unwrap();
-    let record = s.service.store.tasks(200).unwrap().remove(0);
+    failure.finish(TaskOutcome::failure("old error")).unwrap();
+    let record = s
+        .service
+        .store
+        .task_journal(200, None)
+        .unwrap()
+        .records
+        .remove(0);
     s.tasks.records = (0..84)
         .map(|index| {
             let mut value = record.clone();
@@ -325,6 +321,7 @@ fn one_current_error_wins_over_long_local_refresh_errors_and_failure_counts() {
             value
         })
         .collect();
+    s.tasks.unread_failures = s.tasks.records.len();
     command(&mut s, "settings concurrency 0");
     let error = s.message.to_string();
     for width in [160, 100, 60, 40, 20, 8] {
@@ -369,27 +366,23 @@ fn task_summary_keeps_semantic_colors_when_standalone_or_appended_to_a_notice() 
         let (_home, mut s) = fixture(vec![]);
         let failure = Run::begin(
             &s.service.store,
-            crate::task_center::spec("older failure", None, Retry::Unavailable),
+            crate::task_center::spec("older failure", None, Retry::FetchAll),
             &Cancel::default(),
         )
         .unwrap();
-        failure
-            .finish(TaskOutcome::Failed {
-                detail: "old error".into(),
-                resolution: Resolution::Pending,
-            })
-            .unwrap();
-        let record = s.service.store.tasks(200).unwrap().remove(0);
-        s.tasks.records = (0..84)
-            .map(|index| {
-                let mut value = record.clone();
-                value.id = format!("failed-{index}");
-                value
-            })
-            .collect();
+        failure.finish(TaskOutcome::failure("old error")).unwrap();
+        let record = s
+            .service
+            .store
+            .task_journal(200, None)
+            .unwrap()
+            .records
+            .remove(0);
+        s.tasks.records = vec![record];
+        s.tasks.unread_failures = 1;
         let summary = format!(
             "{} · {}",
-            i18n::tf!(TaskFailuresCount, pending = 84),
+            i18n::tf!(TaskUnreadFailuresCount, failures = 1),
             i18n::tr!(TasksOpenCommand)
         );
         for background in [Background::Dark, Background::Light, Background::Unreported] {
@@ -451,15 +444,20 @@ fn task_summary_keeps_semantic_colors_when_standalone_or_appended_to_a_notice() 
             )
             .unwrap();
             s.tasks.records.push(active.record.clone());
-            let active_summary = i18n::tf!(TasksSummary, pending = 84, running = 1);
+            let active_summary = format!(
+                "{} · {} · {}",
+                i18n::tf!(TaskUnreadFailuresCount, failures = 1),
+                i18n::tf!(TaskRunningCount, running = 1),
+                i18n::tr!(TasksOpenCommand)
+            );
             let active_colors = colors(&mut s, &active_summary);
             assert_eq!(
                 active_colors
                     .iter()
-                    .find(|(symbol, _)| symbol == "1")
-                    .unwrap()
-                    .1,
-                Color::LightBlue
+                    .filter(|(symbol, _)| symbol == "1")
+                    .map(|(_, color)| *color)
+                    .collect::<Vec<_>>(),
+                [Color::Yellow, Color::LightBlue]
             );
             s.tasks.records.pop();
             active

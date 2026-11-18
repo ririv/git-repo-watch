@@ -323,15 +323,13 @@ pub enum Message {
     Tasks,
     TasksHint,
     TasksEmpty,
-    TasksPending,
+    TasksFailed,
     TasksRunning,
     TasksCancelling,
     TasksSuccess,
-    TasksFailedHandled,
     TasksCancelled,
     TasksHistory,
     TasksUnavailable,
-    TasksSummary,
     TasksOpenCommand,
     TasksEntrySuffix,
     TasksDetailsHint,
@@ -2333,15 +2331,15 @@ impl Message {
             (Self::Tasks, Language::English) => "Tasks",
             (Self::Tasks, Language::Chinese) => "任务",
             (Self::TasksHint, Language::English) => {
-                "↑↓ select · Enter details · c cancel · r retry · d mark handled · Esc return"
+                "↑↓ select · Enter details · c cancel · r retry · Esc return"
             }
             (Self::TasksHint, Language::Chinese) => {
-                "↑↓选择 · Enter 详情 · c 取消 · r 重试 · d 标记已处理 · Esc 返回"
+                "↑↓选择 · Enter 详情 · c 取消 · r 重试 · Esc 返回"
             }
             (Self::TasksEmpty, Language::English) => "No tasks yet",
             (Self::TasksEmpty, Language::Chinese) => "暂无任务",
-            (Self::TasksPending, Language::English) => "Unresolved failure",
-            (Self::TasksPending, Language::Chinese) => "未处理失败",
+            (Self::TasksFailed, Language::English) => "Failed",
+            (Self::TasksFailed, Language::Chinese) => "失败",
             (Self::TasksEntrySuffix, Language::English) => "",
             (Self::TasksEntrySuffix, Language::Chinese) => " 任务",
             (Self::TasksOpenCommand, Language::English) => "/tasks",
@@ -2352,8 +2350,6 @@ impl Message {
             (Self::TasksCancelling, Language::Chinese) => "正在取消",
             (Self::TasksSuccess, Language::English) => "Succeeded",
             (Self::TasksSuccess, Language::Chinese) => "成功",
-            (Self::TasksFailedHandled, Language::English) => "Failed · handled",
-            (Self::TasksFailedHandled, Language::Chinese) => "失败 · 已处理",
             (Self::TasksCancelled, Language::English) => "Cancelled",
             (Self::TasksCancelled, Language::Chinese) => "已取消",
             (Self::TasksHistory, Language::English) => "History",
@@ -2364,17 +2360,11 @@ impl Message {
             (Self::TasksUnavailable, Language::Chinese) => {
                 "此任务不支持直接重试，请查看详情后重新执行操作。"
             }
-            (Self::TasksSummary, Language::English) => {
-                "Unresolved failures: {pending} · Running: {running} · /tasks"
-            }
-            (Self::TasksSummary, Language::Chinese) => {
-                "{pending} 未处理失败 · {running} 运行中 · /tasks 任务"
-            }
             (Self::TasksDetailsHint, Language::English) => {
-                "↑↓ scroll · c cancel · r retry · d mark handled · Esc return"
+                "↑↓ scroll · c cancel · r retry · Esc return"
             }
             (Self::TasksDetailsHint, Language::Chinese) => {
-                "↑↓滚动 · c 取消 · r 重试 · d 标记已处理 · Esc 返回"
+                "↑↓滚动 · c 取消 · r 重试 · Esc 返回"
             }
             (Self::TasksInteractive, Language::English) => "Interactive",
             (Self::TasksInteractive, Language::Chinese) => "手动",
@@ -5923,28 +5913,16 @@ macro_rules! tf {
             $crate::Language::Chinese => format!("{mode}{target}" $(, $($args)*)?),
         }
     };
-    (TaskFailuresCount $(, $($args:tt)*)?) => {
+    (TaskUnreadFailuresCount $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("Unresolved failures: {pending}" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 未处理失败" $(, $($args)*)?),
+            $crate::Language::English => format!("Unread failures: {failures}" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{failures} 项未读失败" $(, $($args)*)?),
         }
     };
     (TaskRunningCount $(, $($args:tt)*)?) => {
         match $crate::language() {
             $crate::Language::English => format!("Running: {running}" $(, $($args)*)?),
             $crate::Language::Chinese => format!("{running} 运行中" $(, $($args)*)?),
-        }
-    };
-    (TaskCounts $(, $($args:tt)*)?) => {
-        match $crate::language() {
-            $crate::Language::English => format!("Unresolved failures: {pending} · Running: {running}" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 未处理失败 · {running} 运行中" $(, $($args)*)?),
-        }
-    };
-    (TasksSummary $(, $($args:tt)*)?) => {
-        match $crate::language() {
-            $crate::Language::English => format!("Unresolved failures: {pending} · Running: {running} · /tasks" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{pending} 未处理失败 · {running} 运行中 · /tasks 任务" $(, $($args)*)?),
         }
     };
     (LinkPathMissing $(, $($args:tt)*)?) => {

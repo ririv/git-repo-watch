@@ -136,21 +136,16 @@ pub(super) fn line(screen: &Screen, width: usize) -> Line<'static> {
     if let Some(notice) = screen.exit_sequence.notice() {
         return fit(&Line::styled(notice, Style::default().fg(WARN)), width);
     }
-    let pending = screen
-        .tasks
-        .records
-        .iter()
-        .filter(|record| record.pending())
-        .count();
+    let failures = screen.tasks.unread_failures;
     let running = screen
         .tasks
         .records
         .iter()
         .filter(|record| record.active())
         .count();
-    let tail = super::super::tasks::summary::footer(pending, running);
+    let tail = super::super::tasks::summary::footer(failures, running);
     let Some(notice) = primary_notice(screen) else {
-        if pending + running == 0 {
+        if failures + running == 0 {
             return Line::default();
         }
         let mut line = Line::default();

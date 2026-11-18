@@ -1,4 +1,4 @@
-//! Task entries reserve one preview line for each pending failure.
+//! Task entries reserve one preview line for failures.
 use super::*;
 use unicode_width::UnicodeWidthStr;
 
@@ -7,6 +7,11 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
     let symbol = match icon {
         Icon::Spinner => animation,
         Icon::Symbol(symbol) => symbol,
+    };
+    let color = if color == BAD && !record.unread_failure() {
+        MUTED
+    } else {
+        color
     };
     let status = Span::styled(symbol, Style::default().fg(color).bold());
     let content_width = width.saturating_sub(symbol.width() + 1);
@@ -41,11 +46,7 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
 }
 fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     let State::Finished {
-        outcome:
-            Completion::Failed {
-                detail,
-                resolution: Resolution::Pending,
-            },
+        outcome: Completion::Failed { detail, .. },
         ..
     } = &record.state
     else {
@@ -55,6 +56,7 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
         return vec![];
     }
     let text = multiline(detail);
+    let color = if record.unread_failure() { BAD } else { MUTED };
     let mut lines = text
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -77,7 +79,7 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
         .map(|line| {
             Line::from(vec![
                 Span::styled("╰─", Style::default().fg(MUTED)),
-                Span::styled(line.to_string(), Style::default().fg(BAD)),
+                Span::styled(line.to_string(), Style::default().fg(color)),
             ])
         })
         .collect()

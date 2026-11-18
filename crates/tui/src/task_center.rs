@@ -1,6 +1,6 @@
 //! A task screen and asynchronous journal cache do not take ownership of Git workers.
 use super::*;
-use engine::tasks::{Record, Retry};
+use engine::tasks::{Journal, Record, Retry};
 use std::time::{Duration, Instant};
 #[derive(Debug, Default)]
 pub(crate) enum Session {
@@ -18,20 +18,21 @@ impl Session {
     }
 }
 enum Request {
-    Refresh,
+    Refresh(Option<String>),
     Cancel(String),
-    Resolve(String),
+    ReadFailure(String),
     Stop,
 }
 struct Worker {
     tx: mpsc::Sender<Request>,
-    rx: mpsc::Receiver<Result<Vec<Record>>>,
+    rx: mpsc::Receiver<Result<Journal>>,
     handle: thread::JoinHandle<()>,
 }
 #[derive(Default)]
 pub(crate) struct Center {
     pub session: Session,
     pub records: Vec<Record>,
+    pub unread_failures: usize,
     pub selection: Option<String>,
     pub viewport: ratatui::widgets::ListState,
     pub rows: Vec<(ratatui::layout::Rect, String)>,
@@ -61,13 +62,13 @@ impl Center {
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
             while let Ok(request) = requests.recv() {
-                let result = match request {
+                let (result, selected) = match request {
                     Request::Stop => break,
-                    Request::Cancel(id) => store.cancel_task(&id),
-                    Request::Resolve(id) => store.resolve_task(&id),
-                    Request::Refresh => Ok(()),
-                }
-                .and_then(|()| store.tasks(200));
+                    Request::Cancel(id) => (store.cancel_task(&id), Some(id)),
+                    Request::ReadFailure(id) => (store.read_task_failure(&id), Some(id)),
+                    Request::Refresh(selected) => (Ok(()), selected),
+                };
+                let result = result.and_then(|()| store.task_journal(200, selected.as_deref()));
                 if updates.send(result).is_err() {
                     break;
                 }
@@ -161,7 +162,14 @@ impl Screen {
                 };
                 self.tasks.pending_requests = self.tasks.pending_requests.saturating_sub(1);
                 match result {
-                    Ok(records) => {
+                    Ok(Journal {
+                        records,
+                        unread_failures,
+                    }) => {
+                        if unread_failures != self.tasks.unread_failures {
+                            self.tasks.unread_failures = unread_failures;
+                            changed = true;
+                        }
                         if records != self.tasks.records {
                             if let Some(record) = records.iter().find(|record| {
                                 matches!(
@@ -208,7 +216,10 @@ impl Screen {
                     .refreshed
                     .is_none_or(|at| now.duration_since(at) >= Duration::from_millis(500))
             {
-                match worker.tx.send(Request::Refresh) {
+                match worker
+                    .tx
+                    .send(Request::Refresh(self.tasks.selection.clone()))
+                {
                     Ok(()) => self.tasks.pending_requests += 1,
                     Err(_) => {
                         self.tasks.error =
@@ -234,6 +245,17 @@ impl Screen {
             }
         }
     }
+    fn open_task_detail(&mut self, id: String) {
+        let unread = self.tasks.selected().is_some_and(Record::unread_failure);
+        self.tasks.session = Session::Detail {
+            id: id.clone(),
+            scroll: 0,
+        };
+        if unread {
+            self.task_request(Request::ReadFailure(id));
+        }
+    }
+
     fn retry_selected_task(&mut self) {
         let Some(record) = self.tasks.selected().cloned() else {
             return;
@@ -272,14 +294,10 @@ impl Screen {
                 let id = self.tasks.selection.clone().expect("selected");
                 self.task_request(Request::Cancel(id));
             }
-            K::Char('d') if self.tasks.selected().is_some_and(Record::pending) => {
-                let id = self.tasks.selection.clone().expect("selected");
-                self.task_request(Request::Resolve(id));
-            }
             K::Char('r') => self.retry_selected_task(),
             K::Enter | K::Right if matches!(self.tasks.session, Session::List) => {
                 if let Some(id) = self.tasks.selection.clone() {
-                    self.tasks.session = Session::Detail { id, scroll: 0 };
+                    self.open_task_detail(id);
                 }
             }
             K::Up | K::Down | K::PageUp | K::PageDown | K::Home | K::End => {
@@ -332,7 +350,7 @@ impl Screen {
                         point,
                         Instant::now(),
                     ) {
-                        self.tasks.session = Session::Detail { id, scroll: 0 };
+                        self.open_task_detail(id);
                     }
                 }
             }

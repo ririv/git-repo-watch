@@ -11,7 +11,7 @@ fn synchronize(s: &mut Screen, condition: impl Fn(&Screen) -> bool) {
     }
 }
 #[test]
-fn task_view_keeps_the_command_draft_and_does_not_acknowledge_on_read() {
+fn only_opening_task_details_marks_the_failure_read_and_keeps_the_command_draft() {
     let (_home, mut s) = fixture(vec![]);
     let run = Run::begin(
         &s.service.store,
@@ -20,12 +20,9 @@ fn task_view_keeps_the_command_draft_and_does_not_acknowledge_on_read() {
     )
     .unwrap();
     let id = run.record.id.clone();
-    run.finish(Completion::Failed {
-        detail: "first\n完整错误\nlast".into(),
-        resolution: engine::tasks::Resolution::Pending,
-    })
-    .unwrap();
-    synchronize(&mut s, |s| s.tasks.records.len() == 1);
+    run.finish(Completion::failure("first\n完整错误\nlast"))
+        .unwrap();
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
     s.key(
         KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT),
         &Cancel::default(),
@@ -42,7 +39,9 @@ fn task_view_keeps_the_command_draft_and_does_not_acknowledge_on_read() {
             render(&mut s, w, h);
         }
     }
+    assert!(s.service.store.task(&id).unwrap().unwrap().unread_failure());
     key(&mut s, KeyCode::Enter);
+    synchronize(&mut s, |s| s.tasks.unread_failures == 0);
     let text = render(&mut s, 80, 24);
     assert!(text.contains("完整错误"));
     assert!(s.service.store.task(&id).unwrap().unwrap().pending());
@@ -50,7 +49,9 @@ fn task_view_keeps_the_command_draft_and_does_not_acknowledge_on_read() {
     key(&mut s, KeyCode::Esc);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), draft);
-    assert!(s.service.store.task(&id).unwrap().unwrap().pending());
+    let record = s.service.store.task(&id).unwrap().unwrap();
+    assert!(record.pending());
+    assert!(!record.unread_failure());
     s.shutdown();
 }
 #[test]
@@ -88,7 +89,7 @@ fn task_view_does_not_stop_the_underlying_worker_and_can_cancel_it() {
     s.shutdown();
 }
 #[test]
-fn footer_stays_one_row_and_failure_marker_opens_tasks() {
+fn footer_stays_one_row_and_unread_failure_opens_tasks() {
     let (_home, mut s) = fixture(vec![]);
     let empty = render(&mut s, 80, 25);
     let area = s.input_area;
@@ -101,16 +102,12 @@ fn footer_stays_one_row_and_failure_marker_opens_tasks() {
     assert_eq!(empty.lines().count(), text.lines().count());
     let run = Run::begin(
         &s.service.store,
-        crate::task_center::spec("broken", None, Retry::Unavailable),
+        crate::task_center::spec("broken", None, Retry::FetchAll),
         &Cancel::default(),
     )
     .unwrap();
-    run.finish(Completion::Failed {
-        detail: "reason".into(),
-        resolution: engine::tasks::Resolution::Pending,
-    })
-    .unwrap();
-    synchronize(&mut s, |s| s.tasks.records.len() == 1);
+    run.finish(Completion::failure("reason")).unwrap();
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
     let text = render(&mut s, 80, 25);
     assert!(
         text.lines()
@@ -132,8 +129,9 @@ fn footer_stays_one_row_and_failure_marker_opens_tasks() {
     )
     .unwrap();
     assert!(s.tasks.session.open());
-    key(&mut s, KeyCode::Char('d'));
-    synchronize(&mut s, |s| s.tasks.records.iter().all(|r| !r.pending()));
+    let text = render(&mut s, 100, 25);
+    assert!(!text.contains(" · d "), "{text}");
+    assert_eq!(s.tasks.unread_failures, 1);
     s.shutdown();
 }
 #[test]
@@ -152,18 +150,14 @@ fn command_opens_tasks_and_background_errors_remain_queryable_after_leaving() {
     s.shutdown();
 }
 #[test]
-fn retry_uses_a_new_check_and_clears_only_the_successfully_retried_failure() {
+fn retry_keeps_the_original_failure_unread_until_its_details_are_opened() {
     let (_home, mut s) = fixture(vec![]);
     let mut spec = crate::task_center::spec("failed check", None, Retry::FetchAll);
     spec.scope = engine::tasks::Scope::All;
     let run = Run::begin(&s.service.store, spec, &Cancel::default()).unwrap();
     let original = run.record.id.clone();
-    run.finish(Completion::Failed {
-        detail: "old failure".into(),
-        resolution: engine::tasks::Resolution::Pending,
-    })
-    .unwrap();
-    synchronize(&mut s, |s| s.tasks.records.len() == 1);
+    run.finish(Completion::failure("old failure")).unwrap();
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
     s.open_tasks();
     key(&mut s, KeyCode::Char('r'));
     let deadline = Instant::now() + Duration::from_secs(5);
@@ -172,8 +166,12 @@ fn retry_uses_a_new_check_and_clears_only_the_successfully_retried_failure() {
         s.poll_check();
         thread::sleep(Duration::from_millis(5));
     }
-    synchronize(&mut s, |s| s.tasks.records.len() == 2);
-    assert!(!s.service.store.task(&original).unwrap().unwrap().pending());
+    synchronize(&mut s, |s| {
+        s.tasks.records.len() == 2 && s.tasks.unread_failures == 1
+    });
+    let original = s.service.store.task(&original).unwrap().unwrap();
+    assert!(!original.pending());
+    assert!(original.unread_failure());
     assert!(s.tasks.session.open());
     s.shutdown();
 }
@@ -187,12 +185,10 @@ fn task_mouse_selection_double_click_and_preferences_match_other_lists() {
             &Cancel::default(),
         )
         .unwrap()
-        .finish(Completion::Succeeded {
-            detail: title.into(),
-        })
+        .finish(Completion::failure(title))
         .unwrap();
     }
-    synchronize(&mut s, |s| s.tasks.records.len() == 2);
+    synchronize(&mut s, |s| s.tasks.unread_failures == 2);
     s.open_tasks();
     render(&mut s, 80, 25);
     let (area, id) = s.tasks.rows[1].clone();
@@ -209,14 +205,17 @@ fn task_mouse_selection_double_click_and_preferences_match_other_lists() {
     s.mouse(event, &Cancel::default()).unwrap();
     assert_eq!(s.tasks.selection.as_ref(), Some(&id));
     assert!(matches!(s.tasks.session, crate::task_center::Session::List));
+    assert!(s.service.store.task(&id).unwrap().unwrap().unread_failure());
     s.mouse(event, &Cancel::default()).unwrap();
     assert!(
         matches!(&s.tasks.session,crate::task_center::Session::Detail{id:selected,..} if selected==&id)
     );
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
+    assert!(!s.service.store.task(&id).unwrap().unwrap().unread_failure());
     s.shutdown();
 }
 fn presentation_record(id: usize, pending: bool) -> engine::tasks::Record {
-    use engine::tasks::{Record, Resolution, Scope, Source, Spec};
+    use engine::tasks::{Record, Scope, Source, Spec};
     Record {
         stage_timings: vec![],
         id: format!("presentation-{id}"),
@@ -234,10 +233,7 @@ fn presentation_record(id: usize, pending: bool) -> engine::tasks::Record {
         state: State::Finished {
             at: "2026-10-24T09:31:00-05:00".into(),
             outcome: if pending {
-                Completion::Failed {
-                    detail: "Authentication failed\n请重新登录后重试\nextra error detail".into(),
-                    resolution: Resolution::Pending,
-                }
+                Completion::failure("Authentication failed\n请重新登录后重试\nextra error detail")
             } else {
                 Completion::Succeeded {
                     detail: "Fetched refs".into(),
@@ -379,9 +375,9 @@ fn task_details_have_semantic_styles_and_scroll_all_failure_output() {
         ));
         assert!(styled(
             if language == i18n::Language::Chinese {
-                "未"
+                "失"
             } else {
-                "U"
+                "F"
             },
             Color::LightRed,
             true
