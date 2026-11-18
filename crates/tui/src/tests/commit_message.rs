@@ -144,7 +144,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model  ")
+                .any(|line| line.contains("model …")
                     && !line.contains("[<model>|default]")
                     && line.contains("Default"))
         );
@@ -165,7 +165,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model  ")
+                .any(|line| line.contains("model …")
                     && !line.contains("[<model>|default]")
                     && line.contains("example-model"))
         );
@@ -176,7 +176,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         assert!(
             render(&mut s, 140, 48)
                 .lines()
-                .any(|line| line.contains("model  ")
+                .any(|line| line.contains("model …")
                     && !line.contains("[<model>|default]")
                     && line.contains("Default"))
         );

@@ -1,5 +1,6 @@
 //! Visible matches always form the same forest, independently of command-group navigation.
 use super::{Command, Group, Input, descendant};
+use crate::command::named::Candidate;
 
 pub(crate) struct Label {
     pub branch: String,
@@ -11,7 +12,7 @@ enum Root {
 }
 pub(crate) struct Tree<'a> {
     root: Root,
-    candidates: &'a [&'static Command],
+    candidates: &'a [Candidate],
 }
 pub(crate) fn arrange(candidates: &mut [&'static Command]) {
     let original = candidates.to_vec();
@@ -37,8 +38,14 @@ pub(crate) fn arrange(candidates: &mut [&'static Command]) {
             .collect::<Vec<_>>()
     });
 }
+fn belongs_to(candidate: Candidate, command: &Command) -> bool {
+    let owner = candidate.owner().name;
+    descendant(owner, command.name)
+        || (matches!(candidate, Candidate::Parameter(_)) && owner == command.name)
+}
+
 impl<'a> Tree<'a> {
-    pub fn new(group: Option<&Group>, candidates: &'a [&'static Command]) -> Self {
+    pub fn new(group: Option<&Group>, candidates: &'a [Candidate]) -> Self {
         Self {
             root: match group {
                 Some(group) => Root::Group(group.parent),
@@ -47,72 +54,83 @@ impl<'a> Tree<'a> {
             candidates,
         }
     }
-    fn parent_of(&self, command: &Command) -> Option<&'static Command> {
+
+    fn parent_of(&self, candidate: Candidate) -> Option<&'static Command> {
         self.candidates
             .iter()
-            .copied()
-            .filter(|ancestor| descendant(command.name, ancestor.name))
+            .filter_map(|row| row.command())
+            .filter(|ancestor| belongs_to(candidate, ancestor))
             .max_by_key(|ancestor| ancestor.name.len())
             .or_else(|| match self.root {
-                Root::Group(parent) if descendant(command.name, parent.name) => Some(parent),
+                Root::Group(parent) if belongs_to(candidate, parent) => Some(parent),
                 Root::Search | Root::Group(_) => None,
             })
     }
-    fn has_next_sibling(&self, command: &Command) -> bool {
-        let index = self
-            .candidates
-            .iter()
-            .position(|candidate| candidate.name == command.name)
-            .expect("visible command");
-        let parent = self.parent_of(command).map(|parent| parent.name);
+
+    fn has_next_sibling(&self, index: usize) -> bool {
+        let candidate = self.candidates[index];
+        let parent = self.parent_of(candidate).map(|parent| parent.name);
         self.candidates[index + 1..]
             .iter()
-            .skip_while(|next| descendant(next.name, command.name))
-            .next()
+            .copied()
+            .find(|next| {
+                candidate
+                    .command()
+                    .is_none_or(|command| !belongs_to(*next, command))
+            })
             .is_some_and(|next| self.parent_of(next).map(|parent| parent.name) == parent)
     }
-    pub fn label(&self, input: &Input, command: &Command) -> Label {
-        let Some(parent) = self.parent_of(command) else {
-            let prefix = if input.menu_context().is_some() && !command.common() {
-                ""
-            } else {
-                "/"
-            };
-            return Label {
-                branch: String::new(),
-                name: format!("{prefix}{}", input.name(command)),
-            };
-        };
-        let mut ancestors = self
-            .candidates
-            .iter()
-            .copied()
-            .filter(|ancestor| {
-                descendant(command.name, ancestor.name) && self.parent_of(ancestor).is_some()
-            })
-            .collect::<Vec<_>>();
-        ancestors.sort_by_key(|ancestor| ancestor.name.len());
-        let mut branch = String::new();
-        for ancestor in ancestors {
-            branch.push_str(if self.has_next_sibling(ancestor) {
-                "│  "
-            } else {
-                "   "
-            });
-        }
-        branch.push_str(if self.has_next_sibling(command) {
-            "├─ "
-        } else {
-            "└─ "
-        });
-        Label {
-            branch,
-            name: command
+
+    pub fn label(&self, input: &Input, index: usize) -> Label {
+        let candidate = self.candidates[index];
+        let parent = self.parent_of(candidate);
+        let name = match (candidate, parent) {
+            (Candidate::Parameter(parameter), _) => parameter.name.into(),
+            (Candidate::Command(command), Some(parent)) => command
                 .name
                 .strip_prefix(parent.name)
                 .expect("command descendant")
                 .trim_start()
                 .to_owned(),
+            (Candidate::Command(command), None) => {
+                let prefix = if input.menu_context().is_some() && !command.common() {
+                    ""
+                } else {
+                    "/"
+                };
+                format!("{prefix}{}", input.name(command))
+            }
+        };
+        let Some(mut ancestor) = parent else {
+            return Label {
+                branch: String::new(),
+                name,
+            };
+        };
+        let mut ancestors = Vec::new();
+        while let Some(ancestor_index) = self.candidates.iter().position(|row| {
+            row.command()
+                .is_some_and(|command| command.name == ancestor.name)
+        }) {
+            let Some(ancestor_parent) = self.parent_of(self.candidates[ancestor_index]) else {
+                break;
+            };
+            ancestors.push(ancestor_index);
+            ancestor = ancestor_parent;
         }
+        let mut branch = String::new();
+        for ancestor_index in ancestors.into_iter().rev() {
+            branch.push_str(if self.has_next_sibling(ancestor_index) {
+                "│  "
+            } else {
+                "   "
+            });
+        }
+        branch.push_str(if self.has_next_sibling(index) {
+            "├─ "
+        } else {
+            "└─ "
+        });
+        Label { branch, name }
     }
 }

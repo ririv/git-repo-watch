@@ -50,7 +50,7 @@ impl Screen {
             }
             Action::ConflictBlock(direction) => self.navigate_conflict(direction),
             Action::ConflictMenu => {
-                self.open_option_menu(command::options::Kind::Conflict, path, selection)
+                self.open_command_entry(command::options::Kind::Conflict.command(), path, selection)
             }
             Action::ConflictView(mode) => {
                 if let Mode::Changes(session) = &mut self.mode

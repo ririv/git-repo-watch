@@ -42,10 +42,18 @@ impl Screen {
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
     ) {
+        self.open_command_entry(kind.command(), path, selection);
+    }
+    pub(crate) fn open_command_entry(
+        &mut self,
+        command: &command::Command,
+        path: Option<PathBuf>,
+        selection: crate::clipboard::Selection,
+    ) {
         self.bar = InputBar::Command {
             input: command::Input::from_canonical(
                 self.command_context(),
-                Editor::new(format!("/{} ", kind.command().name)),
+                Editor::new(format!("/{} ", command.name)),
             ),
             selected: 0,
             menu: Menu::Commands,
@@ -106,6 +114,12 @@ impl Screen {
         };
         match key.code {
             KeyCode::Esc => {
+                let query = input.query();
+                if let Some(named) = command::named::Query::new(&query)
+                    && named.value().is_some_and(|(_, raw)| raw.trim().is_empty())
+                {
+                    input.replace_canonical(Editor::new(format!("/{} ", named.owner().name)));
+                }
                 if let InputBar::Command { menu, .. } = &mut self.bar {
                     *menu = Menu::Commands;
                 }

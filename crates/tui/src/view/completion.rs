@@ -3,8 +3,12 @@ use super::*;
 
 fn parameter_title(screen: &Screen) -> &'static str {
     let input = screen.bar.command_input().expect("parameter command input");
-    let (argument, _) =
-        command::argument_input(&input.query()).expect("parameter candidate command");
+    let query = input.query();
+    if let Some((parameter, _)) = command::named::Query::new(&query).and_then(|query| query.value())
+    {
+        return parameter.description.text();
+    }
+    let (argument, _) = command::argument_input(&query).expect("parameter candidate command");
     argument.command().summary().text()
 }
 

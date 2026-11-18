@@ -129,7 +129,7 @@ fn inputs_and_actual_source_result_remain_visible_with_an_optional_base_at_every
     assert!(wide.contains("<<<<<<<"), "{wide}");
     assert!(wide.contains(i18n::tr!(ConflictResult)), "{wide}");
     assert!(!wide.contains(i18n::tr!(ConflictBase)), "{wide}");
-    command(&mut s, "repo diff conflict include-base");
+    command(&mut s, "repo diff conflict --view include-base");
     let base = render(&mut s, 210, 55);
     let row = |value: &str| base.lines().position(|line| line.contains(value)).unwrap();
     assert!(row("\"BASE\"") < row("\"CURRENT\""), "{base}");
@@ -151,10 +151,139 @@ fn inputs_and_actual_source_result_remain_visible_with_an_optional_base_at_every
     s.shutdown();
 }
 #[test]
+fn conflict_menu_uses_one_candidate_tree_for_search_groups_and_parameters() {
+    use command::named::Candidate;
+
+    let (f, _home, mut s) = setup();
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    let worktree = std::fs::read(f.repo.join("src/中文 空格.ts")).unwrap();
+    let group_title = i18n::tf!(CommandGroupTitle, name = "repo diff conflict");
+
+    for scoped in [true, false] {
+        s.paste(if scoped { "/" } else { "//repo diff " });
+        for letter in "conflict".chars() {
+            key(&mut s, KeyCode::Char(letter));
+            let entries = s.command_candidates().unwrap();
+            if let Some(parent) = entries.iter().position(|entry| {
+                matches!(entry, Candidate::Command(cmd) if cmd.name == "repo diff conflict")
+            }) {
+                assert!(matches!(entries[parent + 1], Candidate::Parameter(p) if p.name == "--view"));
+            }
+            if s.bar.text() == "/repo diff con" {
+                let menu = render(&mut s, 158, 44);
+                let context = menu
+                    .lines()
+                    .position(|row| row.contains("context …"))
+                    .unwrap();
+                let conflict = menu
+                    .lines()
+                    .position(|row| {
+                        row.contains("conflict ")
+                            && row.contains(i18n::CommandSummary::ConflictGroup.text())
+                    })
+                    .unwrap();
+                let parameter = menu
+                    .lines()
+                    .position(|row| row.contains("├─ --view …"))
+                    .unwrap();
+                let accept = menu
+                    .lines()
+                    .position(|row| row.contains("├─ accept …"))
+                    .unwrap();
+                assert!(context < conflict && conflict + 1 == parameter && parameter < accept);
+                assert!(!menu.contains(&group_title));
+            }
+        }
+        assert_eq!(s.bar.text(), "/repo diff conflict");
+        let closed_group = render(&mut s, 140, 38);
+        assert!(closed_group.contains("├─ --view …"));
+        assert!(closed_group.contains("├─ accept …"));
+        assert!(!closed_group.contains(&group_title));
+        let before = s.command_candidates().unwrap();
+        let expand = if scoped { KeyCode::Tab } else { KeyCode::Enter };
+        key(&mut s, expand);
+        assert_eq!(s.bar.text(), "/repo diff conflict ");
+        let entries = s.command_candidates().unwrap();
+        assert!(matches!(entries[0], Candidate::Parameter(p) if p.name == "--view"));
+        assert_eq!(entries.len() + 1, before.len());
+        assert_eq!(
+            entries
+                .iter()
+                .filter_map(|item| item.command())
+                .map(|cmd| cmd.name)
+                .collect::<Vec<_>>(),
+            [
+                "repo diff conflict accept",
+                "repo diff conflict block",
+                "repo diff conflict undo",
+                "repo diff conflict reset",
+            ],
+        );
+        let rendered = render(&mut s, 140, 38);
+        let lines = rendered.lines().collect::<Vec<_>>();
+        assert_eq!(s.command_items.len(), entries.len());
+        let first_row = usize::from(s.command_items[0].0.y);
+        assert!(lines[first_row - 1].contains(&group_title));
+        assert!(lines[first_row].contains("├─ --view …"));
+        assert!(lines[first_row + 1].contains("├─ accept …"));
+        assert!(lines[first_row + 4].contains("└─ reset"));
+        key(&mut s, KeyCode::Char(' '));
+        assert_eq!(s.command_candidates().unwrap().len(), entries.len());
+        key(&mut s, KeyCode::Backspace);
+        s.paste("acc");
+        assert!(matches!(s.command_candidates().unwrap().as_slice(),
+            [Candidate::Command(cmd)] if cmd.name == "repo diff conflict accept"));
+        key(&mut s, KeyCode::Esc);
+
+        s.paste(if scoped { "/con" } else { "//repo diff con" });
+        let entries = s.command_candidates().unwrap();
+        let parameter = entries
+            .iter()
+            .position(|entry| matches!(entry, Candidate::Parameter(p) if p.name == "--view"))
+            .unwrap();
+        for _ in 0..parameter {
+            key(&mut s, KeyCode::Down);
+        }
+        key(&mut s, KeyCode::Enter);
+        assert_eq!(s.bar.text(), "/repo diff conflict --view ");
+        assert_eq!(super::options::choices(&s).options.len(), 8);
+        key(&mut s, KeyCode::Esc);
+        assert_eq!(s.bar.text(), "/repo diff conflict ");
+        assert_eq!(s.command_candidates().unwrap().len(), 5);
+        while matches!(s.bar, bar::InputBar::Command { .. }) {
+            key(&mut s, KeyCode::Esc);
+        }
+    }
+    s.paste("//repo diff conflict --v");
+    assert!(matches!(s.command_candidates().unwrap().as_slice(),
+        [Candidate::Parameter(p)] if p.name == "--view"));
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "/repo diff conflict --view ");
+    assert_eq!(super::options::choices(&s).options.len(), 8);
+    while matches!(s.bar, bar::InputBar::Command { .. }) {
+        key(&mut s, KeyCode::Esc);
+    }
+    command(&mut s, "repo diff conflict --unknown");
+    assert!(s.command_candidates().unwrap().is_empty());
+    assert_eq!(review(&s).mode, DisplayMode::Overview);
+    command(&mut s, "repo diff conflict --view base-left");
+    assert_eq!(
+        review(&s).mode,
+        DisplayMode::Pair(crate::conflict::pair::Pair::BaseCurrent)
+    );
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    assert_eq!(
+        std::fs::read(f.repo.join("src/中文 空格.ts")).unwrap(),
+        worktree
+    );
+    s.shutdown();
+}
+
+#[test]
 fn base_option_completion_does_not_apply_until_enter_or_hide_the_working_result() {
     let (_f, _home, mut s) = setup();
     s.paste("中文");
-    command(&mut s, "repo diff conflict");
+    command(&mut s, "repo diff conflict --view");
     assert_eq!(super::options::choices(&s).options.len(), 8);
     assert_eq!(
         super::options::choices(&s).current,
@@ -162,13 +291,13 @@ fn base_option_completion_does_not_apply_until_enter_or_hide_the_working_result(
     );
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Tab);
-    assert!(s.bar.text().ends_with("conflict include-base"));
+    assert!(s.bar.text().ends_with("conflict --view include-base"));
     assert_eq!(review(&s).mode, DisplayMode::Overview);
     key(&mut s, KeyCode::Enter);
     assert_eq!(review(&s).mode, DisplayMode::IncludeBase);
     assert_eq!(s.bar.text(), "中文");
     assert!(render(&mut s, 180, 55).contains("<<<<<<<"));
-    command(&mut s, "repo diff conflict overview");
+    command(&mut s, "repo diff conflict --view overview");
     assert_eq!(review(&s).mode, DisplayMode::Overview);
     assert!(render(&mut s, 180, 55).contains("<<<<<<<"));
     s.shutdown();
@@ -177,7 +306,7 @@ fn base_option_completion_does_not_apply_until_enter_or_hide_the_working_result(
 fn focus_and_external_refresh_retain_separate_reading_positions_and_the_base_choice() {
     let (f, _home, mut s) = setup();
     render(&mut s, 210, 40);
-    command(&mut s, "repo diff conflict include-base");
+    command(&mut s, "repo diff conflict --view include-base");
     activate(&mut s, Focus::Compare);
     scroll(&mut s, 12);
     render(&mut s, 210, 40);
@@ -244,7 +373,7 @@ fn copy_follows_the_focused_source_result_or_visible_input_versions() {
     }
     assert!(!payload.text.contains("<<<<<<<"));
     assert!(!payload.text.contains("BASE"));
-    command(&mut s, "repo diff conflict include-base");
+    command(&mut s, "repo diff conflict --view include-base");
     let payload = s
         .copy_selection()
         .payload(crate::clipboard::Scope::Diff, Some(&f.repo))
@@ -558,7 +687,7 @@ fn all_pairs_use_their_own_sources_in_order_without_navigation_or_replacing_the_
             Some("BASE"),
         ),
     ] {
-        command(&mut s, &format!("repo diff conflict {token}"));
+        command(&mut s, &format!("repo diff conflict --view {token}"));
         assert_eq!(review(&s).mode, DisplayMode::Pair(pair));
         let text = render(&mut s, 210, 55);
         assert!(text.contains(before) && text.contains(after), "{text}");
@@ -602,7 +731,7 @@ fn all_pairs_use_their_own_sources_in_order_without_navigation_or_replacing_the_
         assert_eq!(payload.target, crate::clipboard::Target::Conflict);
         assert!(payload.text.contains(before) && payload.text.contains(after));
         assert!(payload.text.find(left.text()) < payload.text.find(right.text()));
-        command(&mut s, "repo diff conflict include-base");
+        command(&mut s, "repo diff conflict --view include-base");
         assert!(render(&mut s, 210, 55).contains(i18n::tr!(ConflictResult)));
         if let Mode::Changes(session) = &mut s.mode {
             session.focus = crate::changes::Focus::Files;
@@ -616,7 +745,7 @@ fn all_pairs_use_their_own_sources_in_order_without_navigation_or_replacing_the_
 fn display_options_complete_only_on_enter_and_refresh_keeps_result_on_the_left() {
     use crate::conflict::pair::Pair;
     let (f, _home, mut s) = setup();
-    command(&mut s, "repo diff conflict");
+    command(&mut s, "repo diff conflict --view");
     assert_eq!(super::options::choices(&s).options.len(), 8);
     // 从默认隐藏项向下选择显示全部，再选择基础和当前。
     key(&mut s, KeyCode::Down);
@@ -626,7 +755,7 @@ fn display_options_complete_only_on_enter_and_refresh_keeps_result_on_the_left()
     assert_eq!(review(&s).mode, DisplayMode::Overview);
     key(&mut s, KeyCode::Enter);
     assert_eq!(review(&s).mode, DisplayMode::Pair(Pair::BaseCurrent));
-    command(&mut s, "repo diff conflict result-right");
+    command(&mut s, "repo diff conflict --view result-right");
     activate(&mut s, Focus::Compare);
     render(&mut s, 210, 55);
     support::write(
@@ -662,11 +791,11 @@ fn conflict_has_one_display_command_no_header_buttons_and_no_pair_back_page() {
     assert!(command::COMMANDS.iter().all(
         |cmd| cmd.name != "repo diff conflict base" && cmd.name != "repo diff conflict compare"
     ));
-    command(&mut s, "repo diff conflict include-base");
+    command(&mut s, "repo diff conflict --view include-base");
     let text = render(&mut s, 210, 55);
     assert!(!text.contains(i18n::tr!(ConflictCompareCurrent)), "{text}");
     assert!(!text.contains(i18n::tr!(ConflictCompareResult)), "{text}");
-    command(&mut s, "repo diff conflict base-left");
+    command(&mut s, "repo diff conflict --view base-left");
     activate(&mut s, Focus::Compare);
     key(&mut s, KeyCode::Esc); // 先返回输入页。
     key(&mut s, KeyCode::Esc); // 再返回文件列表。
@@ -710,13 +839,13 @@ fn every_pair_retains_its_own_reading_position() {
         "result-right",
     ];
     for (n, token) in tokens.iter().enumerate() {
-        command(&mut s, &format!("repo diff conflict {token}"));
+        command(&mut s, &format!("repo diff conflict --view {token}"));
         activate(&mut s, Focus::Compare);
         scroll(&mut s, n + 2);
         render(&mut s, 210, 24);
     }
     for (n, token) in tokens.iter().enumerate() {
-        command(&mut s, &format!("repo diff conflict {token}"));
+        command(&mut s, &format!("repo diff conflict --view {token}"));
         render(&mut s, 210, 24);
         assert_eq!(review(&s).mode, DisplayMode::Pair(Pair::ALL[n]));
         let Mode::Changes(session) = &s.mode else {
@@ -759,7 +888,7 @@ fn unavailable_base_does_not_disable_text_comparison_between_the_other_versions(
         Some(i18n::tr!(ConflictNonText))
     );
     assert_eq!(review(&s).pairs.reason(Pair::CurrentIncoming), None);
-    command(&mut s, "repo diff conflict left-right");
+    command(&mut s, "repo diff conflict --view left-right");
     assert_eq!(review(&s).mode, DisplayMode::Pair(Pair::CurrentIncoming));
     let text = render(&mut s, 210, 55);
     assert!(
@@ -854,7 +983,7 @@ fn block_navigation_highlights_the_selected_region_and_preserves_all_source_byte
         "left-result",
         "result-right",
     ] {
-        command(&mut s, &format!("repo diff conflict {mode}"));
+        command(&mut s, &format!("repo diff conflict --view {mode}"));
         command(&mut s, "repo diff conflict block previous");
         assert!(review(&s).resolution.label().contains("1/2"));
         let text = render(&mut s, 180, 44);
@@ -964,7 +1093,7 @@ fn accepting_the_exact_head_source_keeps_the_result_pair_comparisons_and_undo() 
         text.contains(i18n::tr!(ConflictResolvedPendingStage)),
         "{text}"
     );
-    command(&mut s, "repo diff conflict left-result");
+    command(&mut s, "repo diff conflict --view left-result");
     assert_eq!(
         review(&s).mode,
         DisplayMode::Pair(crate::conflict::pair::Pair::CurrentResult)

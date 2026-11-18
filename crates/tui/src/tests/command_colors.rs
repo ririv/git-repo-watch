@@ -61,9 +61,11 @@ fn command_roles_follow_declared_parameters_instead_of_word_positions() {
             ],
         ),
         (
-            "/repo diff conflict base-result",
+            "/repo diff conflict --view base-result",
             vec![
                 ("/repo diff conflict ", Role::Command),
+                ("--view", Role::Option),
+                (" ", Role::Command),
                 ("base-result", Role::Argument),
             ],
         ),

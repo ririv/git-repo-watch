@@ -288,9 +288,9 @@ impl Screen {
                 .command_input()
                 .is_some_and(|input| input.prefix_selected())
             {
-                let Some(command) = self
-                    .search_commands()
-                    .and_then(|commands| commands.get(index).copied())
+                let Some(candidate) = self
+                    .command_candidates()
+                    .and_then(|candidates| candidates.get(index).copied())
                 else {
                     return Ok(false);
                 };
@@ -298,7 +298,12 @@ impl Screen {
                     input, selected, ..
                 } = &mut self.bar
                 {
-                    input.complete(command);
+                    match candidate {
+                        command::named::Candidate::Command(command) => input.complete(command),
+                        command::named::Candidate::Parameter(parameter) => {
+                            parameter.complete(input)
+                        }
+                    }
                     *selected = 0;
                 }
             }

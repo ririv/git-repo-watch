@@ -212,9 +212,20 @@ fn nested_parameter_commands_choose_the_longest_name_and_keep_bare_undo_unambigu
         Some((ArgumentAction::Option(options::Kind::ConflictAccept), ""))
     );
     assert_eq!(
-        argument_input("repo diff conflict "),
+        argument_input("repo diff conflict --view "),
         Some((ArgumentAction::Option(options::Kind::Conflict), ""))
     );
+    assert_eq!(
+        argument_input("repo diff conflict --view base-left"),
+        Some((ArgumentAction::Option(options::Kind::Conflict), "base-left"))
+    );
+    for query in [
+        "repo diff conflict ",
+        "repo diff conflict acc",
+        "repo diff conflict base-left",
+    ] {
+        assert_eq!(argument_input(query), None);
+    }
     assert_eq!(argument_input("repo diff conflict undo "), None);
     assert_eq!(argument_input("repo diff conflict reset "), None);
 }

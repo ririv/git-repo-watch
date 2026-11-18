@@ -7,6 +7,7 @@ pub enum CommandSummary {
     ConflictUndo,
     ConflictReset,
     Conflict,
+    ConflictGroup,
     BranchFilter,
     HistoryParent,
     ExternalEditorOpen,
@@ -130,6 +131,8 @@ impl CommandSummary {
 
             (Self::Conflict, Language::Chinese) => "冲突版本显示",
             (Self::Conflict, Language::English) => "Conflict versions",
+            (Self::ConflictGroup, Language::Chinese) => "冲突操作",
+            (Self::ConflictGroup, Language::English) => "Conflict tools",
             (Self::ExternalEditorOpen, Language::English) => "Open in editor",
             (Self::ExternalEditorOpen, Language::Chinese) => "用编辑器打开",
             (Self::ExternalEditorSetting, Language::English) => "Choose editor",

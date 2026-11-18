@@ -218,7 +218,6 @@ impl Action {
             Self::PartialSelectMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::DiffSelection))
             }
-            Self::ConflictMenu => Some(ArgumentAction::Option(super::options::Kind::Conflict)),
             Self::ConflictAcceptMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::ConflictAccept))
             }
@@ -294,6 +293,11 @@ impl Command {
     }
 }
 pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
+    if let Some((parameter, value)) =
+        super::named::Query::new(input).and_then(|query| query.value())
+    {
+        return Some((ArgumentAction::Option(parameter.kind), value));
+    }
     if let Some(exact) = COMMANDS
         .iter()
         .find(|command| command.name.eq_ignore_ascii_case(input.trim()))

@@ -1,9 +1,10 @@
 //! Describe the next Enter transition using the same command and parameter candidates.
-use super::{Action, ArgumentAction, completion::Menu};
+use super::{Action, ArgumentAction, completion::Menu, named::Candidate};
 use crate::{Screen, bar::InputBar};
 
 enum Intent {
     Parameters,
+    Group,
     Argument,
     Required,
     Review,
@@ -19,6 +20,7 @@ impl Intent {
     fn text(self) -> String {
         match self {
             Self::Parameters => i18n::tr!(CommandEnterParameters).into(),
+            Self::Group => i18n::tr!(CommandEnterGroup).into(),
             Self::Argument => i18n::tr!(CommandEnterArgument).into(),
             Self::Required => i18n::tr!(CommandEnterRequired).into(),
             Self::Review => i18n::tr!(CommandEnterReview).into(),
@@ -42,6 +44,9 @@ impl super::Command {
             } else {
                 Intent::Argument
             };
+        }
+        if super::named::has_parameters(self) {
+            return Intent::Group;
         }
         match self.action {
             Action::OpenRepository
@@ -134,24 +139,33 @@ impl Screen {
                         _ => Intent::Review,
                     }
                 } else {
-                    let commands = self.search_commands()?;
-                    let command = commands.get(*selected)?;
+                    let menu = self.command_menu()?;
+                    let candidate = *menu.entries.get(*selected)?;
+                    let command = candidate.owner();
                     if let Some(reason) = self
                         .command_availability(command.action, path.as_deref(), selection)
                         .reason()
                     {
                         return Some(format!("{reason} · {keys}"));
                     }
-                    if query.eq_ignore_ascii_case(command.name)
-                        && super::hierarchy::has_children(command, &commands)
-                    {
-                        return Some(format!(
-                            "{} · {}",
-                            command.enter_intent().text(),
-                            i18n::tr!(CommandChildrenKeys)
-                        ));
+                    match candidate {
+                        Candidate::Parameter(_) => Intent::Parameters,
+                        Candidate::Command(command) => {
+                            if menu
+                                .group
+                                .as_ref()
+                                .is_some_and(|group| group.at_parent(command))
+                            {
+                                let keys = if super::named::has_parameters(command) {
+                                    i18n::tr!(CommandGroupKeys)
+                                } else {
+                                    i18n::tr!(CommandChildrenKeys)
+                                };
+                                return Some(format!("{} · {keys}", command.enter_intent().text()));
+                            }
+                            command.enter_intent()
+                        }
                     }
-                    command.enter_intent()
                 }
             }
         };

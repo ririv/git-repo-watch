@@ -4,7 +4,8 @@ use i18n::CommandSummary as Summary;
 impl Command {
     pub fn summary(&self) -> Summary {
         match self.action {
-            Action::ConflictMenu | Action::ConflictView(_) => Summary::Conflict,
+            Action::ConflictMenu => Summary::ConflictGroup,
+            Action::ConflictView(_) => Summary::Conflict,
             Action::ConflictAcceptMenu | Action::ConflictAccept(_) => Summary::ConflictAccept,
             Action::ConflictBlockMenu | Action::ConflictBlock(_) => Summary::ConflictBlock,
             Action::ConflictUndo => Summary::ConflictUndo,

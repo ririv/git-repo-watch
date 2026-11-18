@@ -13,7 +13,7 @@ impl Screen {
         let (current, count) = match menu {
             Menu::Commands => (
                 *selected,
-                self.search_commands().expect("command menu").len(),
+                self.command_candidates().expect("command menu").len(),
             ),
             Menu::History(values) => (values.selected, values.entries.len()),
             Menu::Options(values) => (values.selected, values.options.len()),

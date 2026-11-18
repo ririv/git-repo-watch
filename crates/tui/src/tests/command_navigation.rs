@@ -40,7 +40,7 @@ fn candidate_menus_page_by_visible_rows_and_stop_at_both_ends() {
                         menu: Menu::Options(values),
                         ..
                     } => values.options.len(),
-                    _ => s.search_commands().unwrap().len(),
+                    _ => s.command_candidates().unwrap().len(),
                 };
                 let draft = s.bar.text();
                 let before = std::fs::read(s.service.store.config_path()).unwrap();

@@ -876,12 +876,14 @@ fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
         assert_eq!(s.command_items.len(), count, "{text}");
         assert!(s.command_items.iter().all(|(area, _)| area.height == 1));
         let (_, index) = s.command_items.last().unwrap();
-        let commands = s.search_commands().unwrap();
-        assert_eq!(*index, commands.len() - 1, "{text}");
+        let candidates = s.command_candidates().unwrap();
+        assert_eq!(*index, candidates.len() - 1, "{text}");
         assert!(
             text.contains(
-                commands
+                candidates
                     .last()
+                    .unwrap()
+                    .command()
                     .unwrap()
                     .name
                     .split_whitespace()

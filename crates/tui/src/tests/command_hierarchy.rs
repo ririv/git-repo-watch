@@ -101,9 +101,10 @@ fn hierarchy_is_shared_by_executable_groups_and_preserves_parameter_menus() {
         assert!(group.location == Location::Parent);
         assert_eq!(commands[0].name, parent);
         let input = s.bar.command_input().unwrap();
+        let entries = s.command_candidates().unwrap();
         assert!(
-            Tree::new(Some(&group), &commands)
-                .label(input, commands[1])
+            Tree::new(Some(&group), &entries)
+                .label(input, 1)
                 .branch
                 .starts_with(['├', '└'])
         );
@@ -192,10 +193,10 @@ fn command_tree_connects_nested_siblings_and_ends_the_final_branch() {
         ("repo stash drop", "   └─ drop"),
     ] {
         let index = s
-            .search_commands()
+            .command_candidates()
             .unwrap()
             .iter()
-            .position(|c| c.name == command)
+            .position(|candidate| candidate.command().is_some_and(|c| c.name == command))
             .unwrap();
         if let bar::InputBar::Command { selected, .. } = &mut s.bar {
             *selected = index;

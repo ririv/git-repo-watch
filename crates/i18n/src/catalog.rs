@@ -230,6 +230,9 @@ pub enum Message {
     ComposeHint,
     ComposeEditHint,
     CommandEnterParameters,
+    CommandEnterGroup,
+    CommandGroupKeys,
+    CommandGroupParameters,
     CommandEnterArgument,
     CommandEnterRequired,
     CommandEnterReview,
@@ -243,6 +246,7 @@ pub enum Message {
     CommandCandidateKeys,
     CommandChildrenKeys,
     CommandChildrenTitle,
+    CommandGroupTitle,
     CommandScopedCandidateKeys,
     CommandCandidateHistoryKeys,
     OptionCompletionHint,
@@ -2068,6 +2072,12 @@ impl Message {
             (Self::ComposeEditHint, Language::Chinese) => "Enter 换行 · Ctrl+S 保存 · Esc 放弃",
             (Self::CommandEnterParameters, Language::English) => "Enter choose a parameter",
             (Self::CommandEnterParameters, Language::Chinese) => "Enter 选择参数",
+            (Self::CommandEnterGroup, Language::English) => "Enter expand",
+            (Self::CommandEnterGroup, Language::Chinese) => "Enter 展开",
+            (Self::CommandGroupKeys, Language::English) => "Tab enter group · ↑↓ choose · Esc back",
+            (Self::CommandGroupKeys, Language::Chinese) => "Tab 进入命令组 · ↑↓选择 · Esc 返回",
+            (Self::CommandGroupParameters, Language::English) => "Parameters",
+            (Self::CommandGroupParameters, Language::Chinese) => "参数",
             (Self::CommandEnterArgument, Language::English) => "Enter edit parameters",
             (Self::CommandEnterArgument, Language::Chinese) => "Enter 输入参数",
             (Self::CommandEnterRequired, Language::English) => "Type the required parameter",
@@ -2094,6 +2104,8 @@ impl Message {
             (Self::CommandChildrenKeys, Language::Chinese) => "Tab 进入子命令 · ↑↓选择 · Esc 返回",
             (Self::CommandChildrenTitle, Language::English) => "{name} subcommands",
             (Self::CommandChildrenTitle, Language::Chinese) => "{name} 子命令",
+            (Self::CommandGroupTitle, Language::English) => "{name} command group",
+            (Self::CommandGroupTitle, Language::Chinese) => "{name} 命令组",
             (Self::CommandCandidateKeys, Language::English) => "Tab complete · ↑↓ choose · Esc back",
             (Self::CommandCandidateKeys, Language::Chinese) => "Tab 补全 · ↑↓选择 · Esc 返回",
             (Self::CommandCandidateHistoryKeys, Language::English) => "Tab complete · ↓ choose · ↑ history · Esc close",
@@ -5808,6 +5820,7 @@ impl std::fmt::Display for Message {
 #[macro_export]
 macro_rules! tf {
     (CommandChildrenTitle $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("{name} subcommands" $(, $($args)*)?), $crate::Language::Chinese => format!("{name} 子命令" $(, $($args)*)?), } };
+    (CommandGroupTitle $(, $($args:tt)*)?) => { match $crate::language() { $crate::Language::English => format!("{name} command group" $(, $($args)*)?), $crate::Language::Chinese => format!("{name} 命令组" $(, $($args)*)?), } };
     (ReadCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not read command history: {}", $error), $crate::Language::Chinese => format!("读取命令历史失败：{}", $error) } };
     (SaveCommandHistoryFailed, $error:expr) => { match $crate::language() { $crate::Language::English => format!("Could not save command history: {}", $error), $crate::Language::Chinese => format!("保存命令历史失败：{}", $error) } };
 

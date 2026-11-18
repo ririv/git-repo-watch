@@ -7,6 +7,7 @@ mod enter;
 pub(crate) mod hierarchy;
 pub(crate) mod history;
 mod input;
+pub(crate) mod named;
 pub(crate) mod loader;
 pub(crate) mod options;
 pub(crate) mod path;
@@ -304,7 +305,7 @@ pub const COMMANDS: &[Command] = &[
     Command {
         name: "repo diff conflict",
         action: ConflictMenu,
-        description: i18n::Message::ConflictViewCommand,
+        description: i18n::Message::ConflictControlsTitle,
     },
     Command {
         name: "repo diff conflict accept",

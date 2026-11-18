@@ -316,7 +316,10 @@ impl Screen {
         if self.option_candidate_key(key) {
             return Ok(BarEvent::Handled);
         }
-        let matches = self.search_commands().unwrap_or_default();
+        use command::named::Candidate;
+        let command_menu = self.command_menu().unwrap_or_default();
+        let candidates = command_menu.entries;
+        let group = command_menu.group.as_ref();
         if key.code == KeyCode::Esc
             && let InputBar::Command {
                 input,
@@ -324,7 +327,22 @@ impl Screen {
                 menu: command::completion::Menu::Commands,
                 ..
             } = &mut self.bar
-            && let Some(group) = command::hierarchy::Group::current(input, &matches)
+            && let Some(query) = command::named::Query::new(&input.query())
+            && query.parameter_only()
+        {
+            input.replace_canonical(Editor::new(format!("/{} ", query.owner().name)));
+            *selected = 0;
+            self.message.clear();
+            return Ok(BarEvent::Handled);
+        }
+        if key.code == KeyCode::Esc
+            && let InputBar::Command {
+                input,
+                selected,
+                menu: command::completion::Menu::Commands,
+                ..
+            } = &mut self.bar
+            && let Some(group) = group
             && group.location == command::hierarchy::Location::Children
             && input
                 .query()
@@ -350,7 +368,11 @@ impl Screen {
             let action = command::argument_input(&query)
                 .map(|(argument, _)| argument.action())
                 .or_else(|| self.out_of_view_command(&query, path.as_deref(), selection))
-                .or_else(|| matches.get(*selected).map(|command| command.action));
+                .or_else(|| {
+                    candidates
+                        .get(*selected)
+                        .map(|candidate| candidate.owner().action)
+                });
             if let Some(action) = action
                 && let Some(reason) = self
                     .command_availability(action, path.as_deref(), selection)
@@ -430,9 +452,15 @@ impl Screen {
             match key.code {
                 KeyCode::Esc => self.clear_bar(),
                 KeyCode::Up => *selected = selected.saturating_sub(1),
-                KeyCode::Down => *selected = (*selected + 1).min(matches.len().saturating_sub(1)),
+                KeyCode::Down => {
+                    *selected = (*selected + 1).min(candidates.len().saturating_sub(1))
+                }
                 KeyCode::Tab => {
-                    if let Some(c) = matches.get(*selected) {
+                    if let Some(Candidate::Parameter(parameter)) = candidates.get(*selected) {
+                        parameter.complete(input);
+                        *selected = 0;
+                        self.message.clear();
+                    } else if let Some(Candidate::Command(c)) = candidates.get(*selected) {
                         if command::argument_input(&query)
                             .is_some_and(|(argument, _)| argument.options().is_some())
                         {
@@ -445,9 +473,7 @@ impl Screen {
                                 return Ok(BarEvent::Handled);
                             }
                         } else {
-                            if query.eq_ignore_ascii_case(c.name)
-                                && command::hierarchy::has_children(c, &matches)
-                            {
+                            if group.is_some_and(|group| group.at_parent(c)) {
                                 input.replace_canonical(Editor::new(format!("/{} ", c.name)));
                             } else {
                                 selection.complete(input, c);
@@ -532,7 +558,12 @@ impl Screen {
                                 self.message = crate::message::Message::error(format!("{error:#}"))
                             }
                         }
-                    } else if let Some(command) = matches.get(*selected) {
+                    } else if let Some(Candidate::Parameter(parameter)) = candidates.get(*selected)
+                    {
+                        parameter.complete(input);
+                        *selected = 0;
+                        self.message.clear();
+                    } else if let Some(Candidate::Command(command)) = candidates.get(*selected) {
                         if command.action.argument().is_some() && command.action != Action::AiPrompt
                         {
                             selection.complete(input, command);

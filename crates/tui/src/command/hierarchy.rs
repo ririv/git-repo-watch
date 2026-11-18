@@ -16,7 +16,7 @@ fn descendant(name: &str, parent: &str) -> bool {
     name.strip_prefix(parent)
         .is_some_and(|tail| tail.starts_with(' '))
 }
-pub(crate) fn has_children(command: &Command, candidates: &[&Command]) -> bool {
+fn has_children(command: &Command, candidates: &[&Command]) -> bool {
     command.action.argument().is_none()
         && candidates
             .iter()
@@ -36,7 +36,9 @@ impl Group {
                     .is_none_or(|context| context.admits(command) || command.common())
             })
             .filter(|command| query.trim_end() == command.name)
-            .filter(|command| has_children(command, candidates))
+            .filter(|command| {
+                has_children(command, candidates) || super::named::has_parameters(command)
+            })
             .max_by_key(|command| command.name.len())?;
         Some(Self {
             parent,
@@ -47,13 +49,23 @@ impl Group {
             },
         })
     }
+
+    pub fn at_parent(&self, command: &Command) -> bool {
+        self.location == Location::Parent && self.parent.name == command.name
+    }
+
     pub fn retain_candidates(&self, candidates: &mut Vec<&'static Command>) {
         candidates.retain(|command| {
-            command.name == self.parent.name || descendant(command.name, self.parent.name)
+            self.at_parent(command) || descendant(command.name, self.parent.name)
         });
     }
     pub fn title(&self) -> Option<String> {
-        (self.location == Location::Children)
-            .then(|| i18n::tf!(CommandChildrenTitle, name = self.parent.name))
+        (self.location == Location::Children).then(|| {
+            if super::named::has_parameters(self.parent) {
+                i18n::tf!(CommandGroupTitle, name = self.parent.name)
+            } else {
+                i18n::tf!(CommandChildrenTitle, name = self.parent.name)
+            }
+        })
     }
 }

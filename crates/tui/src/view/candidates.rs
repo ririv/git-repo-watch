@@ -3,7 +3,7 @@ use super::*;
 
 #[derive(Debug, PartialEq, Eq)]
 pub(super) enum Source {
-    Commands(Vec<&'static str>),
+    Commands(Vec<(&'static str, Option<&'static str>)>),
     Options(Vec<command::options::Value>),
     Directories(Vec<String>),
     Values(Vec<String>),

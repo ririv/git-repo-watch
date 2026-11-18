@@ -1,13 +1,14 @@
 //! Single-line command rows show names, concise descriptions and current values.
 mod elision;
 use super::*;
-use crate::features::Maturity;
+use crate::{command::named::Candidate, features::Maturity};
 use ratatui::layout::Alignment;
 use unicode_width::UnicodeWidthStr;
 
 struct Entry {
     name: command::hierarchy::Label,
     argument: Option<command::ArgumentAction>,
+    named_parameter: bool,
     maturity: Maturity,
     description: String,
     value: String,
@@ -82,7 +83,9 @@ impl Entry {
                 name,
                 if enabled {
                     Style::default()
-                        .fg(if self.maturity == Maturity::Experimental {
+                        .fg(if self.named_parameter {
+                            WARN
+                        } else if self.maturity == Maturity::Experimental {
                             EXPERIMENTAL
                         } else {
                             ACCENT
@@ -237,16 +240,37 @@ fn render_menu(
             return;
         }
     }
-    let commands = screen.search_commands().expect("command candidates");
-    let source =
-        candidates::Source::Commands(commands.iter().map(|command| command.name).collect());
-    let group = command::hierarchy::Group::current(input, &commands);
-    let title = group.as_ref().and_then(command::hierarchy::Group::title);
-    let tree = command::hierarchy::Tree::new(group.as_ref(), &commands);
-    let entries = commands
+    let menu = screen.command_menu().expect("command candidates");
+    let source = candidates::Source::Commands(
+        menu.entries
+            .iter()
+            .map(|candidate| match candidate {
+                Candidate::Command(command) => (command.name, None),
+                Candidate::Parameter(parameter) => (parameter.command().name, Some(parameter.name)),
+            })
+            .collect(),
+    );
+    let title = if menu.group.is_none()
+        && !menu.entries.is_empty()
+        && menu
+            .entries
+            .iter()
+            .all(|candidate| matches!(candidate, Candidate::Parameter(_)))
+    {
+        Some(i18n::tr!(CommandGroupParameters).into())
+    } else {
+        menu.group
+            .as_ref()
+            .and_then(command::hierarchy::Group::title)
+    };
+    let tree = command::hierarchy::Tree::new(menu.group.as_ref(), &menu.entries);
+    let entries = menu
+        .entries
         .iter()
         .copied()
-        .map(|command| {
+        .enumerate()
+        .map(|(index, candidate)| {
+            let command = candidate.owner();
             let selection = screen.bar.selection().expect("command selection");
             let resolved = screen.resolve_command(command.action, path.as_deref(), selection);
             let target = resolved
@@ -256,13 +280,16 @@ fn render_menu(
                 .value()
                 .is_some_and(|target| target.is_partial_index());
             let availability = resolved.map(|_| ());
-            let description = match command.action {
-                Action::Stage if partial_index => i18n::tr!(PartialStage),
-                Action::Unstage if partial_index => i18n::tr!(PartialUnstage),
-                Action::Copy => selection
-                    .annotation(command.action)
-                    .expect("copy target label"),
-                _ => command.summary().text(),
+            let description = match candidate {
+                Candidate::Parameter(parameter) => parameter.description.text(),
+                Candidate::Command(_) => match command.action {
+                    Action::Stage if partial_index => i18n::tr!(PartialStage),
+                    Action::Unstage if partial_index => i18n::tr!(PartialUnstage),
+                    Action::Copy => selection
+                        .annotation(command.action)
+                        .expect("copy target label"),
+                    _ => command.summary().text(),
+                },
             };
             let repository_action = matches!(
                 command.action,
@@ -293,9 +320,16 @@ fn render_menu(
             .or_else(|| repository_list::annotation(command.action, screen))
             .or_else(|| layout_summary::annotation(command.action, screen, body))
             .or_else(|| settings::annotation(command.action, screen));
+            let argument = match candidate {
+                Candidate::Command(command) => command.action.argument(),
+                Candidate::Parameter(parameter) => {
+                    Some(command::ArgumentAction::Option(parameter.kind))
+                }
+            };
             Entry {
-                name: tree.label(input, command),
-                argument: command.action.argument(),
+                name: tree.label(input, index),
+                argument,
+                named_parameter: matches!(candidate, Candidate::Parameter(_)),
                 maturity: if command.action.experimental() {
                     Maturity::Experimental
                 } else {
