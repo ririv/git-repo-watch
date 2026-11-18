@@ -568,6 +568,13 @@ impl Drop for TerminalGuard {
         }
     }
 }
+fn read_terminal_event(timeout: Duration) -> io::Result<Option<TerminalEvent>> {
+    if event::poll(timeout)? {
+        return event::read().map(Some);
+    }
+    Ok(None)
+}
+
 pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
     anyhow::ensure!(
         io::stdin().is_terminal() && io::stdout().is_terminal(),
@@ -586,6 +593,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
         screen.graphics.finish_frame(&mut io::stdout())?;
         screen.fetch_on_startup();
         let mut dirty = true;
+        let mut pending_event = None;
         let mut schedule_second = chrono::Local::now().timestamp();
         loop {
             if root.is_cancelled() {
@@ -650,8 +658,11 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 screen.graphics.finish_frame(&mut io::stdout())?;
                 dirty = false;
             }
-            if event::poll(Duration::from_millis(80))? {
-                let event = event::read()?;
+            let event = match pending_event.take() {
+                Some(event) => Some(event),
+                None => read_terminal_event(Duration::from_millis(80))?,
+            };
+            if let Some(event) = event {
                 match event {
                     TerminalEvent::Key(key) if key.kind != KeyEventKind::Release => {
                         if screen.key(key, &root)? {
@@ -660,7 +671,14 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                         dirty = true;
                     }
                     TerminalEvent::Mouse(mouse) => {
-                        dirty |= screen.mouse(mouse, &root)?;
+                        pending_event = input::scroll::dispatch_mouse(
+                            mouse,
+                            || read_terminal_event(Duration::ZERO),
+                            |mouse| {
+                                dirty |= screen.mouse(mouse, &root)?;
+                                Ok(())
+                            },
+                        )?;
                     }
                     TerminalEvent::Paste(text) => {
                         screen.paste(&text);

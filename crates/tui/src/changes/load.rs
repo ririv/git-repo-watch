@@ -15,7 +15,7 @@ use std::{
 #[derive(Debug)]
 struct Request {
     key: Key,
-    snapshot: Files,
+    snapshot: Arc<Files>,
 }
 #[derive(Debug)]
 struct Reader {
@@ -33,7 +33,7 @@ impl Loader {
     pub fn pending(&self) -> bool {
         self.reader.is_some() || self.queued.is_some()
     }
-    pub fn request(&mut self, key: Key, snapshot: Files, service: &Arc<Service>) {
+    pub fn request(&mut self, key: Key, snapshot: Arc<Files>, service: &Arc<Service>) {
         if let Some(reader) = &self.reader {
             reader.cancel.cancel();
         }

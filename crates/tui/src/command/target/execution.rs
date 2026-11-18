@@ -147,7 +147,7 @@ impl Resolved<'_> {
                 ))
             }
             (Value::WorktreeFiles(target), Action::DiscardFile) => Request::DiscardFiles {
-                snapshot: target.session.snapshot.clone(),
+                snapshot: target.session.snapshot.as_ref().clone(),
                 changes: target.changes.to_vec(),
             },
             (Value::History(graph), Action::LogMore) => Request::MoreHistory(graph.clone()),

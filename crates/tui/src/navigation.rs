@@ -120,10 +120,10 @@ impl Screen {
     pub(crate) fn return_to_view(&mut self) {
         let latest = match &self.mode {
             Mode::Changes(session) => {
-                crate::mutations::readback::Readback::Files(session.files.snapshot.clone())
+                crate::mutations::readback::Readback::Files(session.files.snapshot.as_ref().clone())
             }
             Mode::Files(session) => {
-                crate::mutations::readback::Readback::Files(session.snapshot.clone())
+                crate::mutations::readback::Readback::Files(session.snapshot.as_ref().clone())
             }
             Mode::Branches(view) => {
                 crate::mutations::readback::Readback::Branches((*view.session().snapshot).clone())

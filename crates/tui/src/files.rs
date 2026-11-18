@@ -26,7 +26,7 @@ impl Layout {
         }
     }
 }
-use std::collections::BTreeSet;
+use std::{collections::BTreeSet, sync::Arc};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub(super) struct Marks(Option<(Group, BTreeSet<usize>)>);
@@ -61,7 +61,7 @@ impl Marks {
 
 #[derive(Debug, Clone)]
 pub(super) struct FileSession {
-    pub snapshot: Files,
+    pub snapshot: Arc<Files>,
     scope: Option<Group>,
     pub cursor: Cursor,
     pub offset: usize,
@@ -86,7 +86,8 @@ impl FileSession {
         }
     }
 
-    pub fn new(snapshot: Files) -> Self {
+    pub fn new(snapshot: impl Into<Arc<Files>>) -> Self {
+        let snapshot = snapshot.into();
         let cursor = if snapshot.changes.is_empty() {
             Cursor::Empty
         } else {
@@ -107,7 +108,7 @@ impl FileSession {
             projection: Default::default(),
         }
     }
-    pub fn refreshed(&self, snapshot: Files) -> Self {
+    pub fn refreshed(&self, snapshot: impl Into<Arc<Files>>) -> Self {
         let current = self
             .current()
             .map(|change| (change.area, change.location.clone()));

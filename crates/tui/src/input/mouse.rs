@@ -46,24 +46,11 @@ impl Screen {
             self.view_revision += 1;
             return Ok(action.is_some_and(|action| self.precise_action(action)));
         }
-        if matches!(
-            event.kind,
-            MouseEventKind::Down(_)
-                | MouseEventKind::ScrollUp
-                | MouseEventKind::ScrollDown
-                | MouseEventKind::ScrollLeft
-                | MouseEventKind::ScrollRight
-        ) {
+        let wheel = super::scroll::is_wheel(event.kind);
+        if wheel || matches!(event.kind, MouseEventKind::Down(_)) {
             self.drag = None;
         }
         let click = event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left);
-        let wheel = matches!(
-            event.kind,
-            MouseEventKind::ScrollUp
-                | MouseEventKind::ScrollDown
-                | MouseEventKind::ScrollLeft
-                | MouseEventKind::ScrollRight
-        );
         if wheel
             || matches!(
                 event.kind,

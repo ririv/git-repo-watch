@@ -25,7 +25,7 @@ impl Index<'_> {
             Self::Files {
                 session, changes, ..
             } => Operation::Files {
-                snapshot: session.snapshot.clone(),
+                snapshot: session.snapshot.as_ref().clone(),
                 action,
                 changes,
             },
@@ -39,7 +39,7 @@ impl Index<'_> {
                 )?),
             ),
             Self::Conflict { session, view } => Operation::Conflict {
-                snapshot: session.snapshot.clone(),
+                snapshot: session.snapshot.as_ref().clone(),
                 change: session
                     .current()
                     .cloned()

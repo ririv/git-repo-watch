@@ -157,7 +157,8 @@ impl Session {
         self.files.clone().with_scope(None)
     }
 
-    pub fn refreshed(&mut self, snapshot: Files) {
+    pub fn refreshed(&mut self, snapshot: impl Into<Arc<Files>>) {
+        let snapshot = snapshot.into();
         self.bookmark = match &self.preview {
             Preview::Ready {
                 key,

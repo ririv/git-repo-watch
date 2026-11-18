@@ -1,5 +1,57 @@
-//! Keyboard ownership cancels the remaining events in an active wheel sequence.
-use std::time::{Duration, Instant};
+//! Wheel frame batching and keyboard ownership of scroll sequences.
+use crossterm::event::{Event, MouseEvent, MouseEventKind};
+use std::{
+    io,
+    time::{Duration, Instant},
+};
+
+const WHEEL_FRAME_BUDGET: Duration = Duration::from_millis(8);
+const MAX_WHEEL_EVENTS_PER_FRAME: usize = 64;
+
+pub(super) fn is_wheel(kind: MouseEventKind) -> bool {
+    matches!(
+        kind,
+        MouseEventKind::ScrollUp
+            | MouseEventKind::ScrollDown
+            | MouseEventKind::ScrollLeft
+            | MouseEventKind::ScrollRight
+    )
+}
+
+pub(crate) fn dispatch_mouse(
+    first: MouseEvent,
+    mut read_ready: impl FnMut() -> io::Result<Option<Event>>,
+    mut dispatch: impl FnMut(MouseEvent) -> anyhow::Result<()>,
+) -> anyhow::Result<Option<Event>> {
+    let started = Instant::now();
+    dispatch(first)?;
+    if !is_wheel(first.kind) {
+        return Ok(None);
+    }
+    // 同一位置的滚轮事件按到达顺序更新状态，同一批只重绘一次。
+    // 点击、换区和其他输入留到重绘后处理，保证命中区域与新画面一致。
+    for _ in 1..MAX_WHEEL_EVENTS_PER_FRAME {
+        if started.elapsed() >= WHEEL_FRAME_BUDGET {
+            break;
+        }
+        let Some(event) = read_ready()? else {
+            break;
+        };
+        match event {
+            Event::Mouse(mouse)
+                if is_wheel(mouse.kind)
+                    && mouse.column == first.column
+                    && mouse.row == first.row
+                    && mouse.modifiers == first.modifiers =>
+            {
+                dispatch(mouse)?;
+            }
+            event => return Ok(Some(event)),
+        }
+    }
+    Ok(None)
+}
+
 // 复现现象：触控板滚到列表底部后立即按 ↑，选中项像是没有移动，要再按一次；
 // 滚到顶部后按 ↓ 也一样。等待惯性结束或点击窗口后再按键，通常不会出现。
 // 原因不是索引越界：方向键已经移动了选中项，但随后到达的同向惯性滚轮事件又把它拉回边界。
@@ -65,6 +117,46 @@ impl ScrollInput {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn mouse_batch_preserves_reversal_and_keeps_following_key_in_order() {
+        use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+        let down = MouseEvent {
+            kind: MouseEventKind::ScrollDown,
+            column: 3,
+            row: 4,
+            modifiers: KeyModifiers::NONE,
+        };
+        let up = MouseEvent {
+            kind: MouseEventKind::ScrollUp,
+            ..down
+        };
+        let key = Event::Key(KeyEvent::new(KeyCode::Home, KeyModifiers::NONE));
+        let mut source = [Event::Mouse(down), Event::Mouse(up), key.clone()].into_iter();
+        let mut pending = None;
+        let mut applied = Vec::new();
+        loop {
+            match pending.take().or_else(|| source.next()).unwrap() {
+                Event::Mouse(first) => {
+                    pending = dispatch_mouse(
+                        first,
+                        || Ok(source.next()),
+                        |mouse| {
+                            applied.push(mouse);
+                            Ok(())
+                        },
+                    )
+                    .unwrap();
+                }
+                event => {
+                    assert_eq!(event, key);
+                    break;
+                }
+            }
+        }
+        assert_eq!(applied, [down, up]);
+    }
+
     #[test]
     fn real_trace_keyboard_then_three_millisecond_momentum_does_not_retake_selection() {
         for (direction, reverse) in [
