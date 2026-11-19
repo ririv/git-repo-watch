@@ -184,25 +184,27 @@ fn render_menu(
         path,
         repository,
         selection,
-    } = &screen.bar
+    } = screen.active_bar()
     else {
         return;
     };
-    if !matches!(
-        screen.mode,
-        Mode::Management(_)
-            | Mode::Browsing
-            | Mode::Composition(_)
-            | Mode::CompositionWaiting(_)
-            | Mode::Browser(_)
-            | Mode::Panel(_)
-            | Mode::Stashes(_)
-            | Mode::Branches(_)
-            | Mode::Files(_)
-            | Mode::Changes(_)
-            | Mode::History(_)
-            | Mode::Error { .. }
-    ) {
+    if !screen.tasks.session.open()
+        && !matches!(
+            screen.mode,
+            Mode::Management(_)
+                | Mode::Browsing
+                | Mode::Composition(_)
+                | Mode::CompositionWaiting(_)
+                | Mode::Browser(_)
+                | Mode::Panel(_)
+                | Mode::Stashes(_)
+                | Mode::Branches(_)
+                | Mode::Files(_)
+                | Mode::Changes(_)
+                | Mode::History(_)
+                | Mode::Error { .. }
+        )
+    {
         return;
     }
     match menu {

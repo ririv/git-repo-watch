@@ -4,10 +4,15 @@ use crate::{Mode, Page, Screen, bar::InputBar, branches, history, stashes};
 use crossterm::event::{KeyCode, KeyEvent};
 
 impl Screen {
-    pub(crate) fn search_support(&self) -> Support {
-        if self.tasks.session.open() {
-            return Support::Unavailable;
+    pub(crate) fn active_search_support(&self) -> Support {
+        use crate::task_center::Session;
+        match self.tasks.session {
+            Session::Closed => self.search_support(),
+            Session::List => Support::Filter,
+            Session::Detail { .. } => Support::Unavailable,
         }
+    }
+    pub(crate) fn search_support(&self) -> Support {
         match &self.mode {
             Mode::Management(_) => Support::Filter,
             Mode::Browsing if self.page == Page::Repositories => Support::Both(self.search_mode),

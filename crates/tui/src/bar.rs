@@ -82,6 +82,31 @@ pub(crate) enum BarEvent {
     Quit,
 }
 impl Screen {
+    pub(crate) fn active_bar(&self) -> &InputBar {
+        if self.tasks.session.open() {
+            &self.tasks.bar
+        } else {
+            &self.bar
+        }
+    }
+    pub(super) fn active_bar_mut(&mut self) -> &mut InputBar {
+        self.tasks.input_bar_mut(&mut self.bar)
+    }
+    pub(crate) fn sync_task_bar(&mut self) {
+        use crate::task_center::Session;
+        self.tasks.bar = match self.tasks.session {
+            Session::List => InputBar::Search(self.tasks.search.clone()),
+            Session::Detail { .. } | Session::Closed => InputBar::CommandsOnly,
+        };
+    }
+    fn sync_active_bar(&mut self) {
+        if self.tasks.session.open() {
+            self.sync_task_bar();
+        } else {
+            self.sync_bar();
+        }
+    }
+
     pub(crate) fn capture_repository(
         &self,
         path: Option<&std::path::Path>,
@@ -129,7 +154,7 @@ impl Screen {
         if let InputBar::Command {
             input: command::Input::Global(editor),
             ..
-        } = &self.bar
+        } = self.active_bar()
             && !editor.text.starts_with('/')
         {
             // 删除整个命令草稿等同于关闭候选，恢复当前视图保存的搜索。
@@ -137,14 +162,21 @@ impl Screen {
                 self.clear_bar();
                 return;
             }
-            let InputBar::Command { input, .. } = std::mem::take(&mut self.bar) else {
+            let InputBar::Command { input, .. } = std::mem::take(self.active_bar_mut()) else {
                 unreachable!()
             };
-            self.bar = if self.search_support() == crate::search::Support::Unavailable {
-                InputBar::CommandsOnly
-            } else {
-                InputBar::Search(input.into_search().expect("global command lost slash"))
-            };
+            *self.active_bar_mut() =
+                if self.active_search_support() == crate::search::Support::Unavailable {
+                    InputBar::CommandsOnly
+                } else {
+                    InputBar::Search(input.into_search().expect("global command lost slash"))
+                };
+        }
+        if self.tasks.session.open() {
+            if let InputBar::Search(editor) = &self.tasks.bar {
+                self.tasks.update_search(editor.clone());
+            }
+            return;
         }
         if self.search_support() != crate::search::Support::Unavailable
             && let InputBar::Search(editor) = &self.bar
@@ -182,18 +214,18 @@ impl Screen {
     pub(crate) fn bar_paste(&mut self, text: &str) {
         let text = self.command_trigger_text(text);
         let text = text.as_ref();
-        if self.bar.is_plain()
+        if self.active_bar().is_plain()
             && (self.at_command_entry() || text.starts_with("//"))
             && let Some(body) = text.strip_prefix('/')
         {
             self.open_command_bar();
-            let InputBar::Command { input, .. } = &mut self.bar else {
+            let InputBar::Command { input, .. } = self.tasks.input_bar_mut(&mut self.bar) else {
                 unreachable!()
             };
             input.paste_initial(body);
-        } else if let InputBar::Command { input, .. } = &mut self.bar {
+        } else if let InputBar::Command { input, .. } = self.tasks.input_bar_mut(&mut self.bar) {
             input.paste(text);
-        } else if let InputBar::Search(editor) = &mut self.bar {
+        } else if let InputBar::Search(editor) = self.tasks.input_bar_mut(&mut self.bar) {
             editor.insert(text);
         }
         self.normalize_bar();
@@ -202,7 +234,7 @@ impl Screen {
             menu,
             input,
             ..
-        } = &mut self.bar
+        } = self.tasks.input_bar_mut(&mut self.bar)
         {
             if let command::completion::Menu::Directories(values) = menu {
                 match values.refine(
@@ -252,7 +284,9 @@ impl Screen {
     ) -> Result<BarEvent> {
         let key = self.command_trigger_key(key);
         // 错误页开放复制、任务与退出；Esc 先关闭命令，再交给错误页返回。
-        if matches!(self.mode, Mode::Error { .. }) && !matches!(self.bar, InputBar::Command { .. })
+        if !self.tasks.session.open()
+            && matches!(self.mode, Mode::Error { .. })
+            && self.active_bar().is_plain()
         {
             if key.code == KeyCode::Char('/') && key.modifiers.is_empty() {
                 self.open_command_bar();
@@ -260,42 +294,45 @@ impl Screen {
             }
             return Ok(BarEvent::Pass);
         }
-        if matches!(&self.mode, Mode::Composition(session) if !matches!(session.state, crate::composition::State::Browsing))
+        if !self.tasks.session.open()
+            && matches!(&self.mode, Mode::Composition(session) if !matches!(session.state, crate::composition::State::Browsing))
         {
             return Ok(BarEvent::Pass);
         }
-        if !matches!(
-            self.mode,
-            Mode::Management(_)
-                | Mode::Browsing
-                | Mode::RepositoryEnvironment(_)
-                | Mode::Composition(_)
-                | Mode::CompositionWaiting(_)
-                | Mode::Browser(_)
-                | Mode::Panel(_)
-                | Mode::Stashes(_)
-                | Mode::Branches(_)
-                | Mode::Files(_)
-                | Mode::Changes(_)
-                | Mode::History(_)
-                | Mode::Error { .. }
-        ) {
+        if !self.tasks.session.open()
+            && !matches!(
+                self.mode,
+                Mode::Management(_)
+                    | Mode::Browsing
+                    | Mode::RepositoryEnvironment(_)
+                    | Mode::Composition(_)
+                    | Mode::CompositionWaiting(_)
+                    | Mode::Browser(_)
+                    | Mode::Panel(_)
+                    | Mode::Stashes(_)
+                    | Mode::Branches(_)
+                    | Mode::Files(_)
+                    | Mode::Changes(_)
+                    | Mode::History(_)
+                    | Mode::Error { .. }
+            )
+        {
             return Ok(BarEvent::Pass);
         }
         if self.command_page_key(key) {
             return Ok(BarEvent::Handled);
         }
         if key.code == KeyCode::Enter
-            && matches!(&self.bar, InputBar::Command { input, menu: command::completion::Menu::Loading(command::loader::Request::Values { .. } | command::loader::Request::Editors { .. }), .. }
+            && matches!(self.active_bar(), InputBar::Command { input, menu: command::completion::Menu::Loading(command::loader::Request::Values { .. } | command::loader::Request::Editors { .. }), .. }
                 if command::argument_input(&input.query()).is_some_and(|(argument, value)| !value.trim().is_empty() && argument.parse(value, self.service.scheduler.user_home()).is_ok()))
         {
-            if let InputBar::Command { menu, .. } = &mut self.bar {
+            if let InputBar::Command { menu, .. } = self.tasks.input_bar_mut(&mut self.bar) {
                 *menu = Default::default();
             }
             self.command_reader.clear();
         }
         if matches!(
-            self.bar,
+            self.active_bar(),
             InputBar::Command {
                 menu: command::completion::Menu::Loading(_),
                 ..
@@ -306,7 +343,8 @@ impl Screen {
                     return Ok(BarEvent::Handled);
                 }
                 KeyCode::Esc => {
-                    if let InputBar::Command { menu, .. } = &mut self.bar {
+                    if let InputBar::Command { menu, .. } = self.tasks.input_bar_mut(&mut self.bar)
+                    {
                         *menu = Default::default();
                     }
                     self.command_reader.clear();
@@ -329,7 +367,7 @@ impl Screen {
                 selected,
                 menu: command::completion::Menu::Commands,
                 ..
-            } = &mut self.bar
+            } = self.tasks.input_bar_mut(&mut self.bar)
             && let Some(query) = command::named::Query::new(&input.query())
             && query.parameter_only()
         {
@@ -344,7 +382,7 @@ impl Screen {
                 selected,
                 menu: command::completion::Menu::Commands,
                 ..
-            } = &mut self.bar
+            } = self.tasks.input_bar_mut(&mut self.bar)
             && let Some(group) = group
             && group.location == command::hierarchy::Location::Children
             && input
@@ -364,7 +402,7 @@ impl Screen {
                 selection,
                 selected,
                 ..
-            } = &self.bar
+            } = self.active_bar()
             && !input.prefix_selected()
         {
             let query = input.query();
@@ -392,7 +430,7 @@ impl Screen {
             path,
             selection,
             repository,
-        } = &mut self.bar
+        } = self.tasks.input_bar_mut(&mut self.bar)
         {
             match input.namespace_key(key) {
                 command::NamespaceEvent::Close => {
@@ -497,7 +535,7 @@ impl Screen {
                             match action {
                                 Ok(action) => {
                                     *submitted = Some(input.text());
-                                    self.sync_bar();
+                                    self.sync_active_bar();
                                     self.activate(action, target, selection, root)?;
                                 }
                                 Err(error) => {
@@ -520,6 +558,7 @@ impl Screen {
                         if argument == command::ArgumentAction::Scan {
                             let text = input.text();
                             let value = value.to_owned();
+                            self.close_tasks();
                             if self.scan_command(&value) {
                                 *submitted = Some(text);
                             }
@@ -538,10 +577,14 @@ impl Screen {
                         }
                         match parsed {
                             Ok(value) if argument == command::ArgumentAction::Editor => {
-                                self.select_editor(value.try_into()?);
+                                let editor = value.try_into()?;
+                                self.close_tasks();
+                                self.select_editor(editor);
                             }
                             Ok(value) if argument == command::ArgumentAction::AiAgent => {
-                                self.select_agent(value.parse()?);
+                                let agent = value.parse()?;
+                                self.close_tasks();
+                                self.select_agent(agent);
                             }
                             Ok(value) => {
                                 let draft = CommandDraft {
@@ -552,12 +595,20 @@ impl Screen {
                                     return_to: ReturnTo::Command,
                                 };
                                 match argument.mutation(&value) {
-                                    Ok(Some(request)) => self.prepare_mutation(request, draft),
-                                    Ok(None) => self.prepare_configuration(
-                                        argument.configuration().expect("configuration parameter"),
-                                        value,
-                                        draft,
-                                    ),
+                                    Ok(Some(request)) => {
+                                        self.close_tasks();
+                                        self.prepare_mutation(request, draft);
+                                    }
+                                    Ok(None) => {
+                                        self.close_tasks();
+                                        self.prepare_configuration(
+                                            argument
+                                                .configuration()
+                                                .expect("configuration parameter"),
+                                            value,
+                                            draft,
+                                        );
+                                    }
                                     Err(error) => {
                                         self.message =
                                             crate::message::Message::error(format!("{error:#}"))
@@ -584,7 +635,7 @@ impl Screen {
                             let action = command.action;
                             let path = path.clone();
                             let selection = selection.clone();
-                            self.sync_bar();
+                            self.sync_active_bar();
                             self.message.clear();
                             if self.activate(action, path, selection, root)? {
                                 return Ok(BarEvent::Quit);
@@ -613,7 +664,7 @@ impl Screen {
             self.refresh_option_candidates();
             return Ok(BarEvent::Handled);
         }
-        if key.code == KeyCode::Esc && !self.bar.editor().text.is_empty() {
+        if key.code == KeyCode::Esc && !self.active_bar().editor().text.is_empty() {
             self.clear_bar();
             return Ok(BarEvent::Handled);
         }
@@ -628,13 +679,18 @@ impl Screen {
                     )?;
                     return Ok(BarEvent::Handled);
                 }
-                KeyCode::Char('a') if matches!(self.mode, Mode::Management(_)) => {
+                KeyCode::Char('a')
+                    if !self.tasks.session.open() && matches!(self.mode, Mode::Management(_)) =>
+                {
                     if let Mode::Management(session) = &mut self.mode {
                         session.toggle_all();
                     }
                     return Ok(BarEvent::Handled);
                 }
-                KeyCode::Char('a') if matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) => {
+                KeyCode::Char('a')
+                    if !self.tasks.session.open()
+                        && matches!(self.mode, Mode::Files(_) | Mode::Changes(_)) =>
+                {
                     match &mut self.mode {
                         Mode::Files(files) => files.toggle_visible_group(),
                         Mode::Changes(session) if session.focus == crate::changes::Focus::Files => {
@@ -653,24 +709,26 @@ impl Screen {
             return Ok(BarEvent::Pass);
         }
         // 空搜索栏把无修饰的左右键交给内容视图；有文字时仍移动输入光标。
-        if self.bar.editor().text.is_empty()
-            && (matches!(
-                self.mode,
-                Mode::Management(_)
-                    | Mode::History(_)
-                    | Mode::Browser(_)
-                    | Mode::Panel(crate::workspace::Section::Overview)
-                    | Mode::Stashes(_)
-                    | Mode::Branches(_)
-                    | Mode::Changes(_)
-                    | Mode::Files(_)
-            ) || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
+        if self.active_bar().editor().text.is_empty()
+            && (self.tasks.session.open()
+                || matches!(
+                    self.mode,
+                    Mode::Management(_)
+                        | Mode::History(_)
+                        | Mode::Browser(_)
+                        | Mode::Panel(crate::workspace::Section::Overview)
+                        | Mode::Stashes(_)
+                        | Mode::Branches(_)
+                        | Mode::Changes(_)
+                        | Mode::Files(_)
+                )
+                || (matches!(self.mode, Mode::Browsing) && self.page == Page::Detail))
             && matches!(key.code, KeyCode::Home | KeyCode::End)
         {
             return Ok(BarEvent::Pass);
         }
-        if self.bar.is_plain()
-            && self.bar.editor().text.is_empty()
+        if self.active_bar().is_plain()
+            && self.active_bar().editor().text.is_empty()
             && key.modifiers.is_empty()
             && matches!(key.code, KeyCode::Left | KeyCode::Right)
         {
@@ -678,7 +736,7 @@ impl Screen {
         }
         // 搜索中的转义斜杠写入查询，直接按 / 则捕获当前视图和选中项。
         if key.code == KeyCode::Char('/') && key.modifiers.is_empty() {
-            if let InputBar::Search(editor) = &mut self.bar
+            if let InputBar::Search(editor) = self.tasks.input_bar_mut(&mut self.bar)
                 && editor.text[..editor.cursor].ends_with('\\')
             {
                 editor
@@ -701,7 +759,7 @@ impl Screen {
                 | KeyCode::Home
                 | KeyCode::End
         );
-        if editing && let InputBar::Search(editor) = &mut self.bar {
+        if editing && let InputBar::Search(editor) = self.tasks.input_bar_mut(&mut self.bar) {
             editor.key(key);
             self.normalize_bar();
             self.message.clear();
@@ -719,7 +777,7 @@ impl Screen {
     }
     pub(crate) fn open_command_bar(&mut self) {
         let path = self.command_repository();
-        self.bar = InputBar::Command {
+        *self.active_bar_mut() = InputBar::Command {
             input: command::Input::new(self.command_context()),
             selected: 0,
             menu: Default::default(),
@@ -729,8 +787,8 @@ impl Screen {
         };
     }
     pub(crate) fn clear_input_bar(&mut self) {
-        // 任务页没有可见输入；保留它覆盖的页面草稿和独立的多行编辑器。
         if self.tasks.session.open() {
+            self.clear_bar();
             return;
         }
         if self.search_support() == crate::search::Support::Unavailable {
@@ -746,6 +804,14 @@ impl Screen {
         self.message.clear();
     }
     fn clear_bar(&mut self) {
+        if self.tasks.session.open() {
+            if self.tasks.bar.is_plain() {
+                self.tasks.update_search(Editor::default());
+            }
+            self.sync_task_bar();
+            self.message.clear();
+            return;
+        }
         if matches!(self.bar, InputBar::Command { .. }) {
             self.sync_bar();
             self.message.clear();

@@ -203,12 +203,12 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) {
     screen.repository_area = None;
     screen.workspace_areas.clear();
     screen.command_items.clear();
-    if !matches!(screen.bar, crate::bar::InputBar::Command { .. }) {
+    if screen.active_bar().is_plain() {
         screen.command_viewport = Default::default();
     }
     screen.pointer.clear();
     screen.pointer.links.reset(
-        screen.bar.is_plain()
+        screen.active_bar().is_plain()
             && !matches!(
                 screen.mode,
                 Mode::Confirm { .. } | Mode::PushConfirm { .. } | Mode::Busy(_)

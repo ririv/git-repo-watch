@@ -5,6 +5,7 @@ use engine::cancel::Cancel;
 use std::path::PathBuf;
 
 pub(crate) enum Target {
+    Tasks,
     Report,
     Management,
     Configuration,
@@ -17,6 +18,9 @@ pub(crate) enum Target {
 }
 impl Target {
     pub fn current(screen: &Screen) -> Result<Self, &'static str> {
+        if screen.tasks.session.open() {
+            return Ok(Self::Tasks);
+        }
         Ok(match &screen.mode {
             Mode::Management(_) => Self::Management,
             Mode::RepositoryEnvironment(_) => Self::Configuration,
@@ -46,6 +50,7 @@ impl Target {
     }
     pub fn label(&self) -> &'static str {
         match self {
+            Self::Tasks => i18n::tr!(Tasks),
             Self::Report => i18n::tr!(Repositories),
             Self::Management => i18n::tr!(RepositoryManagement),
             Self::Configuration => i18n::tr!(GeneralSettings),
@@ -65,8 +70,11 @@ impl Screen {
         cancel: &Cancel,
         _permit: &crate::command::target::ExecutionPermit,
     ) {
-        self.remote_info.clear();
+        if !matches!(target, Target::Tasks) {
+            self.remote_info.clear();
+        }
         match target {
+            Target::Tasks => self.refresh_tasks(),
             Target::Report | Target::Configuration => {
                 self.reload_for_refresh(cancel);
             }

@@ -8,13 +8,16 @@ impl Screen {
         self.config.chinese_command_trigger && i18n::language() == i18n::Language::Chinese
     }
     pub(crate) fn at_command_entry(&self) -> bool {
-        if self.focused_replay_control().is_some() || self.history_actions().is_some() {
+        if !self.tasks.session.open()
+            && (self.focused_replay_control().is_some() || self.history_actions().is_some())
+        {
             return true;
         }
-        match &self.bar {
+        match self.active_bar() {
             InputBar::CommandsOnly => true,
             InputBar::Search(editor) => {
-                matches!(self.mode, Mode::Error { .. }) || editor.cursor == 0
+                editor.cursor == 0
+                    || (!self.tasks.session.open() && matches!(self.mode, Mode::Error { .. }))
             }
             InputBar::Command { input, .. } => match input {
                 Input::Prefix(_) => true,
@@ -43,7 +46,8 @@ impl Screen {
             .take(2)
             .take_while(|c| matches!(c, '/' | '、'))
             .collect::<String>();
-        if !(self.at_command_entry() || self.bar.is_plain() && prefix.chars().count() == 2) {
+        if !(self.at_command_entry() || self.active_bar().is_plain() && prefix.chars().count() == 2)
+        {
             return Cow::Borrowed(text);
         }
         if !prefix.contains('、') {

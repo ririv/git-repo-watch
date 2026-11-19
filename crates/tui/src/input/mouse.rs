@@ -17,6 +17,9 @@ impl Screen {
         if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {
             return Ok(false);
         }
+        if self.tasks.session.open() && self.command_click(event, root)? {
+            return Ok(true);
+        }
         if self.tasks_mouse(event) {
             self.clicks.reset();
             self.drag = None;
@@ -238,63 +241,7 @@ impl Screen {
             self.follow_breadcrumb(destination);
             return Ok(true);
         }
-        if precise
-            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
-            && let Some(index) = self
-                .command_items
-                .iter()
-                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
-                .map(|(_, index)| *index)
-            && let bar::InputBar::Command { selected, menu, .. } = &mut self.bar
-        {
-            self.clicks.reset();
-            match menu {
-                command::completion::Menu::History(history) => {
-                    if !history.select(index) {
-                        return Ok(false);
-                    }
-                }
-                command::completion::Menu::Options(options) => options.selected = index,
-                command::completion::Menu::Directories(directories) => {
-                    if !directories.select(index) {
-                        return Ok(false);
-                    }
-                }
-                command::completion::Menu::Commands => *selected = index,
-                command::completion::Menu::Values(values) => {
-                    if !values.select(index) {
-                        return Ok(false);
-                    }
-                }
-                command::completion::Menu::Loading(_) | command::completion::Menu::Failed(_) => {
-                    return Ok(false);
-                }
-            }
-            if self
-                .bar
-                .command_input()
-                .is_some_and(|input| input.prefix_selected())
-            {
-                let Some(candidate) = self
-                    .command_candidates()
-                    .and_then(|candidates| candidates.get(index).copied())
-                else {
-                    return Ok(false);
-                };
-                if let bar::InputBar::Command {
-                    input, selected, ..
-                } = &mut self.bar
-                {
-                    match candidate {
-                        command::named::Candidate::Command(command) => input.complete(command),
-                        command::named::Candidate::Parameter(parameter) => {
-                            parameter.complete(input)
-                        }
-                    }
-                    *selected = 0;
-                }
-            }
-            self.dispatch_key(KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE), root)?;
+        if self.command_click(event, root)? {
             return Ok(true);
         }
         if click {
@@ -789,5 +736,73 @@ impl Screen {
             }
         }
         true
+    }
+    fn command_click(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        if self.config.mouse.precise_click
+            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            && let Some(index) = self
+                .command_items
+                .iter()
+                .find(|(area, _)| area.contains(Position::new(event.column, event.row)))
+                .map(|(_, index)| *index)
+            && let bar::InputBar::Command { selected, menu, .. } =
+                self.tasks.input_bar_mut(&mut self.bar)
+        {
+            self.clicks.reset();
+            match menu {
+                command::completion::Menu::History(history) => {
+                    if !history.select(index) {
+                        return Ok(false);
+                    }
+                }
+                command::completion::Menu::Options(options) => options.selected = index,
+                command::completion::Menu::Directories(directories) => {
+                    if !directories.select(index) {
+                        return Ok(false);
+                    }
+                }
+                command::completion::Menu::Commands => *selected = index,
+                command::completion::Menu::Values(values) => {
+                    if !values.select(index) {
+                        return Ok(false);
+                    }
+                }
+                command::completion::Menu::Loading(_) | command::completion::Menu::Failed(_) => {
+                    return Ok(false);
+                }
+            }
+            if self
+                .active_bar()
+                .command_input()
+                .is_some_and(|input| input.prefix_selected())
+            {
+                let Some(candidate) = self
+                    .command_candidates()
+                    .and_then(|candidates| candidates.get(index).copied())
+                else {
+                    return Ok(false);
+                };
+                if let bar::InputBar::Command {
+                    input, selected, ..
+                } = self.tasks.input_bar_mut(&mut self.bar)
+                {
+                    match candidate {
+                        command::named::Candidate::Command(command) => input.complete(command),
+                        command::named::Candidate::Parameter(parameter) => {
+                            parameter.complete(input)
+                        }
+                    }
+                    *selected = 0;
+                }
+            }
+            let key = KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE);
+            if self.tasks.session.open() {
+                self.bar_key(key, root)?;
+            } else {
+                self.dispatch_key(key, root)?;
+            }
+            return Ok(true);
+        }
+        Ok(false)
     }
 }

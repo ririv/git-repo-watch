@@ -13,10 +13,16 @@ impl Screen {
     // 已有搜索、命令和正文编辑接收空格；空搜索交给勾选／展开／选区操作，
     // 没有对应操作就忽略。底部操作页保持原页，统一用 Enter 执行。
     pub(crate) fn space_behavior(&self) -> Space {
-        if self.tasks.session.open()
-            || self.focus_mode == crate::focus::State::Selecting
-            || self.history_actions().is_some()
-        {
+        if self.tasks.session.open() {
+            return if self.active_bar().command_input().is_some()
+                || !self.active_bar().editor().text.is_empty()
+            {
+                Space::Insert
+            } else {
+                Space::Ignore
+            };
+        }
+        if self.focus_mode == crate::focus::State::Selecting || self.history_actions().is_some() {
             return Space::Ignore;
         }
         // 独立编辑框按实际编辑焦点接收空格，操作页不能被空格触发或切走。

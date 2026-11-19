@@ -25,9 +25,45 @@ impl<'a> CommandContext<'a> {
             .and_then(|target| self.validate(action, target))
             .map(Resolved::new)
     }
+    fn task(&self, action: Action) -> Target<crate::task_center::Operation> {
+        if !self.screen.tasks.session.open() {
+            return Target::OutOfScope(i18n::tr!(TaskCommandRequiresView).into());
+        }
+        let clipboard::Selection::Task(id) = self.selection else {
+            return Target::Unavailable(i18n::tr!(TaskCommandRequiresSelection).into());
+        };
+        let Some(record) = self
+            .screen
+            .tasks
+            .records
+            .iter()
+            .find(|record| &record.id == id)
+        else {
+            return Target::Unavailable(i18n::tr!(TaskCommandRequiresSelection).into());
+        };
+        match crate::task_center::Operation::prepare(action, record) {
+            Ok(operation) => Target::Ready(operation),
+            Err(reason) => Target::Unavailable(reason.into()),
+        }
+    }
     fn provide(&self, action: Action) -> Target<Value<'a>> {
         use Requirement::*;
-        match action.requirement() {
+        let requirement = action.requirement();
+        if self.screen.tasks.session.open() {
+            match requirement {
+                Global if matches!(action, Action::Tasks | Action::Quit) => {}
+                Global if matches!(action, Action::Focus | Action::Zoom) => {
+                    return Target::OutOfScope(i18n::tr!(PaneUnavailable).into());
+                }
+                Global if matches!(self.screen.mode, crate::Mode::Busy(_)) => {
+                    return Target::Unavailable(i18n::tr!(TaskCommandBusy).into());
+                }
+                Global | Task | LocalRefresh => {}
+                _ => return Target::OutOfScope(i18n::tr!(TaskCommandOutsideView).into()),
+            }
+        }
+        match requirement {
+            Task => self.task(action).map(Value::Task),
             Global => Target::Ready(Value::Global),
             Repository => self.repository().map(Value::Repository),
             EditorDestination => self.editor().map(Value::Destination),

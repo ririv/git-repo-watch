@@ -20,7 +20,7 @@ impl Screen {
             path,
             selection,
             ..
-        } = &self.bar
+        } = self.active_bar()
         else {
             return None;
         };

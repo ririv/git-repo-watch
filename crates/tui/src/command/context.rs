@@ -9,6 +9,7 @@ pub(crate) enum DiffContext {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Context {
+    Tasks,
     Diff(DiffContext),
     History,
     Branches,
@@ -33,11 +34,16 @@ impl Context {
             | Self::Composition
             | Self::RepositoryEnv => Some(Self::Repository),
             Self::Ai => Some(Self::Settings),
-            Self::Repository | Self::Repositories | Self::Settings | Self::Schedule => None,
+            Self::Tasks
+            | Self::Repository
+            | Self::Repositories
+            | Self::Settings
+            | Self::Schedule => None,
         }
     }
     pub fn name(self) -> &'static str {
         match self {
+            Self::Tasks => "tasks",
             Self::Diff(_) => "repo diff",
             Self::History => "repo log",
             Self::Branches => "repo branch",
@@ -188,6 +194,9 @@ impl Context {
 }
 impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
+        if self.tasks.session.open() {
+            return Some(Context::Tasks);
+        }
         match &self.mode {
             Mode::Management(_) => Some(Context::Repositories),
             Mode::RepositoryEnvironment(_) => Some(Context::RepositoryEnv),

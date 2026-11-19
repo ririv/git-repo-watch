@@ -13,23 +13,18 @@ enum Icon {
 fn status(record: &Record) -> (Icon, &'static str, Color) {
     use Icon::{Spinner, Symbol};
 
-    match &record.state {
-        State::Running { .. } => (Spinner, i18n::tr!(TasksRunning), ACCENT),
-        State::Cancelling { .. } => (Symbol("⊘"), i18n::tr!(TasksCancelling), WARN),
-        State::Finished {
-            outcome: Completion::Succeeded { .. },
-            ..
-        } => (Symbol("✓"), i18n::tr!(TasksSuccess), GOOD),
-        State::Finished {
-            outcome: Completion::Cancelled { .. },
-            ..
-        } => (Symbol("−"), i18n::tr!(TasksCancelled), MUTED),
-        State::Finished {
-            outcome: Completion::Failed { .. },
-            ..
-        } => (Symbol("×"), i18n::tr!(TasksFailed), BAD),
-    }
+    let (icon, color) = match &record.state {
+        State::Running { .. } => (Spinner, ACCENT),
+        State::Cancelling { .. } => (Symbol("⊘"), WARN),
+        State::Finished { outcome, .. } => match outcome {
+            Completion::Succeeded { .. } => (Symbol("✓"), GOOD),
+            Completion::Cancelled { .. } => (Symbol("−"), MUTED),
+            Completion::Failed { .. } => (Symbol("×"), BAD),
+        },
+    };
+    (icon, crate::task_center::status_label(record), color)
 }
+
 fn scope(record: &Record) -> String {
     match &record.spec.scope {
         TaskScope::All => i18n::tr!(TasksAll).into(),
@@ -40,9 +35,15 @@ fn scope(record: &Record) -> String {
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     frame.render_widget(Clear, area);
     screen.tasks.rows.clear();
+    let input_height = match area.height {
+        9.. => 3,
+        5.. => 1,
+        _ => 0,
+    };
     let parts = Layout::vertical([
         Constraint::Length(u16::from(area.height > 2)),
         Constraint::Min(0),
+        Constraint::Length(input_height),
         Constraint::Length(u16::from(area.height > 1)),
         Constraint::Length(u16::from(area.height > 3)),
     ])
@@ -83,10 +84,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     } else {
         i18n::tr!(TasksHint)
     };
-    frame.render_widget(
-        Paragraph::new(truncate(hint, parts[2].width.into())).style(Style::default().fg(MUTED)),
-        footer_text_area(parts[2]),
-    );
+    if !parts[2].is_empty() {
+        screen.input_area = Some(parts[2]);
+    }
+    input::render_task_input(frame, screen, parts[2], parts[3], hint);
     let notice = screen
         .exit_sequence
         .notice()
@@ -102,10 +103,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     frame.render_widget(
         Paragraph::new(truncate(
             notice.lines().next().unwrap_or(""),
-            parts[3].width.into(),
+            parts[4].width.into(),
         ))
         .style(Style::default().fg(notice_color)),
-        footer_text_area(parts[3]),
+        footer_text_area(parts[4]),
     );
     match &mut screen.tasks.session {
         Session::Closed => {}
@@ -138,4 +139,5 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             }
         }
     }
+    commands::render(frame, screen, body);
 }

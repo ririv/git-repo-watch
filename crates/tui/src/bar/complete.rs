@@ -8,7 +8,7 @@ use command::{
 
 impl Screen {
     pub(super) fn start_path_completion(&mut self) {
-        let InputBar::Command { input, menu, .. } = &mut self.bar else {
+        let InputBar::Command { input, menu, .. } = self.tasks.input_bar_mut(&mut self.bar) else {
             return;
         };
         let request = Request::Directory {
@@ -22,7 +22,7 @@ impl Screen {
     pub(crate) fn refresh_value_candidates(&mut self) {
         let InputBar::Command {
             input, menu, path, ..
-        } = &mut self.bar
+        } = self.tasks.input_bar_mut(&mut self.bar)
         else {
             return;
         };
@@ -61,7 +61,7 @@ impl Screen {
     }
     pub(crate) fn poll_command_completion(&mut self) -> bool {
         if !matches!(
-            self.bar,
+            self.active_bar(),
             InputBar::Command {
                 menu: Menu::Loading(_),
                 ..
@@ -77,7 +77,7 @@ impl Screen {
             input,
             menu: menu @ Menu::Loading(_),
             ..
-        } = &mut self.bar
+        } = self.tasks.input_bar_mut(&mut self.bar)
         else {
             return false;
         };

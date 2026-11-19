@@ -22,6 +22,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Requirement {
     Global,
+    Task,
     Repository,
     EditorDestination,
     TerminalDirectory,
@@ -149,6 +150,7 @@ impl Action {
                 Requirement::PreviewableFile
             }
             Compose(_) | ComposeOrderMenu => Requirement::Composition,
+            TaskCancel | TaskRetry => Requirement::Task,
             Tasks
             | Focus
             | Zoom
@@ -216,6 +218,9 @@ impl Screen {
     }
 
     pub(crate) fn command_repository(&self) -> Option<PathBuf> {
+        if self.tasks.session.open() {
+            return None;
+        }
         match &self.mode {
             Mode::Browsing => match self.page {
                 Page::Repositories => self.selected_path(),

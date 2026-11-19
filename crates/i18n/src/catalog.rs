@@ -322,7 +322,17 @@ pub enum Message {
     TaskInterrupted,
     Tasks,
     TasksHint,
+    TaskCancel,
+    TaskRetry,
+    TaskCancelUnavailable,
+    TaskCommandRequiresSelection,
+    TaskCommandRequiresView,
+    TaskCommandBusy,
+    TaskCommandOutsideView,
     TasksEmpty,
+    TasksSearchTitle,
+    TasksSearchPlaceholder,
+    TasksNoMatches,
     TasksFailed,
     TasksRunning,
     TasksCancelling,
@@ -2343,14 +2353,34 @@ impl Message {
             }
             (Self::Tasks, Language::English) => "Tasks",
             (Self::Tasks, Language::Chinese) => "任务",
+            (Self::TaskCancel, Language::English) => "Cancel the selected task",
+            (Self::TaskCancel, Language::Chinese) => "取消所选任务",
+            (Self::TaskRetry, Language::English) => "Retry the selected task",
+            (Self::TaskRetry, Language::Chinese) => "重试所选任务",
+            (Self::TaskCancelUnavailable, Language::English) => "This task is no longer running.",
+            (Self::TaskCancelUnavailable, Language::Chinese) => "此任务已结束。",
+            (Self::TaskCommandRequiresSelection, Language::English) => "Select a task first.",
+            (Self::TaskCommandRequiresSelection, Language::Chinese) => "请先选择任务。",
+            (Self::TaskCommandRequiresView, Language::English) => "Open the task view first.",
+            (Self::TaskCommandRequiresView, Language::Chinese) => "请先打开任务页。",
+            (Self::TaskCommandBusy, Language::English) => "Wait for the current operation to finish.",
+            (Self::TaskCommandBusy, Language::Chinese) => "请等待当前操作结束。",
+            (Self::TaskCommandOutsideView, Language::English) => "This command requires a different view.",
+            (Self::TaskCommandOutsideView, Language::Chinese) => "请在相应视图中使用此命令。",
             (Self::TasksHint, Language::English) => {
-                "↑↓ select · Enter details · c cancel · r retry · Esc return"
+                "↑↓ select · Enter details · Ctrl+X cancel · Ctrl+R retry · Esc back"
             }
             (Self::TasksHint, Language::Chinese) => {
-                "↑↓选择 · Enter 详情 · c 取消 · r 重试 · Esc 返回"
+                "↑↓选择 · Enter 详情 · Ctrl+X 取消 · Ctrl+R 重试 · Esc 返回"
             }
             (Self::TasksEmpty, Language::English) => "No tasks yet",
             (Self::TasksEmpty, Language::Chinese) => "暂无任务",
+            (Self::TasksSearchTitle, Language::English) => "Filter tasks",
+            (Self::TasksSearchTitle, Language::Chinese) => "过滤任务",
+            (Self::TasksSearchPlaceholder, Language::English) => "Search by task, repository or status, or type / for commands",
+            (Self::TasksSearchPlaceholder, Language::Chinese) => "搜索任务、仓库或状态，或输入 / 查看命令",
+            (Self::TasksNoMatches, Language::English) => "No matching tasks",
+            (Self::TasksNoMatches, Language::Chinese) => "没有匹配的任务",
             (Self::TasksFailed, Language::English) => "Failed",
             (Self::TasksFailed, Language::Chinese) => "失败",
             (Self::TasksEntrySuffix, Language::English) => "",
@@ -2374,10 +2404,10 @@ impl Message {
                 "此任务不支持直接重试，请查看详情后重新执行操作。"
             }
             (Self::TasksDetailsHint, Language::English) => {
-                "↑↓ scroll · c cancel · r retry · Esc return"
+                "↑↓ scroll · / commands · Esc back"
             }
             (Self::TasksDetailsHint, Language::Chinese) => {
-                "↑↓滚动 · c 取消 · r 重试 · Esc 返回"
+                "↑↓滚动 · / 命令 · Esc 返回"
             }
             (Self::TasksInteractive, Language::English) => "Interactive",
             (Self::TasksInteractive, Language::Chinese) => "手动",

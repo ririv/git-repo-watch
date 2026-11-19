@@ -130,6 +130,129 @@ fn wide_list_marks_only_the_visible_failure_read_and_keeps_navigation_in_order()
     s.shutdown();
 }
 #[test]
+fn task_filter_keeps_the_underlying_draft_and_limits_navigation_to_visible_records() {
+    let _language = i18n::using(i18n::Language::English);
+    let (_home, mut s) = fixture(vec![]);
+    let mut ids = Vec::new();
+    for (title, path, outcome) in [
+        (
+            "refresh alpha",
+            "/example/alpha",
+            Completion::failure("alpha error"),
+        ),
+        (
+            "check beta",
+            "/example/beta",
+            Completion::failure("beta error"),
+        ),
+        (
+            "successful task",
+            "/example/beta",
+            Completion::Succeeded {
+                detail: String::new(),
+            },
+        ),
+    ] {
+        let run = Run::begin(
+            &s.service.store,
+            crate::task_center::spec(title, Some(path.into()), Retry::Unavailable),
+            &Cancel::default(),
+        )
+        .unwrap();
+        ids.push(run.record.id.clone());
+        run.finish(outcome).unwrap();
+    }
+    synchronize(&mut s, |s| s.tasks.records.len() == 3);
+    s.paste("/settings");
+    let original = s.bar.text();
+    s.open_tasks();
+    assert!(render(&mut s, 110, 26).contains("Filter tasks"));
+    key(&mut s, KeyCode::Char('r'));
+    s.paste("efresh alpha");
+    assert_eq!(s.tasks.search.text, "refresh alpha");
+    assert_eq!(s.tasks.selection.as_ref(), Some(&ids[0]));
+    assert!(render(&mut s, 110, 26).contains("refresh alpha"));
+    assert_eq!(s.tasks.rows.len(), 1);
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.tasks.selection.as_ref(), Some(&ids[0]));
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.tasks.search.text, "refresh alpha");
+    key(&mut s, KeyCode::Esc);
+    s.paste("BETA");
+    render(&mut s, 110, 26);
+    assert_eq!(s.tasks.rows.len(), 2);
+    key(&mut s, KeyCode::Esc);
+    s.paste("failed");
+    render(&mut s, 110, 26);
+    assert_eq!(s.tasks.rows.len(), 2);
+    s.paste(" none");
+    assert!(present_tasks(&mut s, 110, 26).contains("No matching tasks"));
+    let run = Run::begin(
+        &s.service.store,
+        crate::task_center::spec("new task", None, Retry::Unavailable),
+        &Cancel::default(),
+    )
+    .unwrap();
+    run.finish(Completion::failure("later")).unwrap();
+    synchronize(&mut s, |s| s.tasks.records.len() == 4);
+    assert!(s.tasks.selection.is_none());
+    s.key(
+        KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
+    assert!(s.tasks.search.text.is_empty());
+    assert!(s.exit_sequence.notice().is_none());
+    assert!(s.tasks.session.open());
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.text(), original);
+    s.shutdown();
+}
+
+#[test]
+fn task_view_uses_its_own_scoped_commands_and_preserves_the_filter_and_origin() {
+    let (_home, mut s) = fixture(vec![]);
+    let run = Run::begin(
+        &s.service.store,
+        crate::task_center::spec("target job", None, Retry::FetchAll),
+        &Cancel::default(),
+    )
+    .unwrap();
+    run.finish(Completion::failure("reason")).unwrap();
+    synchronize(&mut s, |s| s.tasks.records.len() == 1);
+
+    s.paste("/settings");
+    let original = s.bar.text();
+    s.open_tasks();
+    s.paste("target");
+    key(&mut s, KeyCode::Char('/'));
+    let text = render(&mut s, 110, 26);
+    assert!(text.contains("/tasks"), "{text}");
+    assert!(text.contains("target"), "{text}");
+    assert!(text.contains("cancel") && text.contains("retry"), "{text}");
+
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.active_bar().text(), "target");
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Char('/'));
+    assert_eq!(s.active_bar().text(), "/tasks ");
+    s.paste("retry");
+    key(&mut s, KeyCode::Enter);
+    assert!(s.check_task.is_some());
+    assert!(matches!(
+        s.tasks.session,
+        crate::task_center::Session::Detail { .. }
+    ));
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.active_bar().text(), "target");
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.text(), original);
+    s.shutdown();
+}
+
+#[test]
 fn task_view_does_not_stop_the_underlying_worker_and_can_cancel_it() {
     let (_home, mut s) = fixture(vec![]);
     s.start("long task", Effect::ReadOnly, |_, cancel, _| {
@@ -141,7 +264,15 @@ fn task_view_does_not_stop_the_underlying_worker_and_can_cancel_it() {
     });
     synchronize(&mut s, |s| s.tasks.records.iter().any(|r| r.active()));
     s.open_tasks();
-    key(&mut s, KeyCode::Char('c'));
+    s.paste("//settings");
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(s.mode, Mode::Busy(_)));
+    assert!(s.tasks.session.open());
+    assert!(s.message.contains(i18n::tr!(TaskCommandBusy)));
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("cancel");
+    key(&mut s, KeyCode::Enter);
     let deadline = Instant::now() + Duration::from_secs(5);
     while matches!(s.mode, Mode::Busy(_)) {
         assert!(Instant::now() < deadline);
@@ -234,7 +365,11 @@ fn retry_keeps_the_original_failure_unread_until_its_details_are_opened() {
     run.finish(Completion::failure("old failure")).unwrap();
     synchronize(&mut s, |s| s.tasks.unread_failures == 1);
     s.open_tasks();
-    key(&mut s, KeyCode::Char('r'));
+    s.key(
+        KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL),
+        &Cancel::default(),
+    )
+    .unwrap();
     let deadline = Instant::now() + Duration::from_secs(5);
     while s.check_task.is_some() {
         assert!(Instant::now() < deadline);
@@ -431,7 +566,7 @@ fn batch_failure_details_group_repository_errors_and_keep_the_execution_log() {
     s.tasks.session = crate::task_center::Session::List;
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let preview = render(&mut s, 160, 34);
+        let preview = render(&mut s, 160, 37);
         let heading = format!("{} · 2", i18n::tr!(TasksFailedRepositories));
         let atom = preview.find("× AtomNote").unwrap();
         let gift = preview.find("× Gift").unwrap();

@@ -49,6 +49,9 @@ impl Screen {
         }
     }
     pub(crate) fn restore_temporary_input(&mut self) {
+        if self.tasks.session.open() {
+            return;
+        }
         let empty = self.bar.is_plain() && self.bar.editor().text.is_empty();
         match &mut self.mode {
             Mode::Management(session) => {

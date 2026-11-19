@@ -13,7 +13,11 @@ impl Screen {
     }
     fn paste_inner(&mut self, text: &str) {
         self.exit_sequence.reset();
-        if self.tasks.session.open() || self.focus_mode == crate::focus::State::Selecting {
+        if self.tasks.session.open() {
+            self.bar_paste(text);
+            return;
+        }
+        if self.focus_mode == crate::focus::State::Selecting {
             return;
         }
         self.clicks.reset();
@@ -125,8 +129,8 @@ impl Screen {
         if self.interaction_key(key) {
             return Ok(false);
         }
-        if self.tasks_key(key) {
-            return Ok(false);
+        if self.tasks.session.open() {
+            return self.tasks_key(key, root);
         }
         if self.history_actions_key(key) {
             return Ok(false);

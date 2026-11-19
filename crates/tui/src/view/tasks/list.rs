@@ -77,18 +77,23 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     let panel = block(i18n::tr!(Tasks)).padding(ratatui::widgets::Padding::horizontal(1));
     let inner = panel.inner(area);
     screen.tasks.content = inner;
-    let index = screen.tasks.selection.as_ref().and_then(|id| {
-        screen
-            .tasks
-            .records
-            .iter()
-            .position(|record| record.id == *id)
-    });
+    let visible = screen.tasks.visible_indices();
+    let records = &screen.tasks.records;
+    let index = screen
+        .tasks
+        .selection
+        .as_ref()
+        .and_then(|id| visible.iter().position(|&index| records[index].id == *id));
     screen.tasks.viewport.select(index);
-    if screen.tasks.records.is_empty() {
+    if visible.is_empty() {
         frame.render_widget(panel, area);
         frame.render_widget(
-            Paragraph::new(i18n::tr!(TasksEmpty)).style(Style::default().fg(MUTED)),
+            Paragraph::new(if records.is_empty() {
+                i18n::tr!(TasksEmpty)
+            } else {
+                i18n::tr!(TasksNoMatches)
+            })
+            .style(Style::default().fg(MUTED)),
             inner,
         );
         return;
@@ -97,11 +102,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         frame.render_widget(panel, area);
         return;
     }
-    let entries = screen
-        .tasks
-        .records
+    let entries = visible
         .iter()
-        .map(|record| {
+        .map(|&index| {
+            let record = &records[index];
             let mut lines = heading(record, inner.width.into(), screen.tasks.animation.symbol());
             lines.extend(reason(record, inner.width.into()));
             lines.truncate(inner.height.into());
@@ -119,8 +123,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     frame.render_stateful_widget(widget, area, &mut screen.tasks.viewport);
     let mut row = 0usize;
     let offset = screen.tasks.viewport.offset();
-    for (index, record) in screen.tasks.records.iter().enumerate().skip(offset) {
-        let height = heights[index];
+    for (row_index, &index) in visible.iter().enumerate().skip(offset) {
+        let record = &records[index];
+        let height = heights[row_index];
         if row + height > usize::from(inner.height) {
             break;
         }

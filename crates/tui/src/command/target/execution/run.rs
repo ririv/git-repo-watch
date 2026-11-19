@@ -13,7 +13,11 @@ impl Execution {
         } = self;
         let permit = Permit { _private: () };
         match request {
+            Request::Task(operation) => screen.execute_task(operation, &permit),
             Request::Local { path } => {
+                if action != Action::Tasks {
+                    screen.close_tasks();
+                }
                 return screen.activate_local(action, path, selection, return_to);
             }
             Request::Editor { root, target } => screen.open_editor_target(root, target, &permit),

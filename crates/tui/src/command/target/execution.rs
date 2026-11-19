@@ -18,6 +18,7 @@ pub(crate) struct Permit {
     _private: (),
 }
 enum Request {
+    Task(crate::task_center::Operation),
     Local {
         path: Option<PathBuf>,
     },
@@ -78,6 +79,7 @@ impl Resolved<'_> {
         selection: &clipboard::Selection,
     ) -> anyhow::Result<Execution> {
         let request = match (self.value, action) {
+            (Value::Task(operation), _) => Request::Task(operation),
             (Value::Repository(repository), _) => Request::Local {
                 path: Some(repository.to_owned()),
             },

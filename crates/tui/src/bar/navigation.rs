@@ -7,7 +7,7 @@ impl Screen {
         if !matches!(key.code, KeyCode::PageUp | KeyCode::PageDown) {
             return false;
         }
-        let InputBar::Command { selected, menu, .. } = &self.bar else {
+        let InputBar::Command { selected, menu, .. } = self.active_bar() else {
             return false;
         };
         let (current, count) = match menu {
@@ -34,7 +34,7 @@ impl Screen {
             current.saturating_add(visible)
         }
         .min(count - 1);
-        let InputBar::Command { selected, menu, .. } = &mut self.bar else {
+        let InputBar::Command { selected, menu, .. } = self.active_bar_mut() else {
             unreachable!("command menu remains open")
         };
         match menu {

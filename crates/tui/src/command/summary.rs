@@ -17,6 +17,8 @@ impl Command {
             Action::Search(crate::search::Mode::Filter) => Summary::SearchFilter,
             Action::Search(crate::search::Mode::Locate) => Summary::SearchLocate,
             Action::Tasks => Summary::Tasks,
+            Action::TaskCancel => Summary::TaskCancel,
+            Action::TaskRetry => Summary::TaskRetry,
             Action::Focus => Summary::PaneFocus,
             Action::Zoom => Summary::PaneZoom,
             Action::Branches => Summary::Branches,

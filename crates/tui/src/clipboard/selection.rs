@@ -131,6 +131,7 @@ pub(crate) enum Selection {
     #[default]
     None,
     Repository,
+    Task(String),
     Browser {
         working: Option<crate::working_target::Target>,
         content: Content,
@@ -179,7 +180,7 @@ impl Selection {
     }
     pub fn copy_scope(&self) -> Option<Scope> {
         Some(match self {
-            Self::None => return None,
+            Self::None | Self::Task(_) => return None,
             Self::Repository => Scope::Repository,
             Self::Browser { .. } => Scope::Browser,
             Self::Diff { .. } | Self::HistoricalDiff { .. } => Scope::Diff,
@@ -360,6 +361,12 @@ impl Selection {
 }
 impl Screen {
     pub(crate) fn copy_selection(&self) -> Selection {
+        if self.tasks.session.open() {
+            return self
+                .tasks
+                .selected()
+                .map_or(Selection::None, |record| Selection::Task(record.id.clone()));
+        }
         match &self.mode {
             Mode::Browser(session) => Selection::Browser {
                 working: session

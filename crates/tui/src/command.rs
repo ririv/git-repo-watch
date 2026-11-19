@@ -30,6 +30,8 @@ pub(crate) use input::{Discovery, Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Tasks,
+    TaskCancel,
+    TaskRetry,
     SearchMenu,
     Search(crate::search::Mode),
     Focus,
@@ -545,6 +547,16 @@ pub const COMMANDS: &[Command] = &[
         name: "tasks",
         action: Tasks,
         description: i18n::Message::Tasks,
+    },
+    Command {
+        name: "tasks cancel",
+        action: TaskCancel,
+        description: i18n::Message::TaskCancel,
+    },
+    Command {
+        name: "tasks retry",
+        action: TaskRetry,
+        description: i18n::Message::TaskRetry,
     },
     Command {
         name: "schedule",

@@ -30,6 +30,11 @@ impl Screen {
         if key.kind != KeyEventKind::Press {
             return false;
         }
+        if self.tasks.session.open() && !self.active_bar().text().is_empty() {
+            self.clear_input_bar();
+            self.exit_sequence.reset();
+            return false;
+        }
         if let Mode::Busy(pending) = &mut self.mode {
             pending.cancel.cancel();
             pending.state = TaskState::Cancelling;

@@ -30,6 +30,7 @@ pub(crate) struct Resolved<'a> {
     pub(super) value: Value<'a>,
 }
 pub(super) enum Value<'a> {
+    Task(crate::task_center::Operation),
     Global,
     Repository(&'a Path),
     Destination(Destination<'a>),

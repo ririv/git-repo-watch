@@ -7,7 +7,7 @@ use command::{
 
 impl Screen {
     pub(crate) fn refresh_option_candidates(&mut self) {
-        let candidates = match &self.bar {
+        let candidates = match self.active_bar() {
             InputBar::Command {
                 input,
                 path,
@@ -27,7 +27,7 @@ impl Screen {
             },
             _ => None,
         };
-        if let InputBar::Command { menu, .. } = &mut self.bar {
+        if let InputBar::Command { menu, .. } = self.active_bar_mut() {
             if let Some(candidates) = candidates {
                 *menu = Menu::Options(candidates);
             } else if matches!(menu, Menu::Options(_)) {
@@ -50,7 +50,7 @@ impl Screen {
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
     ) {
-        self.bar = InputBar::Command {
+        *self.active_bar_mut() = InputBar::Command {
             input: command::Input::from_canonical(
                 self.command_context(),
                 Editor::new(format!("/{} ", command.name)),
@@ -65,7 +65,7 @@ impl Screen {
     }
     pub(super) fn option_candidate_key(&mut self, key: KeyEvent) -> bool {
         if key.code == KeyCode::Esc
-            && matches!(&self.bar, InputBar::Command { input, menu: Menu::Options(_), .. }
+            && matches!(self.active_bar(), InputBar::Command { input, menu: Menu::Options(_), .. }
                 if command::argument_input(&input.query()).is_some_and(|(argument, _)| argument.options() == Some(Kind::ConflictAccept)))
         {
             self.sync_bar();
@@ -78,7 +78,7 @@ impl Screen {
                 path,
                 selection,
                 ..
-            } = &self.bar
+            } = self.active_bar()
             && let Some(option) = candidates.options.get(candidates.selected)
             && let Some(reason) = self
                 .command_availability(option.value.action(), path.as_deref(), selection)
@@ -88,13 +88,13 @@ impl Screen {
             return true;
         }
         if key.code == KeyCode::Enter
-            && matches!(&self.bar, InputBar::Command { input, menu: Menu::Commands, .. }
+            && matches!(self.active_bar(), InputBar::Command { input, menu: Menu::Commands, .. }
                 if command::argument_input(&input.query()).is_some_and(|(argument, value)|
                     argument.options().is_some() && value.trim().is_empty()))
         {
             self.refresh_option_candidates();
             if matches!(
-                self.bar,
+                self.active_bar(),
                 InputBar::Command {
                     menu: Menu::Options(_),
                     ..
@@ -108,7 +108,7 @@ impl Screen {
             menu: Menu::Options(candidates),
             input,
             ..
-        } = &mut self.bar
+        } = self.active_bar_mut()
         else {
             return false;
         };
@@ -120,7 +120,7 @@ impl Screen {
                 {
                     input.replace_canonical(Editor::new(format!("/{} ", named.owner().name)));
                 }
-                if let InputBar::Command { menu, .. } = &mut self.bar {
+                if let InputBar::Command { menu, .. } = self.active_bar_mut() {
                     *menu = Menu::Commands;
                 }
             }
@@ -138,7 +138,7 @@ impl Screen {
                     return true;
                 };
                 input.replace_canonical(editor);
-                if let InputBar::Command { menu, .. } = &mut self.bar {
+                if let InputBar::Command { menu, .. } = self.active_bar_mut() {
                     *menu = Menu::Commands;
                 }
                 // 候选只补齐值；同一次 Enter 继续走原有解析与确认流程。

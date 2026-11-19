@@ -1,6 +1,6 @@
 //! A task screen and asynchronous journal cache do not take ownership of Git workers.
 use super::*;
-use engine::tasks::{Journal, Record, Retry};
+use engine::tasks::{Journal, Outcome as Completion, Record, Retry, Scope, State};
 use std::{
     collections::BTreeSet,
     time::{Duration, Instant},
@@ -18,6 +18,38 @@ pub(crate) enum Session {
 impl Session {
     pub fn open(&self) -> bool {
         !matches!(self, Self::Closed)
+    }
+}
+/// A task command owns the validated operation and its original task identity.
+pub(crate) enum Operation {
+    Cancel(String),
+    FetchAll {
+        parent: Option<String>,
+    },
+    Fetch {
+        path: PathBuf,
+        parent: Option<String>,
+    },
+}
+impl Operation {
+    pub fn prepare(action: Action, record: &Record) -> std::result::Result<Self, &'static str> {
+        match action {
+            Action::TaskCancel if record.active() => Ok(Self::Cancel(record.id.clone())),
+            Action::TaskCancel => Err(i18n::tr!(TaskCancelUnavailable)),
+            Action::TaskRetry if record.active() => Err(i18n::tr!(TasksUnavailable)),
+            Action::TaskRetry => {
+                let parent = record.pending().then(|| record.id.clone());
+                match &record.spec.retry {
+                    Retry::Unavailable => Err(i18n::tr!(TasksUnavailable)),
+                    Retry::FetchAll => Ok(Self::FetchAll { parent }),
+                    Retry::Fetch { path } => Ok(Self::Fetch {
+                        path: path.clone(),
+                        parent,
+                    }),
+                }
+            }
+            _ => unreachable!("task operation requires a task command"),
+        }
     }
 }
 enum Request {
@@ -42,6 +74,8 @@ pub(crate) struct Center {
     pub unread_failures: usize,
     pub visible_unread_failure: Option<String>,
     pub selection: Option<String>,
+    pub search: Editor,
+    pub bar: crate::bar::InputBar,
     pub viewport: ratatui::widgets::ListState,
     pub rows: Vec<(ratatui::layout::Rect, String)>,
     pub footer: ratatui::layout::Rect,
@@ -58,6 +92,17 @@ pub(crate) struct Center {
     clicks: crate::input::clicks::Clicks,
 }
 impl Center {
+    pub(crate) fn input_bar_mut<'a>(
+        &'a mut self,
+        underlying: &'a mut crate::bar::InputBar,
+    ) -> &'a mut crate::bar::InputBar {
+        if self.session.open() {
+            &mut self.bar
+        } else {
+            underlying
+        }
+    }
+
     fn observe(&mut self, text: crate::message::Message, now: Instant) {
         self.observed = Some((text, now));
     }
@@ -100,17 +145,67 @@ impl Center {
             .as_ref()
             .and_then(|id| self.records.iter().find(|r| r.id == *id))
     }
-    fn move_by(&mut self, delta: isize) {
-        let cursor = self
-            .selection
-            .as_ref()
-            .and_then(|id| self.records.iter().position(|r| r.id == *id))
-            .unwrap_or(0);
-        let cursor = cursor
-            .saturating_add_signed(delta)
-            .min(self.records.len().saturating_sub(1));
-        self.selection = self.records.get(cursor).map(|r| r.id.clone());
+    pub fn visible_indices(&self) -> Vec<usize> {
+        let query = self.search.text.trim().to_lowercase();
+        self.records
+            .iter()
+            .enumerate()
+            .filter(|(_, record)| {
+                query.is_empty()
+                    || record.spec.title.to_lowercase().contains(&query)
+                    || status_label(record).to_lowercase().contains(&query)
+                    || match &record.spec.scope {
+                        Scope::Repository { path } => {
+                            path.to_string_lossy().to_lowercase().contains(&query)
+                        }
+                        Scope::All => i18n::tr!(TasksAll).to_lowercase().contains(&query),
+                        Scope::Application => {
+                            i18n::tr!(TasksApplication).to_lowercase().contains(&query)
+                        }
+                    }
+            })
+            .map(|(index, _)| index)
+            .collect()
     }
+    fn visible_selection(&self, visible: &[usize]) -> Option<usize> {
+        self.selection.as_ref().and_then(|id| {
+            visible
+                .iter()
+                .position(|&index| self.records[index].id == *id)
+        })
+    }
+    fn reconcile_selection(&mut self) {
+        if matches!(self.session, Session::List) {
+            let visible = self.visible_indices();
+            if self.visible_selection(&visible).is_none() {
+                self.selection = visible.first().map(|&index| self.records[index].id.clone());
+            }
+        }
+    }
+    fn move_by(&mut self, delta: isize) {
+        let visible = self.visible_indices();
+        let cursor = self
+            .visible_selection(&visible)
+            .unwrap_or(0)
+            .saturating_add_signed(delta)
+            .min(visible.len().saturating_sub(1));
+        self.selection = visible
+            .get(cursor)
+            .map(|&index| self.records[index].id.clone());
+    }
+    fn search_changed(&mut self) {
+        self.viewport = Default::default();
+        self.rows.clear();
+        self.reconcile_selection();
+    }
+    pub fn update_search(&mut self, editor: Editor) {
+        let changed = self.search.text != editor.text;
+        self.search = editor;
+        if changed {
+            self.search_changed();
+        }
+    }
+
     pub(crate) fn recent_notice(&self) -> Option<&crate::message::Message> {
         self.completion
             .as_ref()
@@ -134,13 +229,46 @@ impl Drop for Center {
 }
 impl Screen {
     pub(crate) fn open_tasks(&mut self) {
-        self.tasks.session = Session::List;
+        match self.tasks.session {
+            Session::List => return,
+            Session::Detail { .. } => self.tasks.session = Session::List,
+            Session::Closed => {
+                self.tasks.session = Session::List;
+                self.tasks.search = Editor::default();
+                self.command_reader.clear();
+            }
+        }
+        self.sync_task_bar();
+        self.tasks.search_changed();
         self.tasks.refreshed = None;
+        self.command_items.clear();
         self.drag = None;
         self.clicks.reset();
     }
+    pub(crate) fn close_tasks(&mut self) {
+        if self.tasks.session.open() {
+            self.tasks.session = Session::Closed;
+            self.sync_task_bar();
+            self.command_items.clear();
+            self.command_reader.clear();
+            if let crate::bar::InputBar::Command {
+                menu: command::completion::Menu::Loading(request),
+                ..
+            } = &self.bar
+            {
+                // 恢复打开任务页之前的补全请求，保持原草稿可继续编辑。
+                self.command_reader.request(request.clone(), &self.service);
+            }
+        }
+    }
+
+    pub(crate) fn refresh_tasks(&mut self) {
+        self.tasks.refreshed = None;
+    }
+
     pub(crate) fn poll_tasks(&mut self) -> bool {
         let mut changed = false;
+        let mut records_changed = false;
         let now = Instant::now();
         if self.tasks.observed.as_ref().map(|(text, _)| text) != Some(&self.message) {
             self.tasks.observe(self.message.clone(), now);
@@ -217,9 +345,12 @@ impl Screen {
                             }
                             self.tasks.records = records;
                             changed = true;
+                            records_changed = true;
                         }
                         changed |= self.tasks.error.take().is_some();
-                        if self.tasks.selected().is_none() {
+                        if !matches!(self.tasks.session, Session::List)
+                            && self.tasks.selected().is_none()
+                        {
                             self.tasks.selection = self.tasks.records.first().map(|r| r.id.clone());
                         }
                     }
@@ -254,6 +385,9 @@ impl Screen {
                     self.tasks.session.open() && self.tasks.records.iter().any(Record::active);
             }
         }
+        if records_changed {
+            self.tasks.reconcile_selection();
+        }
         changed
     }
     fn task_request(&mut self, request: Request) {
@@ -278,47 +412,53 @@ impl Screen {
 
     fn open_task_detail(&mut self, id: String) {
         self.tasks.session = Session::Detail { id, scroll: 0 };
+        self.sync_task_bar();
     }
 
-    fn retry_selected_task(&mut self) {
-        let Some(record) = self.tasks.selected().cloned() else {
-            return;
-        };
-        let parent = record.pending().then_some(record.id.clone());
-        if record.active() {
-            return;
-        }
-        match record.spec.retry {
-            Retry::Unavailable => {
-                self.message = crate::message::Message::error(i18n::tr!(TasksUnavailable).into())
+    pub(crate) fn execute_task(
+        &mut self,
+        operation: Operation,
+        _permit: &crate::command::target::ExecutionPermit,
+    ) {
+        match operation {
+            Operation::Cancel(id) => self.task_request(Request::Cancel(id)),
+            Operation::FetchAll { parent } => {
+                self.start_check_retry(checks::CheckTarget::All, parent)
             }
-            Retry::FetchAll => {
-                self.start_check_retry(checks::CheckTarget::All, parent);
-            }
-            Retry::Fetch { path } => self.fetch_repository_retry(path, parent),
+            Operation::Fetch { path, parent } => self.fetch_repository_retry(path, parent),
         }
     }
-    pub(crate) fn tasks_key(&mut self, key: crossterm::event::KeyEvent) -> bool {
+
+    pub(crate) fn tasks_key(
+        &mut self,
+        key: crossterm::event::KeyEvent,
+        root: &Cancel,
+    ) -> Result<bool> {
         use crossterm::event::{KeyCode as K, KeyModifiers as M};
         self.tasks.clicks.reset();
-        if !self.tasks.session.open() {
-            return false;
+        let action = match (key.code, key.modifiers) {
+            (K::Char('x'), M::CONTROL) => Some(Action::TaskCancel),
+            (K::Char('r'), M::CONTROL) => Some(Action::TaskRetry),
+            _ => None,
+        };
+        if let Some(action) = action {
+            return self.activate(action, None, self.copy_selection(), root);
         }
-        if key.code == K::Char('c') && key.modifiers.contains(M::CONTROL) {
-            return false;
+        match self.bar_key(key, root)? {
+            crate::bar::BarEvent::Handled => return Ok(false),
+            crate::bar::BarEvent::Quit => return Ok(true),
+            crate::bar::BarEvent::Pass => {}
         }
         match key.code {
-            K::Esc | K::Left => {
-                self.tasks.session = match self.tasks.session {
-                    Session::Detail { .. } => Session::List,
-                    _ => Session::Closed,
+            K::Esc | K::Left => match self.tasks.session {
+                Session::Detail { .. } => {
+                    self.tasks.session = Session::List;
+                    self.tasks.reconcile_selection();
+                    self.sync_task_bar();
                 }
-            }
-            K::Char('c') if self.tasks.selected().is_some_and(Record::active) => {
-                let id = self.tasks.selection.clone().expect("selected");
-                self.task_request(Request::Cancel(id));
-            }
-            K::Char('r') => self.retry_selected_task(),
+                Session::List => self.close_tasks(),
+                Session::Closed => unreachable!("task key requires the task view"),
+            },
             K::Enter | K::Right if matches!(self.tasks.session, Session::List) => {
                 if let Some(id) = self.tasks.selection.clone() {
                     self.open_task_detail(id);
@@ -343,7 +483,7 @@ impl Screen {
             }
             _ => {}
         }
-        true
+        Ok(false)
     }
     pub(crate) fn tasks_mouse(&mut self, event: crossterm::event::MouseEvent) -> bool {
         use crossterm::event::{MouseButton, MouseEventKind as K};
@@ -358,6 +498,9 @@ impl Screen {
                 return true;
             }
             return false;
+        }
+        if !self.active_bar().is_plain() {
+            return true;
         }
         match event.kind {
             K::Down(MouseButton::Left) if self.config.mouse.precise_click => {
@@ -396,6 +539,18 @@ impl Screen {
         true
     }
 }
+pub(crate) fn status_label(record: &Record) -> &'static str {
+    match &record.state {
+        State::Running { .. } => i18n::tr!(TasksRunning),
+        State::Cancelling { .. } => i18n::tr!(TasksCancelling),
+        State::Finished { outcome, .. } => match outcome {
+            Completion::Succeeded { .. } => i18n::tr!(TasksSuccess),
+            Completion::Cancelled { .. } => i18n::tr!(TasksCancelled),
+            Completion::Failed { .. } => i18n::tr!(TasksFailed),
+        },
+    }
+}
+
 pub(crate) fn spec(title: &str, path: Option<PathBuf>, retry: Retry) -> engine::tasks::Spec {
     engine::tasks::Spec {
         title: title.into(),
