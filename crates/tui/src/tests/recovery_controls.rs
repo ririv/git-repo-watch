@@ -208,11 +208,24 @@ fn worktree_pane_has_keyboard_actions_and_keeps_them_out_of_the_file_list() {
             .any(|line| line.contains(i18n::tr!(ReplayAbortShort)))
     );
     let geometry = (s.body_area, s.input_area);
-    assert_eq!(focused(&s), Some(Control::Continue));
-    backtab(&mut s);
-    assert_eq!(focused(&s), None);
-    render(&mut s, 140, 38);
-    assert_eq!((s.body_area, s.input_area), geometry);
+    let mut terminal = Terminal::new(TestBackend::new(140, 38)).unwrap();
+    for recovery in [Some(Control::Continue), None] {
+        assert_eq!(focused(&s), recovery);
+        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+        let buffer = terminal.backend().buffer();
+        for (rect, section) in &s.workspace_areas {
+            let expected = if *section == crate::workspace::Section::Worktree {
+                view::ACCENT
+            } else {
+                ratatui::style::Color::DarkGray
+            };
+            assert_eq!(buffer[(rect.x, rect.y)].fg, expected, "{section:?}");
+        }
+        assert_eq!((s.body_area, s.input_area), geometry);
+        if recovery.is_some() {
+            backtab(&mut s);
+        }
+    }
     backtab(&mut s);
     assert_eq!(focused(&s), Some(Control::Continue));
     let text = render(&mut s, 140, 38);

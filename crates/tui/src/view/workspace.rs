@@ -24,6 +24,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         Arrangement::Tiled => tiled_areas(area),
         Arrangement::Maximized => vec![(area, selected)],
     };
+    let recovery_focused = screen.focused_replay_control().is_some();
     for (pane_area, section) in screen.workspace_areas.clone() {
         match section {
             Section::Overview => overview::panel(frame, screen, pane_area),
@@ -31,11 +32,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             Section::Worktree => files(frame, screen, pane_area),
             Section::History => graph(frame, screen, pane_area),
         }
-        if Some(section) != focused || screen.focused_replay_control().is_some() {
+        // 恢复页接管按键时弱化文件选中行，面板边框仍标示当前工作区。
+        if Some(section) != focused || recovery_focused {
             inactive_selection(frame, pane_area);
         }
         if Some(section) == focused
-            && screen.focused_replay_control().is_none()
             && !(section == Section::History && screen.history_preview.area.is_some())
         {
             highlight_border(frame, pane_area);
