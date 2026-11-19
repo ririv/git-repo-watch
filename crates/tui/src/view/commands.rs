@@ -122,10 +122,9 @@ impl Entry {
             &self.value,
             &self.value_kind,
             columns.value,
-            Style::default().fg(if matches!(self.value_kind, ValueKind::Repository) {
-                ACCENT
-            } else {
-                GOOD
+            Style::default().fg(match self.value_kind {
+                ValueKind::Repository => ACCENT,
+                ValueKind::Text | ValueKind::Path => GOOD,
             }),
             Alignment::Right,
         );
@@ -184,7 +183,7 @@ fn render_menu(
         menu,
         path,
         repository,
-        ..
+        selection,
     } = &screen.bar
     else {
         return;
@@ -271,7 +270,6 @@ fn render_menu(
         .enumerate()
         .map(|(index, candidate)| {
             let command = candidate.owner();
-            let selection = screen.bar.selection().expect("command selection");
             let resolved = screen.resolve_command(command.action, path.as_deref(), selection);
             let target = resolved
                 .value()
@@ -279,10 +277,6 @@ fn render_menu(
             let partial_index = resolved
                 .value()
                 .is_some_and(|target| target.is_partial_index());
-            let repository_path = resolved.value().and_then(|target| target.repository_path());
-            let repository_action = repository_path.is_some();
-            let repository_label = repository_path.and_then(|path| repository.label(path));
-            let availability = resolved.map(|_| ());
             let description = match candidate {
                 Candidate::Parameter(parameter) => parameter.description.text(),
                 Candidate::Command(_) => match command.action {
@@ -294,21 +288,34 @@ fn render_menu(
                     _ => command.summary().text(),
                 },
             };
-            let value = repository_label
-                .map(|repository| match &target {
-                    Some(target) => format!("{repository} · {target}"),
-                    None => repository,
-                })
-                .or(target)
-                .or_else(|| repository_list::annotation(command.action, screen))
-                .or_else(|| layout_summary::annotation(command.action, screen, body))
-                .or_else(|| settings::annotation(command.action, screen));
+            let repository_path = resolved.value().and_then(|target| target.repository_path());
+            // 仓库目标由 /repo 行展示；子命令只展示各自的选区或配置值。
+            let (value, value_kind) = match command.action {
+                Action::OpenRepository => (
+                    repository_path.and_then(|path| repository.label(path)),
+                    ValueKind::Repository,
+                ),
+                Action::RepositoryEnvEdit(field) => (
+                    repository_path
+                        .map(|path| field.value(screen.config.repository_environment.get(path))),
+                    ValueKind::Text,
+                ),
+                Action::OpenEditor | Action::Terminal => (target, ValueKind::Path),
+                action => (
+                    target
+                        .or_else(|| repository_list::annotation(action, screen))
+                        .or_else(|| layout_summary::annotation(action, screen, body))
+                        .or_else(|| settings::annotation(action, screen)),
+                    ValueKind::Text,
+                ),
+            };
             let argument = match candidate {
                 Candidate::Command(command) => command.action.argument(),
                 Candidate::Parameter(parameter) => {
                     Some(command::ArgumentAction::Option(parameter.kind))
                 }
             };
+            let availability = resolved.map(|_| ());
             Entry {
                 name: tree.label(input, index),
                 argument,
@@ -327,13 +334,7 @@ fn render_menu(
                 } else {
                     String::new()
                 },
-                value_kind: if repository_action {
-                    ValueKind::Repository
-                } else if matches!(command.action, Action::OpenEditor | Action::Terminal) {
-                    ValueKind::Path
-                } else {
-                    ValueKind::Text
-                },
+                value_kind,
                 availability,
             }
         })

@@ -277,17 +277,31 @@ fn repository_commands_show_the_captured_target_from_the_same_resolution_as_exec
     let beta = PathBuf::from("/example/beta");
     let (_home, mut s) = fixture(vec![alpha.clone(), beta.clone()]);
     s.focus(Some(alpha.clone()));
+    s.config
+        .repository_environment
+        .entry(alpha.clone())
+        .or_default()
+        .path_prepend = vec![".venv/bin".into()];
     key(&mut s, KeyCode::Char('/'));
-    s.paste("repo env");
+    s.paste("repo");
     s.focus(Some(beta));
     let preview = render(&mut s, 155, 28);
-    let environment_command = preview
-        .lines()
-        .find(|line| line.contains("Git execution environment"))
-        .unwrap();
     assert!(
-        environment_command.contains("alpha ·"),
-        "{environment_command}"
+        preview
+            .lines()
+            .any(|line| { line.starts_with("│/repo ") && line.contains("alpha ·") }),
+        "{preview}"
+    );
+    assert_eq!(preview.matches("alpha ·").count(), 1, "{preview}");
+
+    s.paste(" env");
+    let preview = render(&mut s, 155, 28);
+    assert!(!preview.contains("alpha ·"), "{preview}");
+    assert!(
+        preview.lines().any(|line| {
+            line.contains("Prepend directories to PATH") && line.contains(".venv/bin")
+        }),
+        "{preview}"
     );
     key(&mut s, KeyCode::Enter);
     assert!(matches!(&s.mode, Mode::RepositoryEnvironment(path) if path == &alpha));
