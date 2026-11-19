@@ -1,4 +1,5 @@
 //! Semantic task details keep metadata quiet and give failures a distinct section.
+mod batch;
 use super::*;
 use unicode_width::UnicodeWidthStr;
 fn field(label: &str, value: String, label_width: usize) -> Line<'static> {
@@ -80,22 +81,24 @@ fn text(record: &Record, width: u16) -> (Text<'static>, Option<usize>) {
     };
     let mut failure_line = record.unread_failure().then_some(1);
     if !body.trim().is_empty() {
+        let body = multiline(body);
         lines.push(Line::default());
-        lines.push(section(title, color, width));
-        lines.push(Line::default());
-        if failure_line.is_some() {
-            failure_line = Some(lines.len());
+        if color == BAD
+            && let Some(first_reason) = batch::append_lines(record, &body, width, &mut lines)
+        {
+            failure_line = failure_line.map(|_| first_reason);
+        } else {
+            lines.push(section(title, color, width));
+            lines.push(Line::default());
+            if failure_line.is_some() {
+                failure_line = Some(lines.len());
+            }
+            let body_color = if color == BAD { BAD } else { Color::Gray };
+            lines.extend(
+                body.lines()
+                    .map(|line| Line::styled(line.to_owned(), Style::default().fg(body_color))),
+            );
         }
-        lines.extend(multiline(body).lines().map(|line| {
-            Line::styled(
-                line.to_owned(),
-                Style::default().fg(if color == BAD {
-                    Color::LightRed
-                } else {
-                    Color::Gray
-                }),
-            )
-        }));
     }
     if !record.stage_timings.is_empty() {
         lines.push(Line::default());

@@ -408,6 +408,109 @@ fn stage_timings_have_a_separate_detail_section_and_never_replace_failure_previe
     }
 }
 #[test]
+fn batch_failure_details_group_repository_errors_and_keep_the_execution_log() {
+    use engine::tasks::{Scope, Source};
+    let (_home, mut s) = fixture(vec![]);
+    let mut record = presentation_record(0, true);
+    record.spec.scope = Scope::All;
+    record.spec.source = Source::Scheduled;
+    let plan = "获取远程 → 推送提交 → 读取本地状态";
+    record.spec.title = format!("定时任务 · {plan}");
+    record.state = State::Finished {
+        at: record.started_at.clone(),
+        outcome: Completion::failure(format!(
+            "/example/AtomNote: Fetch failed\nfatal: could not connect\n\n\n\n\
+             /example/Gift: Fetch failed\nfatal: timeout\n\n\
+             /example/AtomNote: Push failed\n\nadditional stderr context\n\n{plan}\n\
+             /example/Gift\n– Read local state · skipped"
+        )),
+    };
+    let id = record.id.clone();
+    s.tasks.selection = Some(id.clone());
+    s.tasks.records = vec![record];
+    s.tasks.session = crate::task_center::Session::List;
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let preview = render(&mut s, 160, 34);
+        let heading = format!("{} · 2", i18n::tr!(TasksFailedRepositories));
+        let atom = preview.find("× AtomNote").unwrap();
+        let gift = preview.find("× Gift").unwrap();
+        let log = preview.find(i18n::tr!(TasksExecutionLog)).unwrap();
+        assert!(preview.find(&heading).unwrap() < atom && atom < gift && gift < log);
+        assert_eq!(preview.matches("× AtomNote").count(), 1);
+        assert!(preview[atom..gift].contains("Push failed"));
+        assert!(preview[atom..gift].contains("fatal: could not connect"));
+        assert!(preview[atom..gift].contains("additional stderr context"));
+        assert!(preview[gift..log].contains("fatal: timeout"));
+        assert!(preview[log..].contains("Read local state · skipped"));
+    }
+    s.tasks.session = crate::task_center::Session::Detail { id, scroll: 0 };
+    render(&mut s, 60, 14);
+    key(&mut s, KeyCode::End);
+    assert!(render(&mut s, 60, 14).contains("Read local state · skipped"));
+    let manual_plan = {
+        let _language = i18n::using(i18n::Language::English);
+        engine::workflow::Plan::fetch().summary()
+    };
+    s.tasks.records[0].spec.source = Source::Interactive;
+    s.tasks.records[0].spec.title = "Fetch all".into();
+    s.tasks.records[0].state = State::Finished {
+        at: s.tasks.records[0].started_at.clone(),
+        outcome: Completion::failure(format!(
+            "/example/AtomNote: Fetch failed\n\n{manual_plan}\n/example/Healthy\n\
+             ✓ 01:02:03 Fetch remotes · origin\n/example/AtomNote\n✗ 01:02:04 Fetch remotes"
+        )),
+    };
+    s.tasks.session = crate::task_center::Session::List;
+    let _language = i18n::using(i18n::Language::Chinese);
+    let text = render(&mut s, 160, 34);
+    assert!(text.contains("失败仓库 · 1"));
+    assert!(text.contains("执行记录"));
+    assert!(!text.contains("/example/Healthy"));
+    assert!(text.contains("01:02:04 Fetch remotes"));
+    s.shutdown();
+}
+#[test]
+fn legacy_scheduled_detail_keeps_one_copy_of_a_failed_push_and_a_step_timeline() {
+    use engine::tasks::{Scope, Source};
+    let _language = i18n::using(i18n::Language::Chinese);
+    let (_home, mut s) = fixture(vec![]);
+    let mut record = presentation_record(0, true);
+    record.spec.scope = Scope::All;
+    record.spec.source = Source::Scheduled;
+    let plan = "获取远程 → 推送提交 → 读取本地状态";
+    record.spec.title = format!("定时任务 · {plan}");
+    let hook = "Git rejected the branch\n\nPython environment lacks pyright";
+    let step = format!("推送提交: {hook}\n\n✗ main → origin:refs/heads/main · {hook}");
+    record.state = State::Finished {
+        at: record.started_at.clone(),
+        outcome: Completion::failure(format!(
+            "/example/rivetoo: {step}\n\n\n/example/rivetoo: {hook}\n\n\
+             /example/Gift: Fetch failed\n\n{plan}\n/example/rivetoo\n\
+             ✓ 02:44:41 获取远程 · origin\n✗ 02:45:41 推送提交\n  {step}\n\
+             – 读取本地状态 · 未执行\n/example/Gift\n✗ 02:45:42 获取远程\n  Fetch failed"
+        )),
+    };
+    s.tasks.session = crate::task_center::Session::Detail {
+        id: record.id.clone(),
+        scroll: 0,
+    };
+    s.tasks.records = vec![record];
+    let text = render(&mut s, 100, 42);
+    assert!(text.contains("本轮失败仓库 · 2"), "{text}");
+    assert_eq!(
+        text.matches("Python environment lacks pyright").count(),
+        1,
+        "{text}"
+    );
+    assert_eq!(text.matches("Git rejected the branch").count(), 1, "{text}");
+    assert_eq!(text.matches("Fetch failed").count(), 1, "{text}");
+    assert!(text.contains("main → origin:refs/heads/main"), "{text}");
+    assert!(text.contains("02:45:41 推送提交"), "{text}");
+    assert!(text.contains("02:45:42 获取远程"), "{text}");
+    s.shutdown();
+}
+#[test]
 fn task_details_have_semantic_styles_and_scroll_all_failure_output() {
     use ratatui::style::{Color, Modifier};
     for language in [i18n::Language::English, i18n::Language::Chinese] {

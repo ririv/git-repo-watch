@@ -160,7 +160,7 @@ impl Service {
                             RunPlan::Manual => None,
                         }
                 })
-                .map(workflow_detail)
+                .map(|report| workflow_detail(report, FailureDetail::Include))
                 .collect::<Vec<_>>()
                 .join("\n");
             match &mut outcome {
@@ -484,6 +484,7 @@ fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outc
     for repository in &report.repositories {
         if let RepositoryResult::Failed { path, error, .. } = repository {
             failures.push(format!("{}: {error}", path.display()));
+            continue;
         }
         for publication in repository.pushes() {
             if let Publication::Failed { error, .. } = publication {
@@ -507,15 +508,22 @@ fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outc
                     }))
                     .collect::<Vec<_>>()
                     .join("\n")
-                    + &workflow_detail(report)
+                    + &workflow_detail(report, FailureDetail::Summarized)
             },
         }
     } else {
-        Outcome::failure(failures.join("\n\n") + &workflow_detail(report))
+        Outcome::failure(
+            failures.join("\n\n") + &workflow_detail(report, FailureDetail::Summarized),
+        )
     }
 }
 
-fn workflow_detail(report: &Report) -> String {
+enum FailureDetail {
+    Include,
+    Summarized,
+}
+
+fn workflow_detail(report: &Report, failure_detail: FailureDetail) -> String {
     use crate::workflow::StepOutcome;
     let Some(execution) = &report.execution else {
         return String::new();
@@ -540,7 +548,10 @@ fn workflow_detail(report: &Report) -> String {
                         StepOutcome::Skipped { reason } => {
                             format!("– {at} {label} · {}", reason.label())
                         }
-                        StepOutcome::Failed { error } => format!("✗ {at} {label}\n  {error}"),
+                        StepOutcome::Failed { error } => match failure_detail {
+                            FailureDetail::Include => format!("✗ {at} {label}\n  {error}"),
+                            FailureDetail::Summarized => format!("✗ {at} {label}"),
+                        },
                     });
                 }
                 None => lines.push(format!("– {label} · {}", i18n::tr!(WorkflowStopped))),

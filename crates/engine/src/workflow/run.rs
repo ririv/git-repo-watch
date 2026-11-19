@@ -84,12 +84,13 @@ pub(crate) fn execute(
                     timing.verify_ms += current.verify_ms;
                     timing.push_ms += current.push_ms;
                     if let RepositoryResult::Failed { error, .. } = &result {
-                        anyhow::bail!("{}\n{}", error, publication_detail(result.pushes()));
-                    }
-                    for publication in result.pushes() {
-                        if let Publication::Failed { error, .. } = publication {
-                            anyhow::bail!("{}\n{}", error, publication_detail(result.pushes()));
+                        if result.pushes().is_empty() {
+                            anyhow::bail!("{error}");
                         }
+                        anyhow::bail!("{error}\n{}", publication_detail(result.pushes()));
+                    }
+                    if result.pushes().iter().any(|push| push.error().is_some()) {
+                        anyhow::bail!("{}", publication_detail(result.pushes()));
                     }
                     let detail = if step == Step::Push {
                         publication_detail(result.pushes())

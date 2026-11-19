@@ -348,6 +348,41 @@ fn failed_pull_preserves_dirty_files_stops_push_and_does_not_block_another_repos
 }
 
 #[test]
+fn scheduled_push_failure_records_the_hook_error_once() {
+    let f = Fixture::create();
+    f.commit("ahead", "ahead");
+    let hook = f.repo.join(".git/hooks/pre-push");
+    let message = "test-pre-push-rejection";
+    write(
+        &hook,
+        &format!(
+            "#!/bin/sh\nprintf 'attempt\\n' >> .git/push-attempts\nprintf '{message}\\n' >&2\nexit 1\n"
+        ),
+    );
+    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    let (_home, service) = service(vec![f.repo.clone()], plan("fetch push inspect"));
+    let report = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
+    assert!(matches!(
+        report.repositories[0].pushes(),
+        [Publication::Failed { .. }]
+    ));
+    assert_eq!(
+        fs::read_to_string(f.repo.join(".git/push-attempts")).unwrap(),
+        "attempt\n"
+    );
+    let records = service.store.tasks(10).unwrap();
+    let State::Finished {
+        outcome: Outcome::Failed { detail, .. },
+        ..
+    } = &records[0].state
+    else {
+        panic!("{:?}", records[0]);
+    };
+    assert_eq!(detail.matches(message).count(), 1, "{detail}");
+    assert!(detail.contains("main → origin:refs/heads/main"), "{detail}");
+}
+
+#[test]
 fn scheduled_execution_uses_its_saved_steps() {
     let f = Fixture::create();
     f.commit("ahead", "committed\n");
