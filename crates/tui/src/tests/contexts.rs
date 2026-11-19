@@ -74,7 +74,6 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         command(&mut s, "repo diff");
         wait(&mut s);
         s.paste("source");
-        key(&mut s, KeyCode::Home);
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), Some(Context::Diff(DiffContext::Worktree)));
         assert!(
@@ -85,7 +84,7 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
         );
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
-            assert!(text.contains("/repo diff"), "{text}");
+            assert!(text.contains("source │ /repo diff"), "{text}");
             assert!(!text.contains("/repo diff stage"), "{text}");
             assert!(
                 text.contains(i18n::tr!(ContextCommandPlaceholder)),

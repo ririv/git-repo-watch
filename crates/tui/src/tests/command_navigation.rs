@@ -250,6 +250,9 @@ fn path_punctuation_in_repository_search_agrees_for_typing_and_chunked_paste() {
                         s.paste(chunk);
                     } else {
                         for character in chunk.chars() {
+                            if character == '/' {
+                                key(&mut s, KeyCode::Char('\\'));
+                            }
                             key(&mut s, KeyCode::Char(character));
                         }
                     }
@@ -258,7 +261,6 @@ fn path_punctuation_in_repository_search_agrees_for_typing_and_chunked_paste() {
                 assert_eq!(s.bar.text(), s.query);
                 assert!(matches!(s.bar, bar::InputBar::Search(_)));
                 let query = s.query.clone();
-                key(&mut s, KeyCode::Home);
                 key(&mut s, KeyCode::Char('/'));
                 assert!(matches!(s.bar, bar::InputBar::Command { .. }));
                 key(&mut s, KeyCode::Esc);

@@ -119,22 +119,24 @@ impl Screen {
             self.bar = InputBar::CommandsOnly;
             return;
         }
-        let query = match &self.mode {
-            Mode::Browsing => self.query.clone(),
-            Mode::Management(session) => session.query.clone(),
-            Mode::Browser(session) => session.input_query().to_owned(),
-            Mode::History(view) => view.query().to_owned(),
-            Mode::Stashes(view) => view.query().to_owned(),
-            Mode::Branches(view) => view.session().query.clone(),
-            Mode::Files(files) => files.query.clone(),
-            Mode::Changes(session) => session.files.query.clone(),
-            _ => unreachable!("search capability requires a visible searchable list"),
-        };
+        let query = self
+            .search_query_in(&self.mode)
+            .expect("search capability requires a visible searchable list")
+            .to_owned();
         self.bar = InputBar::Search(Editor::new(query));
     }
     fn normalize_bar(&mut self) {
-        if matches!(&self.bar, InputBar::Command { input: command::Input::Global(editor), .. } if !editor.text.starts_with('/'))
+        if let InputBar::Command {
+            input: command::Input::Global(editor),
+            ..
+        } = &self.bar
+            && !editor.text.starts_with('/')
         {
+            // 删除整个命令草稿等同于关闭候选，恢复当前视图保存的搜索。
+            if editor.text.is_empty() {
+                self.clear_bar();
+                return;
+            }
             let InputBar::Command { input, .. } = std::mem::take(&mut self.bar) else {
                 unreachable!()
             };
@@ -674,9 +676,18 @@ impl Screen {
         {
             return Ok(BarEvent::Pass);
         }
-        // 按 / 捕获当前视图和仓库，独立保存命令草稿，保留已有搜索。
-        if key.code == KeyCode::Char('/') && key.modifiers.is_empty() && self.at_command_entry() {
-            self.open_command_bar();
+        // 搜索中的转义斜杠写入查询，直接按 / 则捕获当前视图和选中项。
+        if key.code == KeyCode::Char('/') && key.modifiers.is_empty() {
+            if let InputBar::Search(editor) = &mut self.bar
+                && editor.text[..editor.cursor].ends_with('\\')
+            {
+                editor
+                    .text
+                    .replace_range(editor.cursor - 1..editor.cursor, "/");
+                self.normalize_bar();
+            } else {
+                self.open_command_bar();
+            }
             self.message.clear();
             return Ok(BarEvent::Handled);
         }

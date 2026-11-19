@@ -2293,10 +2293,10 @@ impl Message {
             (Self::SearchLocate, Language::English) => "Locate",
             (Self::SearchLocate, Language::Chinese) => "定位",
             (Self::SearchLocateHint, Language::English) => {
-                "↑/↓ previous/next match · ←/→ edit · Esc clear · / commands"
+                "↑↓ previous/next match · ←→ edit · Esc clear"
             }
             (Self::SearchLocateHint, Language::Chinese) => {
-                "↑/↓上个/下个匹配 · ←/→编辑 · Esc清空 · /命令"
+                "↑↓ 切换匹配 · ←→ 编辑 · Esc 清空"
             }
             (Self::SearchCommandOnly, Language::English) => "Press / to open the command menu",
             (Self::SearchCommandOnly, Language::Chinese) => "按 / 打开命令菜单",
@@ -5647,10 +5647,10 @@ impl Message {
                 "Tab 补全 · ↑↓候选 · Enter 执行选中命令 · Esc 清空"
             }
             (Self::SearchEditingHint, Language::English) => {
-                "←→ cursor · ↑↓ navigate · Esc clear · /commands"
+                "↑↓ navigate · ←→ cursor · Esc clear"
             }
             (Self::SearchEditingHint, Language::Chinese) => {
-                "←→ 移动光标 · ↑↓ 浏览 · Esc 清空 · / 命令"
+                "↑↓ 浏览 · ←→ 移动光标 · Esc 清空"
             }
             (Self::SelectSpaceInsMarkCtrlAAll, Language::English) => {
                 "→/Enter diff · ←/Esc back · Space/Ins mark · /focus panes"

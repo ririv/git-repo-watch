@@ -90,13 +90,13 @@ fn selected_file_hints_keep_the_leaf_name_in_narrow_command_menus() {
 }
 
 #[test]
-fn write_commands_show_a_frozen_repository_and_branch_without_touching_git() {
+fn repository_row_shows_the_frozen_branch_and_subcommands_keep_their_own_annotations() {
     let f = support::Fixture::create();
     support::git(&f.repo, &["branch", "-m", "feature/中文"]);
     let (_home, mut s) = fixture(vec![f.repo.clone(), "/example/other".into()]);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     s.focus(Some(f.repo.clone()));
-    s.paste("//repo push");
+    s.paste("//repo");
     wait_repository(&mut s);
     let text = render(&mut s, 150, 32);
     assert!(text.contains("feature/中文"), "{text}");
@@ -110,9 +110,11 @@ fn write_commands_show_a_frozen_repository_and_branch_without_touching_git() {
     let text = render(&mut s, 150, 32);
     assert!(text.contains("feature/中文"), "{text}");
     assert!(frozen.label(&f.repo).unwrap().contains("feature/中文"));
+    s.paste(" push");
+    assert!(!render(&mut s, 150, 32).contains("feature/中文"));
     key(&mut s, KeyCode::Esc);
     s.focus(Some(f.repo.clone()));
-    s.paste("//repo sync");
+    s.paste("//repo");
     wait_repository(&mut s);
     assert!(render(&mut s, 150, 32).contains("changed-after-menu"));
     key(&mut s, KeyCode::Esc);
@@ -123,7 +125,7 @@ fn write_commands_show_a_frozen_repository_and_branch_without_touching_git() {
     let text = render(&mut s, 150, 32);
     let row = s.command_items[0].0;
     let line = text.lines().nth(row.y as usize).unwrap();
-    assert!(line.contains("changed-after-menu"), "{line}");
+    assert!(!line.contains("changed-after-menu"), "{line}");
     assert!(
         line.contains(&i18n::tf!(CommandTargetCommits, count = 1)),
         "{line}"

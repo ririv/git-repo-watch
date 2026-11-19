@@ -8,8 +8,10 @@ use super::command_syntax as syntax;
 use super::feedback::Preview;
 use super::*;
 pub(crate) use surface::Surface;
+use unicode_width::UnicodeWidthStr;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
+const SEARCH_COMMAND_SEPARATOR: &str = " │ ";
 
 /// Retain the input presentation throughout a foreground operation.
 #[derive(Debug)]
@@ -47,6 +49,13 @@ fn command_hint(input: &command::Input) -> &'static str {
         command::Input::Global(editor) if editor.text == "/" => i18n::tr!(CommandHistoryEntryHint),
         command::Input::Global(_) => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
     }
+}
+fn search_hint(support: crate::search::Support) -> String {
+    let navigation = match support.mode() {
+        Some(crate::search::Mode::Locate) => i18n::tr!(SearchLocateHint),
+        _ => i18n::tr!(SearchEditingHint),
+    };
+    format!("{} · {navigation}", i18n::tr!(SearchCommandOnly))
 }
 fn task_hint(screen: &Screen) -> Option<&'static str> {
     match &screen.mode {
@@ -367,6 +376,12 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             screen.search_title(),
         ),
     };
+    let search_hint = match bar {
+        crate::bar::InputBar::Search(editor) if !editor.text.is_empty() => {
+            Some(search_hint(support))
+        }
+        _ => None,
+    };
     let (title, content, hint) = if screen.focus_mode == crate::focus::State::Selecting {
         (
             i18n::tr!(PaneFocusTitle),
@@ -525,12 +540,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         }
                         _ => command_hint(bar.command_input().expect("command input")),
                     }
-                } else if !bar.editor().text.is_empty()
-                    && support.mode() == Some(crate::search::Mode::Locate)
-                {
-                    i18n::tr!(SearchLocateHint)
-                } else if !bar.editor().text.is_empty() {
-                    i18n::tr!(SearchEditingHint)
+                } else if let Some(hint) = search_hint.as_deref() {
+                    hint
                 } else {
                     browsing_hint(screen)
                 };
@@ -702,12 +713,26 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         && task_hint.is_none()
         && screen.focused_replay_control().is_none()
         && screen.focused_conflict_control().is_none();
-    let title = if matches!(bar, crate::bar::InputBar::Search(_))
+    let command_search = if bar.command_input().is_some() && support.mode().is_some() {
+        screen
+            .search_query_in(mode)
+            .filter(|query| !query.is_empty())
+    } else {
+        None
+    };
+    let title = if (matches!(bar, crate::bar::InputBar::Search(_)) || command_search.is_some())
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
         && !matches!(mode, Mode::CommitMessage { .. })
     {
-        search_title
+        if command_search.is_some() {
+            format!(
+                "{search_title}{SEARCH_COMMAND_SEPARATOR}{}",
+                i18n::tr!(CommandsAlt).trim()
+            )
+        } else {
+            search_title
+        }
     } else {
         title.to_owned()
     };
@@ -826,25 +851,49 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 .map(|context| {
                     let prefix = format!("/{}", context.name());
                     let budget = inner.width.saturating_sub(4) as usize;
-                    if unicode_width::UnicodeWidthStr::width(prefix.as_str()) <= budget {
+                    if prefix.width() <= budget {
                         prefix
                     } else {
                         truncate(&prefix, budget)
                     }
                 })
                 .filter(|prefix| !prefix.is_empty());
-            let prefix_width = prefix.as_deref().map_or(0, |prefix| {
-                unicode_width::UnicodeWidthStr::width(prefix) as u16 + 1
-            });
+            let prefix_width = prefix
+                .as_deref()
+                .map_or(0, |prefix| prefix.width() as u16 + 1);
+            let mut spans = Vec::new();
+            let prompt = Span::styled("› ", Style::default().fg(INPUT_ACCENT));
+            // 缩窄时优先给命令留空间，搜索词仍保存在当前视图。
+            let search_budget =
+                (inner.width / 3).min(inner.width.saturating_sub(prefix_width + 11));
+            let search_width = if let Some(query) = command_search.filter(|_| search_budget > 0) {
+                let mut query = safe(query);
+                if query.width() > usize::from(search_budget) {
+                    query = truncate(&query, search_budget.into());
+                }
+                let width = query.width() as u16 + 5;
+                spans.push(prompt.clone());
+                spans.push(Span::styled(query, input_style));
+                spans.push(Span::styled(
+                    SEARCH_COMMAND_SEPARATOR,
+                    Style::default().fg(MUTED),
+                ));
+                width
+            } else {
+                0
+            };
             if prefix.is_some() {
                 surface = Surface::Prefix(Rect::new(
-                    inner.x,
+                    inner.x + search_width,
                     inner.y,
                     prefix_width.min(inner.width),
                     inner.height.min(1),
                 ));
             }
-            let width = inner.width.saturating_sub(2 + prefix_width) as usize;
+            let show_command_prompt = prefix.is_some() || search_width == 0;
+            let prompt_width =
+                search_width + prefix_width + if show_command_prompt { 2 } else { 0 };
+            let width = inner.width.saturating_sub(prompt_width) as usize;
             let (visible, cursor) = editor.viewport_range(width);
             let value = if editor.text.is_empty() {
                 vec![Span::styled(
@@ -856,7 +905,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             } else {
                 vec![Span::styled(editor.text[visible].to_owned(), input_style)]
             };
-            let mut spans = Vec::new();
             if let Some(prefix) = prefix {
                 spans.extend(prefix::spans(
                     &prefix,
@@ -865,7 +913,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 ));
                 spans.push(Span::raw(" "));
             }
-            spans.push(Span::styled("› ", Style::default().fg(INPUT_ACCENT)));
+            if show_command_prompt {
+                spans.push(prompt);
+            }
             spans.extend(value);
             if let Some(hint) = command.and_then(|input| {
                 argument::hint(
@@ -882,7 +932,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 && !command.is_some_and(|input| input.prefix_selected())
             {
                 frame.set_cursor_position((
-                    (inner.x + prefix_width + 2 + cursor).min(inner.right() - 1),
+                    (inner.x + prompt_width + cursor).min(inner.right() - 1),
                     inner.y,
                 ));
             }

@@ -173,6 +173,19 @@ impl Screen {
         self.poll_changes();
         true
     }
+    pub(crate) fn search_query_in<'a>(&'a self, mode: &'a Mode) -> Option<&'a str> {
+        Some(match mode {
+            Mode::Browsing => &self.query,
+            Mode::Management(session) => &session.query,
+            Mode::Browser(session) => session.input_query(),
+            Mode::History(view) => view.query(),
+            Mode::Stashes(view) => view.query(),
+            Mode::Branches(view) => &view.session().query,
+            Mode::Files(files) => &files.query,
+            Mode::Changes(session) => &session.files.query,
+            _ => return None,
+        })
+    }
     pub(crate) fn search_title(&self) -> String {
         let Some(mode) = self.search_support().mode() else {
             return i18n::tr!(CommandsAlt).into();
@@ -195,7 +208,11 @@ impl Screen {
             _ => unreachable!("searchable view has a target"),
         };
         let mut title = i18n::tf!(SearchInputTitle, mode = mode.label(), target = target);
-        if mode == SearchMode::Locate && !self.bar.editor().text.is_empty() {
+        if mode == SearchMode::Locate
+            && self
+                .search_query_in(&self.mode)
+                .is_some_and(|query| !query.is_empty())
+        {
             if let Mode::Browser(session) = &self.mode {
                 title.push_str(&format!(" · {}", session.content_match_label()));
                 return title;

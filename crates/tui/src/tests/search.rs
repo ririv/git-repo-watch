@@ -88,10 +88,39 @@ fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows(
 
 #[test]
 fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
+    let _language = i18n::using(i18n::Language::English);
     let (_home, mut s) = fixture(vec!["/example/beta".into(), "/example/alpha".into()]);
     s.sort_repositories(Order::Name);
     s.filter_repositories(Filter::Unchecked);
     s.paste("alpha");
+    let selected = s.selected_path();
+    let hint = "Press / to open the command menu";
+    let search_title = s.search_title();
+    let combined_title = format!("{search_title} │ {}", i18n::tr!(CommandsAlt).trim());
+    assert!(render(&mut s, 40, 24).contains(hint));
+    assert_eq!(s.bar.editor().cursor, "alpha".len());
+    for exit_keys in [
+        &[KeyCode::Esc][..],
+        &[KeyCode::Backspace],
+        &[KeyCode::Home, KeyCode::Delete],
+    ] {
+        key(&mut s, KeyCode::Char('/'));
+        assert_eq!(s.bar.text(), "/");
+        let preview = render(&mut s, 40, 24);
+        assert!(preview.contains("› alpha │ /"), "{preview}");
+        assert!(preview.contains(&combined_title), "{preview}");
+        assert!(!s.command_items.is_empty());
+        assert_eq!(s.selected_path(), selected);
+        for &code in exit_keys {
+            key(&mut s, code);
+        }
+        assert_eq!(s.bar.text(), "alpha");
+        assert_eq!(s.query, "alpha");
+        assert_eq!(s.selected_path(), selected);
+        let preview = render(&mut s, 40, 24);
+        assert!(preview.contains(&search_title), "{preview}");
+        assert!(!preview.contains(&combined_title), "{preview}");
+    }
     s.paste("//search");
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.bar.text(), "/search ");
@@ -106,6 +135,7 @@ fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
     assert_eq!(s.order, Order::Name);
     assert_eq!(s.filter, Filter::Unchecked);
     assert_eq!(s.rows().len(), 2);
+    assert!(render(&mut s, 40, 24).contains(hint));
     s.paste("//search");
     key(&mut s, KeyCode::Enter);
     key(&mut s, KeyCode::Esc);
