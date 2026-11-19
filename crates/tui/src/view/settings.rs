@@ -107,6 +107,9 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 screen.config.scheduled_actions.push_policy().to_string()
             }
             Item::Command(Action::Concurrency) => screen.config.max_concurrency.to_string(),
+            Item::Command(Action::RepositoryEnvEdit(command::EnvironmentField::Path)) => {
+                i18n::tr!(GitEnvironmentInheritedPath).into()
+            }
             Item::Command(Action::RepositoryEnvEdit(command::EnvironmentField::Set)) => environment
                 .map(|env| env.variables.keys().cloned().collect::<Vec<_>>().join(", "))
                 .unwrap_or_default(),
@@ -123,31 +126,52 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 .unwrap_or_else(|| i18n::tr!(NoRepositorySelected).into()),
             _ => String::new(),
         };
-        let line = Line::styled(
-            format!("{}  {value}", item.description()),
-            if screen.setting_selected == i {
-                selected_style()
-            } else {
-                Style::default()
-            },
-        );
-        let height = Paragraph::new(line.clone())
+        let style = if screen.setting_selected == i {
+            selected_style()
+        } else {
+            Style::default()
+        };
+        let entry = if matches!(
+            item,
+            Item::Command(Action::RepositoryEnvEdit(command::EnvironmentField::Path))
+        ) && let Some((root, environment)) = repository.zip(environment)
+            && !environment.path_prepend.is_empty()
+        {
+            std::iter::once(Line::styled(item.description(), style))
+                .chain(environment.path_directories(root).map(|path| {
+                    Line::styled(format!("  {}", safe(&path.display().to_string())), style)
+                }))
+                .collect::<Vec<_>>()
+        } else {
+            vec![Line::styled(
+                format!("{}  {value}", item.description()),
+                style,
+            )]
+        };
+        let height = Paragraph::new(Text::from(entry.clone()))
             .wrap(Wrap { trim: false })
             .line_count(inner.width);
         item_rows.push((i, row, height));
         row += height;
-        lines.push(line);
+        lines.extend(entry);
     }
     let (selected_row, selected_height) = item_rows
         .iter()
         .find(|(index, _, _)| *index == screen.setting_selected)
         .map(|(_, row, height)| (*row, *height))
         .unwrap_or((0, 0));
-    let start = if selected_row + selected_height >= inner.height as usize {
-        (selected_row + selected_height).saturating_sub(inner.height as usize)
-    } else {
-        screen.scroll
-    };
+    let viewport_height = usize::from(inner.height);
+    let selected_end = selected_row + selected_height;
+    let start =
+        if section == Configuration::RepositoryEnvironment && selected_height > viewport_height {
+            screen
+                .scroll
+                .clamp(selected_row, selected_end - viewport_height)
+        } else if selected_end >= viewport_height {
+            selected_end.saturating_sub(viewport_height)
+        } else {
+            screen.scroll
+        };
     let text = Text::from(lines);
     let text = screen.pointer.links.text(text);
     let paragraph = Paragraph::new(text.plain()).wrap(Wrap { trim: false });

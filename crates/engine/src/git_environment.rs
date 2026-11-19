@@ -97,6 +97,10 @@ impl Environment {
         Ok(())
     }
 
+    pub fn path_directories<'a>(&'a self, root: &'a Path) -> impl Iterator<Item = PathBuf> + 'a {
+        self.path_prepend.iter().map(|path| root.join(path))
+    }
+
     pub(crate) fn variables_for(&self, root: &Path) -> Result<Vec<(OsString, OsString)>> {
         let mut environment: Vec<_> = self
             .variables
@@ -105,8 +109,7 @@ impl Environment {
             .collect();
         if !self.path_prepend.is_empty() {
             let mut directories = Vec::new();
-            for path in &self.path_prepend {
-                let path = root.join(path);
+            for path in self.path_directories(root) {
                 ensure!(
                     path.is_dir(),
                     "{} {}",

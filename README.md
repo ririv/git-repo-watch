@@ -446,7 +446,7 @@ Git 命令默认超时 120 秒，SSH 禁止交互提示并限制连接等待。l
 
 打开仓库后输入 `/repo env`，在配置页选中一项并按 `Enter` 编辑。保存后，`gw` 为这个工作树启动的 Git 及其 hooks 会使用同一份配置，适用于手动操作和定时任务。配置保存在用户 TOML 中，多个仓库并行执行时各用自己的配置。
 
-- `/repo env path .venv/bin` 将仓库根目录下的 `.venv/bin` 放在 `PATH` 前面。可以一次输入多个目录，含空格的路径加引号。此命令保存完整目录列表，使用 `--clear` 清空。
+- `/repo env path .venv/bin` 将仓库根目录下的 `.venv/bin` 放在 `PATH` 前面。可以一次输入多个目录，含空格的路径加引号。此命令保存完整目录列表，使用 `--clear` 清空。重新打开 `/repo env` 可查看实际生效的前置目录和顺序。
 - `/repo env set 'NAME=some value'` 设置一个变量，`/repo env unset NAME` 移除它。`PATH` 通过前置目录设置，`GIT_` 变量由程序管理。
 - `/repo env launcher ./tools/git-env` 设置 Git 启动命令。`gw` 将 `/usr/bin/git` 和原始 Git 参数作为独立参数追加。程序名从该仓库的 `PATH` 查找，也可输入绝对路径或用 `./` 指定仓库内的相对路径。使用 `--clear` 恢复直接启动 Git。
 

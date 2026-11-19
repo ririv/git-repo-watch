@@ -168,6 +168,15 @@ impl Screen {
             Action::Settings => self.open_configuration(Configuration::General),
             Action::RepositoryEnv => {
                 let path = path.expect("resolved repository target");
+                match self.service.store.config() {
+                    Ok(config) => {
+                        self.config.repository_environment = config.repository_environment
+                    }
+                    Err(error) => {
+                        self.message = crate::message::Message::error(format!("{error:#}"));
+                        return Ok(false);
+                    }
+                }
                 if !matches!(&self.mode, Mode::RepositoryEnvironment(current) if *current == path) {
                     self.open_configuration(Configuration::RepositoryEnvironment);
                     self.mode = Mode::RepositoryEnvironment(path);

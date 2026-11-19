@@ -34,3 +34,35 @@ fn repository_environment_page_edits_the_captured_worktree_and_keeps_variable_va
     assert!(!format!("{:?}", s.service.store.command_history().unwrap()).contains("fixture value"));
     s.shutdown();
 }
+
+#[test]
+fn reopening_repository_environment_displays_persisted_absolute_path_directories_in_order() {
+    use engine::{git_environment::Edit, service::ConfigEdit};
+    let _language = i18n::using(i18n::Language::English);
+    let f = Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo env");
+    assert!(render(&mut s, 160, 25).contains("Use inherited PATH"));
+    key(&mut s, KeyCode::Esc);
+    s.service
+        .configure(ConfigEdit::RepositoryEnvironment {
+            path: f.repo.clone(),
+            edit: Edit::Path(vec![".venv/bin".into(), "/example/shared-tools".into()]),
+        })
+        .unwrap();
+    assert!(s.config.repository_environment.is_empty());
+    command(&mut s, "repo env");
+    let page = render(&mut s, 160, 25);
+    let relative = f.repo.join(".venv/bin");
+    assert!(
+        page.find(relative.to_str().unwrap()).unwrap()
+            < page.find("/example/shared-tools").unwrap(),
+        "{page}"
+    );
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(
+        s.bar.text(),
+        "/repo env path .venv/bin /example/shared-tools"
+    );
+    s.shutdown();
+}
