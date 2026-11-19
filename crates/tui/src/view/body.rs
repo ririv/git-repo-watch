@@ -191,13 +191,32 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     return;
                 }
                 Confirmation::Mutation { plan, .. } => multiline(&crate::mutations::review(plan)),
-                Confirmation::Configure { command, value, .. } => {
-                    format!(
+                Confirmation::Configure {
+                    command,
+                    value,
+                    draft,
+                    ..
+                } => {
+                    let review = format!(
                         "/{} {}\n\n{}",
                         command.command().name,
                         safe(value),
                         command::description(command.action())
-                    )
+                    );
+                    match command {
+                        command::ConfigArgument::RepositoryEnvironment(_) => format!(
+                            "{}\n\n{review}",
+                            safe(
+                                &draft
+                                    .path
+                                    .as_ref()
+                                    .expect("resolved repository target")
+                                    .display()
+                                    .to_string()
+                            )
+                        ),
+                        _ => review,
+                    }
                 }
             };
             frame.render_widget(

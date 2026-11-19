@@ -163,9 +163,7 @@ fn gw_selected_stash_inspection_never_imports_unselected_staged_files() {
     )
     .unwrap();
     stash::execute(
-        &engine::transport::Git {
-            timeout: std::time::Duration::from_secs(10),
-        },
+        &engine::transport::Git::default().with_timeout(std::time::Duration::from_secs(10)),
         &plan,
         &Cancel::default(),
     )

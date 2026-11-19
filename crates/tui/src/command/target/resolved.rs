@@ -56,6 +56,13 @@ impl Resolved<'_> {
     }
 }
 impl Resolved<'_> {
+    pub fn repository_path(&self) -> Option<&Path> {
+        match &self.value {
+            Value::Repository(path) => Some(path),
+            Value::Commits(target) => Some(target.repository),
+            _ => None,
+        }
+    }
     pub fn is_partial_index(&self) -> bool {
         matches!(self.value, Value::Index(worktree::Index::Partial(_)))
     }

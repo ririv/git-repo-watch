@@ -101,6 +101,13 @@ impl Command {
             Action::OpenRepository => Summary::OpenRepository,
             Action::Repositories => Summary::Repositories,
             Action::RepositorySettings => Summary::RepositorySettings,
+            Action::RepositoryEnv => Summary::GitEnvironment,
+            Action::RepositoryEnvEdit(field) => match field {
+                super::EnvironmentField::Path => Summary::GitEnvironmentPath,
+                super::EnvironmentField::Set => Summary::GitEnvironmentSet,
+                super::EnvironmentField::Unset => Summary::GitEnvironmentUnset,
+                super::EnvironmentField::Launcher => Summary::GitEnvironmentLauncher,
+            },
             Action::Add => Summary::Add,
             Action::Remove => Summary::Remove,
             Action::Scan => Summary::Scan,

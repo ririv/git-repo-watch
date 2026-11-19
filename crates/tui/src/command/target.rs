@@ -121,6 +121,8 @@ impl Action {
             | CommitGenerate
             | Compose(ComposeAction::Open)
             | Push
+            | RepositoryEnv
+            | RepositoryEnvEdit(_)
             | Remove
             | ReplayControl(_) => Requirement::Repository,
             OpenEditor => Requirement::EditorDestination,
@@ -222,6 +224,7 @@ impl Screen {
             },
             Mode::Panel(_) => self.workspace.path().map(Path::to_owned),
             Mode::Management(_)
+            | Mode::RepositoryEnvironment(_)
             | Mode::Composition(_)
             | Mode::CompositionWaiting(_)
             | Mode::CommitMessage { .. }

@@ -271,6 +271,30 @@ fn changing_command_namespace_keeps_the_original_repository_scope() {
 }
 
 #[test]
+fn repository_commands_show_the_captured_target_from_the_same_resolution_as_execution() {
+    let _language = i18n::using(i18n::Language::English);
+    let alpha = PathBuf::from("/example/alpha");
+    let beta = PathBuf::from("/example/beta");
+    let (_home, mut s) = fixture(vec![alpha.clone(), beta.clone()]);
+    s.focus(Some(alpha.clone()));
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("repo env");
+    s.focus(Some(beta));
+    let preview = render(&mut s, 155, 28);
+    let environment_command = preview
+        .lines()
+        .find(|line| line.contains("Git execution environment"))
+        .unwrap();
+    assert!(
+        environment_command.contains("alpha ·"),
+        "{environment_command}"
+    );
+    key(&mut s, KeyCode::Enter);
+    assert!(matches!(&s.mode, Mode::RepositoryEnvironment(path) if path == &alpha));
+    s.shutdown();
+}
+
+#[test]
 fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_escape() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);

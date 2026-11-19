@@ -19,6 +19,7 @@ impl Target {
     pub fn current(screen: &Screen) -> Result<Self, &'static str> {
         Ok(match &screen.mode {
             Mode::Management(_) => Self::Management,
+            Mode::RepositoryEnvironment(_) => Self::Configuration,
             Mode::Browser(_) => Self::Browser,
             Mode::Panel(_) => Self::Workspace,
             Mode::Files(files) => Self::Files(files.snapshot.path.clone()),

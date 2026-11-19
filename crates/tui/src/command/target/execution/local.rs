@@ -166,6 +166,14 @@ impl Screen {
                 self.open_management();
             }
             Action::Settings => self.open_configuration(Configuration::General),
+            Action::RepositoryEnv => {
+                let path = path.expect("resolved repository target");
+                if !matches!(&self.mode, Mode::RepositoryEnvironment(current) if *current == path) {
+                    self.open_configuration(Configuration::RepositoryEnvironment);
+                    self.mode = Mode::RepositoryEnvironment(path);
+                    self.sync_bar();
+                }
+            }
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
@@ -345,6 +353,10 @@ impl Screen {
                         self.config.auto_fetch.interval_seconds,
                     ),
                     Action::Concurrency => self.config.max_concurrency.to_string(),
+                    Action::RepositoryEnvEdit(field) => field.value(
+                        path.as_deref()
+                            .and_then(|path| self.config.repository_environment.get(path)),
+                    ),
                     Action::AiModel => {
                         if self.config.ai.program().model.is_empty() {
                             "default".into()

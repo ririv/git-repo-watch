@@ -65,6 +65,7 @@ mod release_interaction;
 mod remotes;
 mod replay;
 mod replay_batch;
+mod repository_environment;
 mod repository_list;
 mod responsive;
 mod scan_management;
@@ -189,6 +190,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: paths,
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,

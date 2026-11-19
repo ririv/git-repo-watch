@@ -69,6 +69,7 @@ impl Screen {
             Mode::CommitMessage { .. } => {}
             Mode::Management(_) => self.bar_paste(text),
             Mode::Browsing
+            | Mode::RepositoryEnvironment(_)
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)
             | Mode::Panel(_)
@@ -282,6 +283,10 @@ impl Screen {
                 self.browser_key(session, key);
             }
             Mode::Browsing => return self.navigate(key, root),
+            Mode::RepositoryEnvironment(path) => {
+                self.mode = Mode::RepositoryEnvironment(path);
+                return self.navigate(key, root);
+            }
             Mode::Panel(_) => match key.code {
                 KeyCode::Esc | KeyCode::Left => {
                     self.mode = mode;

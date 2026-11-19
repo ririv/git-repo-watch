@@ -30,6 +30,19 @@ impl Service {
                     i18n::tf!(NotInTheRepositoryList, path.display())
                 );
                 config.repositories.retain(|p| p != &path);
+                config.repository_environment.remove(&path);
+            }
+            ConfigEdit::RepositoryEnvironment { path, edit } => {
+                let path = state::canonical(&path)?;
+                local::open(&path)?;
+                let environment = config
+                    .repository_environment
+                    .entry(path.clone())
+                    .or_default();
+                edit.apply(environment);
+                if *environment == crate::git_environment::Environment::default() {
+                    config.repository_environment.remove(&path);
+                }
             }
             ConfigEdit::Interval(value) => config.interval_seconds = value,
             ConfigEdit::Anchor(value) => config.schedule_anchor = value,

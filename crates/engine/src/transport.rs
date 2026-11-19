@@ -1,10 +1,11 @@
 //! Network and write operations deliberately delegated to system Git.
-use crate::{cancel::Cancel, domain::PushTarget, process};
+use crate::{cancel::Cancel, domain::PushTarget, process, state::Store};
 use anyhow::{Context, Result, ensure};
 use std::{collections::BTreeMap, ffi::OsString, path::Path, time::Duration};
 #[derive(Debug, Clone)]
 pub struct Git {
     pub timeout: Duration,
+    store: Option<Store>,
 }
 pub(crate) enum RepositoryStash {
     Tracked,
@@ -19,6 +20,7 @@ impl Default for Git {
     fn default() -> Self {
         Self {
             timeout: Duration::from_secs(120),
+            store: None,
         }
     }
 }
@@ -32,15 +34,59 @@ impl Git {
             .to_owned())
     }
 
+    pub(crate) fn with_store(store: Store) -> Self {
+        Self {
+            store: Some(store),
+            ..Self::default()
+        }
+    }
+
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
     fn run(&self, path: &Path, args: Vec<OsString>, cancel: &Cancel) -> Result<Vec<u8>> {
-        process::run(
-            Path::new("/usr/bin/git"),
+        self.execute(path, args, cancel, &[])?.success("git")
+    }
+
+    fn execute(
+        &self,
+        path: &Path,
+        mut args: Vec<OsString>,
+        cancel: &Cancel,
+        operation_environment: &[(OsString, OsString)],
+    ) -> Result<process::Output> {
+        let mut program = Path::new("/usr/bin/git").to_path_buf();
+        let mut environment = Vec::new();
+        if let Some(store) = &self.store {
+            let config = store.config()?;
+            if let Some(profile) = config.repository_environment.get(path) {
+                environment = profile.variables_for(path)?;
+                if let Some(launcher) = &profile.launcher {
+                    let mut wrapped: Vec<_> = launcher.args.iter().map(OsString::from).collect();
+                    wrapped.push(program.into_os_string());
+                    wrapped.append(&mut args);
+                    args = wrapped;
+                    program = if launcher.program.components().count() == 1
+                        && !launcher.program.is_absolute()
+                    {
+                        launcher.program.clone()
+                    } else {
+                        path.join(&launcher.program)
+                    };
+                }
+            }
+        }
+        environment.extend_from_slice(operation_environment);
+        process::run_with_environment(
+            &program,
             &args,
             Some(path),
             cancel,
             self.timeout,
-        )?
-        .success("git")
+            &environment,
+        )
     }
     pub fn fetch_tracking(
         &self,
@@ -124,12 +170,10 @@ impl Git {
         Ok(self.heads(path, remote, cancel)?.remove(reference))
     }
     fn run_replay(&self, path: &Path, args: Vec<OsString>, cancel: &Cancel) -> Result<()> {
-        process::run_with_environment(
-            Path::new("/usr/bin/git"),
-            &args,
-            Some(path),
+        self.execute(
+            path,
+            args,
             cancel,
-            self.timeout,
             &[
                 ("GIT_EDITOR".into(), "/usr/bin/true".into()),
                 ("GIT_SEQUENCE_EDITOR".into(), "/usr/bin/true".into()),
@@ -258,15 +302,8 @@ impl Git {
         ] {
             environment.push((name.into(), "0".into()));
         }
-        process::run_with_environment(
-            Path::new("/usr/bin/git"),
-            args,
-            Some(worktree),
-            cancel,
-            self.timeout,
-            &environment,
-        )?
-        .success("git stash")?;
+        self.execute(worktree, args.to_vec(), cancel, &environment)?
+            .success("git stash")?;
         Ok(())
     }
     pub fn commit(&self, path: &Path, message: &str, cancel: &Cancel) -> Result<()> {
@@ -280,12 +317,10 @@ impl Git {
         message: &str,
         cancel: &Cancel,
     ) -> Result<()> {
-        process::run_with_environment(
-            Path::new("/usr/bin/git"),
-            &strings(&["commit", "-m", message]),
-            Some(path),
+        self.execute(
+            path,
+            strings(&["commit", "-m", message]),
             cancel,
-            self.timeout,
             &[("GIT_INDEX_FILE".into(), index.as_os_str().into())],
         )?
         .success("git commit")?;

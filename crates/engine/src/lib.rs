@@ -10,6 +10,7 @@ pub mod discovery;
 pub mod domain;
 pub mod editor;
 pub mod executor;
+pub mod git_environment;
 pub mod local;
 pub mod notify;
 pub mod observation;

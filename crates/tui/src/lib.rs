@@ -109,6 +109,7 @@ enum Page {
 }
 #[derive(Debug)]
 enum Mode {
+    RepositoryEnvironment(PathBuf),
     StashSave(Box<stash_save::Session>),
     Management(Box<management::Session>),
     Workflow(Box<workflow::Session>),
@@ -445,6 +446,9 @@ impl Screen {
             .and_then(|index| self.rows().get(index).map(|row| row.path.clone()))
     }
     fn scope_path(&self) -> Option<PathBuf> {
+        if let Mode::RepositoryEnvironment(path) = &self.mode {
+            return Some(path.clone());
+        }
         if let Mode::Management(session) = &self.mode {
             return session.registered_path().map(std::path::Path::to_owned);
         }

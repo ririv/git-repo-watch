@@ -81,8 +81,8 @@ mod schedule;
 impl Service {
     pub fn new(store: Store, scheduler: Manager) -> Self {
         Self {
+            git: Git::with_store(store.clone()),
             store,
-            git: Git::default(),
             scheduler,
             session_repository: None,
         }
@@ -102,6 +102,10 @@ impl Service {
 #[derive(Debug, Clone)]
 pub enum ConfigEdit {
     Remove(PathBuf),
+    RepositoryEnvironment {
+        path: PathBuf,
+        edit: crate::git_environment::Edit,
+    },
     Interval(u64),
     Anchor(crate::scheduler::timing::Anchor),
     Policy(PushPolicy),

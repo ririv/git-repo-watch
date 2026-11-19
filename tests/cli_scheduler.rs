@@ -16,6 +16,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![PathBuf::from("/path/to/unavailable/repository")],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,

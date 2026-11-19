@@ -52,6 +52,7 @@ impl super::Command {
             Action::OpenRepository
             | Action::Repositories
             | Action::RepositorySettings
+            | Action::RepositoryEnv
             | Action::Settings
             | Action::AiSettings
             | Action::AiPrompt

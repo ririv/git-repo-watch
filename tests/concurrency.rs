@@ -78,6 +78,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,

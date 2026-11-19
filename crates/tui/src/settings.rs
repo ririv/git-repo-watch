@@ -16,6 +16,7 @@ pub(crate) enum Item {
 impl Item {
     pub fn context(self) -> command::Context {
         match self {
+            Self::Command(Action::RepositoryEnvEdit(_)) => command::Context::RepositoryEnv,
             Self::AiEnabled
             | Self::Command(Action::AiAgent | Action::AiModel | Action::AiPrompt) => {
                 command::Context::Ai
@@ -74,7 +75,11 @@ impl Screen {
         match item {
             Item::Command(action) => self.activate(
                 action,
-                self.selected_path(),
+                if matches!(action, Action::RepositoryEnvEdit(_)) {
+                    self.scope_path()
+                } else {
+                    self.selected_path()
+                },
                 crate::clipboard::Selection::None,
                 root,
             ),

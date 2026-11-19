@@ -91,6 +91,11 @@ pub enum CommandSummary {
     OpenRepository,
     Repositories,
     RepositorySettings,
+    GitEnvironment,
+    GitEnvironmentPath,
+    GitEnvironmentSet,
+    GitEnvironmentUnset,
+    GitEnvironmentLauncher,
     RepositoryRefresh,
     Add,
     Remove,
@@ -120,6 +125,21 @@ impl CommandSummary {
     }
     pub fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::GitEnvironment, language) => {
+                crate::Message::GitEnvironment.in_language(language)
+            }
+            (Self::GitEnvironmentPath, language) => {
+                crate::Message::GitEnvironmentPath.in_language(language)
+            }
+            (Self::GitEnvironmentSet, language) => {
+                crate::Message::GitEnvironmentSet.in_language(language)
+            }
+            (Self::GitEnvironmentUnset, language) => {
+                crate::Message::GitEnvironmentUnset.in_language(language)
+            }
+            (Self::GitEnvironmentLauncher, language) => {
+                crate::Message::GitEnvironmentLauncher.in_language(language)
+            }
             (Self::ConflictAccept, Language::Chinese) => "采用当前冲突块的版本",
             (Self::ConflictAccept, Language::English) => "Resolve selected conflict block",
             (Self::ConflictBlock, Language::Chinese) => "选择冲突块",

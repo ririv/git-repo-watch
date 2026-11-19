@@ -279,6 +279,9 @@ fn render_menu(
             let partial_index = resolved
                 .value()
                 .is_some_and(|target| target.is_partial_index());
+            let repository_path = resolved.value().and_then(|target| target.repository_path());
+            let repository_action = repository_path.is_some();
+            let repository_label = repository_path.and_then(|path| repository.label(path));
             let availability = resolved.map(|_| ());
             let description = match candidate {
                 Candidate::Parameter(parameter) => parameter.description.text(),
@@ -291,35 +294,15 @@ fn render_menu(
                     _ => command.summary().text(),
                 },
             };
-            let repository_action = matches!(
-                command.action,
-                Action::Push
-                    | Action::Pull
-                    | Action::Sync
-                    | Action::Commit
-                    | Action::CommitGenerate
-                    | Action::BranchCreate
-                    | Action::BranchSwitch
-                    | Action::StashSave
-                    | Action::StashSaveMode(_)
-                    | Action::Replay(_)
-                    | Action::ReplayControl(_)
-                    | Action::Compose(crate::composition::Action::Open)
-            );
-            let value = if repository_action {
-                path.as_deref()
-                    .and_then(|path| repository.label(path))
-                    .map(|repository| match &target {
-                        Some(target) => format!("{repository} · {target}"),
-                        None => repository,
-                    })
-            } else {
-                None
-            }
-            .or(target)
-            .or_else(|| repository_list::annotation(command.action, screen))
-            .or_else(|| layout_summary::annotation(command.action, screen, body))
-            .or_else(|| settings::annotation(command.action, screen));
+            let value = repository_label
+                .map(|repository| match &target {
+                    Some(target) => format!("{repository} · {target}"),
+                    None => repository,
+                })
+                .or(target)
+                .or_else(|| repository_list::annotation(command.action, screen))
+                .or_else(|| layout_summary::annotation(command.action, screen, body))
+                .or_else(|| settings::annotation(command.action, screen));
             let argument = match candidate {
                 Candidate::Command(command) => command.action.argument(),
                 Candidate::Parameter(parameter) => {

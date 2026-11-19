@@ -20,6 +20,7 @@ impl Default for Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repositories: vec![],
+            repository_environment: Default::default(),
             scheduled_actions: crate::workflow::Plan::fetch(),
             max_concurrency: 4,
             fetch_on_startup: false,
@@ -46,6 +47,9 @@ pub struct Config {
     )]
     pub schedule_anchor: crate::scheduler::timing::Anchor,
     pub repositories: Vec<PathBuf>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub repository_environment:
+        std::collections::BTreeMap<PathBuf, crate::git_environment::Environment>,
     #[serde(default)]
     pub scheduled_actions: crate::workflow::Plan,
     #[serde(
@@ -169,6 +173,17 @@ impl Config {
             );
             ensure!(seen.insert(p), i18n::tf!(DuplicatePath, p.display()));
         }
+        for (path, environment) in &self.repository_environment {
+            ensure!(
+                path.is_absolute()
+                    && !path.components().any(|part| matches!(
+                        part,
+                        std::path::Component::ParentDir | std::path::Component::CurDir
+                    )),
+                i18n::tf!(PathMustBeANormalizedAbsolutePath, path.display())
+            );
+            environment.validate()?;
+        }
         Ok(())
     }
 }
@@ -283,6 +298,34 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
             replacement = Value::Array(paths_array(&Array::new(), array));
         }
         document[key] = Item::Value(replacement);
+    }
+    if before
+        .as_ref()
+        .is_none_or(|before| before["repository_environment"] != after["repository_environment"])
+    {
+        if let Some(table) = desired.remove("repository_environment") {
+            let mut table = table
+                .into_table()
+                .expect("repository environments serialize as a table");
+            if let Some(current) = document
+                .get("repository_environment")
+                .and_then(Item::as_table)
+            {
+                for (key, profile) in &config.repository_environment {
+                    let key = key.to_str().expect("serialized repository path is UTF-8");
+                    if original.as_ref().and_then(|config| {
+                        config.repository_environment.get(std::path::Path::new(key))
+                    }) == Some(profile)
+                        && let Some(existing) = current.get(key)
+                    {
+                        table.insert(key, existing.clone());
+                    }
+                }
+            }
+            document["repository_environment"] = Item::Table(table);
+        } else {
+            document.remove("repository_environment");
+        }
     }
     for (table, keys) in [
         ("mouse", &["precise_click", "scroll", "select_pane"][..]),

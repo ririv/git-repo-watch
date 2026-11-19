@@ -42,6 +42,13 @@ impl Screen {
         value: String,
         draft: crate::bar::CommandDraft,
     ) {
+        if matches!(command, command::ConfigArgument::RepositoryEnvironment(_))
+            && let Err(error) =
+                self.prepare_command(command.action(), draft.path.as_deref(), &draft.selection)
+        {
+            self.message = crate::message::Message::error(format!("{error:#}"));
+            return;
+        }
         let origin = Box::new(self.take_mode());
         self.mode = Mode::Confirm {
             operation: Confirmation::Configure {
@@ -136,7 +143,7 @@ impl Screen {
                 command,
                 value,
                 origin,
-                ..
+                draft,
             } => {
                 let agent = self.config.ai.agent;
                 self.mode = *origin;
@@ -172,6 +179,17 @@ impl Screen {
                             Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
                             Parameter::Concurrency => {
                                 save(ConfigEdit::Concurrency(value.parse()?))?
+                            }
+                            Parameter::RepositoryEnvironment(field) => {
+                                let path = draft.path.expect("resolved repository target");
+                                s.configure_with_cancel(
+                                    ConfigEdit::RepositoryEnvironment {
+                                        path,
+                                        edit: field.edit(&value)?,
+                                    },
+                                    &c,
+                                )?;
+                                i18n::tr!(PreferenceSaved).into()
                             }
                             Parameter::AiModel | Parameter::AiPrompt => {
                                 let edit = match command {

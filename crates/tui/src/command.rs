@@ -7,8 +7,8 @@ mod enter;
 pub(crate) mod hierarchy;
 pub(crate) mod history;
 mod input;
-pub(crate) mod named;
 pub(crate) mod loader;
+pub(crate) mod named;
 pub(crate) mod options;
 pub(crate) mod path;
 mod prefix;
@@ -23,7 +23,9 @@ mod tests;
 pub(crate) mod values;
 pub(crate) use argument::ArgumentSyntax;
 pub use argument::{ArgumentAction, ConfigArgument, argument_input};
+mod environment;
 pub(crate) use context::Context;
+pub use environment::Field as EnvironmentField;
 pub(crate) use input::{Discovery, Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
@@ -112,6 +114,8 @@ pub enum Action {
     OpenRepository,
     Repositories,
     RepositorySettings,
+    RepositoryEnv,
+    RepositoryEnvEdit(EnvironmentField),
     Add,
     Remove,
     Scan,
@@ -401,6 +405,31 @@ pub const COMMANDS: &[Command] = &[
         name: "repo commit generate",
         action: CommitGenerate,
         description: i18n::Message::AgentGenerate,
+    },
+    Command {
+        name: "repo env",
+        action: RepositoryEnv,
+        description: i18n::Message::GitEnvironment,
+    },
+    Command {
+        name: "repo env path",
+        action: RepositoryEnvEdit(EnvironmentField::Path),
+        description: i18n::Message::GitEnvironmentPath,
+    },
+    Command {
+        name: "repo env set",
+        action: RepositoryEnvEdit(EnvironmentField::Set),
+        description: i18n::Message::GitEnvironmentSet,
+    },
+    Command {
+        name: "repo env unset",
+        action: RepositoryEnvEdit(EnvironmentField::Unset),
+        description: i18n::Message::GitEnvironmentUnset,
+    },
+    Command {
+        name: "repo env launcher",
+        action: RepositoryEnvEdit(EnvironmentField::Launcher),
+        description: i18n::Message::GitEnvironmentLauncher,
     },
     Command {
         name: "repo fetch",
@@ -746,6 +775,7 @@ pub enum Configuration {
     General,
     Schedule,
     Repositories,
+    RepositoryEnvironment,
 }
 impl Configuration {
     pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
@@ -758,6 +788,12 @@ impl Configuration {
                 WrapMenu,
             ],
             Self::Repositories => &[Add, Remove, Scan],
+            Self::RepositoryEnvironment => &[
+                RepositoryEnvEdit(EnvironmentField::Path),
+                RepositoryEnvEdit(EnvironmentField::Set),
+                RepositoryEnvEdit(EnvironmentField::Unset),
+                RepositoryEnvEdit(EnvironmentField::Launcher),
+            ],
             Self::Schedule => match registration {
                 engine::scheduler::Registration::Loaded => {
                     &[DisableSchedule, Interval, Anchor, Workflow, Apply]
@@ -772,6 +808,7 @@ impl Configuration {
         match self {
             Self::General => i18n::tr!(GeneralSettings),
             Self::Repositories => i18n::tr!(RepositoryManagement),
+            Self::RepositoryEnvironment => i18n::tr!(GitEnvironment),
             Self::Schedule => i18n::tr!(ScheduleSettings),
         }
     }

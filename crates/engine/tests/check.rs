@@ -131,6 +131,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: paths.clone(),
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 2,
@@ -238,6 +239,7 @@ fn independent_repositories_overlap_real_fetches() {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 2,
@@ -276,6 +278,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::FastForward),
             max_concurrency: 4,
@@ -377,6 +380,7 @@ fn file_reads_remain_available_while_repository_writes_wait_for_the_same_git_sto
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![f.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
@@ -432,6 +436,7 @@ fn corrupt_single_repository_cache_is_rejected_before_checking() {
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: vec![f.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::FastForward),
             max_concurrency: 4,

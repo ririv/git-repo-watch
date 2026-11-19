@@ -14,6 +14,7 @@ pub(crate) enum Context {
     Branches,
     Stash,
     Repository,
+    RepositoryEnv,
     Repositories,
     Settings,
     Ai,
@@ -29,7 +30,8 @@ impl Context {
             | Self::Branches
             | Self::Stash
             | Self::Files
-            | Self::Composition => Some(Self::Repository),
+            | Self::Composition
+            | Self::RepositoryEnv => Some(Self::Repository),
             Self::Ai => Some(Self::Settings),
             Self::Repository | Self::Repositories | Self::Settings | Self::Schedule => None,
         }
@@ -41,6 +43,7 @@ impl Context {
             Self::Branches => "repo branch",
             Self::Stash => "repo stash",
             Self::Repository => "repo",
+            Self::RepositoryEnv => "repo env",
             Self::Repositories => "repos",
             Self::Settings => "settings",
             Self::Ai => "settings ai",
@@ -144,7 +147,7 @@ impl Context {
         // 配置和编排页面保持其专用操作；通用入口用于仓库及内容子视图。
         if matches!(
             self,
-            Self::Settings | Self::Ai | Self::Schedule | Self::Composition
+            Self::Settings | Self::Ai | Self::Schedule | Self::Composition | Self::RepositoryEnv
         ) {
             return local;
         }
@@ -187,6 +190,7 @@ impl Screen {
     pub(crate) fn command_context(&self) -> Option<Context> {
         match &self.mode {
             Mode::Management(_) => Some(Context::Repositories),
+            Mode::RepositoryEnvironment(_) => Some(Context::RepositoryEnv),
             Mode::Workflow(_) => Some(Context::Schedule),
             Mode::Composition(_) | Mode::CompositionWaiting(_) => Some(Context::Composition),
             Mode::Browser(_) => Some(Context::Files),

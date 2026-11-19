@@ -33,6 +33,7 @@ pub enum ArgumentAction {
     AiAgent,
     AiModel,
     AiPrompt,
+    RepositoryEnvironment(super::EnvironmentField),
     Option(super::options::Kind),
 }
 impl ArgumentAction {
@@ -67,6 +68,7 @@ impl ArgumentAction {
             Self::AiAgent => Action::AiAgent,
             Self::AiModel => Action::AiModel,
             Self::AiPrompt => Action::AiPrompt,
+            Self::RepositoryEnvironment(field) => Action::RepositoryEnvEdit(field),
             Self::Option(kind) => kind.action(),
         }
     }
@@ -98,6 +100,7 @@ impl ArgumentAction {
             }
             Self::AiModel => "[<model>|default]",
             Self::AiPrompt => "<text>",
+            Self::RepositoryEnvironment(field) => field.syntax(),
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
@@ -114,6 +117,7 @@ impl ArgumentAction {
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
+            Self::RepositoryEnvironment(_) => i18n::tr!(GitEnvironmentArgumentHint),
             Self::Option(_) | Self::Autopush | Self::AiAgent => {
                 i18n::tr!(OptionCompletionHint)
             }
@@ -200,6 +204,10 @@ impl ArgumentAction {
                 config.validate()?;
                 Ok(value.into())
             }
+            Self::RepositoryEnvironment(field) => {
+                field.edit(value)?;
+                Ok(value.into())
+            }
             Self::Concurrency => {
                 let count = value.parse::<usize>()?;
                 ensure!(
@@ -275,6 +283,7 @@ impl Action {
             Self::AiAgent => Some(ArgumentAction::AiAgent),
             Self::AiModel => Some(ArgumentAction::AiModel),
             Self::AiPrompt => Some(ArgumentAction::AiPrompt),
+            Self::RepositoryEnvEdit(field) => Some(ArgumentAction::RepositoryEnvironment(field)),
             _ => None,
         }
     }
@@ -352,6 +361,7 @@ pub enum ConfigArgument {
     Concurrency,
     AiModel,
     AiPrompt,
+    RepositoryEnvironment(super::EnvironmentField),
 }
 impl ConfigArgument {
     pub fn action(self) -> Action {
@@ -370,6 +380,7 @@ impl ConfigArgument {
             Self::Concurrency => ArgumentAction::Concurrency,
             Self::AiModel => ArgumentAction::AiModel,
             Self::AiPrompt => ArgumentAction::AiPrompt,
+            Self::RepositoryEnvironment(field) => ArgumentAction::RepositoryEnvironment(field),
         }
     }
 }
@@ -384,6 +395,9 @@ impl ArgumentAction {
             Self::Concurrency => Some(ConfigArgument::Concurrency),
             Self::AiModel => Some(ConfigArgument::AiModel),
             Self::AiPrompt => Some(ConfigArgument::AiPrompt),
+            Self::RepositoryEnvironment(field) => {
+                Some(ConfigArgument::RepositoryEnvironment(field))
+            }
             _ => None,
         }
     }

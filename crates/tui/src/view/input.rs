@@ -228,7 +228,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         return i18n::tr!(WorktreeHorizontalHint);
     }
     match input_mode(screen) {
-        Mode::Browsing => match screen.page {
+        Mode::Browsing | Mode::RepositoryEnvironment(_) => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),
             Page::Detail => i18n::tr!(RepositoryPanesHint),
             Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
@@ -463,6 +463,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         match mode {
             Mode::Management(_)
             | Mode::Browsing
+            | Mode::RepositoryEnvironment(_)
             | Mode::Composition(_)
             | Mode::CompositionWaiting(_)
             | Mode::Browser(_)

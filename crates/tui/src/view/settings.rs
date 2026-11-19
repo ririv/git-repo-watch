@@ -61,7 +61,19 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
         return;
     }
     let mut lines = Vec::new();
-    let panel = block(section.title());
+    let repository = match &screen.mode {
+        Mode::RepositoryEnvironment(path) => Some(path.as_path()),
+        Mode::Busy(pending) => match pending.origin.as_ref() {
+            Mode::RepositoryEnvironment(path) => Some(path.as_path()),
+            _ => None,
+        },
+        _ => None,
+    };
+    let environment = repository.and_then(|path| screen.config.repository_environment.get(path));
+    let panel = block(repository.map_or_else(
+        || section.title().to_owned(),
+        |path| format!("{} · {}", section.title(), name(path)),
+    ));
     let inner = panel.inner(area);
     let mut item_rows = Vec::new();
     let mut row = 0usize;
@@ -95,6 +107,10 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 screen.config.scheduled_actions.push_policy().to_string()
             }
             Item::Command(Action::Concurrency) => screen.config.max_concurrency.to_string(),
+            Item::Command(Action::RepositoryEnvEdit(command::EnvironmentField::Set)) => environment
+                .map(|env| env.variables.keys().cloned().collect::<Vec<_>>().join(", "))
+                .unwrap_or_default(),
+            Item::Command(Action::RepositoryEnvEdit(field)) => safe(&field.value(environment)),
             Item::ChineseCommandTrigger => if screen.config.chinese_command_trigger {
                 i18n::tr!(TaskEnabled)
             } else {

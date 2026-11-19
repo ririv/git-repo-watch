@@ -23,6 +23,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
+            repository_environment: Default::default(),
             repositories: paths,
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: concurrency,

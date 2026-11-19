@@ -341,7 +341,7 @@ impl Screen {
                     crate::message::Message::information(i18n::tr!(PreferenceSaved).into());
             }
             Outcome::Text(message) => {
-                if matches!(origin, Mode::Management(_)) {
+                if matches!(origin, Mode::Management(_) | Mode::RepositoryEnvironment(_)) {
                     self.mode = origin;
                 } else {
                     self.workspace.save(origin);

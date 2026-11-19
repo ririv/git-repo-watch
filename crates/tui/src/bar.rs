@@ -266,6 +266,7 @@ impl Screen {
             self.mode,
             Mode::Management(_)
                 | Mode::Browsing
+                | Mode::RepositoryEnvironment(_)
                 | Mode::Composition(_)
                 | Mode::CompositionWaiting(_)
                 | Mode::Browser(_)
@@ -523,7 +524,14 @@ impl Screen {
                             return Ok(BarEvent::Handled);
                         }
                         let parsed = argument.parse(value, self.service.scheduler.user_home());
-                        if parsed.is_ok() {
+                        if parsed.is_ok()
+                            && !matches!(
+                                argument,
+                                command::ArgumentAction::RepositoryEnvironment(
+                                    command::EnvironmentField::Set
+                                )
+                            )
+                        {
                             *submitted = Some(input.text());
                         }
                         match parsed {
