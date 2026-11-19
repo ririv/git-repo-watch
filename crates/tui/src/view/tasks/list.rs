@@ -8,13 +8,11 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
         Icon::Spinner => animation,
         Icon::Symbol(symbol) => symbol,
     };
-    let color = if color == BAD && !record.unread_failure() {
-        MUTED
-    } else {
-        color
-    };
-    let status = Span::styled(symbol, Style::default().fg(color).bold());
-    let content_width = width.saturating_sub(symbol.width() + 1);
+    let mut line = Line::from(vec![
+        Span::styled(symbol, Style::default().fg(color).bold()),
+        Span::raw(" "),
+    ]);
+    let content_width = width.saturating_sub(line.width());
     let progress = match &record.state {
         State::Running { progress } | State::Cancelling { progress } if !progress.is_empty() => {
             format!(" · {progress}")
@@ -24,25 +22,21 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
     let title = format!("{} · {}{progress}", scope(record), safe(&record.spec.title));
     let time = local_time(&record.started_at);
     if width < 42 {
+        line.spans.push(Span::raw(truncate(&title, content_width)));
         return vec![
-            Line::from(vec![
-                status,
-                Span::raw(" "),
-                Span::raw(truncate(&title, content_width)),
-            ]),
+            line,
             Line::styled(truncate(&time, width), Style::default().fg(MUTED)).right_aligned(),
         ];
     }
     let title_width = content_width.saturating_sub(time.width() + 1);
     let title = truncate(&title, title_width);
     let padding = " ".repeat(title_width.saturating_sub(title.width()) + 1);
-    vec![Line::from(vec![
-        status,
-        Span::raw(" "),
+    line.spans.extend([
         Span::raw(title),
         Span::raw(padding),
         Span::styled(time, Style::default().fg(MUTED)),
-    ])]
+    ]);
+    vec![line]
 }
 fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     let State::Finished {
@@ -76,12 +70,7 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     }
     lines
         .into_iter()
-        .map(|line| {
-            Line::from(vec![
-                Span::styled("╰─", Style::default().fg(MUTED)),
-                Span::styled(line.to_string(), Style::default().fg(color)),
-            ])
-        })
+        .map(|line| Line::styled(format!("╰─{line}"), Style::default().fg(color)))
         .collect()
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
@@ -135,8 +124,14 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         if row + height > usize::from(inner.height) {
             break;
         }
+        let y = inner.y + row as u16;
+        if record.unread_failure() {
+            frame.buffer_mut()[(inner.x - 1, y)]
+                .set_symbol("•")
+                .set_fg(WARN);
+        }
         screen.tasks.rows.push((
-            Rect::new(inner.x, inner.y + row as u16, inner.width, height as u16),
+            Rect::new(inner.x, y, inner.width, height as u16),
             record.id.clone(),
         ));
         row += height;

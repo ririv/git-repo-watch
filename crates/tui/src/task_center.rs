@@ -1,7 +1,10 @@
 //! A task screen and asynchronous journal cache do not take ownership of Git workers.
 use super::*;
 use engine::tasks::{Journal, Record, Retry};
-use std::time::{Duration, Instant};
+use std::{
+    collections::BTreeSet,
+    time::{Duration, Instant},
+};
 #[derive(Debug, Default)]
 pub(crate) enum Session {
     #[default]
@@ -23,9 +26,13 @@ enum Request {
     ReadFailure(String),
     Stop,
 }
+struct Update {
+    read_failure: Option<String>,
+    journal: Result<Journal>,
+}
 struct Worker {
     tx: mpsc::Sender<Request>,
-    rx: mpsc::Receiver<Result<Journal>>,
+    rx: mpsc::Receiver<Update>,
     handle: thread::JoinHandle<()>,
 }
 #[derive(Default)]
@@ -33,6 +40,7 @@ pub(crate) struct Center {
     pub session: Session,
     pub records: Vec<Record>,
     pub unread_failures: usize,
+    pub visible_unread_failure: Option<String>,
     pub selection: Option<String>,
     pub viewport: ratatui::widgets::ListState,
     pub rows: Vec<(ratatui::layout::Rect, String)>,
@@ -46,6 +54,7 @@ pub(crate) struct Center {
     observed: Option<(crate::message::Message, Instant)>,
     completion: Option<(crate::message::Message, Instant)>,
     pending_requests: usize,
+    pending_reads: BTreeSet<String>,
     clicks: crate::input::clicks::Clicks,
 }
 impl Center {
@@ -62,14 +71,24 @@ impl Center {
         let handle = thread::spawn(move || {
             let _language = i18n::using(language);
             while let Ok(request) = requests.recv() {
+                let read_failure = match &request {
+                    Request::ReadFailure(id) => Some(id.clone()),
+                    _ => None,
+                };
                 let (result, selected) = match request {
                     Request::Stop => break,
                     Request::Cancel(id) => (store.cancel_task(&id), Some(id)),
                     Request::ReadFailure(id) => (store.read_task_failure(&id), Some(id)),
                     Request::Refresh(selected) => (Ok(()), selected),
                 };
-                let result = result.and_then(|()| store.task_journal(200, selected.as_deref()));
-                if updates.send(result).is_err() {
+                let journal = result.and_then(|()| store.task_journal(200, selected.as_deref()));
+                if updates
+                    .send(Update {
+                        read_failure,
+                        journal,
+                    })
+                    .is_err()
+                {
                     break;
                 }
             }
@@ -161,7 +180,10 @@ impl Screen {
                     }
                 };
                 self.tasks.pending_requests = self.tasks.pending_requests.saturating_sub(1);
-                match result {
+                if let Some(id) = result.read_failure {
+                    self.tasks.pending_reads.remove(&id);
+                }
+                match result.journal {
                     Ok(Journal {
                         records,
                         unread_failures,
@@ -245,15 +267,17 @@ impl Screen {
             }
         }
     }
-    fn open_task_detail(&mut self, id: String) {
-        let unread = self.tasks.selected().is_some_and(Record::unread_failure);
-        self.tasks.session = Session::Detail {
-            id: id.clone(),
-            scroll: 0,
-        };
-        if unread {
+    pub(crate) fn acknowledge_task_frame(&mut self) {
+        if let Some(id) = self.tasks.visible_unread_failure.take()
+            && self.tasks.pending_reads.insert(id.clone())
+        {
+            self.tasks.connect(self.service.store.clone());
             self.task_request(Request::ReadFailure(id));
         }
+    }
+
+    fn open_task_detail(&mut self, id: String) {
+        self.tasks.session = Session::Detail { id, scroll: 0 };
     }
 
     fn retry_selected_task(&mut self) {

@@ -22,7 +22,7 @@ fn section(title: &str, color: Color, width: u16) -> Line<'static> {
         ),
     ])
 }
-pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
+fn text(record: &Record, width: u16) -> (Text<'static>, Option<usize>) {
     let (_, status, color) = status(record);
     let source = match record.spec.source {
         Source::Interactive => i18n::tr!(TasksInteractive),
@@ -78,10 +78,14 @@ pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
             ..
         } => (i18n::tr!(OperationResult), WARN, detail.as_str()),
     };
+    let mut failure_line = record.unread_failure().then_some(1);
     if !body.trim().is_empty() {
         lines.push(Line::default());
         lines.push(section(title, color, width));
         lines.push(Line::default());
+        if failure_line.is_some() {
+            failure_line = Some(lines.len());
+        }
         lines.extend(multiline(body).lines().map(|line| {
             Line::styled(
                 line.to_owned(),
@@ -110,7 +114,7 @@ pub(super) fn text(record: &Record, width: u16) -> Text<'static> {
             )
         }));
     }
-    Text::from(lines)
+    (Text::from(lines), failure_line)
 }
 pub(super) fn panel(area: Rect) -> Block<'static> {
     block(i18n::tr!(TasksDetails)).padding(ratatui::widgets::Padding::new(
@@ -120,12 +124,43 @@ pub(super) fn panel(area: Rect) -> Block<'static> {
         0,
     ))
 }
-pub(super) fn preview(frame: &mut Frame, record: &Record, area: Rect) {
+pub(super) struct Rendered {
+    pub area: Rect,
+    pub maximum: usize,
+    pub shows_unread_failure: bool,
+}
+
+pub(super) fn render(
+    frame: &mut Frame,
+    record: &Record,
+    area: Rect,
+    scroll: Option<&mut usize>,
+) -> Rendered {
     let panel = panel(area);
     let inner = panel.inner(area);
+    let (text, failure_line) = text(record, inner.width);
+    let height = usize::from(inner.height);
+    let failure_start = failure_line.filter(|_| !inner.is_empty()).map(|line| {
+        Paragraph::new(Text::from(text.lines[..line].to_vec()))
+            .wrap(Wrap { trim: false })
+            .line_count(inner.width)
+    });
+    let paragraph = Paragraph::new(text).wrap(Wrap { trim: false });
+    let full = scroll.map(|scroll| {
+        let lines = paragraph.line_count(inner.width);
+        *scroll = (*scroll).min(lines.saturating_sub(height));
+        (lines, (*scroll).min(u16::MAX.into()))
+    });
+    let offset = full.map_or(0, |(_, offset)| offset);
     frame.render_widget(panel, area);
-    frame.render_widget(
-        Paragraph::new(text(record, inner.width)).wrap(Wrap { trim: false }),
-        inner,
-    );
+    frame.render_widget(paragraph.scroll((offset as u16, 0)), inner);
+    if let Some((lines, offset)) = full {
+        crate::scrollbar::vertical(frame, area, inner, lines, offset);
+    }
+    Rendered {
+        area: inner,
+        maximum: full.map_or(0, |(lines, _)| lines.saturating_sub(height)),
+        shows_unread_failure: failure_start
+            .is_some_and(|start| start < offset.saturating_add(height)),
+    }
 }

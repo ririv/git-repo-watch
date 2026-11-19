@@ -183,6 +183,7 @@ fn inactive_selection(frame: &mut Frame, area: Rect) {
     }
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
+    screen.tasks.visible_unread_failure = None;
     render_content(frame, screen);
     if screen.history_preview.area.is_none() {
         screen.history_preview.hide();

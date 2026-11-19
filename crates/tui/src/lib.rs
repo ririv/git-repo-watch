@@ -591,6 +591,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
         let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
         link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
         screen.graphics.finish_frame(&mut io::stdout())?;
+        screen.acknowledge_task_frame();
         screen.fetch_on_startup();
         let mut dirty = true;
         let mut pending_event = None;
@@ -656,6 +657,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
                 link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
                 screen.graphics.finish_frame(&mut io::stdout())?;
+                screen.acknowledge_task_frame();
                 dirty = false;
             }
             let event = match pending_event.take() {

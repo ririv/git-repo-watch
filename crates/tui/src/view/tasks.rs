@@ -1,4 +1,4 @@
-//! Task rendering uses journal records; viewing never acknowledges a failure.
+//! Task rendering reports which failure was shown in the current frame.
 mod detail;
 mod list;
 pub(in crate::view) mod summary;
@@ -121,27 +121,21 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             if panels.len() > 1
                 && let Some(record) = screen.tasks.selected()
             {
-                detail::preview(frame, record, panels[1]);
+                if detail::render(frame, record, panels[1], None).shows_unread_failure {
+                    screen.tasks.visible_unread_failure = Some(record.id.clone());
+                }
             }
         }
         Session::Detail { id, scroll } => {
             let Some(record) = screen.tasks.records.iter().find(|record| record.id == *id) else {
                 return;
             };
-            let panel = detail::panel(body);
-            let inner = panel.inner(body);
-            let paragraph =
-                Paragraph::new(detail::text(record, inner.width)).wrap(Wrap { trim: false });
-            let lines = paragraph.line_count(inner.width);
-            screen.tasks.maximum = lines.saturating_sub(inner.height.into());
-            *scroll = (*scroll).min(screen.tasks.maximum);
-            screen.tasks.content = inner;
-            frame.render_widget(panel, body);
-            frame.render_widget(
-                paragraph.scroll(((*scroll).min(u16::MAX.into()) as u16, 0)),
-                inner,
-            );
-            crate::scrollbar::vertical(frame, body, inner, lines, *scroll);
+            let rendered = detail::render(frame, record, body, Some(scroll));
+            screen.tasks.maximum = rendered.maximum;
+            screen.tasks.content = rendered.area;
+            if rendered.shows_unread_failure {
+                screen.tasks.visible_unread_failure = Some(record.id.clone());
+            }
         }
     }
 }

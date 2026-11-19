@@ -10,8 +10,13 @@ fn synchronize(s: &mut Screen, condition: impl Fn(&Screen) -> bool) {
         thread::sleep(Duration::from_millis(5));
     }
 }
+fn present_tasks(s: &mut Screen, width: u16, height: u16) -> String {
+    let text = render(s, width, height);
+    s.acknowledge_task_frame();
+    text
+}
 #[test]
-fn only_opening_task_details_marks_the_failure_read_and_keeps_the_command_draft() {
+fn narrow_list_marks_the_failure_read_after_showing_details_and_keeps_the_command_draft() {
     let (_home, mut s) = fixture(vec![]);
     let run = Run::begin(
         &s.service.store,
@@ -35,23 +40,93 @@ fn only_opening_task_details_marks_the_failure_read_and_keeps_the_command_draft(
     assert!(s.tasks.session.open());
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        for (w, h) in [(110, 30), (60, 20), (24, 8), (1, 1), (0, 0)] {
-            render(&mut s, w, h);
+        for (w, h) in [(99, 30), (60, 20), (24, 8), (1, 1), (0, 0)] {
+            present_tasks(&mut s, w, h);
         }
     }
     assert!(s.service.store.task(&id).unwrap().unwrap().unread_failure());
+    let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
+    let mut assert_summary_color = |s: &mut Screen, color| {
+        terminal.draw(|frame| view::render(frame, s)).unwrap();
+        let row = s.tasks.rows[0].0;
+        let buffer = terminal.backend().buffer();
+        for (offset, symbol) in ["╰", "─", "f"].into_iter().enumerate() {
+            let cell = &buffer[(row.x + offset as u16, row.y + 1)];
+            assert_eq!(cell.symbol(), symbol);
+            assert_eq!(cell.fg, color);
+        }
+    };
+    assert_summary_color(&mut s, ratatui::style::Color::LightRed);
     key(&mut s, KeyCode::Enter);
+    assert_eq!(s.tasks.unread_failures, 1);
+    let text = present_tasks(&mut s, 80, 24);
     synchronize(&mut s, |s| s.tasks.unread_failures == 0);
-    let text = render(&mut s, 80, 24);
     assert!(text.contains("完整错误"));
     assert!(s.service.store.task(&id).unwrap().unwrap().pending());
     s.paste("do not replace my draft");
     key(&mut s, KeyCode::Esc);
+    assert_summary_color(&mut s, view::MUTED);
+    let buffer = terminal.backend().buffer();
+    let row = s.tasks.rows[0].0;
+    assert_eq!(buffer[(row.x - 1, row.y)].symbol(), " ");
+    let status = &buffer[(row.x, row.y)];
+    assert_eq!(status.symbol(), "×");
+    assert_eq!(status.fg, ratatui::style::Color::LightRed);
     key(&mut s, KeyCode::Esc);
     assert_eq!(s.bar.text(), draft);
     let record = s.service.store.task(&id).unwrap().unwrap();
     assert!(record.pending());
     assert!(!record.unread_failure());
+    s.shutdown();
+}
+#[test]
+fn wide_list_marks_only_the_visible_failure_read_and_keeps_navigation_in_order() {
+    let (_home, mut s) = fixture(vec![]);
+    let mut ids = Vec::new();
+    for (title, result) in [
+        ("older", Completion::failure("older error body")),
+        (
+            "success",
+            Completion::Succeeded {
+                detail: String::new(),
+            },
+        ),
+        ("newest", Completion::failure("newest error body")),
+    ] {
+        let run = Run::begin(
+            &s.service.store,
+            crate::task_center::spec(title, None, Retry::Unavailable),
+            &Cancel::default(),
+        )
+        .unwrap();
+        ids.push(run.record.id.clone());
+        run.finish(result).unwrap();
+    }
+    synchronize(&mut s, |s| s.tasks.unread_failures == 2);
+    s.open_tasks();
+    render(&mut s, 100, 7);
+    assert!(s.tasks.visible_unread_failure.is_none());
+    s.acknowledge_task_frame();
+    assert_eq!(s.tasks.unread_failures, 2);
+    let preview = present_tasks(&mut s, 100, 24);
+    assert_eq!(preview.matches("newest error body").count(), 2, "{preview}");
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
+    assert_eq!(s.tasks.selection.as_ref(), Some(&ids[2]));
+    assert!(
+        s.service
+            .store
+            .task(&ids[0])
+            .unwrap()
+            .unwrap()
+            .unread_failure()
+    );
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.tasks.selection.as_ref(), Some(&ids[1]));
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.tasks.selection.as_ref(), Some(&ids[0]));
+    present_tasks(&mut s, 100, 24);
+    synchronize(&mut s, |s| s.tasks.unread_failures == 0);
+    assert!(matches!(s.tasks.session, crate::task_center::Session::List));
     s.shutdown();
 }
 #[test]
@@ -210,6 +285,7 @@ fn task_mouse_selection_double_click_and_preferences_match_other_lists() {
     assert!(
         matches!(&s.tasks.session,crate::task_center::Session::Detail{id:selected,..} if selected==&id)
     );
+    present_tasks(&mut s, 80, 25);
     synchronize(&mut s, |s| s.tasks.unread_failures == 1);
     assert!(!s.service.store.task(&id).unwrap().unwrap().unread_failure());
     s.shutdown();
@@ -268,7 +344,7 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
             assert!(line.contains(&expected), "{text}");
             assert!(
                 line.trim_start_matches([' ', '│'])
-                    .starts_with("× 中文-repo-0")
+                    .starts_with("•× 中文-repo-0")
             );
             let line = text.lines().nth(second.y.into()).unwrap();
             assert!(

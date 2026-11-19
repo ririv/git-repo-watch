@@ -249,8 +249,7 @@ fn read_journal(
         )
         SELECT tasks.record, unread.id IS NOT NULL
         FROM visible JOIN tasks USING (id) LEFT JOIN unread USING (id)
-        ORDER BY CASE WHEN tasks.priority = 1 THEN 0 WHEN unread.id IS NOT NULL THEN 1 ELSE 2 END,
-            tasks.rowid DESC
+        ORDER BY (tasks.priority = 1) DESC, tasks.rowid DESC
         "#,
     )?;
     let mut journal = Journal::default();
