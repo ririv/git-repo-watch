@@ -12,7 +12,7 @@ use unicode_width::UnicodeWidthStr;
 
 const INPUT_ACCENT: Color = Color::Rgb(180, 145, 220);
 const INPUT_STYLE: Style = Style::new().bg(Color::Reset).fg(Color::Reset);
-const SEARCH_COMMAND_SEPARATOR: &str = " │ ";
+const SEARCH_COMMAND_SEPARATOR: &str = " ❘ ";
 
 /// Retain the input presentation throughout a foreground operation.
 #[derive(Debug)]
