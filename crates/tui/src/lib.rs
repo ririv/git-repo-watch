@@ -596,6 +596,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
         link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
         screen.graphics.finish_frame(&mut io::stdout())?;
         screen.acknowledge_task_frame();
+        let mut rendered = frame.buffer;
         screen.fetch_on_startup();
         let mut dirty = true;
         let mut pending_event = None;
@@ -639,7 +640,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                 | screen.overview.poll(&screen.service)
                 | screen.overview.animate()
                 | screen.poll_remote_info();
-            if let Some(plan) = screen.external_editor.take_terminal() {
+            let editor_returned = if let Some(plan) = screen.external_editor.take_terminal() {
                 let result = guard.editor(&plan)?;
                 screen.message = match result {
                     Ok(()) => message::Message::information(i18n::tf!(
@@ -651,17 +652,22 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                         i18n::tr!(ExternalEditorFailed)
                     )),
                 };
-                terminal.clear()?;
-                (screen.graphics, screen.background) = graphics::Display::detect();
-                link_output = Default::default();
-                dirty = true;
-            }
+                true
+            } else {
+                false
+            };
             guard.sync(screen.config.interaction_mode)?;
-            if dirty || changed {
+            if dirty || changed || editor_returned {
+                if editor_returned {
+                    terminal.clear()?;
+                    (screen.graphics, screen.background) = graphics::Display::detect();
+                    link_output = Default::default();
+                }
                 let frame = terminal.draw(|frame| view::render(frame, &mut screen))?;
                 link_output.flush(&mut io::stdout(), frame.buffer, &screen.pointer.links)?;
                 screen.graphics.finish_frame(&mut io::stdout())?;
                 screen.acknowledge_task_frame();
+                rendered = frame.buffer;
                 dirty = false;
             }
             let event = match pending_event.take() {
@@ -681,7 +687,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                             mouse,
                             || read_terminal_event(Duration::ZERO),
                             |mouse| {
-                                dirty |= screen.mouse(mouse, &root)?;
+                                dirty |= screen.mouse_in_frame(mouse, &root, rendered)?;
                                 Ok(())
                             },
                         )?;

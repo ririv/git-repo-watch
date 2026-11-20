@@ -338,6 +338,117 @@ fn grouped_files_click_the_rendered_row_without_staging_or_opening_a_new_view() 
 }
 
 #[test]
+fn double_clicking_a_blank_pane_uses_the_same_layout_as_zoom() {
+    use crate::workspace::{Arrangement, Section};
+
+    let f = support::Fixture::create();
+    f.commit("tracked", "tracked\n");
+    support::write(f.repo.join("pending"), "pending\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+
+    let mut terminal = Terminal::new(TestBackend::new(140, 34)).unwrap();
+    let press = |screen: &mut Screen, terminal: &mut Terminal<TestBackend>, point: Position| {
+        let frame = terminal.draw(|frame| view::render(frame, screen)).unwrap();
+        screen
+            .mouse_in_frame(
+                MouseEvent {
+                    kind: MouseEventKind::Down(MouseButton::Left),
+                    column: point.x,
+                    row: point.y,
+                    modifiers: KeyModifiers::NONE,
+                },
+                &Cancel::default(),
+                frame.buffer,
+            )
+            .unwrap();
+    };
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let workspace = s
+        .workspace_areas
+        .iter()
+        .find_map(|(area, section)| (*section == Section::Worktree).then_some(*area))
+        .unwrap();
+    let point = Position::new(workspace.x + 2, workspace.bottom() - 2);
+
+    s.config.mouse.select_pane = false;
+    press(&mut s, &mut terminal, point);
+    press(&mut s, &mut terminal, point);
+    assert_eq!(Section::focused(&s.mode), None);
+
+    s.config.mouse.select_pane = true;
+    s.config.mouse.precise_click = false;
+    press(&mut s, &mut terminal, point);
+    press(&mut s, &mut terminal, point);
+    assert_eq!(Section::focused(&s.mode), Some(Section::Worktree));
+    assert_eq!(
+        s.workspace.session().unwrap().arrangement,
+        Arrangement::Tiled
+    );
+
+    s.config.mouse.precise_click = true;
+    press(&mut s, &mut terminal, point);
+    assert_eq!(
+        s.workspace.session().unwrap().arrangement,
+        Arrangement::Tiled
+    );
+    press(&mut s, &mut terminal, point);
+    assert_eq!(
+        s.workspace.session().unwrap().arrangement,
+        Arrangement::Maximized
+    );
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    assert_eq!(
+        s.workspace_areas,
+        vec![(s.body_area.unwrap(), Section::Worktree)]
+    );
+
+    press(&mut s, &mut terminal, point);
+    press(&mut s, &mut terminal, point);
+    assert_eq!(
+        s.workspace.session().unwrap().arrangement,
+        Arrangement::Tiled
+    );
+    let border = Position::new(workspace.x, workspace.y);
+    press(&mut s, &mut terminal, border);
+    press(&mut s, &mut terminal, border);
+    assert_eq!(
+        s.workspace.session().unwrap().arrangement,
+        Arrangement::Tiled
+    );
+    assert_eq!(s.page, Page::Detail);
+
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let Mode::Changes(session) = &s.mode else {
+        panic!("worktree diff");
+    };
+    let preview = view::changes::areas(s.body_area.unwrap(), session)
+        .into_iter()
+        .find_map(|(area, focus)| (focus == crate::changes::Focus::Preview).then_some(area))
+        .unwrap();
+    let point = Position::new(preview.x + 2, preview.bottom() - 2);
+    press(&mut s, &mut terminal, point);
+    press(&mut s, &mut terminal, point);
+    assert!(matches!(
+        &s.mode,
+        Mode::Changes(session)
+            if session.focus == crate::changes::Focus::Preview
+                && session.arrangement == Arrangement::Maximized
+    ));
+    command(&mut s, "zoom");
+    assert!(matches!(
+        &s.mode,
+        Mode::Changes(session)
+            if session.focus == crate::changes::Focus::Preview
+                && session.arrangement == Arrangement::Tiled
+    ));
+    s.shutdown();
+}
+
+#[test]
 fn pane_selection_click_selection_and_wheel_preferences_are_independent() {
     let f = support::Fixture::create();
     f.commit("tracked", "tracked\n");

@@ -1,5 +1,8 @@
 //! A global navigation mode keeps pane movement separate from search and content keys.
-use crate::{Mode, Page, Screen, workspace::Section};
+use crate::{
+    Mode, Page, Screen,
+    workspace::{Arrangement, Section, Workspace},
+};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
@@ -15,7 +18,84 @@ pub(crate) enum Direction {
     Down,
     Right,
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ZoomPane {
+    Workspace(Section),
+    Browser(crate::browser::Focus),
+    Changes(crate::changes::Focus),
+    Inspection(crate::inspection::Focus),
+}
 impl Screen {
+    pub(crate) fn zoom_pane_target(&self) -> Option<ZoomPane> {
+        if let Some(inspect) = self.mode.inspection() {
+            return Some(ZoomPane::Inspection(inspect.focus));
+        }
+        match &self.mode {
+            Mode::Changes(session) => Some(ZoomPane::Changes(session.focus)),
+            Mode::Browser(session) => Some(ZoomPane::Browser(session.focus)),
+            mode if self.page == Page::Detail
+                && !matches!(mode, Mode::Busy(_))
+                && Workspace::is_root(mode)
+                && self.workspace.session().is_some() =>
+            {
+                Section::focused(mode).map(ZoomPane::Workspace)
+            }
+            _ => None,
+        }
+    }
+
+    pub(crate) fn zoom_pane(&mut self) {
+        let Some(target) = self.zoom_pane_target() else {
+            self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into());
+            return;
+        };
+        let arrangement = match (target, &mut self.mode) {
+            (ZoomPane::Workspace(_), _) => {
+                &mut self
+                    .workspace
+                    .session_mut()
+                    .expect("workspace pane")
+                    .arrangement
+            }
+            (ZoomPane::Browser(_), Mode::Browser(session)) => &mut session.arrangement,
+            (ZoomPane::Changes(_), Mode::Changes(session)) => &mut session.arrangement,
+            (ZoomPane::Inspection(_), mode) => {
+                &mut mode.inspection_mut().expect("inspection pane").arrangement
+            }
+            _ => unreachable!("zoom target belongs to the current pane"),
+        };
+        *arrangement = match arrangement {
+            Arrangement::Tiled => Arrangement::Maximized,
+            Arrangement::Maximized => Arrangement::Tiled,
+        };
+    }
+
+    pub(crate) fn zoom_pane_area(&self, target: ZoomPane) -> Option<ratatui::layout::Rect> {
+        let body = self.body_area?;
+        match (target, &self.mode) {
+            (ZoomPane::Workspace(section), _) => self
+                .workspace_areas
+                .iter()
+                .find_map(|(area, pane)| (*pane == section).then_some(*area)),
+            (ZoomPane::Browser(focus), Mode::Browser(session)) => {
+                crate::view::browser::areas(body, session)
+                    .into_iter()
+                    .find_map(|(area, pane)| (pane == focus).then_some(area))
+            }
+            (ZoomPane::Changes(focus), Mode::Changes(session)) => {
+                crate::view::changes::areas(body, session)
+                    .into_iter()
+                    .find_map(|(area, pane)| (pane == focus).then_some(area))
+            }
+            (ZoomPane::Inspection(focus), mode) => {
+                crate::view::inspection::areas(body, mode.inspection()?)
+                    .into_iter()
+                    .find_map(|(area, pane)| (pane == focus).then_some(area))
+            }
+            _ => None,
+        }
+    }
+
     pub(crate) fn focused_pane_name(&self) -> &'static str {
         if let Some(inspect) = self.mode.inspection() {
             return match inspect.focus {

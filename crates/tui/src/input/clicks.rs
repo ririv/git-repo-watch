@@ -13,6 +13,10 @@ const INTERVAL: Duration = Duration::from_millis(400);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub(crate) enum Identity {
+    ZoomPane {
+        repository: PathBuf,
+        pane: crate::focus::ZoomPane,
+    },
     ConflictBlock {
         repository: PathBuf,
         path: PathBuf,

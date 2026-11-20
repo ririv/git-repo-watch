@@ -1,5 +1,4 @@
 //! Local command dispatch is private to the prepared execution module.
-use crate::workspace::{Arrangement, Section, Workspace};
 use crate::*;
 use engine::service::ConfigEdit;
 impl Screen {
@@ -406,32 +405,5 @@ impl Screen {
             .position(|candidate| *candidate == item)
             .expect("enabled AI setting is present in the general form");
         self.settings_focus = None;
-    }
-    fn zoom_pane(&mut self) {
-        let arrangement = if let Some(inspect) = self.mode.inspection_mut() {
-            Some(&mut inspect.arrangement)
-        } else {
-            match &mut self.mode {
-                Mode::Changes(session) => Some(&mut session.arrangement),
-                Mode::Browser(session) => Some(&mut session.arrangement),
-                mode if self.page == Page::Detail
-                    && Workspace::is_root(mode)
-                    && Section::focused(mode).is_some() =>
-                {
-                    self.workspace
-                        .session_mut()
-                        .map(|session| &mut session.arrangement)
-                }
-                _ => None,
-            }
-        };
-        if let Some(arrangement) = arrangement {
-            *arrangement = match arrangement {
-                Arrangement::Tiled => Arrangement::Maximized,
-                Arrangement::Maximized => Arrangement::Tiled,
-            };
-        } else {
-            self.message = crate::message::Message::error(i18n::tr!(PaneUnavailable).into());
-        }
     }
 }

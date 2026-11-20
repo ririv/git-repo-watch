@@ -1,19 +1,37 @@
 //! Scoped wheel navigation through the existing keyboard transitions.
 use super::super::*;
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
-use ratatui::layout::Position;
+use ratatui::{
+    buffer::Buffer,
+    layout::{Margin, Position},
+};
+use unicode_width::UnicodeWidthStr;
 impl Screen {
+    #[cfg(test)]
     pub(crate) fn mouse(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+        self.mouse_in_frame(event, root, &Buffer::empty(ratatui::layout::Rect::ZERO))
+    }
+    pub(crate) fn mouse_in_frame(
+        &mut self,
+        event: MouseEvent,
+        root: &Cancel,
+        rendered: &Buffer,
+    ) -> Result<bool> {
         let reset = if matches!(event.kind, MouseEventKind::Moved | MouseEventKind::Up(_)) {
             false
         } else {
             self.exit_sequence.reset()
         };
-        let result = self.pointer_event(event, root);
+        let result = self.pointer_event(event, root, rendered);
         self.sync_plain_bar();
         result.map(|changed| changed || reset)
     }
-    fn pointer_event(&mut self, event: MouseEvent, root: &Cancel) -> Result<bool> {
+    fn pointer_event(
+        &mut self,
+        event: MouseEvent,
+        root: &Cancel,
+        rendered: &Buffer,
+    ) -> Result<bool> {
         if self.config.interaction_mode == engine::state::InteractionMode::TextSelection {
             return Ok(false);
         }
@@ -393,7 +411,31 @@ impl Screen {
                 }
                 return Ok(applied);
             }
-            self.clicks.reset();
+            let point = Position::new(event.column, event.row);
+            if precise
+                && self.focus_mode == crate::focus::State::Inactive
+                && let Some(pane) = self.zoom_pane_target()
+                && let Some(area) = self.zoom_pane_area(pane)
+                && area.inner(Margin::new(1, 1)).contains(point)
+                && blank_cell(rendered, point)
+                && let Some(repository) = self.scope_path()
+            {
+                let identity = super::clicks::Identity::ZoomPane { repository, pane };
+                if self
+                    .clicks
+                    .press(identity, point, std::time::Instant::now())
+                {
+                    self.activate(
+                        Action::Zoom,
+                        self.command_repository(),
+                        self.copy_selection(),
+                        root,
+                    )?;
+                    return Ok(true);
+                }
+            } else {
+                self.clicks.reset();
+            }
             return Ok(before != crate::workspace::Section::focused(&self.mode)
                 || inspection_focus_before != self.mode.inspection().map(|inspect| inspect.focus)
                 || focus_before
@@ -822,4 +864,13 @@ impl Screen {
         }
         Ok(false)
     }
+}
+
+fn blank_cell(buffer: &Buffer, point: Position) -> bool {
+    buffer.cell(point).is_some_and(|cell| {
+        cell.symbol() == " " && cell.diff_option != ratatui::buffer::CellDiffOption::Skip
+    })
+        // 宽字符占用的后续格在缓冲区里可能仍是空格。
+        && (point.x == buffer.area.x
+            || buffer[Position::new(point.x - 1, point.y)].symbol().width() <= 1)
 }
