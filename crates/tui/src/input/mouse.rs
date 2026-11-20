@@ -20,6 +20,23 @@ impl Screen {
         if self.tasks.session.open() && self.command_click(event, root)? {
             return Ok(true);
         }
+        if self.config.mouse.precise_click
+            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+            && self.active_bar().is_plain()
+            && let Some(crate::pointer::Hit::Button(crate::pointer::Action::Command(action))) =
+                self.pointer.hit(Position::new(event.column, event.row))
+        {
+            self.clicks.reset();
+            self.drag = None;
+            self.view_revision += 1;
+            self.activate(
+                action,
+                self.command_repository(),
+                self.copy_selection(),
+                root,
+            )?;
+            return Ok(true);
+        }
         if self.tasks_mouse(event) {
             self.clicks.reset();
             self.drag = None;

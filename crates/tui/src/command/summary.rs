@@ -19,6 +19,7 @@ impl Command {
             Action::Tasks => Summary::Tasks,
             Action::TaskCancel => Summary::TaskCancel,
             Action::TaskRetry => Summary::TaskRetry,
+            Action::TaskFilterMenu | Action::TaskFilter(_) => Summary::TaskFilter,
             Action::Focus => Summary::PaneFocus,
             Action::Zoom => Summary::PaneZoom,
             Action::Branches => Summary::Branches,

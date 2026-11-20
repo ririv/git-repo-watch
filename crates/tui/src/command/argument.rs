@@ -236,6 +236,7 @@ impl Action {
                 Some(ArgumentAction::Option(super::options::Kind::BranchFilter))
             }
             Self::FilterMenu => Some(ArgumentAction::Option(super::options::Kind::Filter)),
+            Self::TaskFilterMenu => Some(ArgumentAction::Option(super::options::Kind::TaskFilter)),
             Self::SortMenu => Some(ArgumentAction::Option(super::options::Kind::Sort)),
             Self::AutoFetchMenu => Some(ArgumentAction::Option(super::options::Kind::AutoFetch)),
             Self::StartupFetchMenu => {

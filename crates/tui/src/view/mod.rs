@@ -24,6 +24,7 @@ pub(crate) mod history;
 pub(super) mod input;
 pub(crate) mod inspection;
 mod layout_summary;
+mod list_heading;
 mod list_window;
 mod overview;
 mod prompt;

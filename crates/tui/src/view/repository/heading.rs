@@ -1,66 +1,20 @@
-//! Responsive repository panel titles and list options.
+//! Repository list filter and sort fields.
 use super::*;
 use crate::{pointer, repository_list::Menu};
 
-const SEPARATOR: &str = " · ";
-
-struct Options {
-    filter: Line<'static>,
-    sort: Line<'static>,
-}
-impl Options {
-    fn line(&self) -> Line<'static> {
-        Line::from(
-            self.filter
-                .spans
-                .iter()
-                .cloned()
-                .chain(std::iter::once(Span::styled(
-                    SEPARATOR,
-                    Style::default().fg(MUTED),
-                )))
-                .chain(self.sort.spans.iter().cloned())
-                .collect::<Vec<_>>(),
-        )
-    }
-    fn buttons(&self, map: &mut pointer::Map, x: u16, y: u16) {
-        let filter_width = self.filter.width() as u16;
-        map.button(
-            Rect::new(x, y, filter_width, 1),
+fn options(filter: Filter, order: Order) -> [list_heading::Field; 2] {
+    [
+        list_heading::Field::new(
+            i18n::tr!(RepositoryFilterLabel),
+            filter.label(),
             pointer::Action::RepositoryMenu(Menu::Filter),
-        );
-        map.button(
-            Rect::new(
-                x + filter_width + Line::from(SEPARATOR).width() as u16,
-                y,
-                self.sort.width() as u16,
-                1,
-            ),
+        ),
+        list_heading::Field::new(
+            i18n::tr!(RepositorySortLabel),
+            order.label(),
             pointer::Action::RepositoryMenu(Menu::Sort),
-        );
-    }
-}
-
-enum Placement {
-    Title,
-    Content,
-    Hidden,
-}
-
-fn options(filter: Filter, order: Order) -> Options {
-    let field = |label, value: &'static str| {
-        Line::from(vec![
-            Span::styled(
-                i18n::tf!(FieldLabel, label = label),
-                Style::default().fg(MUTED),
-            ),
-            Span::styled(value, Style::default().fg(ACCENT)),
-        ])
-    };
-    Options {
-        filter: field(i18n::tr!(RepositoryFilterLabel), filter.label()),
-        sort: field(i18n::tr!(RepositorySortLabel), order.label()),
-    }
+        ),
+    ]
 }
 
 pub(super) fn render(
@@ -71,44 +25,14 @@ pub(super) fn render(
     area: Rect,
     pointer: &mut pointer::Map,
 ) -> Rect {
-    // 极矮窗口直接显示列表，避免边框和标题耗尽全部内容行。
-    if area.height < 3 {
-        return area;
-    }
-    let controls = options(filter, order);
-    let mut options = controls.line();
-    // 按面板实际列宽计算，标题之间留一格边框，选项两侧各留一格空白。
-    let needed = Line::from(title.as_str()).width() + options.width() + 3;
-    let border = block(title).padding(ratatui::widgets::Padding::left(1));
-    let content = border.inner(area);
-    let placement = if needed <= usize::from(area.width.saturating_sub(2)) {
-        Placement::Title
-    } else if content.height >= 3 && options.width() <= usize::from(content.width) {
-        Placement::Content
-    } else {
-        Placement::Hidden
-    };
-    match placement {
-        Placement::Title => {
-            controls.buttons(pointer, area.right() - options.width() as u16 - 2, area.y);
-            options.spans.insert(0, Span::raw(" "));
-            options.spans.push(Span::raw(" "));
-            frame.render_widget(border.title(options.right_aligned()), area);
-            content
-        }
-        Placement::Content => {
-            controls.buttons(pointer, content.x, content.y);
-            frame.render_widget(border, area);
-            let parts =
-                Layout::vertical([Constraint::Length(1), Constraint::Min(0)]).split(content);
-            frame.render_widget(Paragraph::new(options), parts[0]);
-            parts[1]
-        }
-        Placement::Hidden => {
-            frame.render_widget(border, area);
-            content
-        }
-    }
+    list_heading::render(
+        frame,
+        &title,
+        ratatui::widgets::Padding::left(1),
+        &options(filter, order),
+        area,
+        pointer,
+    )
 }
 
 #[cfg(test)]
@@ -125,7 +49,7 @@ mod tests {
                 (Filter::WithoutUpstream, Order::Updated),
             ] {
                 let title = format!("{} · 26", i18n::tr!(Repositories));
-                let options = options(filter, order).line();
+                let options = list_heading::line(&options(filter, order));
                 let needed = Line::from(title.as_str()).width() + options.width() + 5;
                 let mut terminal = Terminal::new(TestBackend::new(120, 8)).unwrap();
                 for (width, row) in [(needed as u16, 0), (needed as u16 - 1, 1)] {

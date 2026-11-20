@@ -74,8 +74,18 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
         .collect()
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
-    let panel = block(i18n::tr!(Tasks)).padding(ratatui::widgets::Padding::horizontal(1));
-    let inner = panel.inner(area);
+    let inner = list_heading::render(
+        frame,
+        i18n::tr!(Tasks),
+        ratatui::widgets::Padding::horizontal(1),
+        &[list_heading::Field::new(
+            i18n::tr!(RepositoryFilterLabel),
+            screen.tasks.filter.label(),
+            crate::pointer::Action::Command(Action::TaskFilterMenu),
+        )],
+        area,
+        &mut screen.pointer,
+    );
     screen.tasks.content = inner;
     let visible = screen.tasks.visible_indices();
     let records = &screen.tasks.records;
@@ -85,8 +95,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .as_ref()
         .and_then(|id| visible.iter().position(|&index| records[index].id == *id));
     screen.tasks.viewport.select(index);
+    if inner.is_empty() {
+        return;
+    }
     if visible.is_empty() {
-        frame.render_widget(panel, area);
         frame.render_widget(
             Paragraph::new(if records.is_empty() {
                 i18n::tr!(TasksEmpty)
@@ -96,10 +108,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .style(Style::default().fg(MUTED)),
             inner,
         );
-        return;
-    }
-    if inner.is_empty() {
-        frame.render_widget(panel, area);
         return;
     }
     let entries = visible
@@ -118,9 +126,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             .into_iter()
             .map(|lines| ListItem::new(Text::from(lines))),
     )
-    .block(panel)
     .highlight_style(selected_style());
-    frame.render_stateful_widget(widget, area, &mut screen.tasks.viewport);
+    frame.render_stateful_widget(widget, inner, &mut screen.tasks.viewport);
     let mut row = 0usize;
     let offset = screen.tasks.viewport.offset();
     for (row_index, &index) in visible.iter().enumerate().skip(offset) {
@@ -130,7 +137,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             break;
         }
         let y = inner.y + row as u16;
-        if record.unread_failure() {
+        if record.unread_failure() && inner.x > area.x {
             frame.buffer_mut()[(inner.x - 1, y)]
                 .set_symbol("•")
                 .set_fg(WARN);

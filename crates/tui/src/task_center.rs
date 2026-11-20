@@ -20,8 +20,62 @@ impl Session {
         !matches!(self, Self::Closed)
     }
 }
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Filter {
+    #[default]
+    All,
+    Unread,
+    Failed,
+    Active,
+    Succeeded,
+    Cancelled,
+}
+impl Filter {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::All => i18n::tr!(TasksFilterAll),
+            Self::Unread => i18n::tr!(TasksFilterUnread),
+            Self::Failed => i18n::tr!(TasksFailed),
+            Self::Active => i18n::tr!(TasksRunning),
+            Self::Succeeded => i18n::tr!(TasksSuccess),
+            Self::Cancelled => i18n::tr!(TasksCancelled),
+        }
+    }
+
+    fn includes(self, record: &Record) -> bool {
+        match self {
+            Self::All => true,
+            Self::Unread => record.unread_failure(),
+            Self::Active => record.active(),
+            Self::Failed => matches!(
+                record.state,
+                State::Finished {
+                    outcome: Completion::Failed { .. },
+                    ..
+                }
+            ),
+            Self::Succeeded => matches!(
+                record.state,
+                State::Finished {
+                    outcome: Completion::Succeeded { .. },
+                    ..
+                }
+            ),
+            Self::Cancelled => matches!(
+                record.state,
+                State::Finished {
+                    outcome: Completion::Cancelled { .. },
+                    ..
+                }
+            ),
+        }
+    }
+}
+
 /// A task command owns the validated operation and its original task identity.
 pub(crate) enum Operation {
+    FilterMenu,
+    Filter(Filter),
     Cancel(String),
     FetchAll {
         parent: Option<String>,
@@ -75,6 +129,7 @@ pub(crate) struct Center {
     pub visible_unread_failure: Option<String>,
     pub selection: Option<String>,
     pub search: Editor,
+    pub filter: Filter,
     pub bar: crate::bar::InputBar,
     pub viewport: ratatui::widgets::ListState,
     pub rows: Vec<(ratatui::layout::Rect, String)>,
@@ -146,10 +201,21 @@ impl Center {
             .and_then(|id| self.records.iter().find(|r| r.id == *id))
     }
     pub fn visible_indices(&self) -> Vec<usize> {
+        self.matching_indices(self.selection.as_deref())
+    }
+    fn matching_indices(&self, retained: Option<&str>) -> Vec<usize> {
         let query = self.search.text.trim().to_lowercase();
         self.records
             .iter()
             .enumerate()
+            .filter(|(_, record)| {
+                // 详情会把当前失败标为已读。保留当前项直到用户移动选中项，
+                // 避免自动跳到下一条并连续标记已读。
+                self.filter.includes(record)
+                    || (self.filter == Filter::Unread
+                        && retained == Some(record.id.as_str())
+                        && Filter::Failed.includes(record))
+            })
             .filter(|(_, record)| {
                 query.is_empty()
                     || record.spec.title.to_lowercase().contains(&query)
@@ -176,10 +242,12 @@ impl Center {
     }
     fn reconcile_selection(&mut self) {
         if matches!(self.session, Session::List) {
-            let visible = self.visible_indices();
-            if self.visible_selection(&visible).is_none() {
-                self.selection = visible.first().map(|&index| self.records[index].id.clone());
-            }
+            self.select_matching(&self.visible_indices());
+        }
+    }
+    fn select_matching(&mut self, visible: &[usize]) {
+        if self.visible_selection(visible).is_none() {
+            self.selection = visible.first().map(|&index| self.records[index].id.clone());
         }
     }
     fn move_by(&mut self, delta: isize) {
@@ -196,7 +264,9 @@ impl Center {
     fn search_changed(&mut self) {
         self.viewport = Default::default();
         self.rows.clear();
-        self.reconcile_selection();
+        if matches!(self.session, Session::List) {
+            self.select_matching(&self.matching_indices(None));
+        }
     }
     pub fn update_search(&mut self, editor: Editor) {
         let changed = self.search.text != editor.text;
@@ -421,6 +491,17 @@ impl Screen {
         _permit: &crate::command::target::ExecutionPermit,
     ) {
         match operation {
+            Operation::FilterMenu => self.open_option_menu(
+                command::options::Kind::TaskFilter,
+                None,
+                crate::clipboard::Selection::None,
+            ),
+            Operation::Filter(filter) => {
+                self.tasks.filter = filter;
+                self.tasks.session = Session::List;
+                self.tasks.search_changed();
+                self.sync_task_bar();
+            }
             Operation::Cancel(id) => self.task_request(Request::Cancel(id)),
             Operation::FetchAll { parent } => {
                 self.start_check_retry(checks::CheckTarget::All, parent)

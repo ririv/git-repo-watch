@@ -22,7 +22,7 @@ use std::path::{Path, PathBuf};
 #[derive(Debug, Clone, Copy)]
 pub(super) enum Requirement {
     Global,
-    Task,
+    TaskView,
     Repository,
     EditorDestination,
     TerminalDirectory,
@@ -150,7 +150,7 @@ impl Action {
                 Requirement::PreviewableFile
             }
             Compose(_) | ComposeOrderMenu => Requirement::Composition,
-            TaskCancel | TaskRetry => Requirement::Task,
+            TaskCancel | TaskRetry | TaskFilterMenu | TaskFilter(_) => Requirement::TaskView,
             Tasks
             | Focus
             | Zoom

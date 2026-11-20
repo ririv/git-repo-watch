@@ -32,6 +32,8 @@ pub enum Action {
     Tasks,
     TaskCancel,
     TaskRetry,
+    TaskFilterMenu,
+    TaskFilter(crate::task_center::Filter),
     SearchMenu,
     Search(crate::search::Mode),
     Focus,
@@ -547,6 +549,11 @@ pub const COMMANDS: &[Command] = &[
         name: "tasks",
         action: Tasks,
         description: i18n::Message::Tasks,
+    },
+    Command {
+        name: "tasks filter",
+        action: TaskFilterMenu,
+        description: i18n::Message::TasksFilterStatus,
     },
     Command {
         name: "tasks cancel",

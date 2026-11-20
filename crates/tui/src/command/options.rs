@@ -5,6 +5,7 @@ use crate::{
     diff::Preference,
     files::Layout,
     repository_list::{Filter, Order},
+    task_center::Filter as TaskFilter,
 };
 use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 
@@ -17,6 +18,7 @@ pub(crate) enum Kind {
     StashSave,
     DiffSelection,
     BranchFilter,
+    TaskFilter,
     Filter,
     Sort,
     FileView,
@@ -44,6 +46,7 @@ pub(crate) enum Value {
     StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
     BranchFilter(crate::branches::Filter),
+    TaskFilter(TaskFilter),
     Filter(Filter),
     Sort(Order),
     FileView(Layout),
@@ -283,6 +286,36 @@ const OPTIONS: &[Option] = &[
         description: M::TextWrapDisabled,
     },
     Option {
+        value: Value::TaskFilter(TaskFilter::All),
+        token: "all",
+        description: M::TasksFilterAll,
+    },
+    Option {
+        value: Value::TaskFilter(TaskFilter::Unread),
+        token: "unread",
+        description: M::TasksFilterUnread,
+    },
+    Option {
+        value: Value::TaskFilter(TaskFilter::Failed),
+        token: "failed",
+        description: M::TasksFailed,
+    },
+    Option {
+        value: Value::TaskFilter(TaskFilter::Active),
+        token: "running",
+        description: M::TasksRunning,
+    },
+    Option {
+        value: Value::TaskFilter(TaskFilter::Succeeded),
+        token: "success",
+        description: M::TasksSuccess,
+    },
+    Option {
+        value: Value::TaskFilter(TaskFilter::Cancelled),
+        token: "cancelled",
+        description: M::TasksCancelled,
+    },
+    Option {
         value: Value::Filter(Filter::All),
         token: "all",
         description: M::RepositoryFilterAll,
@@ -424,6 +457,7 @@ impl Value {
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::BranchFilter(value) => Action::BranchFilter(value),
             Self::Filter(value) => Action::Filter(value),
+            Self::TaskFilter(value) => Action::TaskFilter(value),
             Self::Sort(value) => Action::Sort(value),
             Self::FileView(value) => Action::FileLayout(value),
             Self::FileMode(value) => Action::BrowserMode(value),
@@ -457,6 +491,7 @@ impl Value {
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::BranchFilter(_) => Kind::BranchFilter,
             Self::Filter(_) => Kind::Filter,
+            Self::TaskFilter(_) => Kind::TaskFilter,
             Self::Sort(_) => Kind::Sort,
             Self::FileView(_) => Kind::FileView,
             Self::FileMode(_) => Kind::FileMode,
@@ -487,6 +522,7 @@ impl Kind {
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::BranchFilter => Action::BranchFilterMenu,
             Self::Filter => Action::FilterMenu,
+            Self::TaskFilter => Action::TaskFilterMenu,
             Self::Sort => Action::SortMenu,
             Self::FileView => Action::FileLayoutMenu,
             Self::FileMode => Action::BrowserModeMenu,
@@ -543,6 +579,10 @@ impl Kind {
                 _ => return None,
             },
             Self::Filter => Value::Filter(screen.filter),
+            Self::TaskFilter if screen.tasks.session.open() => {
+                Value::TaskFilter(screen.tasks.filter)
+            }
+            Self::TaskFilter => return None,
             Self::Sort => Value::Sort(screen.order),
             Self::FileView => Value::FileView(screen.file_layout),
             Self::FileMode => match screen.bar.selection()?.opener()?.presentation {

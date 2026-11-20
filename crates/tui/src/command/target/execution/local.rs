@@ -77,7 +77,9 @@ impl Screen {
             Action::SearchMenu => self.search_menu(),
             Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),
-            Action::TaskCancel | Action::TaskRetry => unreachable!("task target is prepared"),
+            Action::TaskCancel | Action::TaskRetry | Action::TaskFilterMenu | Action::TaskFilter(_) => {
+                unreachable!("task target is prepared")
+            }
             Action::Focus => self.enter_focus(),
             Action::Zoom => self.zoom_pane(),
             Action::BrowseFiles => {

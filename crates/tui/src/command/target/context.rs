@@ -29,6 +29,12 @@ impl<'a> CommandContext<'a> {
         if !self.screen.tasks.session.open() {
             return Target::OutOfScope(i18n::tr!(TaskCommandRequiresView).into());
         }
+        use crate::task_center::Operation;
+        match action {
+            Action::TaskFilterMenu => return Target::Ready(Operation::FilterMenu),
+            Action::TaskFilter(filter) => return Target::Ready(Operation::Filter(filter)),
+            _ => {}
+        }
         let clipboard::Selection::Task(id) = self.selection else {
             return Target::Unavailable(i18n::tr!(TaskCommandRequiresSelection).into());
         };
@@ -58,12 +64,12 @@ impl<'a> CommandContext<'a> {
                 Global if matches!(self.screen.mode, crate::Mode::Busy(_)) => {
                     return Target::Unavailable(i18n::tr!(TaskCommandBusy).into());
                 }
-                Global | Task | LocalRefresh => {}
+                Global | TaskView | LocalRefresh => {}
                 _ => return Target::OutOfScope(i18n::tr!(TaskCommandOutsideView).into()),
             }
         }
         match requirement {
-            Task => self.task(action).map(Value::Task),
+            TaskView => self.task(action).map(Value::Task),
             Global => Target::Ready(Value::Global),
             Repository => self.repository().map(Value::Repository),
             EditorDestination => self.editor().map(Value::Destination),

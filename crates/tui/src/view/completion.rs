@@ -2,7 +2,10 @@
 use super::*;
 
 fn parameter_title(screen: &Screen) -> &'static str {
-    let input = screen.bar.command_input().expect("parameter command input");
+    let input = screen
+        .active_bar()
+        .command_input()
+        .expect("parameter command input");
     let query = input.query();
     if let Some((parameter, _)) = command::named::Query::new(&query).and_then(|query| query.value())
     {
@@ -122,7 +125,7 @@ pub(super) fn render_options(
     use unicode_width::UnicodeWidthStr;
     let crate::bar::InputBar::Command {
         path, selection, ..
-    } = &screen.bar
+    } = screen.active_bar()
     else {
         unreachable!("option menu has a captured command draft")
     };

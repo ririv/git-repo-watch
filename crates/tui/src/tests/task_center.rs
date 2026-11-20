@@ -211,6 +211,148 @@ fn task_filter_keeps_the_underlying_draft_and_limits_navigation_to_visible_recor
 }
 
 #[test]
+fn task_status_filter_uses_the_option_menu_and_combines_with_repository_search() {
+    use crate::task_center::Filter;
+    let _language = i18n::using(i18n::Language::English);
+    let (_home, mut s) = fixture(vec![]);
+    for (title, path, outcome) in [
+        (
+            "failed alpha",
+            "/example/alpha",
+            Completion::failure("alpha failure"),
+        ),
+        (
+            "failed beta",
+            "/example/beta",
+            Completion::failure("beta failure"),
+        ),
+        (
+            "successful alpha",
+            "/example/alpha",
+            Completion::Succeeded {
+                detail: String::new(),
+            },
+        ),
+    ] {
+        Run::begin(
+            &s.service.store,
+            crate::task_center::spec(title, Some(path.into()), Retry::Unavailable),
+            &Cancel::default(),
+        )
+        .unwrap()
+        .finish(outcome)
+        .unwrap();
+    }
+    synchronize(&mut s, |s| s.tasks.records.len() == 3);
+    s.open_tasks();
+    s.paste("alpha");
+    let heading = render(&mut s, 90, 24);
+    let title = heading.lines().nth(1).unwrap();
+    assert!(title.starts_with("┌Tasks"), "{title}");
+    assert!(title.ends_with("Filter: All tasks ┐"), "{title}");
+    let (left, _) = title.split_once("Filter: All tasks").unwrap();
+    let column = unicode_width::UnicodeWidthStr::width(left) as u16;
+    let click = |s: &mut Screen, column, row| {
+        s.mouse(
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            },
+            &Cancel::default(),
+        )
+        .unwrap();
+    };
+    s.config.mouse.precise_click = false;
+    click(&mut s, column, 1);
+    assert_eq!(s.active_bar().text(), "alpha");
+    s.config.mouse.precise_click = true;
+    click(&mut s, column, 1);
+    let menu = render(&mut s, 90, 24);
+    for option in ["all", "unread", "failed", "running", "success", "cancelled"] {
+        assert!(menu.contains(option), "{menu}");
+    }
+    let bar::InputBar::Command {
+        menu: command::completion::Menu::Options(options),
+        ..
+    } = s.active_bar()
+    else {
+        panic!("task filter options should open on click");
+    };
+    let failed = options
+        .options
+        .iter()
+        .position(|option| option.token == "failed")
+        .unwrap();
+    let &(row, _) = s
+        .command_items
+        .iter()
+        .find(|(_, index)| *index == failed)
+        .unwrap();
+    click(&mut s, row.x, row.y);
+    assert_eq!(s.tasks.filter, Filter::Failed);
+    assert_eq!(s.active_bar().text(), "alpha");
+    let text = render(&mut s, 90, 24);
+    assert!(
+        text.contains("Filter: Failed") && text.contains("failed alpha"),
+        "{text}"
+    );
+    assert!(
+        !text.contains("failed beta") && !text.contains("successful alpha"),
+        "{text}"
+    );
+
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Esc);
+    s.open_tasks();
+    assert_eq!(s.tasks.filter, Filter::Failed);
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("filter running");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.tasks.filter, Filter::Active);
+    assert!(s.tasks.selection.is_none());
+    assert!(render(&mut s, 90, 24).contains("No matching tasks"));
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("filter all");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.tasks.visible_indices().len(), 3);
+    s.shutdown();
+}
+
+#[test]
+fn unread_task_filter_keeps_the_visible_failure_after_the_preview_marks_it_read() {
+    let (_home, mut s) = fixture(vec![]);
+    for title in ["first failure", "second failure"] {
+        Run::begin(
+            &s.service.store,
+            crate::task_center::spec(title, None, Retry::Unavailable),
+            &Cancel::default(),
+        )
+        .unwrap()
+        .finish(Completion::failure("error detail"))
+        .unwrap();
+    }
+    synchronize(&mut s, |s| s.tasks.unread_failures == 2);
+    s.open_tasks();
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("filter unread");
+    key(&mut s, KeyCode::Enter);
+    let first = s.tasks.selection.clone().unwrap();
+    present_tasks(&mut s, 110, 24);
+    synchronize(&mut s, |s| s.tasks.unread_failures == 1);
+    present_tasks(&mut s, 110, 24);
+    assert_eq!(s.tasks.selection.as_deref(), Some(first.as_str()));
+    assert_eq!(s.tasks.visible_indices().len(), 2);
+    key(&mut s, KeyCode::Down);
+    render(&mut s, 110, 24);
+    assert_ne!(s.tasks.selection.as_deref(), Some(first.as_str()));
+    assert_eq!(s.tasks.visible_indices().len(), 1);
+    assert_eq!(s.tasks.unread_failures, 1);
+    s.shutdown();
+}
+
+#[test]
 fn task_view_uses_its_own_scoped_commands_and_preserves_the_filter_and_origin() {
     let (_home, mut s) = fixture(vec![]);
     let run = Run::begin(

@@ -57,6 +57,7 @@ pub(crate) enum Action {
     HistoryFiles,
     HistoryMenu(crate::history::menu::PointerInput),
     RepositoryMenu(crate::repository_list::Menu),
+    Command(crate::Action),
     DragRows {
         target: Target,
         index: usize,
