@@ -673,6 +673,7 @@ pub enum Message {
     ChangesWrongArea,
     ChangesInputHint,
     DirectoryInputHint,
+    WorktreeDirectoryInputHint,
 
     InvalidToml,
     ConfigurationMigrationRequired,
@@ -3429,6 +3430,12 @@ impl Message {
             (Self::DirectoryInputHint, Language::Chinese) => {
                 "Enter 展开/收起 · Space/Ins 勾选 · /focus 切换 · Esc 返回"
             }
+            (Self::WorktreeDirectoryInputHint, Language::English) => {
+                "Enter fold/unfold · Space/Ins mark · Esc back"
+            }
+            (Self::WorktreeDirectoryInputHint, Language::Chinese) => {
+                "Enter 展开/收起 · Space/Ins 勾选 · Esc 返回"
+            }
             (Self::ChangesInputHint, Language::English) => {
                 "↑↓ navigate · ←→ pan preview · /focus panes · //zoom maximize · Esc back"
             }
@@ -5692,10 +5699,10 @@ impl Message {
                 "↑↓ 浏览 · ←→ 移动光标 · Esc 清空"
             }
             (Self::SelectSpaceInsMarkCtrlAAll, Language::English) => {
-                "→/Enter diff · ←/Esc back · Space/Ins mark · /focus panes"
+                "→/Enter diff · ←/Esc back · Space/Ins mark"
             }
             (Self::SelectSpaceInsMarkCtrlAAll, Language::Chinese) => {
-                "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选 · /focus 面板"
+                "→/Enter 差异 · ←/Esc 返回 · Space/Ins 勾选"
             }
             (Self::ScrollEscFilesCommands, Language::English) => {
                 "↑↓ scroll · ←/Esc files · /repo diff layout"

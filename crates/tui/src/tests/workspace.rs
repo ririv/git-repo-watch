@@ -49,9 +49,15 @@ fn maximized_panes_use_the_entire_body_and_switch_without_losing_their_sessions(
                     Arrangement::Maximized
                 );
                 assert_eq!(s.workspace_areas, vec![(s.body_area.unwrap(), section)]);
+                let (heading, content) = text.split_once('\n').expect("workspace header");
                 if width >= 140 {
-                    assert!(text.contains(i18n::tr!(WorkspaceRestoreHint)), "{text}");
+                    assert!(heading.contains(i18n::tr!(WorkspaceFocusHint)), "{heading}");
+                    assert!(
+                        heading.contains(i18n::tr!(WorkspaceRestoreHint)),
+                        "{heading}"
+                    );
                 }
+                assert!(!content.contains("/focus"), "{text}");
                 focus_next(&mut s);
                 wait(&mut s);
             }

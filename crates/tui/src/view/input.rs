@@ -506,7 +506,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             crate::management::Source::Scan { .. } => i18n::tr!(ScanHint),
         },
         Mode::Files(files) if matches!(files.cursor, crate::files::Cursor::Directory { .. }) => {
-            i18n::tr!(DirectoryInputHint)
+            i18n::tr!(WorktreeDirectoryInputHint)
         }
         Mode::Files(_) => i18n::tr!(SelectSpaceInsMarkCtrlAAll),
         Mode::Changes(session) => match session.focus {
