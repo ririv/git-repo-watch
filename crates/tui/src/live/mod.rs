@@ -186,9 +186,9 @@ impl Screen {
             return false;
         };
         let mut paths = self.config.repositories.clone();
-        if let Some(path) = self.service.session_repository() {
-            paths.push(path.to_owned());
-        }
+        paths.extend(self.service.session_paths().map(Path::to_owned));
+        paths.sort();
+        paths.dedup();
         controller.monitor.configure(paths.clone());
         controller.pending.retain(|path, _| paths.contains(path));
         controller.results.retain(|path, _| paths.contains(path));

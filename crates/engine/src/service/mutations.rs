@@ -80,6 +80,9 @@ impl Service {
             Request::Branch { action, name } => Ok(Plan::Branch(local::branches::edit::prepare(
                 path, &name, action, cancel,
             )?)),
+            Request::Worktree(request) => Ok(Plan::Worktree(local::worktrees::prepare(
+                path, request, cancel,
+            )?)),
             Request::Stash(request) => {
                 Ok(Plan::Stash(local::stash::prepare(path, request, cancel)?))
             }

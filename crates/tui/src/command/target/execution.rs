@@ -19,6 +19,10 @@ pub(crate) struct Permit {
 }
 enum Request {
     Task(crate::task_center::Operation),
+    Worktree {
+        repository: PathBuf,
+        entry: Box<engine::local::worktrees::Entry>,
+    },
     Local {
         path: Option<PathBuf>,
     },
@@ -86,6 +90,10 @@ impl Resolved<'_> {
     ) -> anyhow::Result<Execution> {
         let request = match (self.value, action) {
             (Value::Task(operation), _) => Request::Task(operation),
+            (Value::Worktree(repository, entry), _) => Request::Worktree {
+                repository: repository.to_owned(),
+                entry: Box::new(entry.clone()),
+            },
             (Value::Repository(repository), _) => Request::Local {
                 path: Some(repository.to_owned()),
             },
@@ -210,5 +218,22 @@ impl Resolved<'_> {
             request,
             return_to: crate::bar::ReturnTo::Command,
         })
+    }
+}
+
+impl crate::Screen {
+    pub(crate) fn prepare_worktree_add(
+        &mut self,
+        value: &str,
+        draft: crate::bar::CommandDraft,
+    ) -> anyhow::Result<()> {
+        self.prepare_command(Action::WorktreeAdd, draft.path.as_deref(), &draft.selection)?;
+        let request =
+            crate::command::argument::worktree_add(value, self.service.scheduler.user_home())?;
+        self.prepare_mutation(
+            engine::operations::mutation::Request::Worktree(request),
+            draft,
+        );
+        Ok(())
     }
 }

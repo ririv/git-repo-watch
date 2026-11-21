@@ -8,6 +8,7 @@ pub(crate) enum Requested {
     None,
     Files,
     Branches,
+    Worktrees,
     Stashes,
 }
 impl Requested {
@@ -15,6 +16,7 @@ impl Requested {
         match mode {
             Mode::Files(_) | Mode::Changes(_) => Self::Files,
             Mode::Branches(_) => Self::Branches,
+            Mode::Worktrees(_) => Self::Worktrees,
             Mode::Stashes(_) => Self::Stashes,
             _ => Self::None,
         }
@@ -34,6 +36,7 @@ impl Requested {
             Self::None => Readback::Unchanged,
             Self::Files => Readback::Files(service.files(path, cancel)?),
             Self::Branches => Readback::Branches(service.branches(path, cancel)?),
+            Self::Worktrees => Readback::Worktrees(service.worktrees(path, cancel)?),
             Self::Stashes => Readback::Stashes(service.stashes(path, cancel)?),
         })
     }
@@ -43,6 +46,7 @@ pub(crate) enum Readback {
     Unchanged,
     Files(local::files::Files),
     Branches(local::branches::catalog::Snapshot),
+    Worktrees(local::worktrees::Snapshot),
     Stashes(local::stash::Snapshot),
 }
 impl Screen {
@@ -55,6 +59,11 @@ impl Screen {
 }
 pub(crate) fn merge_mode(mode: &mut Mode, readback: Readback) {
     match (readback, mode) {
+        (Readback::Worktrees(snapshot), Mode::Worktrees(session))
+            if session.snapshot.path == snapshot.path =>
+        {
+            session.refresh(snapshot)
+        }
         (Readback::Files(snapshot), Mode::Browser(session)) if session.root == snapshot.path => {
             session.refresh()
         }

@@ -27,6 +27,7 @@ pub struct Service {
     pub git: Git,
     pub scheduler: Manager,
     session_repository: Option<PathBuf>,
+    session_worktrees: std::collections::BTreeMap<PathBuf, PathBuf>,
 }
 #[derive(Debug, Clone)]
 pub enum Event {
@@ -85,6 +86,7 @@ impl Service {
             store,
             scheduler,
             session_repository: None,
+            session_worktrees: Default::default(),
         }
     }
     /// Authorize one worktree for this session without registering it for batch workflows.
@@ -95,6 +97,19 @@ impl Service {
         self.session_repository = Some(path);
         Ok(self)
     }
+    pub fn forget_session_worktree(&mut self, path: &Path) {
+        self.session_worktrees.remove(path);
+        if self.session_repository.as_deref() == Some(path) {
+            self.session_repository = None;
+        }
+    }
+
+    pub fn session_paths(&self) -> impl Iterator<Item = &Path> {
+        self.session_repository()
+            .into_iter()
+            .chain(self.session_worktrees.keys().map(PathBuf::as_path))
+    }
+
     pub fn session_repository(&self) -> Option<&Path> {
         self.session_repository.as_deref()
     }

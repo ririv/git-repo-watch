@@ -196,12 +196,15 @@ impl Screen {
                     self.mode = origin;
                     self.message = crate::message::Message::information(notice.into());
                 } else {
-                    let choice =
-                        if matches!(plan.as_ref(), engine::operations::mutation::Plan::Reset(_)) {
+                    let choice = match plan.as_ref() {
+                        engine::operations::mutation::Plan::Reset(_) => {
                             crate::confirmation::Choice::Return
-                        } else {
-                            Default::default()
-                        };
+                        }
+                        engine::operations::mutation::Plan::Worktree(plan) if plan.removing() => {
+                            crate::confirmation::Choice::Return
+                        }
+                        _ => Default::default(),
+                    };
                     self.mode = Mode::Confirm {
                         operation: Confirmation::Mutation {
                             plan,
@@ -215,6 +218,10 @@ impl Screen {
             Outcome::MutationCompleted(change) => {
                 self.mode = origin;
                 self.refresh_mutated_view();
+                if let engine::operations::mutation::Change::RemovedWorktree { directory } = &change
+                {
+                    std::sync::Arc::make_mut(&mut self.service).forget_session_worktree(directory);
+                }
                 if let engine::operations::mutation::Change::FetchSkipped { reason } = change {
                     self.message = crate::message::Message::information(reason.label().into());
                 } else if let engine::operations::mutation::Change::Synchronized {

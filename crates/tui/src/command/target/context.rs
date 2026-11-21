@@ -90,6 +90,28 @@ impl<'a> CommandContext<'a> {
             WorktreeFiles => self.worktree_files().map(Value::WorktreeFiles),
             Conflict => self.conflict().map(Value::Conflict),
             BranchList => self.branches().map(Value::Branches),
+            WorktreeEntry => {
+                let crate::Mode::Worktrees(session) = &self.screen.mode else {
+                    return Target::OutOfScope(i18n::tr!(WorktreeViewRequired).into());
+                };
+                let clipboard::Selection::Worktree(Some(entry)) = self.selection else {
+                    return Target::Unavailable(i18n::tr!(WorktreeSelect).into());
+                };
+                if self.repository != Some(session.snapshot.path.as_path()) {
+                    return Target::Unavailable(i18n::tr!(MutationChanged).into());
+                }
+                let problem = if action == Action::WorktreeRemove {
+                    entry.removal_problem()
+                } else if let engine::local::worktrees::State::Unavailable(error) = &entry.state {
+                    Some(error.as_str())
+                } else {
+                    None
+                };
+                match problem {
+                    Some(reason) => Target::Unavailable(reason.to_owned().into()),
+                    None => Target::Ready(Value::Worktree(&session.snapshot.path, entry)),
+                }
+            }
             HistoryGraph => self.history().map(Value::History),
             HistorySelection => self.history_selection().map(Value::History),
             CommitSelection => self.commits().map(Value::Commits),

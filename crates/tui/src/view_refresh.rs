@@ -13,6 +13,7 @@ pub(crate) enum Target {
     Browser,
     Files(PathBuf),
     Branches(PathBuf),
+    Worktrees(PathBuf),
     History(PathBuf),
     Stashes(PathBuf),
 }
@@ -28,6 +29,7 @@ impl Target {
             Mode::Panel(_) => Self::Workspace,
             Mode::Files(files) => Self::Files(files.snapshot.path.clone()),
             Mode::Changes(session) => Self::Files(session.files.snapshot.path.clone()),
+            Mode::Worktrees(session) => Self::Worktrees(session.snapshot.path.clone()),
             Mode::Branches(view) => Self::Branches(view.session().snapshot.path.clone()),
             Mode::History(view) => match view.as_ref() {
                 history::View::Graph(session) => Self::History(session.references.path.clone()),
@@ -58,6 +60,7 @@ impl Target {
             Self::Browser => i18n::tr!(BrowserTitle),
             Self::Files(_) => i18n::tr!(ChangesTitle),
             Self::Branches(_) => i18n::tr!(BranchTitle),
+            Self::Worktrees(_) => i18n::tr!(WorktreesTitle),
             Self::History(_) => i18n::tr!(HistoryTitle),
             Self::Stashes(_) => i18n::tr!(StashTitle),
         }
@@ -102,6 +105,9 @@ impl Screen {
             Target::Files(path) => {
                 self.refresh_overview();
                 self.read_files(path);
+            }
+            Target::Worktrees(path) => {
+                self.refresh_local(path, crate::mutations::readback::Requested::Worktrees)
             }
             Target::Branches(path) => {
                 self.refresh_local(path, crate::mutations::readback::Requested::Branches)

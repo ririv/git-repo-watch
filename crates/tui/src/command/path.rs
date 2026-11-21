@@ -91,6 +91,14 @@ impl PathInput {
         if !argument.is_path() {
             return Ok(None);
         }
+        let raw = if argument == super::ArgumentAction::WorktreeAdd {
+            let Some((_, _, directory)) = super::argument::worktree_add_path(raw) else {
+                return Ok(None);
+            };
+            directory
+        } else {
+            raw
+        };
         let raw_start = editor.text.len() - raw.len();
         let value = raw.trim_start();
         let start = raw_start + raw.len() - value.len();
@@ -126,9 +134,11 @@ impl PathInput {
             engine::paths::expand_home(content, user_home)?.is_absolute(),
             i18n::tr!(EnterAnAbsolutePath)
         );
-        let component_start = content[..position].rfind('/').map_or(0, |i| i + 1);
+        let component_start = content[..position]
+            .rfind(std::path::is_separator)
+            .map_or(0, |i| i + 1);
         let component_end = content[position..]
-            .find('/')
+            .find(std::path::is_separator)
             .map_or(content.len(), |i| position + i);
         Ok(Some(Self {
             command: editor.text[..start].into(),
@@ -196,9 +206,11 @@ impl PathInput {
                 i18n::tr!(EnterAnAbsolutePath)
             );
         }
-        let component_start = content[..position].rfind('/').map_or(0, |i| i + 1);
+        let component_start = content[..position]
+            .rfind(std::path::is_separator)
+            .map_or(0, |i| i + 1);
         let component_end = content[position..]
-            .find('/')
+            .find(std::path::is_separator)
             .map_or(content.len(), |i| position + i);
         let parent = &content[..component_start];
         let expanded = engine::paths::expand_home(parent, home)?;

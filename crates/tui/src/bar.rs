@@ -311,6 +311,7 @@ impl Screen {
                     | Mode::Panel(_)
                     | Mode::Stashes(_)
                     | Mode::Branches(_)
+                    | Mode::Worktrees(_)
                     | Mode::Files(_)
                     | Mode::Changes(_)
                     | Mode::History(_)
@@ -445,7 +446,7 @@ impl Screen {
                 }
                 command::NamespaceEvent::Pass => {}
             }
-            let values_menu = matches!(menu, command::completion::Menu::Values(_));
+            let values_menu = matches!(menu, command::completion::Menu::Values(values) if values.kind != command::values::Kind::WorktreeBranch);
             if let Some(candidates) = menu.selection() {
                 match key.code {
                     KeyCode::Esc => {
@@ -576,6 +577,19 @@ impl Screen {
                             *submitted = Some(input.text());
                         }
                         match parsed {
+                            Ok(value) if argument == command::ArgumentAction::WorktreeAdd => {
+                                let draft = CommandDraft {
+                                    input: input.clone(),
+                                    path: path.clone(),
+                                    selection: selection.clone(),
+                                    repository: repository.clone(),
+                                    return_to: ReturnTo::Command,
+                                };
+                                if let Err(error) = self.prepare_worktree_add(&value, draft) {
+                                    self.message =
+                                        crate::message::Message::error(format!("{error:#}"));
+                                }
+                            }
                             Ok(value) if argument == command::ArgumentAction::Editor => {
                                 let editor = value.try_into()?;
                                 self.close_tasks();

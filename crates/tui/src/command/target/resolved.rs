@@ -43,6 +43,7 @@ pub(super) enum Value<'a> {
     WorktreeFiles(worktree::Files<'a>),
     Conflict(Conflict<'a>),
     Branches(&'a crate::branches::Session),
+    Worktree(&'a Path, &'a engine::local::worktrees::Entry),
     History(&'a history::Session),
     Commits(Commits<'a>),
     MergeCommit(&'a history::Commit),
@@ -110,6 +111,7 @@ impl Resolved<'_> {
                 };
                 Some(label.display().to_string())
             }
+            Value::Worktree(_, entry) => Some(entry.path.display().to_string()),
             Value::File(target) => Some(target.label()),
             Value::Index(target) => Some(target.label()),
             Value::WorktreeFiles(target) => match target.changes {

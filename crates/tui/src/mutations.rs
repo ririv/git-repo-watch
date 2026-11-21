@@ -34,6 +34,8 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Branch(edit::Plan::Switch { .. }) => i18n::tr!(BranchSwitchCommand),
         Plan::Replay(plan) => plan.title(),
         Plan::Reset(plan) => plan.mode().label(),
+        Plan::Worktree(plan) if plan.removing() => i18n::tr!(WorktreeRemove),
+        Plan::Worktree(_) => i18n::tr!(WorktreeAdd),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save(_)) => i18n::tr!(StashSaveCommand),
@@ -58,6 +60,20 @@ pub(crate) fn review(plan: &Plan) -> String {
             p.oid()
         ),
         Plan::Replay(plan) => crate::replay::review(plan),
+        Plan::Worktree(plan) => {
+            let mut detail = format!(
+                "{}: {}",
+                i18n::tr!(WorktreeDirectory),
+                plan.directory().display()
+            );
+            if let Some(branch) = plan.branch() {
+                detail.push_str(&format!("\n{}: {branch}", i18n::tr!(Branch)));
+            }
+            if let Some(commit) = plan.commit() {
+                detail.push_str(&format!("\n{}: {commit}", i18n::tr!(HistoryHash)));
+            }
+            detail
+        }
         Plan::Reset(plan) => {
             use engine::operations::reset::Effect;
             let (removed, count) = plan.removed();

@@ -13,6 +13,7 @@ pub(crate) enum Context {
     Diff(DiffContext),
     History,
     Branches,
+    Worktrees,
     Stash,
     Repository,
     RepositoryEnv,
@@ -29,6 +30,7 @@ impl Context {
             Self::Diff(_)
             | Self::History
             | Self::Branches
+            | Self::Worktrees
             | Self::Stash
             | Self::Files
             | Self::Composition
@@ -47,6 +49,7 @@ impl Context {
             Self::Diff(_) => "repo diff",
             Self::History => "repo log",
             Self::Branches => "repo branch",
+            Self::Worktrees => "repo worktree",
             Self::Stash => "repo stash",
             Self::Repository => "repo",
             Self::RepositoryEnv => "repo env",
@@ -206,6 +209,7 @@ impl Screen {
                 _ => Context::History,
             }),
             Mode::Branches(_) => Some(Context::Branches),
+            Mode::Worktrees(_) => Some(Context::Worktrees),
             Mode::Stashes(view) => Some(
                 if matches!(view.as_ref(), crate::stashes::View::Diff { .. }) {
                     Context::Diff(DiffContext::History)

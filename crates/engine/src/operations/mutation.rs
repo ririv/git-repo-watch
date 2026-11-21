@@ -2,7 +2,7 @@
 use super::{pull, sync};
 use crate::{
     cancel::Cancel,
-    local::{branches::edit, stash},
+    local::{branches::edit, stash, worktrees},
     transport::Git,
 };
 use anyhow::Result;
@@ -23,6 +23,7 @@ pub enum Request {
     },
     Sync,
     Stash(stash::Request),
+    Worktree(worktrees::Request),
 }
 #[derive(Debug, Clone)]
 pub enum Plan {
@@ -32,6 +33,7 @@ pub enum Plan {
     Reset(super::reset::Plan),
     Sync(sync::Plan),
     Stash(stash::Plan),
+    Worktree(worktrees::Plan),
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -65,6 +67,12 @@ pub enum Action {
     },
     SwitchBranch {
         name: String,
+    },
+    AddWorktree {
+        directory: std::path::PathBuf,
+    },
+    RemoveWorktree {
+        directory: std::path::PathBuf,
     },
     Fetch,
     Pull {
@@ -120,6 +128,12 @@ pub enum Change {
         name: String,
         oid: String,
     },
+    AddedWorktree {
+        directory: std::path::PathBuf,
+    },
+    RemovedWorktree {
+        directory: std::path::PathBuf,
+    },
     Fetched {
         remotes: Vec<String>,
     },
@@ -155,6 +169,7 @@ impl Plan {
             Self::Reset(p) => p.path(),
             Self::Sync(p) => p.path(),
             Self::Stash(p) => p.path(),
+            Self::Worktree(p) => p.repository(),
         }
     }
     pub fn current(&self) -> bool {
@@ -203,6 +218,14 @@ impl Plan {
                     commit: p.commit().to_string(),
                 },
             },
+            Self::Worktree(plan) => {
+                let directory = plan.directory().to_owned();
+                if plan.removing() {
+                    Action::RemoveWorktree { directory }
+                } else {
+                    Action::AddWorktree { directory }
+                }
+            }
             Self::Stash(stash::Plan::Save(plan)) => Action::SaveStash {
                 mode: plan.mode.clone(),
                 message: plan.message.input().into(),
@@ -291,6 +314,15 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
                     kind: p.kind(),
                     control: c.control,
                 },
+            })
+        }
+        Plan::Worktree(plan) => {
+            worktrees::execute(git, plan, cancel)?;
+            let directory = plan.directory().to_owned();
+            Ok(if plan.removing() {
+                Change::RemovedWorktree { directory }
+            } else {
+                Change::AddedWorktree { directory }
             })
         }
         Plan::Stash(p) => {

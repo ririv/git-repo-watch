@@ -184,6 +184,11 @@ impl Screen {
                         };
                         files.offset = offset;
                     }
+                    Target::Worktrees => {
+                        if let Mode::Worktrees(session) = &mut self.mode {
+                            *session.state.offset_mut() = offset;
+                        }
+                    }
                     Target::Branches => {
                         if let Mode::Branches(view) = &mut self.mode
                             && let branches::View::List(session) = view.as_mut()
@@ -336,6 +341,12 @@ impl Screen {
                             return false;
                         }
                         self.poll_changes();
+                    }
+                    _ => return false,
+                },
+                Target::Worktrees => match &mut self.mode {
+                    Mode::Worktrees(session) if index < session.snapshot.entries.len() => {
+                        session.state.select(Some(index))
                     }
                     _ => return false,
                 },

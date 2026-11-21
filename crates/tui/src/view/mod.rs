@@ -43,6 +43,7 @@ mod tasks;
 mod text_editor;
 mod workflow;
 mod workspace;
+mod worktrees;
 use super::*;
 use body::render_body;
 use engine::{

@@ -20,6 +20,7 @@ pub enum ArgumentAction {
     Editor,
     Add,
     BranchCreate,
+    WorktreeAdd,
     BranchSwitch,
     StashApply,
     StashPop,
@@ -47,13 +48,14 @@ impl ArgumentAction {
         }
     }
     pub fn is_path(self) -> bool {
-        matches!(self, Self::Add | Self::Scan)
+        matches!(self, Self::Add | Self::Scan | Self::WorktreeAdd)
     }
     pub fn action(self) -> Action {
         match self {
             Self::Editor => Action::EditorSetting,
             Self::Add => Action::Add,
             Self::BranchCreate => Action::BranchCreate,
+            Self::WorktreeAdd => Action::WorktreeAdd,
             Self::BranchSwitch => Action::BranchSwitch,
             Self::StashApply => Action::StashApply,
             Self::StashPop => Action::StashPop,
@@ -102,6 +104,7 @@ impl ArgumentAction {
             Self::AiPrompt => "<text>",
             Self::RepositoryEnvironment(field) => field.syntax(),
             Self::BranchCreate | Self::BranchSwitch => "<name>",
+            Self::WorktreeAdd => "[--new] <branch> <path>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
         ArgumentSyntax::Input(open)
@@ -111,6 +114,7 @@ impl ArgumentAction {
             Self::Editor => i18n::tr!(ExternalEditorHint),
             Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
+            Self::WorktreeAdd => i18n::tr!(WorktreeAddUsage),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::Interval | Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
@@ -161,6 +165,10 @@ impl ArgumentAction {
                     .into_string()
                     .ok()
                     .context(i18n::tr!(ExpandedPathNotUtf8))
+            }
+            Self::WorktreeAdd => {
+                worktree_add(value, user_home)?;
+                Ok(value.into())
             }
             Self::BranchCreate | Self::BranchSwitch => {
                 ensure!(!value.contains('\0'), "NUL is not allowed");
@@ -259,6 +267,7 @@ impl Action {
             }
             Self::Add => Some(ArgumentAction::Add),
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
+            Self::WorktreeAdd => Some(ArgumentAction::WorktreeAdd),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
             Self::StashPreviewMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::StashPreview))
@@ -398,4 +407,34 @@ impl ArgumentAction {
             _ => None,
         }
     }
+}
+
+pub(super) fn worktree_add_path(
+    raw: &str,
+) -> Option<(engine::local::worktrees::Branch, &str, &str)> {
+    use engine::local::worktrees::Branch;
+    let raw = raw.trim_start();
+    let (branch, raw) = match raw.split_once(char::is_whitespace) {
+        Some(("--new", rest)) => (Branch::New, rest.trim_start()),
+        _ => (Branch::Existing, raw),
+    };
+    let (name, path) = raw.split_once(char::is_whitespace)?;
+    Some((branch, name, path))
+}
+
+pub(super) fn worktree_add(
+    raw: &str,
+    home: &std::path::Path,
+) -> Result<engine::local::worktrees::Request> {
+    let (branch, name, path) = worktree_add_path(raw).context(i18n::tr!(WorktreeAddUsage))?;
+    ensure!(
+        !name.is_empty() && !name.starts_with('-') && !path.trim().is_empty(),
+        i18n::tr!(WorktreeAddUsage)
+    );
+    let directory = ArgumentAction::Add.parse(path, home)?.into();
+    Ok(engine::local::worktrees::Request::Add {
+        branch,
+        name: name.into(),
+        directory,
+    })
 }

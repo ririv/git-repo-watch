@@ -53,6 +53,7 @@ pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             &mut screen.graphics,
             &mut screen.pointer,
         ),
+        Mode::Worktrees(session) => worktrees::render(frame, area, session, &mut screen.pointer),
         Mode::Branches(view) => branches::render(frame, area, view, &mut screen.pointer),
         Mode::History(view) => history::render(
             frame,

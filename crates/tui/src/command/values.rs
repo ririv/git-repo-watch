@@ -7,13 +7,20 @@ use std::sync::Arc;
 pub(crate) enum Kind {
     Editor,
     Branch,
+    WorktreeBranch,
     Stash,
 }
 impl Kind {
-    pub fn for_argument(argument: ArgumentAction) -> Option<Self> {
+    pub fn for_argument(argument: ArgumentAction, raw: &str) -> Option<Self> {
         match argument {
             ArgumentAction::Editor => Some(Self::Editor),
             ArgumentAction::BranchSwitch => Some(Self::Branch),
+            ArgumentAction::WorktreeAdd
+                if !raw.trim_start().starts_with('-')
+                    && !raw.trim_start().contains(char::is_whitespace) =>
+            {
+                Some(Self::WorktreeBranch)
+            }
             ArgumentAction::StashApply | ArgumentAction::StashPop | ArgumentAction::StashDrop => {
                 Some(Self::Stash)
             }
@@ -50,7 +57,7 @@ impl Candidates {
     pub fn refine(&mut self, input: &Input) -> Option<()> {
         let editor = input.canonical_editor();
         let (argument, raw) = super::argument_input(editor.text.strip_prefix('/')?)?;
-        if Kind::for_argument(argument) != Some(self.kind) {
+        if Kind::for_argument(argument, raw) != Some(self.kind) {
             return None;
         }
         let start = editor.text.len() - raw.len();
@@ -87,7 +94,7 @@ impl Candidates {
             })
             .or_else(|| (!self.options.is_empty()).then_some(0));
         self.command = editor.text[..start].into();
-        if self.kind == Kind::Editor && self.options.is_empty() {
+        if matches!(self.kind, Kind::Editor | Kind::WorktreeBranch) && self.options.is_empty() {
             return None;
         }
         Some(())
@@ -120,6 +127,14 @@ impl Candidates {
     }
     pub fn choose(&self) -> Option<Editor> {
         let entry = &self.entries[*self.options.get(self.selected?)?];
-        Some(Editor::new(format!("{}{}", self.command, entry.token)))
+        let suffix = if self.kind == Kind::WorktreeBranch {
+            " "
+        } else {
+            ""
+        };
+        Some(Editor::new(format!(
+            "{}{}{suffix}",
+            self.command, entry.token
+        )))
     }
 }

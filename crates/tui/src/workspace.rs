@@ -225,7 +225,9 @@ impl Screen {
             let origin = self.take_mode();
             self.remember_view(origin);
         }
-        self.focus(Some(path.clone()));
+        if let Some(index) = self.rows().iter().position(|row| row.path == path) {
+            self.select(index);
+        }
         self.page = Page::Detail;
         self.mode = Mode::Browsing;
         self.scroll = 0;

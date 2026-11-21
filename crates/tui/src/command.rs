@@ -41,6 +41,10 @@ pub enum Action {
     Branches,
     BranchFilterMenu,
     BranchFilter(crate::branches::Filter),
+    Worktrees,
+    WorktreeAdd,
+    WorktreeOpen,
+    WorktreeRemove,
     BranchCreate,
     BranchSwitch,
     Fetch,
@@ -196,6 +200,26 @@ pub const COMMANDS: &[Command] = &[
         name: "repo branch switch",
         action: BranchSwitch,
         description: i18n::Message::BranchSwitchCommand,
+    },
+    Command {
+        name: "repo worktree",
+        action: Worktrees,
+        description: i18n::Message::WorktreesCommand,
+    },
+    Command {
+        name: "repo worktree add",
+        action: WorktreeAdd,
+        description: i18n::Message::WorktreeAdd,
+    },
+    Command {
+        name: "repo worktree open",
+        action: WorktreeOpen,
+        description: i18n::Message::WorktreeOpen,
+    },
+    Command {
+        name: "repo worktree remove",
+        action: WorktreeRemove,
+        description: i18n::Message::WorktreeRemove,
     },
     Command {
         name: "repo log",

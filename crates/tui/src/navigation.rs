@@ -11,6 +11,7 @@ pub(crate) enum View {
     Diff,
     History,
     Branches,
+    Worktrees,
     Stashes,
     Files,
 }
@@ -20,6 +21,7 @@ impl View {
             Self::Diff => i18n::tr!(Worktree),
             Self::History => i18n::tr!(HistoryTitle),
             Self::Branches => i18n::tr!(BranchTitle),
+            Self::Worktrees => i18n::tr!(WorktreesTitle),
             Self::Stashes => i18n::tr!(StashTitle),
             Self::Files => i18n::tr!(BrowserTitle),
         }
@@ -30,6 +32,7 @@ pub(crate) enum Content {
     Diff(FileSession, Option<Group>),
     History(history::Session),
     Branches(branches::Session),
+    Worktrees(crate::worktrees::Session),
     Stashes(stashes::Session),
     Browser(Box<crate::browser::Session>),
 }
@@ -39,6 +42,7 @@ impl Content {
             Self::Diff(..) => View::Diff,
             Self::History(_) => View::History,
             Self::Branches(_) => View::Branches,
+            Self::Worktrees(_) => View::Worktrees,
             Self::Stashes(_) => View::Stashes,
             Self::Browser(_) => View::Files,
         }
@@ -51,6 +55,7 @@ impl Content {
                 group,
             ))),
             Self::History(session) => Mode::History(Box::new(history::View::Graph(session))),
+            Self::Worktrees(session) => Mode::Worktrees(session),
             Self::Branches(session) => Mode::Branches(Box::new(branches::View::List(session))),
             Self::Stashes(session) => Mode::Stashes(Box::new(stashes::View::List(session))),
             Self::Browser(session) => Mode::Browser(session),
@@ -138,6 +143,15 @@ impl Screen {
             self.mode = visit.mode;
             self.scroll = visit.scroll;
             self.setting_selected = visit.setting_selected;
+            if self.page == Page::Detail
+                && let Some(path) = visit.repository
+                && self.workspace.path() != Some(path.as_path())
+            {
+                self.enter_repository(path);
+                if let Some(session) = self.workspace.session_mut() {
+                    session.selection = crate::workspace::Section::of(&self.mode);
+                }
+            }
         } else {
             self.page = Page::Repositories;
             self.mode = Mode::Browsing;
@@ -206,6 +220,7 @@ impl Screen {
             let at_root = match (&self.mode, view) {
                 (Mode::Changes(_), View::Diff) => true,
                 (Mode::Browser(_), View::Files) => true,
+                (Mode::Worktrees(_), View::Worktrees) => true,
                 (Mode::History(current), View::History) => {
                     matches!(current.as_ref(), history::View::Graph(_))
                 }
@@ -278,7 +293,7 @@ impl Screen {
                     }
                     _ => None,
                 },
-                View::Stashes | View::Files => None,
+                View::Stashes | View::Files | View::Worktrees => None,
             }
         });
         if let Some(content) = cached {
@@ -302,6 +317,9 @@ impl Screen {
                     View::Branches => {
                         Content::Branches(branches::Session::new(service.branches(&path, &cancel)?))
                     }
+                    View::Worktrees => Content::Worktrees(crate::worktrees::Session::new(
+                        service.worktrees(&path, &cancel)?,
+                    )),
                     View::Stashes => {
                         Content::Stashes(stashes::Session::new(service.stashes(&path, &cancel)?))
                     }

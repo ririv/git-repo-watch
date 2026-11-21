@@ -88,6 +88,7 @@ mod workspace;
 mod workspace_navigation;
 mod worktree_folding;
 mod worktree_horizontal;
+mod worktrees;
 mod wrapping;
 use super::*;
 use crate::repository_list::{Filter, Order};

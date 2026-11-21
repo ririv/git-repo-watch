@@ -101,7 +101,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
             Ok(Output::Directory { editor, menu })
         }
         Request::Values {
-            kind: Kind::Branch,
+            kind: kind @ (Kind::Branch | Kind::WorktreeBranch),
             path,
         } => {
             let entries = service
@@ -113,10 +113,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
                     description: entry.subject,
                 })
                 .collect();
-            Ok(Output::Values {
-                kind: Kind::Branch,
-                entries,
-            })
+            Ok(Output::Values { kind, entries })
         }
         Request::Values {
             kind: Kind::Stash,

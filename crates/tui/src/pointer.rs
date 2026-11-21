@@ -11,6 +11,7 @@ pub(crate) enum Target {
     Repositories,
     Files,
     Branches,
+    Worktrees,
     Stashes,
     History,
     InspectionFiles,

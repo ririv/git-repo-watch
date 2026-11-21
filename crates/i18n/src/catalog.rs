@@ -438,6 +438,27 @@ pub enum Message {
 
     MutationStashConflicts,
     BranchCreateCommand,
+    WorktreesTitle,
+    WorktreesCommand,
+    WorktreeAdd,
+    WorktreeOpen,
+    WorktreeRemove,
+    WorktreeMain,
+    WorktreeCurrent,
+    WorktreeLocked,
+    WorktreeChangedFiles,
+    WorktreeIgnoredFiles,
+    WorktreeOperation,
+    WorktreeUnavailable,
+    WorktreePathExists,
+    WorktreeBranchExists,
+    WorktreeRemoveProtected,
+    WorktreeRemoveDirty,
+    WorktreeSelect,
+    WorktreeViewRequired,
+    WorktreeAddUsage,
+    WorktreeListHint,
+    WorktreeDirectory,
     BranchSwitchCommand,
     FetchCommand,
     AutoFetch,
@@ -1416,6 +1437,66 @@ impl Message {
     }
     pub const fn in_language(self, language: Language) -> &'static str {
         match (self, language) {
+            (Self::WorktreesTitle, Language::Chinese) => "Git 工作树",
+            (Self::WorktreesTitle, Language::English) => "Git worktrees",
+            (Self::WorktreesCommand, Language::Chinese) => "查看仓库的 Git 工作树",
+            (Self::WorktreesCommand, Language::English) => "Browse the repository’s Git worktrees",
+            (Self::WorktreeAdd, Language::Chinese) => "创建工作树",
+            (Self::WorktreeAdd, Language::English) => "Create a worktree",
+            (Self::WorktreeOpen, Language::Chinese) => "打开选中的工作树",
+            (Self::WorktreeOpen, Language::English) => "Open the selected worktree",
+            (Self::WorktreeRemove, Language::Chinese) => "移除选中的工作树",
+            (Self::WorktreeRemove, Language::English) => "Remove the selected worktree",
+            (Self::WorktreeMain, Language::Chinese) => "主工作树",
+            (Self::WorktreeMain, Language::English) => "Main worktree",
+            (Self::WorktreeCurrent, Language::Chinese) => "当前",
+            (Self::WorktreeCurrent, Language::English) => "Current",
+            (Self::WorktreeLocked, Language::Chinese) => "工作树已锁定",
+            (Self::WorktreeLocked, Language::English) => "The worktree is locked",
+            (Self::WorktreeChangedFiles, Language::Chinese) => "有改动",
+            (Self::WorktreeChangedFiles, Language::English) => "Modified",
+            (Self::WorktreeIgnoredFiles, Language::Chinese) => "有忽略文件",
+            (Self::WorktreeIgnoredFiles, Language::English) => "Contains ignored files",
+            (Self::WorktreeOperation, Language::Chinese) => "有未完成的 Git 操作",
+            (Self::WorktreeOperation, Language::English) => "Git operation in progress",
+            (Self::WorktreeUnavailable, Language::Chinese) => "无法读取工作树",
+            (Self::WorktreeUnavailable, Language::English) => "Worktree unavailable",
+            (Self::WorktreePathExists, Language::Chinese) => "工作树目标路径已存在",
+            (Self::WorktreePathExists, Language::English) => {
+                "The worktree destination already exists"
+            }
+            (Self::WorktreeBranchExists, Language::Chinese) => "本地分支已存在",
+            (Self::WorktreeBranchExists, Language::English) => "The local branch already exists",
+            (Self::WorktreeRemoveProtected, Language::Chinese) => "主工作树和当前工作树不能移除",
+            (Self::WorktreeRemoveProtected, Language::English) => {
+                "The main and current worktrees cannot be removed"
+            }
+            (Self::WorktreeRemoveDirty, Language::Chinese) => {
+                "只能移除干净的工作树，请先处理改动、未跟踪及忽略文件"
+            }
+            (Self::WorktreeRemoveDirty, Language::English) => {
+                "Only clean worktrees can be removed. Resolve changes, untracked and ignored files first"
+            }
+            (Self::WorktreeSelect, Language::Chinese) => "请先在工作树列表选择一项",
+            (Self::WorktreeSelect, Language::English) => {
+                "Select an entry in the worktree list first"
+            }
+            (Self::WorktreeViewRequired, Language::Chinese) => "请先打开工作树列表",
+            (Self::WorktreeViewRequired, Language::English) => "Open the worktree list first",
+            (Self::WorktreeAddUsage, Language::Chinese) => {
+                "请输入本地分支和绝对路径，可用 --new 从当前提交创建分支"
+            }
+            (Self::WorktreeAddUsage, Language::English) => {
+                "Enter a local branch and an absolute path. Use --new to branch from the current commit"
+            }
+            (Self::WorktreeListHint, Language::Chinese) => {
+                "↑↓选择 · Enter 打开 · / 命令 · Esc 返回"
+            }
+            (Self::WorktreeListHint, Language::English) => {
+                "↑↓ Select · Enter Open · / Commands · Esc Back"
+            }
+            (Self::WorktreeDirectory, Language::Chinese) => "工作树目录",
+            (Self::WorktreeDirectory, Language::English) => "Worktree directory",
             (Self::CommandHistory, Language::Chinese) => "命令历史",
             (Self::CommandHistory, Language::English) => "Command history",
             (Self::CommandHistoryEntryHint, Language::Chinese) => {

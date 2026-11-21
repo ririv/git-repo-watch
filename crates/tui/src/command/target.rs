@@ -35,6 +35,7 @@ pub(super) enum Requirement {
     WorktreeFiles,
     Conflict,
     BranchList,
+    WorktreeEntry,
     HistoryGraph,
     HistorySelection,
     CommitSelection,
@@ -103,6 +104,8 @@ impl Action {
         match self {
             OpenRepository
             | Branches
+            | Worktrees
+            | WorktreeAdd
             | BranchCreate
             | BranchSwitch
             | Fetch
@@ -138,6 +141,7 @@ impl Action {
             ConflictMenu | ConflictView(_) | ConflictAccept(_) | ConflictReset | ConflictUndo => {
                 Requirement::Conflict
             }
+            WorktreeOpen | WorktreeRemove => Requirement::WorktreeEntry,
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
             LogSelect | LogSelectAll | LogSelectClear => Requirement::HistorySelection,
@@ -235,6 +239,7 @@ impl Screen {
             | Mode::Browser(_)
             | Mode::Stashes(_)
             | Mode::Branches(_)
+            | Mode::Worktrees(_)
             | Mode::History(_)
             | Mode::Changes(_)
             | Mode::Files(_) => self.scope_path(),

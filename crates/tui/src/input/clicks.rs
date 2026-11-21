@@ -40,6 +40,7 @@ pub(crate) enum Identity {
         path: PathBuf,
     },
     Repository(PathBuf),
+    Worktree(PathBuf),
     WorktreeDirectory {
         repository: PathBuf,
         group: crate::files::Group,
@@ -141,6 +142,12 @@ impl Screen {
                     crate::files::Cursor::Empty => None,
                 }
             }
+            Target::Worktrees => match &self.mode {
+                Mode::Worktrees(session) => {
+                    Some(Identity::Worktree(session.selected()?.path.clone()))
+                }
+                _ => None,
+            },
             Target::Branches => match &self.mode {
                 Mode::Branches(view) => match view.as_ref() {
                     branches::View::List(session) => Some(Identity::Branch {

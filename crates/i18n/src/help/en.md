@@ -38,6 +38,7 @@
 - At the repository root, arrows select panes by layout. Enter focuses the selected pane before operating its content. A border marks the selection; focusing adds the pane name to breadcrumbs. Esc returns to pane selection and keeps its position; another Esc returns home. At the left column, ← also returns home; from the right column it first moves left. Narrow windows show the selected pane.
 - Entering a repository shows overview, branches, worktree files and the commit graph together.
 - `/repo branch` always opens the full branch view. Type to search names; `/repo branch filter [all|local|remote]` selects All / Local / Remote.
+- `/repo worktree` lists Git worktrees. Press Enter to open the selected checkout. Use `/repo worktree add [--new] <branch> <path>` to create one and `/repo worktree remove` to review and remove the selected clean worktree.
 - In branches, `Enter` opens ref, commit and upstream details. `*` marks the current branch. Ahead/behind uses local refs without fetching or changing branches.
 - `/focus` enters global pane focus mode in repository grids, diff and file browsers. Arrows move by layout without wrapping; Enter/Esc finish. Search pauses and arrow keys navigate panes while the input clearly shows Focus mode; / opens global commands. Use //focus or //zoom from a command context. Finishing restores type-to-search and preserves each pane’s selection and position. Clicking or scrolling inside a pane also focuses it.
 - `/zoom` toggles the focused pane between fullscreen and the tiled layout.

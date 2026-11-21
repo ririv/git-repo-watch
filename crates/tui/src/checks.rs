@@ -174,7 +174,10 @@ impl Screen {
         };
         self.updates.retain(|path, update| {
             (self.config.repositories.contains(path)
-                || self.service.session_repository() == Some(path.as_path()))
+                || self
+                    .service
+                    .session_paths()
+                    .any(|candidate| candidate == path))
                 && batch_versions
                     .get(path)
                     .is_none_or(|version| update.order() > *version)
@@ -193,7 +196,10 @@ impl Screen {
                     .expect("validated single-repository report"),
             };
             if (self.config.repositories.contains(&path)
-                || self.service.session_repository() == Some(path.as_path()))
+                || self
+                    .service
+                    .session_paths()
+                    .any(|candidate| candidate == path))
                 && batch_versions
                     .get(&path)
                     .is_none_or(|version| update.order() > *version)

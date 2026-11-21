@@ -10,7 +10,10 @@ impl Screen {
         return_to: crate::bar::ReturnTo,
     ) -> Result<bool> {
         match action {
-            Action::OpenEditor
+            Action::WorktreeAdd
+            | Action::WorktreeOpen
+            | Action::WorktreeRemove
+            | Action::OpenEditor
             | Action::Terminal
             | Action::OpenFolder
             | Action::CopyPath
@@ -151,6 +154,10 @@ impl Screen {
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
             Action::Filter(filter) => self.filter_repositories(filter),
             Action::Sort(order) => self.sort_repositories(order),
+            Action::Worktrees => self.open_view(
+                crate::navigation::View::Worktrees,
+                path.expect("resolved repository target"),
+            ),
             Action::Branches => {
                 if let Some(path) = path {
                     self.open_view(crate::navigation::View::Branches, path);

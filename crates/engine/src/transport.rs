@@ -106,6 +106,36 @@ impl Git {
             &environment,
         )
     }
+    pub(crate) fn add_worktree(
+        &self,
+        root: &Path,
+        destination: &Path,
+        branch: &str,
+        new_at: Option<git2::Oid>,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let mut args = strings(&["worktree", "add"]);
+        if new_at.is_some() {
+            args.extend(strings(&["-b", branch]));
+        }
+        args.push("--".into());
+        args.push(destination.as_os_str().to_owned());
+        args.push(
+            new_at
+                .map_or_else(|| branch.to_owned(), |oid| oid.to_string())
+                .into(),
+        );
+        self.run(root, args, cancel)?;
+        Ok(())
+    }
+
+    pub(crate) fn remove_worktree(&self, root: &Path, path: &Path, cancel: &Cancel) -> Result<()> {
+        let mut args = strings(&["worktree", "remove", "--"]);
+        args.push(path.as_os_str().to_owned());
+        self.run(root, args, cancel)?;
+        Ok(())
+    }
+
     pub fn fetch_tracking(
         &self,
         path: &Path,

@@ -151,6 +151,7 @@ pub(crate) enum Selection {
     },
     Log(CommitSelection),
     Branch(Content),
+    Worktree(Option<Box<engine::local::worktrees::Entry>>),
     Stash {
         content: Content,
         file: Option<HistoricalFile>,
@@ -180,7 +181,7 @@ impl Selection {
     }
     pub fn copy_scope(&self) -> Option<Scope> {
         Some(match self {
-            Self::None | Self::Task(_) => return None,
+            Self::None | Self::Task(_) | Self::Worktree(_) => return None,
             Self::Repository => Scope::Repository,
             Self::Browser { .. } => Scope::Browser,
             Self::Diff { .. } | Self::HistoricalDiff { .. } => Scope::Diff,
@@ -454,6 +455,9 @@ impl Screen {
                     },
                 },
             },
+            Mode::Worktrees(session) => {
+                Selection::Worktree(session.selected().cloned().map(Box::new))
+            }
             Mode::Branches(view) => Selection::Branch(match view.as_ref() {
                 branches::View::List(session) => branch(session),
                 branches::View::Detail { entry, .. } => {

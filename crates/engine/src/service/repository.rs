@@ -52,6 +52,32 @@ impl Service {
         self.validate_repository(path, cancel)?;
         local::branches::catalog::read(path, cancel)
     }
+    pub fn worktrees(&self, root: &Path, cancel: &Cancel) -> Result<local::worktrees::Snapshot> {
+        self.validate_repository(root, cancel)?;
+        local::worktrees::read(root, cancel)
+    }
+
+    pub fn authorize_worktree(
+        &mut self,
+        root: &Path,
+        entry: &local::worktrees::Entry,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        self.validate_repository(root, cancel)?;
+        let local::worktrees::State::Available { git_dir, .. } = &entry.state else {
+            anyhow::bail!(i18n::tr!(WorktreeUnavailable));
+        };
+        let repository = local::open(&entry.path)?;
+        let common = local::common_dir(&repository)?;
+        ensure!(
+            common == local::common_dir(&local::open(root)?)?
+                && &std::fs::canonicalize(repository.path())? == git_dir,
+            i18n::tr!(MutationChanged)
+        );
+        self.session_worktrees.insert(entry.path.clone(), common);
+        Ok(())
+    }
+
     pub fn remotes(&self, path: &Path, cancel: &Cancel) -> Result<Vec<local::remotes::Endpoint>> {
         self.validate_repository_access(path, cancel)?;
         local::remotes::read(path, cancel)
@@ -104,9 +130,21 @@ impl Service {
 
     fn validate_repository_access(&self, path: &Path, cancel: &Cancel) -> Result<()> {
         cancel.check()?;
+        if self.session_repository() == Some(path)
+            || self.store.config()?.repositories.iter().any(|p| p == path)
+        {
+            return Ok(());
+        }
+        let linked = self
+            .session_worktrees
+            .get(path)
+            .map(|common| -> Result<bool> {
+                Ok(local::common_dir(&local::open(path)?)? == *common)
+            })
+            .transpose()?
+            .unwrap_or(false);
         ensure!(
-            self.session_repository() == Some(path)
-                || self.store.config()?.repositories.iter().any(|p| p == path),
+            linked,
             i18n::tf!(RepositoryIsNotCurrentlyRegistered, path.display())
         );
         Ok(())

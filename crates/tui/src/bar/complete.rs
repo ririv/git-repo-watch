@@ -29,7 +29,7 @@ impl Screen {
         let editor = input.canonical_editor();
         let kind = command::argument_input(editor.text.strip_prefix('/').expect("command slash"))
             .filter(|(_, raw)| editor.cursor >= editor.text.len() - raw.len())
-            .and_then(|(argument, _)| Kind::for_argument(argument));
+            .and_then(|(argument, raw)| Kind::for_argument(argument, raw));
         let Some(kind) = kind.filter(|kind| *kind == Kind::Editor || path.is_some()) else {
             if matches!(
                 menu,

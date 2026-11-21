@@ -65,6 +65,7 @@ mod view_refresh;
 mod workflow;
 mod working_target;
 mod workspace;
+mod worktrees;
 use anyhow::{Context, Result};
 use command::{Action, Configuration};
 use crossterm::{
@@ -128,6 +129,7 @@ enum Mode {
     History(Box<history::View>),
     Stashes(Box<stashes::View>),
     Branches(Box<branches::View>),
+    Worktrees(worktrees::Session),
     Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,
@@ -466,6 +468,9 @@ impl Screen {
         }
         if let Mode::Stashes(view) = &self.mode {
             return Some(view.session().snapshot.path.clone());
+        }
+        if let Mode::Worktrees(session) = &self.mode {
+            return Some(session.snapshot.path.clone());
         }
         if let Mode::Branches(view) = &self.mode {
             return Some(view.session().snapshot.path.clone());

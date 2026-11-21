@@ -14,6 +14,32 @@ impl Execution {
         let permit = Permit { _private: () };
         match request {
             Request::Task(operation) => screen.execute_task(operation, &permit),
+            Request::Worktree { repository, entry } => match action {
+                Action::WorktreeOpen => {
+                    match std::sync::Arc::make_mut(&mut screen.service).authorize_worktree(
+                        &repository,
+                        &entry,
+                        root,
+                    ) {
+                        Ok(()) => screen.open_repository(entry.path),
+                        Err(error) => {
+                            screen.message = crate::message::Message::error(format!("{error:#}"));
+                        }
+                    }
+                }
+                Action::WorktreeRemove => {
+                    let mut draft = screen.mutation_draft(action, Some(repository));
+                    draft.selection = selection;
+                    draft.return_to = return_to;
+                    screen.prepare_mutation(
+                        engine::operations::mutation::Request::Worktree(
+                            engine::local::worktrees::Request::Remove(*entry),
+                        ),
+                        draft,
+                    );
+                }
+                _ => unreachable!("worktree entry command"),
+            },
             Request::Local { path } => {
                 if action != Action::Tasks {
                     screen.close_tasks();
