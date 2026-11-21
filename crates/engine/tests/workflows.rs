@@ -69,7 +69,8 @@ fn repositories_without_remotes_skip_remote_steps_and_finish_local_inspection() 
                     result.synchronization(),
                     engine::domain::synchronization::Synchronization::Current {
                         checkout: engine::domain::synchronization::Checkout::NoUpstream { .. }
-                            | engine::domain::synchronization::Checkout::Unborn { .. }
+                            | engine::domain::synchronization::Checkout::Unborn { .. },
+                        ..
                     }
                 ));
                 let records = &report.execution.as_ref().unwrap().repositories[0].steps;

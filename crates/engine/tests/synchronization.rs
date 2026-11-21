@@ -3,7 +3,7 @@ use engine::{
     check,
     domain::{
         IssueKind, PushPolicy, RepositoryResult,
-        synchronization::{Checkout, Synchronization},
+        synchronization::{Checkout, RemoteBranch, RemoteComparison, Synchronization},
     },
     scheduler::Manager,
     service::Service,
@@ -34,6 +34,17 @@ fn current_branch_counts_commits_and_stays_correct_after_shared_upstream_pushes(
     );
     assert_eq!(pushed.synchronization().current_commits(), Some((0, 0)));
     assert_eq!(pushed.pushes().len(), 1);
+    let branches = pushed.synchronization().remote_branches().unwrap();
+    assert_eq!(
+        branches,
+        ["main", "second"].map(|name| RemoteBranch {
+            name: name.into(),
+            comparison: RemoteComparison::Compared {
+                ahead: 0,
+                behind: 0
+            },
+        })
+    );
     f.advance();
     let (behind, _) = check::repository(
         &Git::default(),
@@ -67,11 +78,22 @@ fn the_current_checkout_is_specific_to_each_worktree_and_other_branches_do_not_c
     let (feature, _) = check::local_repository(&worktree, &Cancel::default());
     assert_eq!(main.synchronization().current_commits(), Some((0, 0)));
     assert_eq!(feature.synchronization().current_commits(), Some((3, 0)));
-    assert!(
-        matches!(main.synchronization(), Synchronization::Current {checkout:Checkout::Compared {branch,..}} if branch == "main")
+    assert_eq!(
+        main.synchronization().remote_branches().unwrap(),
+        [("feature", 3), ("main", 0)].map(|(name, ahead)| RemoteBranch {
+            name: name.into(),
+            comparison: RemoteComparison::Compared { ahead, behind: 0 },
+        })
+    );
+    assert_eq!(
+        main.synchronization().remote_branches(),
+        feature.synchronization().remote_branches()
     );
     assert!(
-        matches!(feature.synchronization(), Synchronization::Current {checkout:Checkout::Compared {branch,..}} if branch == "feature")
+        matches!(main.synchronization(), Synchronization::Current {checkout:Checkout::Compared {branch,..}, ..} if branch == "main")
+    );
+    assert!(
+        matches!(feature.synchronization(), Synchronization::Current {checkout:Checkout::Compared {branch,..}, ..} if branch == "feature")
     );
     let snapshot = engine::local::branches::catalog::read(&f.repo, &Cancel::default()).unwrap();
     assert!(snapshot.entries.iter().any(|entry| entry.name == "feature"
@@ -100,27 +122,35 @@ fn detached_unborn_and_missing_upstream_snapshots_do_not_reuse_another_branch() 
         &Cancel::default(),
     );
     assert!(
-        matches!(missing.synchronization(), Synchronization::Current {checkout:Checkout::MissingUpstream {branch}} if branch == "main")
+        matches!(missing.synchronization(), Synchronization::Current {checkout:Checkout::MissingUpstream {branch}, ..} if branch == "main")
     );
     assert_eq!(missing.synchronization().current_commits(), None);
+    assert_eq!(
+        missing.synchronization().remote_branches().unwrap(),
+        [RemoteBranch {
+            name: "main".into(),
+            comparison: RemoteComparison::MissingUpstream
+        },]
+    );
     git(&f.repo, &["checkout", "--detach"]);
     let (detached, _) = check::local_repository(&f.repo, &Cancel::default());
-    assert_eq!(
+    assert!(matches!(
         detached.synchronization(),
-        &Synchronization::Current {
-            checkout: Checkout::Detached
+        Synchronization::Current {
+            checkout: Checkout::Detached,
+            ..
         }
-    );
+    ));
     let empty = f.temp.path().join("empty");
     init(&empty);
     let (unborn, _) = check::local_repository(&empty, &Cancel::default());
-    assert_eq!(
+    assert!(matches!(
         unborn.synchronization(),
-        &Synchronization::Current {
-            checkout: Checkout::Unborn {
-                branch: "main".into()
-            }
-        }
+        Synchronization::Current { checkout: Checkout::Unborn { branch }, .. } if branch == "main"
+    ));
+    assert_eq!(
+        unborn.synchronization().remote_branches(),
+        Some([].as_slice())
     );
 }
 
@@ -143,10 +173,17 @@ fn missing_tracking_and_legacy_records_are_explicitly_distinct() {
     git(&f.repo, &["branch", "--unset-upstream"]);
     let (result, _) = check::local_repository(&f.repo, &Cancel::default());
     assert!(
-        matches!(result.synchronization(),Synchronization::Current { checkout:Checkout::NoUpstream {branch} } if branch == "main")
+        matches!(result.synchronization(),Synchronization::Current { checkout:Checkout::NoUpstream {branch}, .. } if branch == "main")
     );
     let old:RepositoryResult=serde_json::from_value(serde_json::json!({"status":"clean","path":"/example/repo","branches_without_upstream":[],"pushes":[]})).unwrap();
     assert_eq!(old.synchronization(), &Synchronization::Unknown);
+    let previous: Synchronization = serde_json::from_value(serde_json::json!({
+        "status": "current",
+        "checkout": {"state": "compared", "branch": "main", "ahead": 2, "behind": 0}
+    }))
+    .unwrap();
+    assert_eq!(previous.current_commits(), Some((2, 0)));
+    assert_eq!(previous.remote_branches(), None);
     for branches in ["[]", "[\"ahead\",\"diverged\"]"] {
         let legacy: Synchronization =
             serde_json::from_str(&format!("{{\"status\":\"known\",\"branches\":{branches}}}"))

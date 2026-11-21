@@ -4,9 +4,9 @@ use super::*;
 use crate::repository_list::Status;
 use crate::search::highlight::{self, Emphasis};
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub(super) enum Scope {
+pub(super) enum Scope<'a> {
     CurrentBranch,
-    AllBranches,
+    AllBranches(Option<&'a str>),
 }
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if area.width >= 120 && area.height >= 19 {
@@ -181,7 +181,7 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
     ])
 }
 
-pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope) -> Text<'static> {
+pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope<'_>) -> Text<'static> {
     let mut text = detail_text(row, scope);
     if let Some(error) = screen.repository_errors.get(&row.path) {
         if text.lines.len() > 1 {
@@ -205,7 +205,7 @@ pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope) -> Tex
     }
     text
 }
-fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
+fn detail_text(row: &Row, scope: Scope<'_>) -> Text<'static> {
     let mut lines = vec![field(
         i18n::tr!(Path),
         safe(&row.path.to_string_lossy()),
@@ -229,7 +229,7 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
         let (branch, color) = status::branch(Some(result));
         lines.push(field(i18n::tr!(Branch), safe(branch), color));
     }
-    if !matches!(result, RepositoryResult::Failed { .. }) {
+    if scope == Scope::CurrentBranch && !matches!(result, RepositoryResult::Failed { .. }) {
         let (sync, color) = status::synchronization(Some(result));
         lines.push(field(i18n::tr!(SyncColumn), sync, color));
     }
@@ -263,20 +263,11 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
         }
         RepositoryResult::Attention { issues, .. } => {
             for issue in issues {
-                if scope == Scope::CurrentBranch
-                    && matches!(
-                        issue.kind,
-                        IssueKind::OutOfSync | IssueKind::MissingUpstream
-                    )
-                {
-                    continue;
-                }
                 let (label, color) = match issue.kind {
                     IssueKind::Dirty => (i18n::tr!(Worktree), WARN),
                     IssueKind::DetachedHead => (i18n::tr!(HeadState), MUTED),
                     IssueKind::NoCommits => (i18n::tr!(CommitState), MUTED),
-                    IssueKind::MissingUpstream => (i18n::tr!(RemoteUpstream), MUTED),
-                    IssueKind::OutOfSync => (i18n::tr!(BranchSync), WARN),
+                    IssueKind::MissingUpstream | IssueKind::OutOfSync => continue,
                     IssueKind::PushFailed => (i18n::tr!(PushFailed), BAD),
                     IssueKind::OperationFailed => (i18n::tr!(OperationResult), BAD),
                 };
@@ -284,26 +275,10 @@ fn detail_text(row: &Row, scope: Scope) -> Text<'static> {
             }
         }
     }
-    if scope == Scope::AllBranches
-        && let Some(branches) = result.branches()
+    if let Scope::AllBranches(current) = scope
+        && let Some(without) = result.branches()
     {
-        lines.push(Line::default());
-        lines.push(field(
-            i18n::tr!(NoRemoteUpstream),
-            i18n::tf!(Branches, branches.len()),
-            Color::Reset,
-        ));
-        for branch in branches {
-            lines.push(Line::raw(format!(
-                "• {}{}",
-                safe(&branch.branch),
-                if branch.reason == engine::domain::UpstreamReason::LocalUpstream {
-                    i18n::tr!(TracksALocalBranch)
-                } else {
-                    ""
-                }
-            )));
-        }
+        lines.extend(status::branch_synchronization(result, without, current));
     }
     if !result.pushes().is_empty() {
         lines.push(Line::default());
@@ -372,7 +347,10 @@ mod tests {
         ] {
             let result = RepositoryResult::Clean {
                 path: "/example/repo".into(),
-                synchronization: Synchronization::Current { checkout },
+                synchronization: Synchronization::Current {
+                    checkout,
+                    remote_branches: None,
+                },
                 branches_without_upstream: vec![],
                 pushes: vec![],
             };
@@ -394,7 +372,7 @@ mod tests {
                     .contains(&branch)
             );
             assert!(
-                !detail_text(&row, Scope::AllBranches)
+                !detail_text(&row, Scope::AllBranches(None))
                     .to_string()
                     .contains(&branch)
             );
@@ -513,7 +491,7 @@ mod tests {
             path: result.path().to_owned(),
             result: Some(result),
         };
-        let text = detail_text(&row, Scope::AllBranches);
+        let text = detail_text(&row, Scope::AllBranches(None));
         let content = text.to_string();
         assert!(
             content.contains("状态：失败") && !content.contains("部分失败"),
@@ -547,6 +525,7 @@ mod tests {
             unreachable!()
         };
         *synchronization = Synchronization::Current {
+            remote_branches: None,
             checkout: Checkout::Compared {
                 branch: "main".into(),
                 ahead: 5,
@@ -573,7 +552,10 @@ mod tests {
                 synchronization, ..
             } = &mut result
             {
-                *synchronization = Synchronization::Current { checkout };
+                *synchronization = Synchronization::Current {
+                    checkout,
+                    remote_branches: None,
+                };
             }
             assert_eq!(status::synchronization(Some(&result)), ("—".into(), MUTED));
         }
@@ -595,7 +577,7 @@ mod tests {
             path: path.clone(),
             result,
         };
-        let missing = detail_text(&row(None), Scope::AllBranches).to_string();
+        let missing = detail_text(&row(None), Scope::AllBranches(None)).to_string();
         assert!(missing.starts_with("路径：/example/alpha\n状态：未检查\n"));
         let clean = detail_text(
             &row(Some(RepositoryResult::Clean {
@@ -604,11 +586,11 @@ mod tests {
                 branches_without_upstream: vec![],
                 pushes: vec![],
             })),
-            Scope::AllBranches,
+            Scope::AllBranches(None),
         )
         .to_string();
-        assert!(clean.contains("状态：正常\n同步：?\n工作区：干净"));
-        assert!(clean.contains("未配置远程上游：0 个分支"));
+        assert!(clean.contains("状态：正常\n工作区：干净"));
+        assert!(clean.contains("同步：\n  重新检查后可查看所有分支结果"));
         let attention = detail_text(
             &row(Some(RepositoryResult::Attention {
                 synchronization: Default::default(),
@@ -626,18 +608,82 @@ mod tests {
                 branches_without_upstream: vec![],
                 pushes: vec![],
             })),
-            Scope::AllBranches,
+            Scope::AllBranches(None),
         )
         .to_string();
         assert!(attention.contains("工作区：有未提交文件"));
-        assert!(attention.contains("分支同步：main 落后 2 个提交"));
+        assert!(attention.contains("同步：\n  main 落后 2 个提交"));
+        use engine::domain::{
+            BranchWithoutUpstream, UpstreamReason,
+            synchronization::{Checkout, RemoteBranch, RemoteComparison, Synchronization},
+        };
+        let checked = row(Some(RepositoryResult::Attention {
+            synchronization: Synchronization::Current {
+                checkout: Checkout::Compared {
+                    branch: "main".into(),
+                    ahead: 1,
+                    behind: 0,
+                },
+                remote_branches: Some(vec![
+                    RemoteBranch {
+                        name: "feature".into(),
+                        comparison: RemoteComparison::Compared {
+                            ahead: 0,
+                            behind: 0,
+                        },
+                    },
+                    RemoteBranch {
+                        name: "gone".into(),
+                        comparison: RemoteComparison::MissingUpstream,
+                    },
+                    RemoteBranch {
+                        name: "main".into(),
+                        comparison: RemoteComparison::Compared {
+                            ahead: 1,
+                            behind: 0,
+                        },
+                    },
+                ]),
+            },
+            path: path.clone(),
+            issues: Issues::new(
+                Issue {
+                    kind: IssueKind::OutOfSync,
+                    detail: "main duplicated detail".into(),
+                },
+                vec![],
+            ),
+            branches_without_upstream: vec![BranchWithoutUpstream {
+                branch: "scratch".into(),
+                reason: UpstreamReason::NotConfigured,
+            }],
+            pushes: vec![],
+        }));
+        for (current, expected) in [
+            (Some("main"), ["main", "feature", "gone", "scratch"]),
+            (Some("gone"), ["gone", "feature", "main", "scratch"]),
+            (Some("scratch"), ["scratch", "feature", "gone", "main"]),
+            (None, ["feature", "gone", "main", "scratch"]),
+        ] {
+            let text = detail_text(&checked, Scope::AllBranches(current)).to_string();
+            let (body, sync) = text.split_once("同步：\n").unwrap();
+            let names = sync
+                .lines()
+                .map(|line| line.trim_start().split_once(" · ").unwrap().0)
+                .collect::<Vec<_>>();
+            assert_eq!(names, expected);
+            assert!(!body.contains("main duplicated detail"));
+            assert!(sync.contains("main · ↑1 ↓0"));
+            assert!(sync.contains("gone · 远程上游分支不存在"));
+            assert!(sync.contains("scratch · 未配置远程上游"));
+        }
         let failed = detail_text(
             &row(Some(RepositoryResult::Failed {
                 path: path.clone(),
                 error: "SSL_ERROR_SYSCALL".into(),
                 pushes: vec![],
             })),
-            Scope::AllBranches,
+            Scope::AllBranches(None),
         )
         .to_string();
         assert!(failed.contains("状态：失败"));
@@ -690,7 +736,7 @@ mod tests {
                     path: path.clone(),
                     result,
                 },
-                Scope::AllBranches,
+                Scope::AllBranches(None),
             );
             assert_eq!(text.lines[0].spans[0].style.fg, Some(MUTED));
             assert_eq!(text.lines[0].spans[1].style.fg, Some(Color::Reset));

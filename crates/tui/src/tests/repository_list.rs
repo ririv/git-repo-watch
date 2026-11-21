@@ -535,6 +535,7 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
         unreachable!()
     };
     *synchronization = Synchronization::Current {
+        remote_branches: None,
         checkout: Checkout::Compared {
             branch: "main".into(),
             ahead: 0,
@@ -558,6 +559,7 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
         unreachable!()
     };
     *synchronization = Synchronization::Current {
+        remote_branches: None,
         checkout: Checkout::Compared {
             branch: "main".into(),
             ahead: 3,

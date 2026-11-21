@@ -96,7 +96,6 @@ fn inspect(
         let t = Instant::now();
         let repo = local::open(path)?;
         let mut issues = Vec::new();
-        let mut without = Vec::new();
         if local::files::dirty(&repo)? {
             issues.push(Issue {
                 kind: IssueKind::Dirty,
@@ -135,17 +134,7 @@ fn inspect(
                     !plan.skipped(&repo)? && plan.upstream(remote_ref)? == *upstream,
                     i18n::tr!(RemoteUpstreamReferenceIsInconsistentCheckFetch)
                 );
-                let oid = match branches::resolve(&repo, upstream) {
-                    Ok(oid) => Some(oid),
-                    Err(error)
-                        if error
-                            .downcast_ref::<git2::Error>()
-                            .is_some_and(|error| error.code() == git2::ErrorCode::NotFound) =>
-                    {
-                        None
-                    }
-                    Err(error) => return Err(error),
-                };
+                let oid = synchronization::upstream_tip(&repo, upstream)?;
                 heads.insert(upstream.clone(), oid);
             }
         }
@@ -153,14 +142,7 @@ fn inspect(
         for branch in branches {
             cancel.check()?;
             match branch.tracking {
-                Tracking::Absent => without.push(BranchWithoutUpstream {
-                    branch: branch.name,
-                    reason: UpstreamReason::NotConfigured,
-                }),
-                Tracking::Local => without.push(BranchWithoutUpstream {
-                    branch: branch.name,
-                    reason: UpstreamReason::LocalUpstream,
-                }),
+                Tracking::Absent | Tracking::Local => {}
                 Tracking::Remote {
                     remote,
                     remote_ref,
@@ -230,7 +212,7 @@ fn inspect(
             }
         }
         let t = Instant::now();
-        let synchronization = synchronization::read(&repo)?;
+        let (synchronization, without) = synchronization::read(&repo, cancel)?;
         timing.local_ms += t.elapsed().as_millis();
         let mut issues = issues.into_iter();
         Ok(match issues.next() {

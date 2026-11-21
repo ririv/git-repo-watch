@@ -8,7 +8,7 @@ pub(super) fn branch(result: Option<&RepositoryResult>) -> (&str, Color) {
         None => ("?", MUTED),
         Some(RepositoryResult::Failed { .. }) => ("?", BAD),
         Some(result) => match result.synchronization() {
-            Synchronization::Current { checkout } => match checkout {
+            Synchronization::Current { checkout, .. } => match checkout {
                 Checkout::Compared { branch, .. }
                 | Checkout::NoUpstream { branch }
                 | Checkout::MissingUpstream { branch }
@@ -54,4 +54,70 @@ pub(super) fn synchronization(result: Option<&RepositoryResult>) -> (String, Col
             None => ("—".into(), MUTED),
         },
     }
+}
+
+pub(super) fn branch_synchronization(
+    result: &RepositoryResult,
+    without: &[engine::domain::BranchWithoutUpstream],
+    current: Option<&str>,
+) -> Vec<Line<'static>> {
+    use engine::domain::{UpstreamReason, synchronization::RemoteComparison};
+
+    let row = |value, color| Line::styled(format!("  {value}"), Style::default().fg(color));
+    let mut lines = vec![super::field(i18n::tr!(SyncColumn), "", Color::Reset)];
+    let mut current_row = None;
+    if let Some(branches) = result.synchronization().remote_branches() {
+        for branch in branches {
+            if current == Some(branch.name.as_str()) {
+                current_row = Some(lines.len());
+            }
+            let (comparison, color) = match branch.comparison {
+                RemoteComparison::Compared { ahead, behind } => (
+                    format!("↑{ahead} ↓{behind}"),
+                    if ahead == 0 && behind == 0 {
+                        GOOD
+                    } else {
+                        WARN
+                    },
+                ),
+                RemoteComparison::MissingUpstream => (
+                    i18n::tr!(RemoteUpstreamBranchDoesNotExistAlt).to_owned(),
+                    MUTED,
+                ),
+            };
+            lines.push(row(format!("{} · {comparison}", safe(&branch.name)), color));
+        }
+        if branches.is_empty() && without.is_empty() {
+            lines.push(row(
+                i18n::tr!(NoLocalBranchCommitsToCheck).to_owned(),
+                MUTED,
+            ));
+        }
+    } else {
+        if let RepositoryResult::Attention { issues, .. } = result {
+            for issue in issues {
+                let color = match issue.kind {
+                    IssueKind::OutOfSync => WARN,
+                    IssueKind::MissingUpstream => MUTED,
+                    _ => continue,
+                };
+                lines.push(row(safe(&issue.detail), color));
+            }
+        }
+        lines.push(row(i18n::tr!(SyncPartialReport).to_owned(), MUTED));
+    }
+    for branch in without {
+        if current == Some(branch.branch.as_str()) {
+            current_row = Some(lines.len());
+        }
+        let label = match branch.reason {
+            UpstreamReason::NotConfigured => i18n::tr!(NoRemoteUpstream),
+            UpstreamReason::LocalUpstream => i18n::tr!(TracksALocalBranch),
+        };
+        lines.push(row(format!("{} · {label}", safe(&branch.branch)), MUTED));
+    }
+    if let Some(index) = current_row {
+        lines[1..=index].rotate_right(1);
+    }
+    lines
 }

@@ -25,6 +25,7 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         repository_title
     };
     let mut lines = Vec::new();
+    let mut current_branch = None;
     if presentation == Presentation::Expanded
         && let Some(path) = path
     {
@@ -52,6 +53,7 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
                     oid,
                     tracking,
                 }) => {
+                    current_branch = Some(name.as_str());
                     lines.push(field(
                         i18n::tr!(Branch),
                         format!("{}  {}", safe(name), &oid.to_string()[..8]),
@@ -180,7 +182,11 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
             path: path.to_owned(),
             result: screen.result_for(path).cloned(),
         };
-        let mut check = repository::repository_detail(screen, &row, repository::Scope::AllBranches);
+        let mut check = repository::repository_detail(
+            screen,
+            &row,
+            repository::Scope::AllBranches(current_branch),
+        );
         // 路径由概览统一显示一次；检查详情沿用列表预览的同一实现。
         check.lines.remove(0);
         if presentation == Presentation::Embedded {
