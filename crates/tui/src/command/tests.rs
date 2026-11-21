@@ -111,6 +111,32 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
 }
 
 #[test]
+fn candidate_matching_accepts_optional_spaces_only_between_words() {
+    for query in ["repocommitgenerate", "repo  commit gen", "repo　commitgen"] {
+        assert_eq!(
+            names(query).first(),
+            Some(&"repo commit generate"),
+            "{query}"
+        );
+    }
+    assert!(names("repo  com mit").is_empty());
+    assert!(names("设置模 型").is_empty());
+    assert_eq!(names("ENTER  A MODEL NAME"), ["settings ai model"]);
+    assert_eq!(names("enteramodelname"), ["settings ai model"]);
+
+    let input = "repo diff conflict --v i";
+    let parameter = named::Query::new(input).unwrap();
+    assert!(parameter.candidates().next().is_none());
+    assert!(argument_input(input).is_none());
+
+    let path = "\"/example/中文  项目/with spaces\"";
+    assert_eq!(
+        argument_input(&format!("repos add {path}")),
+        Some((ArgumentAction::Add, path))
+    );
+}
+
+#[test]
 fn name_matches_precede_description_matches_without_duplicates_or_scope_leaks() {
     let checks = names("fetch");
     assert_eq!(&checks[..2], ["repo fetch", "repos fetch"]);

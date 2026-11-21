@@ -91,6 +91,41 @@ fn tab_completes_before_entering_a_group_and_escape_returns_to_the_parent_in_bot
 }
 
 #[test]
+fn spaced_and_compact_input_share_global_and_scoped_completion() {
+    let f = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    s.config.ai.enabled = true;
+    for input in ["//repocommit", "//repo  commit"] {
+        s.paste(input);
+        let candidates = s.search_commands().unwrap();
+        assert_eq!(candidates[0].name, "repo commit");
+        assert!(
+            candidates
+                .iter()
+                .any(|command| command.name == "repo commit generate")
+        );
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.text(), "/repo commit");
+        key(&mut s, KeyCode::Tab);
+        assert_eq!(s.bar.text(), "/repo commit ");
+        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Esc);
+    }
+
+    key(&mut s, KeyCode::Enter);
+    wait_workspace(&mut s);
+    s.paste("/branch　crea te");
+    assert!(s.search_commands().unwrap().is_empty());
+    key(&mut s, KeyCode::Esc);
+    s.paste("/branch　create");
+    assert_eq!(s.search_commands().unwrap()[0].name, "repo branch create");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "/repo branch create ");
+    assert!(s.repository_tasks.is_empty());
+    s.shutdown();
+}
+
+#[test]
 fn hierarchy_is_shared_by_executable_groups_and_preserves_parameter_menus() {
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);

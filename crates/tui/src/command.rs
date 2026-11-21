@@ -690,9 +690,10 @@ pub fn matches(input: &str) -> Vec<&'static Command> {
             .filter(|command| !command.name.contains(' '))
             .collect();
     }
-    let query = input.trim_end().to_lowercase();
+    let query = MatchQuery::new(input);
     // 完整命令名按词边界限定组，避免 repo 同时匹配 repos。
-    let exact = COMMANDS.iter().any(|command| command.name == query);
+    let exact = COMMANDS.iter().any(|command| command.name == query.text);
+    let prefix = format!("{} ", query.text);
     // 父命令末尾的空格限定为子命令；普通说明短语仍搜索整个目录。
     let parent = input
         .strip_suffix(' ')
@@ -705,7 +706,7 @@ pub fn matches(input: &str) -> Vec<&'static Command> {
     let mut matches = COMMANDS
         .iter()
         .filter(|command| {
-            (!exact || command.name == query || command.name.starts_with(&format!("{query} ")))
+            (!exact || command.name == query.text || command.name.starts_with(&prefix))
                 && parent
                     .as_ref()
                     .is_none_or(|parent| command.name.starts_with(parent))
@@ -731,55 +732,119 @@ enum MatchKind {
     NamePrefix,
     NameWordPrefix,
     NameSubstring,
+    NamePrefixWithOptionalSpaces,
+    NameSubstringWithOptionalSpaces,
     Description,
+    DescriptionWithOptionalSpaces,
 }
-impl Command {
-    fn match_kind(&self, query: &str) -> Option<MatchKind> {
-        self.match_name(self.name, query)
+
+struct MatchQuery {
+    text: String,
+}
+impl MatchQuery {
+    fn new(input: &str) -> Self {
+        Self {
+            text: input
+                .split_whitespace()
+                .collect::<Vec<_>>()
+                .join(" ")
+                .to_lowercase(),
+        }
     }
-    fn match_name(&self, name: &str, query: &str) -> Option<MatchKind> {
-        if name.starts_with(query) {
-            Some(MatchKind::NamePrefix)
-        } else if name
+
+    fn name_rank(&self, name: &str) -> Option<MatchKind> {
+        if name.starts_with(&self.text) {
+            return Some(MatchKind::NamePrefix);
+        }
+        if name
             .match_indices(' ')
-            .any(|(index, _)| name[index + 1..].starts_with(query))
+            .any(|(index, _)| name[index + 1..].starts_with(&self.text))
         {
-            Some(MatchKind::NameWordPrefix)
-        } else if name.contains(query) {
-            Some(MatchKind::NameSubstring)
-        } else if self
-            .action
-            .argument()
-            .and_then(|argument| argument.options())
-            .is_some_and(|kind| {
-                kind.options().any(|option| {
-                    option.token.contains(query)
-                        || [i18n::Language::English, i18n::Language::Chinese]
-                            .iter()
-                            .any(|language| {
-                                option
-                                    .description
-                                    .in_language(*language)
-                                    .to_lowercase()
-                                    .contains(query)
-                            })
-                })
-            })
-            || [i18n::Language::English, i18n::Language::Chinese]
-                .into_iter()
-                .any(|language| {
-                    [
-                        self.description.in_language(language),
-                        self.summary().in_language(language),
-                    ]
-                    .iter()
-                    .any(|text| text.to_lowercase().contains(query))
-                })
-        {
-            Some(MatchKind::Description)
+            return Some(MatchKind::NameWordPrefix);
+        }
+        if name.contains(&self.text) {
+            return Some(MatchKind::NameSubstring);
+        }
+        if prefix_with_optional_spaces(name, &self.text) {
+            Some(MatchKind::NamePrefixWithOptionalSpaces)
+        } else if self.contains_with_optional_spaces(name) {
+            Some(MatchKind::NameSubstringWithOptionalSpaces)
         } else {
             None
         }
+    }
+
+    fn description_rank(&self, text: &str) -> Option<MatchKind> {
+        let text = text.to_lowercase();
+        if text.contains(&self.text) {
+            Some(MatchKind::Description)
+        } else if self.contains_with_optional_spaces(&text) {
+            Some(MatchKind::DescriptionWithOptionalSpaces)
+        } else {
+            None
+        }
+    }
+
+    fn contains_with_optional_spaces(&self, text: &str) -> bool {
+        let Some(first) = self.text.chars().next() else {
+            return true;
+        };
+        text.match_indices(first)
+            .any(|(index, _)| prefix_with_optional_spaces(&text[index..], &self.text))
+    }
+}
+
+fn prefix_with_optional_spaces(candidate: &str, query: &str) -> bool {
+    let mut candidate = candidate.chars().peekable();
+    for character in query.chars() {
+        // 可以省略候选中已有的词间空格，输入的空格必须对应已有词边界。
+        let separated = candidate.peek().is_some_and(|next| next.is_whitespace());
+        if character == ' ' && !separated {
+            return false;
+        }
+        while candidate.peek().is_some_and(|next| next.is_whitespace()) {
+            candidate.next();
+        }
+        if character != ' ' && candidate.next() != Some(character) {
+            return false;
+        }
+    }
+    true
+}
+
+impl Command {
+    fn match_kind(&self, query: &MatchQuery) -> Option<MatchKind> {
+        self.match_name(self.name, query)
+    }
+
+    fn match_name(&self, name: &str, query: &MatchQuery) -> Option<MatchKind> {
+        if let Some(rank) = query.name_rank(name) {
+            return Some(rank);
+        }
+        use i18n::Language::{Chinese, English};
+        let descriptions = [English, Chinese].into_iter().flat_map(|language| {
+            [
+                self.description.in_language(language),
+                self.summary().in_language(language),
+            ]
+        });
+        let options = self
+            .action
+            .argument()
+            .and_then(|argument| argument.options());
+        let option_descriptions = options.into_iter().flat_map(|kind| {
+            kind.options().flat_map(|option| {
+                [
+                    option.token,
+                    option.description.in_language(English),
+                    option.description.in_language(Chinese),
+                ]
+            })
+        });
+        descriptions
+            .chain(option_descriptions)
+            .filter_map(|text| query.description_rank(text))
+            .min()
     }
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

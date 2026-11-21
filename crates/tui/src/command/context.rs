@@ -1,5 +1,5 @@
 //! Explicit command groups are captured from the focused view when opening a draft.
-use super::{Action, Command, Configuration};
+use super::{Action, Command, Configuration, MatchQuery};
 use crate::{Mode, Page, Screen, history, workspace};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -97,7 +97,7 @@ impl Context {
                 .collect();
         }
         let input = input.trim_start();
-        let query = input.trim_end().to_lowercase();
+        let query = MatchQuery::new(input);
         let parent = input
             .strip_suffix(' ')
             .filter(|parent| {
@@ -123,12 +123,12 @@ impl Context {
                 c.match_name(relative, &query).map(|rank| (rank, c))
             })
             .collect::<Vec<_>>();
-        let grouped = query.is_empty()
+        let grouped = query.text.is_empty()
             || super::COMMANDS.iter().any(|command| {
                 self.admits(command)
                     && self
                         .relative(command)
-                        .is_some_and(|name| name.eq_ignore_ascii_case(&query))
+                        .is_some_and(|name| name.eq_ignore_ascii_case(&query.text))
             });
         candidates.sort_by_key(|(rank, command)| {
             (
@@ -157,7 +157,7 @@ impl Context {
         if super::argument_input(&format!("{} {input}", self.name())).is_some() {
             return local;
         }
-        let query = input.trim().to_lowercase();
+        let query = MatchQuery::new(input);
         let mut candidates = local
             .into_iter()
             .map(|command| {
