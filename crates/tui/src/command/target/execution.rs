@@ -30,6 +30,7 @@ enum Request {
         root: PathBuf,
         directory: PathBuf,
     },
+    Folder(engine::desktop::Target),
     Copy(clipboard::Payload),
     Replay {
         repository: PathBuf,
@@ -116,10 +117,17 @@ impl Resolved<'_> {
                 root: destination.root.to_owned(),
                 target: destination.path,
             },
+            (Value::Destination(destination), Action::OpenMenu) => Request::Local {
+                path: Some(destination.root.to_owned()),
+            },
             (Value::Destination(destination), Action::Terminal) => Request::Terminal {
                 root: destination.root.to_owned(),
                 directory: destination.path,
             },
+            (Value::Destination(destination), Action::OpenFolder) => Request::Folder(
+                engine::desktop::Target::directory(destination.path)
+                    .ok_or_else(|| anyhow::anyhow!(i18n::tr!(FolderInvalidPath)))?,
+            ),
             (Value::File(file), Action::CopyPath) => Request::Copy(clipboard::Payload {
                 target: clipboard::Target::FilePaths,
                 text: file

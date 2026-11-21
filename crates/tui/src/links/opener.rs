@@ -16,7 +16,7 @@ struct Active {
 #[derive(Default)]
 pub(crate) struct Opener {
     active: Option<Active>,
-    launches: Vec<engine::desktop::Launch>,
+    launches: Vec<(Arc<Target>, engine::desktop::Launch)>,
     #[cfg(test)]
     sink: Option<Sink>,
 }
@@ -59,17 +59,17 @@ impl Opener {
         });
         Ok(())
     }
-    pub fn poll(&mut self) -> Option<Result<(), String>> {
+    pub fn poll(&mut self) -> Option<(Arc<Target>, Result<(), String>)> {
         let mut index = 0;
         while index < self.launches.len() {
-            match self.launches[index].poll() {
+            match self.launches[index].1.poll() {
                 Ok(None) => index += 1,
                 Ok(Some(())) => {
                     self.launches.swap_remove(index);
                 }
                 Err(error) => {
-                    self.launches.swap_remove(index);
-                    return Some(Err(format!("{error:#}")));
+                    let (target, _) = self.launches.swap_remove(index);
+                    return Some((target, Err(format!("{error:#}"))));
                 }
             }
         }
@@ -86,11 +86,13 @@ impl Opener {
                 .try_recv()
                 .unwrap_or_else(|_| Err(i18n::tr!(BackgroundWorkerTerminatedUnexpectedly).into()))
         };
-        Some(result.map(|launch| {
+        let target = active.target;
+        let result = result.map(|launch| {
             if let Some(launch) = launch {
-                self.launches.push(launch);
+                self.launches.push((target.clone(), launch));
             }
-        }))
+        });
+        Some((target, result))
     }
     pub fn shutdown(&mut self) {
         if let Some(active) = self.active.take() {

@@ -302,7 +302,9 @@ fn render_menu(
                         .map(|path| field.value(screen.config.repository_environment.get(path))),
                     ValueKind::Text,
                 ),
-                Action::OpenEditor | Action::Terminal => (target, ValueKind::Path),
+                Action::OpenEditor | Action::Terminal | Action::OpenFolder => {
+                    (target, ValueKind::Path)
+                }
                 action => (
                     target
                         .or_else(|| repository_list::annotation(action, screen))

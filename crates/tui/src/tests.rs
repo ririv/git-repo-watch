@@ -783,9 +783,9 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         ]);
         s.paste("//te");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/terminal");
+        assert_eq!(s.bar.text(), "/open terminal");
         assert_eq!(
-            command::matches("terminal")
+            command::matches("open terminal")
                 .first()
                 .map(|command| command.action),
             Some(Action::Terminal)
@@ -809,7 +809,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
 fn terminal_requires_selection_and_preserves_origin_on_success() {
     let _language = i18n::using(i18n::Language::English);
     let (_temp, mut empty) = fixture(vec![]);
-    command(&mut empty, "terminal");
+    command(&mut empty, "open terminal");
     assert!(matches!(empty.mode, Mode::Browsing));
     assert_eq!(empty.message, i18n::tr!(TerminalSelectionRequired));
     let f = support::Fixture::create();

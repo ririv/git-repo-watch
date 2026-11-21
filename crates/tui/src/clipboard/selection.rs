@@ -190,7 +190,7 @@ impl Selection {
             Self::Error(_) => Scope::Error,
         })
     }
-    pub fn terminal_target(&self, root: &Path) -> Option<PathBuf> {
+    pub fn directory_target(&self, root: &Path) -> Option<PathBuf> {
         match self {
             Self::Repository
             | Self::Log(_)

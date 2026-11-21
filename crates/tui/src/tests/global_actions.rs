@@ -8,13 +8,13 @@ fn terminal_uses_captured_directories_and_file_parents_without_changing_selectio
     f.commit("root.txt", "root\n");
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     assert_eq!(
-        s.copy_selection().terminal_target(&f.repo),
+        s.copy_selection().directory_target(&f.repo),
         Some(f.repo.clone())
     );
     command(&mut s, "repo files");
     browser::ready(&mut s);
     browser::select(&mut s, "中文 目录");
-    s.paste("//terminal");
+    s.paste("//open terminal");
     browser::select(&mut s, "root.txt");
     let bar::InputBar::Command {
         path, selection, ..
@@ -23,7 +23,7 @@ fn terminal_uses_captured_directories_and_file_parents_without_changing_selectio
         panic!("command")
     };
     assert_eq!(
-        selection.terminal_target(path.as_deref().unwrap()),
+        selection.directory_target(path.as_deref().unwrap()),
         Some(f.repo.join("中文 目录"))
     );
     assert_eq!(
@@ -39,7 +39,7 @@ fn terminal_uses_captured_directories_and_file_parents_without_changing_selectio
     browser::ready(&mut s);
     browser::select(&mut s, "中文 目录/file.ts");
     assert_eq!(
-        s.copy_selection().terminal_target(&f.repo),
+        s.copy_selection().directory_target(&f.repo),
         Some(f.repo.join("中文 目录"))
     );
     command(&mut s, "settings");
@@ -53,6 +53,79 @@ fn terminal_uses_captured_directories_and_file_parents_without_changing_selectio
             .reason()
             .is_some()
     );
+    s.shutdown();
+}
+
+#[test]
+fn folder_opens_the_directory_captured_by_the_group() {
+    let f = support::Fixture::create();
+    let folder = f.repo.join("中文 目录");
+    std::fs::create_dir(&folder).unwrap();
+    f.commit("中文 目录/file.ts", "content\n");
+    f.commit("root.txt", "root\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let (tx, rx) = std::sync::mpsc::channel();
+    s.link_opener = crate::links::Opener::with_sink(move |target, _| {
+        tx.send(target.clone()).unwrap();
+        Ok(())
+    });
+
+    let (file_manager, label) = if cfg!(target_os = "macos") {
+        ("finder", "在访达中打开")
+    } else if cfg!(target_os = "windows") {
+        ("explorer", "在文件资源管理器中打开")
+    } else {
+        ("browse", "在文件管理器中打开")
+    };
+    s.paste("//open");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "/open ");
+    assert_eq!(
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .map(|command| command.name)
+            .collect::<Vec<_>>(),
+        ["open terminal", format!("open {file_manager}").as_str()],
+    );
+    {
+        let _language = i18n::using(i18n::Language::Chinese);
+        let menu = render(&mut s, 120, 28);
+        assert!(
+            menu.lines()
+                .any(|line| line.contains(file_manager) && line.contains(label)),
+            "{menu}"
+        );
+    }
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(
+        rx.recv_timeout(Duration::from_secs(3)).unwrap(),
+        engine::desktop::Target::directory(f.repo.clone()).unwrap(),
+    );
+    links::opened(&mut s);
+    assert_eq!(s.message, i18n::tr!(FolderOpenRequested));
+
+    command(&mut s, "repo files");
+    browser::ready(&mut s);
+    browser::select(&mut s, "中文 目录");
+    key(&mut s, KeyCode::Enter);
+    browser::ready(&mut s);
+    browser::select(&mut s, "中文 目录/file.ts");
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("open");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(s.bar.text(), "/open ");
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(
+        rx.recv_timeout(Duration::from_secs(3)).unwrap(),
+        engine::desktop::Target::directory(folder).unwrap(),
+    );
+    links::opened(&mut s);
+    assert_eq!(s.message, i18n::tr!(FolderOpenRequested));
+    assert!(matches!(s.mode, Mode::Browser(_)));
+    assert!(s.repository_tasks.is_empty());
     s.shutdown();
 }
 

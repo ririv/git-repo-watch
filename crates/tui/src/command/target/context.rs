@@ -73,7 +73,14 @@ impl<'a> CommandContext<'a> {
             Global => Target::Ready(Value::Global),
             Repository => self.repository().map(Value::Repository),
             EditorDestination => self.editor().map(Value::Destination),
-            TerminalDirectory => self.terminal().map(Value::Destination),
+            DirectoryDestination => {
+                let unavailable = match action {
+                    Action::Terminal => i18n::tr!(TerminalSelectionRequired),
+                    Action::OpenMenu | Action::OpenFolder => i18n::tr!(FolderSelectionRequired),
+                    _ => unreachable!("directory command"),
+                };
+                self.directory(unavailable).map(Value::Destination)
+            }
             Clipboard => self.clipboard().map(Value::Clipboard),
             FilePath => self.file().map(Value::File),
             Search => self.search(action).map(Value::Search),

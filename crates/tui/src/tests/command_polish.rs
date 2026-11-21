@@ -37,7 +37,20 @@ fn scoped_common_commands_are_explicit_and_complete_to_global_without_losing_sel
         .into_iter()
         .map(|entry| entry.name)
         .collect::<Vec<_>>();
-    for expected in ["copy", "refresh", "editor", "terminal"] {
+    for expected in [
+        "copy",
+        "refresh",
+        "editor",
+        "open",
+        "open terminal",
+        if cfg!(target_os = "macos") {
+            "open finder"
+        } else if cfg!(target_os = "windows") {
+            "open explorer"
+        } else {
+            "open browse"
+        },
+    ] {
         assert!(names.contains(&expected));
     }
     s.paste("copy");

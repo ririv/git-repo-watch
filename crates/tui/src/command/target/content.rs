@@ -23,14 +23,14 @@ impl<'a> CommandContext<'a> {
             None => Target::Unavailable(i18n::tr!(ExternalEditorSelectionRequired).into()),
         }
     }
-    pub fn terminal(&self) -> Target<Destination<'a>> {
+    pub fn directory(&self, unavailable: &'static str) -> Target<Destination<'a>> {
         match self.repository.and_then(|root| {
             self.selection
-                .terminal_target(root)
+                .directory_target(root)
                 .map(|path| Destination { root, path })
         }) {
             Some(target) => Target::Ready(target),
-            None => Target::Unavailable(i18n::tr!(TerminalSelectionRequired).into()),
+            None => Target::Unavailable(unavailable.into()),
         }
     }
     pub fn clipboard(&self) -> Target<clipboard::Scope> {

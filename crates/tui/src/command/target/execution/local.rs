@@ -12,6 +12,7 @@ impl Screen {
         match action {
             Action::OpenEditor
             | Action::Terminal
+            | Action::OpenFolder
             | Action::CopyPath
             | Action::Copy
             | Action::Replay(_)
@@ -32,6 +33,14 @@ impl Screen {
             | Action::ConflictReset => {
                 unreachable!("resolved target owns this command execution")
             }
+            Action::OpenMenu => self.open_command_entry(
+                command::COMMANDS
+                    .iter()
+                    .find(|command| command.action == Action::OpenMenu)
+                    .expect("open command group"),
+                path,
+                selection,
+            ),
             Action::LogSelect => self.mark_history(history::SelectionAction::ToggleMode),
             Action::LogSelectAll => self.mark_history(history::SelectionAction::All),
             Action::LogSelectClear => self.mark_history(history::SelectionAction::Clear),

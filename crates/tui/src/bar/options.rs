@@ -50,11 +50,14 @@ impl Screen {
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
     ) {
+        let editor = Editor::new(format!("/{} ", command.name));
+        let input = if command.common() {
+            command::Input::global(editor)
+        } else {
+            command::Input::from_canonical(self.command_context(), editor)
+        };
         *self.active_bar_mut() = InputBar::Command {
-            input: command::Input::from_canonical(
-                self.command_context(),
-                Editor::new(format!("/{} ", command.name)),
-            ),
+            input,
             selected: 0,
             menu: Menu::Commands,
             repository: self.capture_repository(path.as_deref()),

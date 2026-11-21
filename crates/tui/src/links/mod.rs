@@ -140,15 +140,40 @@ fn mark(line: &Line, targets: &mut Vec<Arc<Target>>) -> ratatui::text::Line<'sta
     ratatui::text::Line::from(spans)
 }
 
+fn open_failed(target: &Target) -> &'static str {
+    match target {
+        Target::Directory(_) => i18n::tr!(FolderOpenFailed),
+        _ => i18n::tr!(LinkOpenFailed),
+    }
+}
+
 impl crate::Screen {
+    pub(crate) fn request_external_open(&mut self, target: std::sync::Arc<Target>) {
+        let opening = match target.as_ref() {
+            Target::Directory(_) => i18n::tr!(FolderOpening),
+            _ => i18n::tr!(LinkOpening),
+        };
+        let failed = open_failed(&target);
+        self.message = match self.link_opener.submit(target) {
+            Ok(()) => crate::message::Message::information(opening.into()),
+            Err(error) => crate::message::Message::error(format!("{failed}: {error:#}")),
+        };
+    }
+
     pub(crate) fn poll_links(&mut self) -> bool {
-        let Some(result) = self.link_opener.poll() else {
+        let Some((target, result)) = self.link_opener.poll() else {
             return false;
         };
         self.message = match result {
-            Ok(()) => crate::message::Message::information(i18n::tr!(LinkRequested).into()),
+            Ok(()) => crate::message::Message::information(
+                match target.as_ref() {
+                    Target::Directory(_) => i18n::tr!(FolderOpenRequested),
+                    _ => i18n::tr!(LinkRequested),
+                }
+                .into(),
+            ),
             Err(error) => {
-                crate::message::Message::error(format!("{}: {error}", i18n::tr!(LinkOpenFailed)))
+                crate::message::Message::error(format!("{}: {error}", open_failed(&target)))
             }
         };
         true

@@ -103,8 +103,24 @@ fn typing_replaces_only_the_leaf_and_enter_opens_the_new_view_without_writes() {
             .map(|c| c.name)
             .collect::<Vec<_>>();
         assert!(names.contains(&"repo log") && names.contains(&"repo branch"));
-        assert!(names.iter().all(|name| name.starts_with("repo ")
-            || ["copy", "refresh", "editor", "terminal"].contains(name)));
+        assert!(names.iter().all(|name| {
+            name.starts_with("repo ")
+                || [
+                    "copy",
+                    "refresh",
+                    "editor",
+                    "open",
+                    "open terminal",
+                    if cfg!(target_os = "macos") {
+                        "open finder"
+                    } else if cfg!(target_os = "windows") {
+                        "open explorer"
+                    } else {
+                        "open browse"
+                    },
+                ]
+                .contains(name)
+        }));
         assert_eq!(s.bar.text(), "/repo branch ");
         type_text(&mut s, "log");
         assert_eq!(s.bar.text(), "/repo log");

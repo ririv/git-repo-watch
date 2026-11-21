@@ -32,6 +32,7 @@ impl Execution {
                     },
                 );
             }
+            Request::Folder(target) => screen.request_external_open(std::sync::Arc::new(target)),
             Request::Copy(payload) => screen.submit_clipboard(Ok(payload)),
             Request::Replay {
                 repository,

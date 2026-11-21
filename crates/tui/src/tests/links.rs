@@ -16,7 +16,7 @@ fn click(s: &mut Screen, point: Position) -> bool {
     )
     .unwrap()
 }
-fn opened(s: &mut Screen) {
+pub(super) fn opened(s: &mut Screen) {
     let start = Instant::now();
     while !s.poll_links() {
         assert!(start.elapsed() < Duration::from_secs(3));
@@ -209,7 +209,7 @@ fn a_slow_opener_is_independent_and_duplicate_clicks_do_not_launch_twice() {
     released.store(true, std::sync::atomic::Ordering::SeqCst);
     let start = Instant::now();
     loop {
-        if let Some(result) = opener.poll() {
+        if let Some((_, result)) = opener.poll() {
             result.unwrap();
             break;
         }

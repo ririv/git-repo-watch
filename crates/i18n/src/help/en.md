@@ -28,7 +28,7 @@
 - `/settings editor` lists detected editors. `/settings editor git` follows the current repository's Git editor. You can also enter a command such as `/settings editor code --reuse-window`. This saves the preference without modifying Git or shell configuration.
 - Git resolves `GIT_EDITOR`, `core.editor`, `VISUAL`, `EDITOR`, then its compiled default. GUI editors open independently; terminal editors return to the existing view on exit. Historical file previews do not offer editing.
 ## Common local actions
-- `/terminal` opens the selected folder, the containing directory of a selected file, or the repository root in reference views. The menu shows the captured destination.
+- `/open` shows the directory open commands. `/open terminal` opens the terminal. On macOS, `/open finder` opens Finder. On Linux, `/open browse` opens the file manager. Both use the selected directory, the containing directory of a selected file, or the repository root in reference views. The menu shows the captured destination.
 - `/refresh` and `Ctrl+R` refresh local data for the current view. Repository lists reload saved reports; file browsing reloads directories and preview; worktree, branches, history and stash lists reread local data. Historical snapshots cannot be refreshed.
 
 
@@ -96,7 +96,7 @@
 - Historical diffs offer layout options; use global `/copy` for the loaded patch. They do not offer staging or refresh. Directory completion, configuration review and layout-picker cancellation retain context, drafts and cursor positions.
 
 ## Copy the current selection
-- Global `/copy` copies the current selection. Repository contexts also list `/copy`, `/refresh`, `/terminal` and `/editor` with full names. Type a name or description to filter; Tab switches explicitly to the global command, Enter runs it. Unavailable selections are disabled.
+- Global `/copy` copies the current selection. Repository contexts also list `/copy`, `/refresh`, `/open` and `/editor` with full names. Type a name or description to filter; Tab switches explicitly to the global command, Enter runs it. Unavailable selections are disabled.
 - In file lists, `/copy` copies marked file paths or the cursor file when none are marked. Paths are relative, deduplicated and separated by newlines; Unicode and spaces stay literal.
 - In a focused diff preview, `/copy` copies the loaded original patch without UI line numbers, colors or wrapped lines. It never rereads Git.
 - `/copy` copies the selected full commit ID in the graph, or the selected file path in commit details. Historical diffs use `/copy`.
@@ -179,7 +179,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Shift+Tab` switches between the editor and horizontal options; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
 - `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Scheduled workflows remain non-forced.
-- `/terminal` opens the system default terminal in the selected repository; type `/te` then `Tab` to complete.
+- After typing `/open`, press Enter or Tab to choose the system default terminal or file manager.
 
 ## Image previews
 - Selecting a PNG, JPEG or WebP in `/repo diff` automatically previews both versions; in commit details, press `Enter` to compare. Content detection does not require an extension.

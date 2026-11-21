@@ -48,7 +48,7 @@ impl super::Command {
         if matches!(self.action, Action::ResetBranch(_)) {
             return Intent::Review;
         }
-        if super::named::has_parameters(self) {
+        if self.action == Action::OpenMenu || super::named::has_parameters(self) {
             return Intent::Group;
         }
         match self.action {
@@ -73,6 +73,7 @@ impl super::Command {
             | Action::Commit
             | Action::Compose(crate::composition::Action::Open)
             | Action::Terminal
+            | Action::OpenFolder
             | Action::OpenEditor => Intent::Open,
             _ => Intent::Run,
         }

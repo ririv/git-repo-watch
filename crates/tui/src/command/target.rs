@@ -25,7 +25,7 @@ pub(super) enum Requirement {
     TaskView,
     Repository,
     EditorDestination,
-    TerminalDirectory,
+    DirectoryDestination,
     Clipboard,
     FilePath,
     Search,
@@ -127,7 +127,7 @@ impl Action {
             | Remove
             | ReplayControl(_) => Requirement::Repository,
             OpenEditor => Requirement::EditorDestination,
-            Terminal => Requirement::TerminalDirectory,
+            OpenMenu | Terminal | OpenFolder => Requirement::DirectoryDestination,
             Copy => Requirement::Clipboard,
             CopyPath => Requirement::FilePath,
             SearchMenu | Search(_) => Requirement::Search,

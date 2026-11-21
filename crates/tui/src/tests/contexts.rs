@@ -91,9 +91,9 @@ fn diff_scope_filters_bilingual_candidates_preserves_search_and_reopens_layout_d
                 "{text}"
             );
         }
-        s.paste("terminal");
+        s.paste("open terminal");
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/terminal");
+        assert_eq!(s.bar.text(), "/open terminal");
         assert!(s.repository_tasks.is_empty());
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Home);

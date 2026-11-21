@@ -72,3 +72,16 @@ fn platform_handoff_preserves_arguments_and_reports_a_later_helper_failure() {
         std::thread::sleep(std::time::Duration::from_millis(5));
     }
 }
+
+#[test]
+fn a_directory_target_never_opens_a_regular_file() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("removed directory");
+    let target = Target::directory(path.clone()).unwrap();
+    let missing = launch(&target, &Cancel::default()).unwrap_err();
+    assert!(missing.to_string().contains(&target.label()));
+
+    std::fs::write(&path, "regular file").unwrap();
+    let replaced = launch(&target, &Cancel::default()).unwrap_err();
+    assert!(replaced.to_string().contains(i18n::tr!(FolderInvalidPath)));
+}

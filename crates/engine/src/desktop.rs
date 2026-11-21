@@ -5,10 +5,14 @@ use std::{
     ffi::OsString,
     fs::File,
     io::{Read, Seek, SeekFrom},
-    os::unix::process::CommandExt,
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
 };
+
+#[cfg(unix)]
+use std::os::unix::process::CommandExt;
+#[cfg(windows)]
+mod windows;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Web(String);
@@ -18,6 +22,19 @@ pub struct Local(PathBuf);
 pub enum Target {
     Web(Web),
     Local(Local),
+    Directory(Local),
+}
+
+impl Local {
+    fn new(path: PathBuf) -> Option<Self> {
+        (path.is_absolute()
+            && !path
+                .as_os_str()
+                .as_encoded_bytes()
+                .iter()
+                .any(|byte| *byte < 32 || *byte == 127))
+        .then_some(Self(path))
+    }
 }
 impl Target {
     pub fn reference(value: &str, base: Option<&Path>) -> Option<Self> {
@@ -63,18 +80,15 @@ impl Target {
         Self::path(path)
     }
     pub fn path(path: PathBuf) -> Option<Self> {
-        (path.is_absolute()
-            && !path
-                .as_os_str()
-                .as_encoded_bytes()
-                .iter()
-                .any(|byte| *byte < 32 || *byte == 127))
-        .then_some(Self::Local(Local(path)))
+        Local::new(path).map(Self::Local)
+    }
+    pub fn directory(path: PathBuf) -> Option<Self> {
+        Local::new(path).map(Self::Directory)
     }
     pub fn uri(&self) -> String {
         match self {
             Self::Web(Web(value)) => value.clone(),
-            Self::Local(Local(path)) => {
+            Self::Local(Local(path)) | Self::Directory(Local(path)) => {
                 let mut uri = String::from("file://");
                 for byte in path.as_os_str().as_encoded_bytes() {
                     if byte.is_ascii_alphanumeric() || b"/-._~".contains(byte) {
@@ -91,13 +105,13 @@ impl Target {
     pub fn label(&self) -> String {
         match self {
             Self::Web(Web(value)) => value.clone(),
-            Self::Local(Local(path)) => path.display().to_string(),
+            Self::Local(Local(path)) | Self::Directory(Local(path)) => path.display().to_string(),
         }
     }
     fn argument(&self) -> OsString {
         match self {
             Self::Web(Web(value)) => value.into(),
-            Self::Local(Local(path)) => path.as_os_str().to_owned(),
+            Self::Local(Local(path)) | Self::Directory(Local(path)) => path.as_os_str().to_owned(),
         }
     }
 }
@@ -118,48 +132,102 @@ fn decode_path(value: &str) -> Option<PathBuf> {
     if bytes.iter().any(|byte| *byte < 32 || *byte == 127) {
         return None;
     }
-    use std::os::unix::ffi::OsStringExt;
-    Some(PathBuf::from(OsString::from_vec(bytes)))
+    #[cfg(unix)]
+    {
+        use std::os::unix::ffi::OsStringExt;
+        Some(PathBuf::from(OsString::from_vec(bytes)))
+    }
+    #[cfg(windows)]
+    {
+        String::from_utf8(bytes).ok().map(PathBuf::from)
+    }
 }
 #[cfg(test)]
 mod tests;
 #[derive(Debug)]
-pub struct Launch {
-    target: String,
-    child: Child,
-    error: File,
+pub struct Launch(LaunchState);
+
+#[derive(Debug)]
+enum LaunchState {
+    Process {
+        target: String,
+        child: Child,
+        error: File,
+    },
+    #[cfg(windows)]
+    HandedOff,
 }
+
 impl Launch {
     pub fn poll(&mut self) -> Result<Option<()>> {
-        let Some(status) = self.child.try_wait()? else {
-            return Ok(None);
-        };
-        if !status.success() {
-            self.error.seek(SeekFrom::Start(0))?;
-            let mut message = String::new();
-            self.error
-                .by_ref()
-                .take(8192)
-                .read_to_string(&mut message)?;
-            anyhow::bail!("{}: {} ({status})", self.target, message.trim());
+        match &mut self.0 {
+            LaunchState::Process {
+                target,
+                child,
+                error,
+            } => {
+                let Some(status) = child.try_wait()? else {
+                    return Ok(None);
+                };
+                if !status.success() {
+                    error.seek(SeekFrom::Start(0))?;
+                    let mut message = String::new();
+                    error.by_ref().take(8192).read_to_string(&mut message)?;
+                    anyhow::bail!("{target}: {} ({status})", message.trim());
+                }
+                Ok(Some(()))
+            }
+            #[cfg(windows)]
+            LaunchState::HandedOff => Ok(Some(())),
         }
-        Ok(Some(()))
     }
 }
 pub fn launch(target: &Target, cancel: &Cancel) -> Result<Launch> {
     cancel.check()?;
-    if let Target::Local(Local(path)) = target {
-        let exists = path
-            .try_exists()
-            .with_context(|| format!("{}: {}", i18n::tr!(LinkOpenFailed), path.display()))?;
-        ensure!(exists, i18n::tf!(LinkPathMissing, path.display()));
+    match target {
+        Target::Web(_) => {}
+        Target::Local(Local(path)) => {
+            let exists = path
+                .try_exists()
+                .with_context(|| format!("{}: {}", i18n::tr!(LinkOpenFailed), path.display()))?;
+            ensure!(exists, i18n::tf!(LinkPathMissing, path.display()));
+        }
+        Target::Directory(Local(path)) => {
+            let metadata = path
+                .metadata()
+                .with_context(|| path.display().to_string())?;
+            ensure!(
+                metadata.is_dir(),
+                "{}: {}",
+                i18n::tr!(FolderInvalidPath),
+                path.display()
+            );
+        }
     }
     #[cfg(target_os = "macos")]
     let program = Path::new("/usr/bin/open");
+    #[cfg(target_os = "macos")]
+    if matches!(target, Target::Directory(_)) {
+        return launch_command(
+            program,
+            &["-b".into(), "com.apple.finder".into(), target.argument()],
+            None,
+            target.label(),
+        );
+    }
     #[cfg(target_os = "linux")]
     let program = Path::new("xdg-open");
-    launch_using(program, target)
+    #[cfg(unix)]
+    {
+        launch_using(program, target)
+    }
+    #[cfg(windows)]
+    {
+        windows::open(target)?;
+        Ok(Launch(LaunchState::HandedOff))
+    }
 }
+#[cfg(unix)]
 fn launch_using(program: &Path, target: &Target) -> Result<Launch> {
     launch_command(program, &[target.argument()], None, target.label())
 }
@@ -175,17 +243,18 @@ pub(crate) fn launch_command(
     if let Some(directory) = directory {
         command.current_dir(directory);
     }
+    #[cfg(unix)]
+    command.process_group(0);
     let child = command
         .args(arguments)
         .stdin(Stdio::null())
         .stdout(Stdio::null())
         .stderr(error.try_clone()?)
-        .process_group(0)
         .spawn()
         .with_context(|| i18n::tf!(UnableToStart, program.display()))?;
-    Ok(Launch {
+    Ok(Launch(LaunchState::Process {
         target,
         child,
         error,
-    })
+    }))
 }

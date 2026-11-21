@@ -347,7 +347,7 @@ fn clipboard_worker_keeps_navigation_responsive_and_reports_failures_without_ove
     assert_eq!(s.selected_path(), Some("/example/b".into()));
     command(&mut s, "copy");
     assert!(s.message.contains(i18n::tr!(ClipboardBusy)));
-    s.paste("//terminal");
+    s.paste("//open terminal");
     let draft = s.bar.text();
     release.send(()).unwrap();
     let start = Instant::now();

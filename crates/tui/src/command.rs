@@ -104,7 +104,9 @@ pub enum Action {
     AiModel,
     AiPrompt,
     Push,
+    OpenMenu,
     Terminal,
+    OpenFolder,
     OpenEditor,
     EditorSetting,
     FetchAll,
@@ -156,7 +158,9 @@ impl Command {
                 | Action::CopyPath
                 | Action::Refresh
                 | Action::OpenEditor
+                | Action::OpenMenu
                 | Action::Terminal
+                | Action::OpenFolder
         )
     }
 }
@@ -519,9 +523,25 @@ pub const COMMANDS: &[Command] = &[
         description: i18n::Message::ExternalEditorOpen,
     },
     Command {
-        name: "terminal",
+        name: "open",
+        action: OpenMenu,
+        description: i18n::Message::OpenDirectoryMenu,
+    },
+    Command {
+        name: "open terminal",
         action: Terminal,
         description: i18n::Message::OpenRepositoryTerminal,
+    },
+    Command {
+        name: if cfg!(target_os = "macos") {
+            "open finder"
+        } else if cfg!(target_os = "windows") {
+            "open explorer"
+        } else {
+            "open browse"
+        },
+        action: OpenFolder,
+        description: i18n::Message::OpenInFileManager,
     },
     Command {
         name: "copy",

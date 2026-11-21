@@ -66,7 +66,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
             if expected.contains(" add ") {
                 "repos add"
             } else if expected == "/终端" {
-                "terminal"
+                "open terminal"
             } else {
                 "repo diff"
             }

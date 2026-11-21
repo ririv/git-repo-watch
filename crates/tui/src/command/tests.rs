@@ -99,7 +99,7 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
         ] {
             assert_eq!(names(query), [expected]);
         }
-        assert_eq!(names("终端"), ["terminal", "settings interaction"]);
+        assert_eq!(names("终端"), ["open terminal", "settings interaction"]);
         let staging = names("暂存");
         assert!(staging.contains(&"repo diff stage") && staging.contains(&"repo diff unstage"));
         assert!(names("没有这样的说明文字").is_empty());
@@ -193,7 +193,7 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
     assert_eq!(
         names(""),
         [
-            "repo", "repos", "cancel", "search", "focus", "zoom", "editor", "terminal", "copy",
+            "repo", "repos", "cancel", "search", "focus", "zoom", "editor", "open", "copy",
             "refresh", "tasks", "schedule", "settings", "help", "quit"
         ]
     );
@@ -212,7 +212,7 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
         ("branch", "repo branch"),
         ("stash", "repo stash"),
         ("push", "repo push"),
-        ("te", "terminal"),
+        ("te", "open terminal"),
     ] {
         assert_eq!(matches(query)[0].name, expected);
         assert_eq!(matches(query)[0].completion(), format!("/{expected}"));
