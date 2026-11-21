@@ -310,6 +310,45 @@ impl Git {
         self.run(path, strings(&["commit", "-m", message]), cancel)?;
         Ok(())
     }
+    pub(crate) fn reset_hard(
+        &self,
+        path: &Path,
+        repo: &git2::Repository,
+        target: git2::Oid,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let index = repo.index()?;
+        let index_path = index.path().context(i18n::tr!(MutationChanged))?;
+        let mut args = vec![
+            "--git-dir".into(),
+            repo.path().as_os_str().to_owned(),
+            "--work-tree".into(),
+            path.as_os_str().to_owned(),
+        ];
+        args.extend(strings(&[
+            "reset",
+            "--hard",
+            "--no-recurse-submodules",
+            &target.to_string(),
+            "--",
+        ]));
+        self.execute(
+            path,
+            args,
+            cancel,
+            &[
+                ("GIT_INDEX_FILE".into(), index_path.as_os_str().into()),
+                ("GIT_COMMON_DIR".into(), repo.commondir().as_os_str().into()),
+                (
+                    "GIT_OBJECT_DIRECTORY".into(),
+                    repo.commondir().join("objects").into_os_string(),
+                ),
+                ("GIT_NAMESPACE".into(), "".into()),
+            ],
+        )?
+        .success("git reset --hard")?;
+        Ok(())
+    }
     pub(crate) fn commit_index(
         &self,
         path: &Path,

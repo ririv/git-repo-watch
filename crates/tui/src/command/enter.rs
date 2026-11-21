@@ -45,6 +45,9 @@ impl super::Command {
                 Intent::Argument
             };
         }
+        if matches!(self.action, Action::ResetBranch(_)) {
+            return Intent::Review;
+        }
         if super::named::has_parameters(self) {
             return Intent::Group;
         }

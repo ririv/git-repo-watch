@@ -86,6 +86,9 @@ impl Service {
             Request::ReplayControl(control) => Ok(Plan::Replay(
                 operations::replay::prepare_control(path, control, cancel)?,
             )),
+            Request::Reset { target, mode } => Ok(Plan::Reset(operations::reset::prepare(
+                path, target, mode, cancel,
+            )?)),
             Request::Pull => {
                 let result = operations::pull::prepare(&self.git, path, cancel).map(Plan::Pull);
                 let completion = state::Completion::capture(&result, cancel, |_| ());

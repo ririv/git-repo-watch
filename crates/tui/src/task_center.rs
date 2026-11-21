@@ -702,6 +702,12 @@ pub(crate) fn outcome(
             kind,
             control,
         }) => format!("{} · {}", kind.label(), control.label()),
+        Outcome::MutationCompleted(engine::operations::mutation::Change::ResetBranch {
+            mode,
+            branch,
+            from,
+            to,
+        }) => format!("{} · {branch}\n{from} → {to}", mode.label()),
         Outcome::MutationCompleted(value) => format!("{value:#?}"),
         _ => title.to_owned(),
     });

@@ -66,6 +66,8 @@ pub enum CommandSummary {
     LogSelectionClear,
     ReplayCherryPick,
     ReplayRevert,
+    ResetBranch,
+    ResetHard,
     ReplayContinue,
     ReplaySkip,
     ReplayAbort,
@@ -169,6 +171,14 @@ impl CommandSummary {
             }
             (Self::ReplayRevert, Language::Chinese) => "新增提交以撤销所选提交",
             (Self::ReplayRevert, Language::English) => "Undo selected commit with a new commit",
+            (Self::ResetBranch, Language::Chinese) => "将当前分支重置到所选提交",
+            (Self::ResetBranch, Language::English) => {
+                "Reset the current branch to the selected commit"
+            }
+            (Self::ResetHard, Language::Chinese) => "将当前分支硬重置到所选提交",
+            (Self::ResetHard, Language::English) => {
+                "Hard reset the current branch to the selected commit"
+            }
             (Self::ReplayContinue, Language::Chinese) => "解决冲突并暂存后继续",
             (Self::ReplayContinue, Language::English) => {
                 "Continue after resolving and staging conflicts"

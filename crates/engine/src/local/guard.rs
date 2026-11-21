@@ -42,6 +42,11 @@ pub struct Guard {
     fingerprint: [u8; 32],
     operation: git2::RepositoryState,
 }
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum WorktreeScope {
+    All,
+    Reset,
+}
 impl Guard {
     pub fn capture(path: &Path, cancel: &Cancel) -> Result<Self> {
         cancel.check()?;
@@ -50,6 +55,13 @@ impl Guard {
         Self::capture_current(path, cancel)
     }
     pub(crate) fn capture_current(path: &Path, cancel: &Cancel) -> Result<Self> {
+        Self::capture_worktree(path, WorktreeScope::All, cancel)
+    }
+    pub(crate) fn capture_reset(path: &Path, cancel: &Cancel) -> Result<Self> {
+        idle(&open(path)?)?;
+        Self::capture_worktree(path, WorktreeScope::Reset, cancel)
+    }
+    fn capture_worktree(path: &Path, scope: WorktreeScope, cancel: &Cancel) -> Result<Self> {
         cancel.check()?;
         let repo = open(path)?;
         let position = Position::read(&repo)?;
@@ -68,7 +80,8 @@ impl Guard {
         options
             .include_untracked(true)
             .recurse_untracked_dirs(true)
-            .include_ignored(false);
+            .include_ignored(false)
+            .exclude_submodules(scope == WorktreeScope::Reset);
         for entry in repo.statuses(Some(&mut options))?.iter() {
             cancel.check()?;
             hash.update(entry.status().bits().to_le_bytes());
@@ -95,6 +108,10 @@ impl Guard {
                         }
                         hash.update(&buffer[..size]);
                     }
+                }
+                // 硬重置的预览单独核验挡住目标文件的目录内容。
+                Ok(metadata) if metadata.is_dir() && scope == WorktreeScope::Reset => {
+                    hash.update(b"dir")
                 }
                 // 子模块内容不由父仓库 stash 保存，不能把目录状态当成已保存。
                 Ok(metadata) if metadata.is_dir() => {

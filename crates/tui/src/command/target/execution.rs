@@ -35,6 +35,11 @@ enum Request {
         repository: PathBuf,
         commits: Vec<engine::local::history::Oid>,
     },
+    ResetBranch {
+        mode: engine::operations::reset::Mode,
+        repository: PathBuf,
+        target: engine::local::history::Oid,
+    },
     Refresh(crate::view_refresh::Target),
     Index(IndexRequest),
     Discard(self::partial::PreparedPartial),
@@ -132,6 +137,11 @@ impl Resolved<'_> {
                     engine::operations::replay::Kind::CherryPick => commits.marked,
                     engine::operations::replay::Kind::Revert => vec![commits.selected],
                 },
+            },
+            (Value::Commits(commits), Action::ResetBranch(mode)) => Request::ResetBranch {
+                mode,
+                repository: commits.repository.to_owned(),
+                target: commits.selected,
             },
             (Value::Refresh(target), Action::Refresh) => Request::Refresh(target),
             (Value::Index(target), Action::Stage) => {

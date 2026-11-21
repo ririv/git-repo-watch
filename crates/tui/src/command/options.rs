@@ -12,6 +12,7 @@ use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
     Conflict,
+    Reset,
     StashPreview,
     StashSave,
     DiffSelection,
@@ -38,6 +39,7 @@ pub(crate) enum Kind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Value {
     Conflict(crate::conflict::DisplayMode),
+    Reset(engine::operations::reset::Mode),
     StashPreview(engine::local::stash::preview::Scope),
     StashSave(crate::stash_save::Scope),
     DiffSelection(crate::changes::edit::Granularity),
@@ -69,6 +71,16 @@ pub(crate) struct Option {
 }
 use i18n::Message as M;
 const OPTIONS: &[Option] = &[
+    Option {
+        value: Value::Reset(engine::operations::reset::Mode::Soft),
+        token: "soft",
+        description: M::ResetSoftOption,
+    },
+    Option {
+        value: Value::Reset(engine::operations::reset::Mode::Hard),
+        token: "hard",
+        description: M::ResetHardOption,
+    },
     Option {
         value: Value::Conflict(crate::conflict::DisplayMode::Overview),
         token: "overview",
@@ -422,6 +434,7 @@ impl Value {
         match self {
             Self::StashPreview(scope) => Action::StashPreview(scope),
             Self::Conflict(value) => Action::ConflictView(value),
+            Self::Reset(mode) => Action::ResetBranch(mode),
             Self::StashSave(scope) => Action::StashSaveMode(scope),
             Self::DiffSelection(mode) => Action::PartialSelect(mode),
             Self::BranchFilter(value) => Action::BranchFilter(value),
@@ -454,6 +467,7 @@ impl Value {
         match self {
             Self::StashPreview(_) => Kind::StashPreview,
             Self::Conflict(_) => Kind::Conflict,
+            Self::Reset(_) => Kind::Reset,
             Self::StashSave(_) => Kind::StashSave,
             Self::DiffSelection(_) => Kind::DiffSelection,
             Self::BranchFilter(_) => Kind::BranchFilter,
@@ -483,6 +497,7 @@ impl Kind {
         match self {
             Self::StashPreview => Action::StashPreviewMenu,
             Self::Conflict => Action::ConflictMenu,
+            Self::Reset => Action::ResetBranch(engine::operations::reset::Mode::Soft),
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::BranchFilter => Action::BranchFilterMenu,
@@ -523,6 +538,7 @@ impl Kind {
             }
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
             Self::ComposeOrder | Self::StashSave => return None,
+            Self::Reset => Value::Reset(engine::operations::reset::Mode::Soft),
             Self::DiffHeader => Value::DiffHeader(screen.diff_header),
             Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),
             Self::FileLayout => {

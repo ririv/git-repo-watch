@@ -11,9 +11,16 @@ use std::path::Path;
 
 #[derive(Debug, Clone)]
 pub enum Request {
-    Branch { action: edit::Action, name: String },
+    Branch {
+        action: edit::Action,
+        name: String,
+    },
     Pull,
     ReplayControl(super::replay::Control),
+    Reset {
+        target: git2::Oid,
+        mode: super::reset::Mode,
+    },
     Sync,
     Stash(stash::Request),
 }
@@ -22,12 +29,20 @@ pub enum Plan {
     Branch(edit::Plan),
     Pull(pull::Plan),
     Replay(super::replay::Plan),
+    Reset(super::reset::Plan),
     Sync(sync::Plan),
     Stash(stash::Plan),
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum Action {
+    ResetBranch {
+        #[serde(default)]
+        mode: super::reset::Mode,
+        branch: String,
+        from: String,
+        to: String,
+    },
     ResolveConflict {
         file: std::path::PathBuf,
         intent: crate::local::files::conflict::resolve::Intent,
@@ -74,6 +89,13 @@ pub enum Action {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "change", rename_all = "snake_case")]
 pub enum Change {
+    ResetBranch {
+        #[serde(default)]
+        mode: super::reset::Mode,
+        branch: String,
+        from: String,
+        to: String,
+    },
     ResolvedConflict {
         file: std::path::PathBuf,
         intent: crate::local::files::conflict::resolve::Intent,
@@ -130,6 +152,7 @@ impl Plan {
             Self::Branch(p) => p.path(),
             Self::Pull(p) => &p.path,
             Self::Replay(p) => p.path(),
+            Self::Reset(p) => p.path(),
             Self::Sync(p) => p.path(),
             Self::Stash(p) => p.path(),
         }
@@ -157,6 +180,12 @@ impl Plan {
                 upstream: p.upstream().into(),
             },
             Self::Sync(_) => Action::Sync,
+            Self::Reset(plan) => Action::ResetBranch {
+                mode: plan.mode(),
+                branch: plan.branch().into(),
+                from: plan.before().to_string(),
+                to: plan.target().oid.to_string(),
+            },
             Self::Replay(p) => match p {
                 super::replay::Plan::Batch(batch) => Action::ReplaySequence {
                     commits: batch
@@ -236,6 +265,15 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
         Plan::Sync(plan) => sync::execute(git, plan, cancel)
             .into_result()
             .map(|change| Change::Synchronized { result: change }),
+        Plan::Reset(plan) => {
+            super::reset::execute(git, plan, cancel)?;
+            Ok(Change::ResetBranch {
+                mode: plan.mode(),
+                branch: plan.branch().into(),
+                from: plan.before().to_string(),
+                to: plan.target().oid.to_string(),
+            })
+        }
         Plan::Replay(p) => {
             super::replay::execute(git, p, cancel)?;
             Ok(match p {

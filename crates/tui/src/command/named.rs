@@ -10,11 +10,18 @@ pub(crate) struct Parameter {
     pub description: i18n::Message,
 }
 
-const PARAMETERS: &[Parameter] = &[Parameter {
-    name: "--view",
-    kind: Kind::Conflict,
-    description: i18n::Message::ConflictViewCommand,
-}];
+const PARAMETERS: &[Parameter] = &[
+    Parameter {
+        name: "--view",
+        kind: Kind::Conflict,
+        description: i18n::Message::ConflictViewCommand,
+    },
+    Parameter {
+        name: "--mode",
+        kind: Kind::Reset,
+        description: i18n::Message::ResetMode,
+    },
+];
 
 pub(crate) struct Query<'a> {
     owner: &'static Command,

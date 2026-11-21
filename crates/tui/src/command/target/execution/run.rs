@@ -45,6 +45,27 @@ impl Execution {
                 draft.return_to = return_to;
                 screen.prepare_replay(kind, commits, draft, &permit);
             }
+            Request::ResetBranch {
+                mode,
+                repository,
+                target,
+            } => {
+                use engine::operations::reset::Mode;
+                let mut draft =
+                    screen.mutation_draft(Action::ResetBranch(Mode::Soft), Some(repository));
+                if mode == Mode::Hard {
+                    draft.input.replace_canonical(crate::Editor::new(format!(
+                        "/repo log reset --mode {}",
+                        mode.token()
+                    )));
+                }
+                draft.selection = selection;
+                draft.return_to = return_to;
+                screen.prepare_mutation(
+                    engine::operations::mutation::Request::Reset { target, mode },
+                    draft,
+                );
+            }
             Request::Refresh(target) => screen.refresh_target(target, root, &permit),
             Request::Index(request) => request.execute(screen),
             Request::Discard(plan) => plan.review(screen),

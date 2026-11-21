@@ -57,6 +57,100 @@ fn available(s: &mut Screen, name: &str) -> bool {
     key(s, KeyCode::Esc);
     found
 }
+
+#[test]
+fn reset_reviews_the_selected_ancestor_and_defaults_to_cancel() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    let target = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    f.commit("first.txt", "first\n");
+    f.commit("second.txt", "second\n");
+    let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    assert!(!available(&mut s, "repo log reset"));
+    command(&mut s, "repo log");
+    wait(&mut s);
+    select(&mut s, &target);
+    s.paste("//repo log reset");
+    select(&mut s, &before);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+
+    let Mode::Confirm {
+        operation: Confirmation::Mutation { plan, .. },
+        choice: confirmation::Choice::Return,
+    } = &s.mode
+    else {
+        panic!("应显示默认取消的重置确认页");
+    };
+    let mutation::Plan::Reset(plan) = plan.as_ref() else {
+        panic!("应预览软重置");
+    };
+    assert_eq!(plan.target().oid.to_string(), target);
+    assert_eq!(plan.removed().1, 2);
+    let review = render(&mut s, 140, 42);
+    assert!(review.contains(i18n::tr!(ResetKeepChanges)), "{review}");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+
+    select(&mut s, &target);
+    command(&mut s, "repo log reset");
+    wait(&mut s);
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), target);
+    let staged = support::git(&f.repo, &["diff", "--cached", "--name-only"]);
+    assert!(staged.contains("first.txt") && staged.contains("second.txt"));
+    s.shutdown();
+}
+
+#[test]
+fn hard_reset_mode_is_explicit_and_cancel_leaves_local_edits_intact() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    let target = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    f.commit("tracked.txt", "committed\n");
+    let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
+    support::write(f.repo.join("tracked.txt"), "local edit\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+    select(&mut s, &target);
+    command(&mut s, "repo log reset --mode hard");
+    wait(&mut s);
+    let Mode::Confirm {
+        operation: Confirmation::Mutation { plan, .. },
+        choice: confirmation::Choice::Return,
+    } = &s.mode
+    else {
+        panic!("应显示默认取消的硬重置确认页");
+    };
+    let mutation::Plan::Reset(plan) = plan.as_ref() else {
+        panic!("应预览重置")
+    };
+    assert_eq!(plan.mode(), engine::operations::reset::Mode::Hard);
+    let review = render(&mut s, 140, 42);
+    assert!(review.contains(i18n::tr!(ResetDiscardChanges)), "{review}");
+    assert!(review.contains("未暂存 · tracked.txt"), "{review}");
+    key(&mut s, KeyCode::Enter);
+    assert!(s.bar.text().ends_with("--mode hard"));
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
+    assert_eq!(
+        std::fs::read_to_string(f.repo.join("tracked.txt")).unwrap(),
+        "local edit\n"
+    );
+
+    command(&mut s, "repo log reset --mode hard");
+    wait(&mut s);
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), target);
+    assert!(!f.repo.join("tracked.txt").exists());
+    s.shutdown();
+}
+
 #[test]
 fn replay_uses_the_frozen_history_selection_and_only_writes_after_confirmation() {
     let f = support::Fixture::create();

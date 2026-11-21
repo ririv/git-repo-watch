@@ -196,13 +196,19 @@ impl Screen {
                     self.mode = origin;
                     self.message = crate::message::Message::information(notice.into());
                 } else {
+                    let choice =
+                        if matches!(plan.as_ref(), engine::operations::mutation::Plan::Reset(_)) {
+                            crate::confirmation::Choice::Return
+                        } else {
+                            Default::default()
+                        };
                     self.mode = Mode::Confirm {
                         operation: Confirmation::Mutation {
                             plan,
                             origin: Box::new(origin),
                             draft,
                         },
-                        choice: Default::default(),
+                        choice,
                     };
                 }
             }

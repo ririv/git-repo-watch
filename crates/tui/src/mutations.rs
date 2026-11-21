@@ -33,6 +33,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Branch(edit::Plan::Create { .. }) => i18n::tr!(BranchCreateCommand),
         Plan::Branch(edit::Plan::Switch { .. }) => i18n::tr!(BranchSwitchCommand),
         Plan::Replay(plan) => plan.title(),
+        Plan::Reset(plan) => plan.mode().label(),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save(_)) => i18n::tr!(StashSaveCommand),
@@ -57,6 +58,60 @@ pub(crate) fn review(plan: &Plan) -> String {
             p.oid()
         ),
         Plan::Replay(plan) => crate::replay::review(plan),
+        Plan::Reset(plan) => {
+            use engine::operations::reset::Effect;
+            let (removed, count) = plan.removed();
+            let target = plan.target();
+            let mut text = format!(
+                "{}: {}\n{}: {}\n{}: {}  {}\n\n{}\n\n{} · {count}",
+                i18n::tr!(Branch),
+                plan.branch(),
+                i18n::tr!(ResetBefore),
+                plan.before(),
+                i18n::tr!(ResetTarget),
+                target.oid,
+                target.subject,
+                match plan.effect() {
+                    Effect::Soft => i18n::tr!(ResetKeepChanges),
+                    Effect::Hard(_) => i18n::tr!(ResetDiscardChanges),
+                },
+                i18n::tr!(ResetRemovedCommits),
+            );
+            for commit in removed {
+                let short = &commit.oid.to_string()[..8];
+                text.push_str(&format!("\n{short}  {}", commit.subject));
+            }
+            if count > removed.len() {
+                text.push_str(&format!("\n… (+{})", count - removed.len()));
+            }
+            if let Effect::Hard(review) = plan.effect() {
+                let changes = review.changes();
+                text.push_str(&format!(
+                    "\n\n{} · {}",
+                    i18n::tr!(ResetTrackedChanges),
+                    changes.len()
+                ));
+                for change in changes.iter().take(30) {
+                    let label = crate::files::Group::of(change.area).label();
+                    text.push_str(&format!("\n{label} · {}", change.location.display()));
+                }
+                if changes.len() > 30 {
+                    text.push_str(&format!("\n… (+{})", changes.len() - 30));
+                }
+                let blocked = review.obstructions();
+                let count = blocked.len();
+                if count > 0 {
+                    text.push_str(&format!("\n\n{} · {count}", i18n::tr!(ResetObstructions)));
+                    for path in blocked.take(30) {
+                        text.push_str(&format!("\n{}", path.display()));
+                    }
+                    if count > 30 {
+                        text.push_str(&format!("\n… (+{})", count - 30));
+                    }
+                }
+            }
+            text
+        }
         Plan::Pull(p) => match p.update {
             pull::Update::Current => i18n::tr!(PullCurrent).into(),
             pull::Update::FastForward { commits } => {

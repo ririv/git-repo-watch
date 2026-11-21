@@ -141,7 +141,7 @@ impl Action {
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
             LogSelect | LogSelectAll | LogSelectClear => Requirement::HistorySelection,
-            Replay(_) => Requirement::CommitSelection,
+            Replay(_) | ResetBranch(_) => Requirement::CommitSelection,
             LogParent => Requirement::MergeCommit,
             StashPreviewMenu | StashPreview(_) => Requirement::StashDetail,
             BrowserDiff => Requirement::Browser,

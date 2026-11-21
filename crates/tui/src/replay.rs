@@ -38,7 +38,9 @@ pub(crate) fn unavailable(state: Option<&State>, action: Action) -> Option<&'sta
         Action::ReplayControl(_) if !matches!(state, Some(State::Active(_))) => {
             Some(i18n::tr!(ReplayNotActive))
         }
-        Action::Replay(_) if matches!(state, Some(State::Active(_) | State::Other)) => {
+        Action::Replay(_) | Action::ResetBranch(_)
+            if matches!(state, Some(State::Active(_) | State::Other)) =>
+        {
             Some(i18n::tr!(CommandReplayInProgress))
         }
         _ => None,

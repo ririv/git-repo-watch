@@ -15,6 +15,7 @@ impl Screen {
             | Action::CopyPath
             | Action::Copy
             | Action::Replay(_)
+            | Action::ResetBranch(_)
             | Action::Refresh
             | Action::Stage
             | Action::Unstage
