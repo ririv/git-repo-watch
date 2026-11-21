@@ -3,6 +3,7 @@ use anyhow::Result;
 use notify::{Event, EventKind, RecursiveMode, Watcher};
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io,
     path::{Path, PathBuf},
     sync::{Arc, Mutex, mpsc},
     thread,
@@ -109,12 +110,73 @@ impl Root {
         }
     }
 }
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum UnavailableReason {
+    MissingPath,
+    PermissionDenied,
+    RepositoryNotFound,
+    OpenFailed,
+}
+impl UnavailableReason {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::MissingPath => i18n::tr!(RepositoryPathMissing),
+            Self::PermissionDenied => i18n::tr!(RepositoryReadDenied),
+            Self::RepositoryNotFound => i18n::tr!(RepositoryMissingAtPath),
+            Self::OpenFailed => i18n::tr!(LocalRepositoryOpenFailed),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Unavailable {
+    pub reason: UnavailableReason,
+    pub detail: String,
+}
+impl Unavailable {
+    fn from_error(path: &Path, error: anyhow::Error) -> Self {
+        use UnavailableReason::*;
+        let reason = match std::fs::metadata(path) {
+            Err(error)
+                if matches!(
+                    error.kind(),
+                    io::ErrorKind::NotFound | io::ErrorKind::NotADirectory
+                ) =>
+            {
+                MissingPath
+            }
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied => PermissionDenied,
+            _ if error
+                .downcast_ref::<io::Error>()
+                .is_some_and(|error| error.kind() == io::ErrorKind::PermissionDenied) =>
+            {
+                PermissionDenied
+            }
+            Ok(metadata)
+                if !metadata.is_dir()
+                    || error.downcast_ref::<git2::Error>().is_some_and(|error| {
+                        error.code() == git2::ErrorCode::NotFound
+                            && error.class() == git2::ErrorClass::Repository
+                    }) =>
+            {
+                RepositoryNotFound
+            }
+            _ => OpenFailed,
+        };
+        Self {
+            reason,
+            detail: format!("{error:#}"),
+        }
+    }
+}
+
 #[derive(Debug, Default)]
 struct Inbox {
     roots: Vec<Root>,
     expected: Vec<PathBuf>,
     reconfigure: bool,
     changes: BTreeMap<PathBuf, Change>,
+    unavailable: BTreeMap<PathBuf, Unavailable>,
     errors: BTreeMap<PathBuf, String>,
 }
 impl Inbox {
@@ -164,6 +226,13 @@ impl Inbox {
         }
     }
 }
+/// Updates distinguish a repository that cannot be opened from a failed filesystem subscription.
+pub struct Updates {
+    pub changes: BTreeMap<PathBuf, Change>,
+    pub unavailable: BTreeMap<PathBuf, Unavailable>,
+    pub watch_errors: BTreeMap<PathBuf, String>,
+}
+
 #[derive(Debug)]
 pub struct Monitor {
     tx: Option<mpsc::SyncSender<Vec<PathBuf>>>,
@@ -207,21 +276,22 @@ impl Monitor {
                     Err(mpsc::RecvTimeoutError::Timeout) => {
                         let mut inbox = target.lock().expect("observation inbox");
                         let rebuild = std::mem::take(&mut inbox.reconfigure);
-                        if !rebuild
-                            && (inbox.errors.is_empty() || retry.elapsed() < Duration::from_secs(2))
-                        {
+                        let has_failures =
+                            !inbox.errors.is_empty() || !inbox.unavailable.is_empty();
+                        if !rebuild && (!has_failures || retry.elapsed() < Duration::from_secs(2)) {
                             continue;
                         }
                     }
                 }
                 retry = Instant::now();
                 let mut roots = Vec::new();
+                let mut unavailable = BTreeMap::new();
                 let mut errors = BTreeMap::new();
                 for path in &paths {
                     match Root::open(path.clone()) {
                         Ok(root) => roots.push(root),
                         Err(error) => {
-                            errors.insert(path.clone(), format!("{error:#}"));
+                            unavailable.insert(path.clone(), Unavailable::from_error(path, error));
                         }
                     }
                 }
@@ -241,6 +311,7 @@ impl Monitor {
                     .collect::<BTreeMap<_, _>>();
                 for path in &paths {
                     if let Some(parent) = path.parent()
+                        && parent.is_dir()
                         && !desired.iter().any(|(root, mode)| {
                             *mode == RecursiveMode::Recursive && parent.starts_with(root)
                         })
@@ -254,9 +325,10 @@ impl Monitor {
                     Ok(watcher) => {
                         let rearm = {
                             let inbox = target.lock().expect("observation inbox");
-                            roots
-                                .iter()
-                                .any(|root| inbox.errors.contains_key(&root.path))
+                            roots.iter().any(|root| {
+                                inbox.errors.contains_key(&root.path)
+                                    || inbox.unavailable.contains_key(&root.path)
+                            })
                         };
                         if desired != watched || rearm {
                             let mut batch = watcher.paths_mut();
@@ -303,7 +375,10 @@ impl Monitor {
                 let mut inbox = target.lock().expect("observation inbox");
                 inbox.changes.retain(|path, _| paths.contains(path));
                 for root in &roots {
-                    if !inbox.roots.contains(root) || inbox.errors.contains_key(&root.path) {
+                    if !inbox.roots.contains(root)
+                        || inbox.errors.contains_key(&root.path)
+                        || inbox.unavailable.contains_key(&root.path)
+                    {
                         inbox
                             .changes
                             .entry(root.path.clone())
@@ -312,6 +387,7 @@ impl Monitor {
                 }
                 inbox.expected = paths.clone();
                 inbox.roots = roots;
+                inbox.unavailable = unavailable;
                 inbox.errors = errors;
             }
         });
@@ -342,7 +418,7 @@ impl Monitor {
             self.configured = paths;
         }
     }
-    pub fn take(&self) -> (BTreeMap<PathBuf, Change>, BTreeMap<PathBuf, String>) {
+    pub fn take(&self) -> Updates {
         let mut inbox = self.inbox.lock().expect("observation inbox");
         let now = Instant::now();
         let paths = inbox
@@ -361,7 +437,11 @@ impl Monitor {
                 (path, change)
             })
             .collect();
-        (changes, inbox.errors.clone())
+        Updates {
+            changes,
+            unavailable: inbox.unavailable.clone(),
+            watch_errors: inbox.errors.clone(),
+        }
     }
 }
 impl Drop for Monitor {

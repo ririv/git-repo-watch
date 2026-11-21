@@ -53,7 +53,8 @@ impl Screen {
             Page::Repositories => self.selected_path(),
             Page::Detail => self.workspace.path().map(Path::to_owned),
             _ => None,
-        };
+        }
+        .filter(|path| !self.live.unavailable(path));
         let mut changed = false;
         if self.remote_info.content.path() != path.as_deref() {
             self.remote_info.clear();

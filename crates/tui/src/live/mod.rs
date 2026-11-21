@@ -6,7 +6,7 @@ use engine::{
     domain::RepositoryResult,
     observation::{
         self,
-        watch::{Change, Monitor},
+        watch::{Change, Monitor, UnavailableReason},
     },
 };
 use std::{
@@ -32,9 +32,14 @@ pub(crate) struct Controller {
     pending: BTreeMap<PathBuf, Change>,
     readers: BTreeMap<PathBuf, Reader>,
     pub results: BTreeMap<PathBuf, RepositoryResult>,
+    unavailable: BTreeMap<PathBuf, UnavailableRepository>,
     pub errors: BTreeMap<PathBuf, String>,
     watch_errors: BTreeMap<PathBuf, String>,
     detailed: BTreeSet<PathBuf>,
+}
+struct UnavailableRepository {
+    reason: UnavailableReason,
+    result: RepositoryResult,
 }
 struct Observed {
     snapshot: observation::Snapshot,
@@ -68,6 +73,7 @@ impl State {
             pending: BTreeMap::new(),
             readers: BTreeMap::new(),
             results: BTreeMap::new(),
+            unavailable: BTreeMap::new(),
             errors: BTreeMap::new(),
             watch_errors: BTreeMap::new(),
             detailed: BTreeSet::new(),
@@ -105,7 +111,20 @@ impl State {
     pub fn result(&self, path: &Path) -> Option<&RepositoryResult> {
         match self {
             Self::Disabled => None,
-            Self::Active(controller) => controller.results.get(path),
+            Self::Active(controller) => controller
+                .unavailable
+                .get(path)
+                .map(|unavailable| &unavailable.result)
+                .or_else(|| controller.results.get(path)),
+        }
+    }
+    pub fn unavailable(&self, path: &Path) -> bool {
+        self.unavailable_reason(path).is_some()
+    }
+    pub fn unavailable_reason(&self, path: &Path) -> Option<UnavailableReason> {
+        match self {
+            Self::Disabled => None,
+            Self::Active(controller) => controller.unavailable.get(path).map(|entry| entry.reason),
         }
     }
     pub fn invalidate(&mut self, path: &Path) {
@@ -120,7 +139,20 @@ impl State {
                 .watch_errors
                 .first_key_value()
                 .or_else(|| controller.errors.first_key_value())
-                .map(|(path, error)| i18n::tf!(LocalObservationFailed, path.display(), error)),
+                .map(|(path, error)| i18n::tf!(LocalObservationFailed, path.display(), error))
+                .or_else(|| {
+                    let (
+                        path,
+                        UnavailableRepository {
+                            result: RepositoryResult::Failed { error, .. },
+                            ..
+                        },
+                    ) = controller.unavailable.first_key_value()?
+                    else {
+                        return None;
+                    };
+                    Some(i18n::tf!(LocalObservationFailed, path.display(), error))
+                }),
         }
     }
     pub fn shutdown(&mut self) {
@@ -160,11 +192,39 @@ impl Screen {
         controller.monitor.configure(paths.clone());
         controller.pending.retain(|path, _| paths.contains(path));
         controller.results.retain(|path, _| paths.contains(path));
+        controller
+            .unavailable
+            .retain(|path, _| paths.contains(path));
         controller.errors.retain(|path, _| paths.contains(path));
-        let (changes, errors) = controller.monitor.take();
-        let mut changed = controller.watch_errors != errors;
-        controller.watch_errors = errors;
-        for (path, change) in changes {
+        let updates = controller.monitor.take();
+        let mut changed = controller.watch_errors != updates.watch_errors;
+        controller.watch_errors = updates.watch_errors;
+        for (path, problem) in &updates.unavailable {
+            if !paths.contains(path)
+                || matches!(controller.unavailable.get(path),
+                    Some(UnavailableRepository { reason, result: RepositoryResult::Failed { error, .. } })
+                    if *reason == problem.reason && *error == problem.detail)
+            {
+                continue;
+            }
+            controller.results.remove(path);
+            self.remote_info.invalidate(path);
+            controller.unavailable.insert(
+                path.clone(),
+                UnavailableRepository {
+                    reason: problem.reason,
+                    result: RepositoryResult::Failed {
+                        path: path.clone(),
+                        error: problem.detail.clone(),
+                        pushes: self
+                            .stored_result_for(path)
+                            .map_or_else(Vec::new, |result| result.pushes().to_vec()),
+                    },
+                },
+            );
+            changed = true;
+        }
+        for (path, change) in updates.changes {
             controller
                 .pending
                 .entry(path)
@@ -200,6 +260,7 @@ impl Screen {
                 continue;
             }
             if reader.cancel.is_cancelled()
+                || updates.unavailable.contains_key(&path)
                 || self.window_focus == WindowFocus::Unfocused
                 || self.local_refresh_blocked(&path)
                 || reader.order != self.observation_order(&path)
@@ -219,6 +280,8 @@ impl Screen {
                     self.remote_info.invalidate(&path);
                     let snapshot = observed.snapshot;
                     let previous = self.stored_result_for(&path);
+                    // 重新读到状态后，才移除路径不可访问的标记。
+                    controller.unavailable.remove(&path);
                     controller
                         .results
                         .insert(path.clone(), merge::result(snapshot.result, previous));
@@ -248,6 +311,7 @@ impl Screen {
             .filter(|path| {
                 self.window_focus == WindowFocus::Focused
                     && !controller.readers.contains_key(*path)
+                    && !updates.unavailable.contains_key(*path)
                     && !self.local_refresh_blocked(path)
             })
             .take(available)

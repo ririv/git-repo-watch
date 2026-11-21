@@ -7,6 +7,7 @@ use crate::search::highlight::{self, Emphasis};
 pub(super) enum Scope<'a> {
     CurrentBranch,
     AllBranches(Option<&'a str>),
+    Unavailable(engine::observation::watch::UnavailableReason),
 }
 pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if area.width >= 120 && area.height >= 19 {
@@ -21,7 +22,10 @@ pub(super) fn repositories(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         let text = selected
             .map(|row| repository_detail(screen, row, Scope::CurrentBranch))
             .unwrap_or_else(|| i18n::tr!(NoRepositories).into());
-        let panel = block(title);
+        let mut panel = block(title);
+        if selected.is_some_and(|row| screen.live.unavailable(&row.path)) {
+            panel = panel.title_style(Style::default().fg(BAD));
+        }
         let inner = panel.inner(columns[1]);
         frame.render_widget(panel, columns[1]);
         let text = screen.pointer.links.text(text);
@@ -82,8 +86,22 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                         .get(&row.path)
                         .map(|task| task.animation.symbol())
                 });
-            let (workspace, workspace_color) = status::workspace(row.result.as_ref());
-            let (sync, sync_color) = status::synchronization(row.result.as_ref());
+            let unavailable = screen.live.unavailable(&row.path);
+            let name_style = if unavailable {
+                Style::default().fg(BAD)
+            } else {
+                Style::default()
+            };
+            let [workspace, sync] = if unavailable {
+                [Cell::default(), Cell::default()]
+            } else {
+                let (workspace, workspace_color) = status::workspace(row.result.as_ref());
+                let (sync, sync_color) = status::synchronization(row.result.as_ref());
+                [
+                    Cell::from(workspace).style(Style::default().fg(workspace_color)),
+                    Cell::from(sync).style(Style::default().fg(sync_color)),
+                ]
+            };
             let mut data = TableRow::new(
                 [
                     Cell::from(Line::from(
@@ -97,7 +115,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                         ))
                         .chain(
                             highlight::line(
-                                Line::raw(name(&row.path)),
+                                Line::from(Span::styled(name(&row.path), name_style)),
                                 &screen.query,
                                 Emphasis::at(index, selection),
                             )
@@ -105,8 +123,8 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                         )
                         .collect::<Vec<_>>(),
                     )),
-                    Cell::from(workspace).style(Style::default().fg(workspace_color)),
-                    Cell::from(sync).style(Style::default().fg(sync_color)),
+                    workspace,
+                    sync,
                 ]
                 .into_iter()
                 .take(column_count),
@@ -182,6 +200,10 @@ fn field(label: &str, value: impl Into<String>, color: Color) -> Line<'static> {
 }
 
 pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope<'_>) -> Text<'static> {
+    let scope = screen
+        .live
+        .unavailable_reason(&row.path)
+        .map_or(scope, Scope::Unavailable);
     let mut text = detail_text(row, scope);
     if let Some(error) = screen.repository_errors.get(&row.path) {
         if text.lines.len() > 1 {
@@ -235,20 +257,25 @@ fn detail_text(row: &Row, scope: Scope<'_>) -> Text<'static> {
     }
     match result {
         RepositoryResult::Failed { error, .. } => {
-            let summary = match failure_kind(error) {
-                FailureKind::Tls => i18n::tr!(RemoteTlsConnectionFailedSslErrorSyscall),
-                FailureKind::Reference => {
-                    i18n::tr!(UpstreamReferenceMismatchRemoteChangedOrFetch)
-                }
-                FailureKind::Other => i18n::tr!(CheckFailedSeeOriginalError),
+            let summary = match scope {
+                Scope::Unavailable(reason) => reason.label(),
+                _ => match failure_kind(error) {
+                    FailureKind::Tls => i18n::tr!(RemoteTlsConnectionFailedSslErrorSyscall),
+                    FailureKind::Reference => {
+                        i18n::tr!(UpstreamReferenceMismatchRemoteChangedOrFetch)
+                    }
+                    FailureKind::Other => i18n::tr!(CheckFailedSeeOriginalError),
+                },
             };
             lines.push(field(i18n::tr!(Reason), summary, BAD));
-            for (label, value) in [
-                (i18n::tr!(Worktree), i18n::tr!(Unknown)),
-                (i18n::tr!(RemoteCheck), i18n::tr!(Incomplete)),
-                (i18n::tr!(BranchCounts), i18n::tr!(Unknown)),
-            ] {
-                lines.push(field(label, value, MUTED));
+            if !matches!(scope, Scope::Unavailable(_)) {
+                for (label, value) in [
+                    (i18n::tr!(Worktree), i18n::tr!(Unknown)),
+                    (i18n::tr!(RemoteCheck), i18n::tr!(Incomplete)),
+                    (i18n::tr!(BranchCounts), i18n::tr!(Unknown)),
+                ] {
+                    lines.push(field(label, value, MUTED));
+                }
             }
             lines.push(Line::default());
             lines.push(field(i18n::tr!(OriginalError), "", Color::Reset));

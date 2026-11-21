@@ -198,6 +198,102 @@ fn native_refresh_updates_other_repositories_and_keeps_remote_failure_and_timest
 }
 
 #[test]
+fn unavailable_repository_replaces_cached_status_and_recovers_after_rename() {
+    use crate::repository_list::{Filter, Status};
+    use engine::observation::watch::UnavailableReason;
+
+    let _native = NATIVE.lock().unwrap();
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    let healthy = support::Fixture::create();
+    let (cached, _) = engine::check::local_repository(&f.repo, &Cancel::default());
+    let (_home, mut s) = fixture(vec![f.repo.clone(), healthy.repo.clone()]);
+    let record = |revision| crate::checks::Update {
+        result: cached.clone(),
+        revision,
+        finished_at: chrono::DateTime::parse_from_rfc3339("2026-01-01T00:00:00+00:00").unwrap(),
+    };
+    s.merge_update(f.repo.clone(), record(1));
+    assert_eq!(s.repository_status(&f.repo), Status::Normal);
+
+    let moved = f.repo.with_file_name("moved");
+    std::fs::rename(&f.repo, &moved).unwrap();
+    s.live = live::State::start();
+    until(&mut s, |s| {
+        s.live.unavailable(&f.repo) && observed(s, &healthy.repo)
+    });
+    assert_eq!(s.repository_status(&healthy.repo), Status::Normal);
+    s.merge_update(f.repo.clone(), record(2));
+    assert_eq!(s.repository_status(&f.repo), Status::Failed);
+
+    s.filter_repositories(Filter::Failed);
+    let rows = s.rows();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].path, f.repo);
+    let view = render(&mut s, 160, 30);
+    assert!(view.contains("× repo"), "{view}");
+    assert!(view.contains("失败 1"), "{view}");
+    assert!(view.contains(i18n::tr!(RepositoryPathMissing)), "{view}");
+    assert!(view.contains(i18n::tr!(OriginalError)), "{view}");
+    assert!(!view.contains(i18n::tr!(RemoteRepositories)), "{view}");
+    for label in [
+        i18n::tr!(Branch),
+        i18n::tr!(Worktree),
+        i18n::tr!(SyncColumn),
+    ] {
+        assert!(
+            !view.contains(&i18n::tf!(FieldLabel, label = label)),
+            "{view}"
+        );
+    }
+
+    let mut terminal = Terminal::new(TestBackend::new(160, 30)).unwrap();
+    for query in ["", "rep"] {
+        s.query = query.into();
+        terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+        let buffer = terminal.backend().buffer();
+        let (x, y) = (0..30)
+            .flat_map(|y| (0..90).map(move |x| (x, y)))
+            .find(|point| buffer[*point].symbol() == "×")
+            .unwrap();
+        for (offset, letter) in ["r", "e", "p", "o"].iter().enumerate() {
+            let cell = &buffer[(x + 2 + offset as u16, y)];
+            assert_eq!(cell.symbol(), *letter);
+            assert_eq!(cell.fg, ratatui::style::Color::LightRed);
+        }
+        for symbol in ["工", "同"] {
+            let column = (x..90)
+                .find(|column| buffer[(*column, y - 1)].symbol() == symbol)
+                .unwrap();
+            assert_eq!(buffer[(column, y)].symbol(), " ");
+        }
+    }
+    s.query.clear();
+
+    std::fs::create_dir(&f.repo).unwrap();
+    until(&mut s, |s| {
+        s.live.unavailable_reason(&f.repo) == Some(UnavailableReason::RepositoryNotFound)
+    });
+    let view = render(&mut s, 160, 30);
+    assert!(view.contains(i18n::tr!(RepositoryMissingAtPath)), "{view}");
+    assert!(view.contains(i18n::tr!(OriginalError)), "{view}");
+
+    std::fs::remove_dir(&f.repo).unwrap();
+    std::fs::rename(&moved, &f.repo).unwrap();
+    until(&mut s, |s| {
+        observed(s, &f.repo) && s.repository_status(&f.repo) == Status::Normal
+    });
+    assert!(s.rows().is_empty());
+
+    std::fs::rename(&f.repo, &moved).unwrap();
+    until(&mut s, |s| s.repository_status(&f.repo) == Status::Failed);
+    assert_eq!(s.rows()[0].path, f.repo);
+    assert_eq!(s.repository_status(&healthy.repo), Status::Normal);
+    assert!(s.config.repositories.contains(&f.repo));
+    s.shutdown();
+}
+
+#[test]
 fn linked_worktree_reference_changes_update_branch_and_keep_repository_panel_selection() {
     let _native = NATIVE.lock().unwrap();
     let f = support::Fixture::create();

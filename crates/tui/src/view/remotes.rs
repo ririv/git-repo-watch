@@ -4,6 +4,9 @@ use crate::remote_info::Content;
 use engine::local::remotes::Direction;
 
 pub(super) fn lines(screen: &Screen, path: &std::path::Path) -> Vec<Line<'static>> {
+    if screen.live.unavailable(path) {
+        return Vec::new();
+    }
     let label = i18n::tr!(RemoteRepositories);
     let field = |value: String, color| {
         Line::from(vec![
