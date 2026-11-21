@@ -26,13 +26,14 @@ impl Snapshot {
             Err(error) if error.code() == git2::ErrorCode::NotFound => {}
             Err(error) => return Err(error.into()),
         }
+        let git_path = crate::local::git_path_bytes(path)?;
         let stages = repo.index()?.conflict_get(path)?;
         ensure!(
             [&stages.ancestor, &stages.our, &stages.their]
                 .iter()
                 .all(|entry| entry
                     .as_ref()
-                    .is_none_or(|entry| entry.path == path.as_os_str().as_encoded_bytes())),
+                    .is_none_or(|entry| entry.path == git_path.as_ref())),
             i18n::tr!(ConflictResetUnsupported)
         );
         let current = stages.our.context(i18n::tr!(ConflictResetUnsupported))?;

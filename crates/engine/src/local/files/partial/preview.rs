@@ -26,7 +26,7 @@ fn tree<'repo>(
             id: repo.blob(data.as_bytes())?,
             flags: 0,
             flags_extended: 0,
-            path: path.as_os_str().as_encoded_bytes().to_vec(),
+            path: crate::local::git_path_bytes(path)?.into_owned(),
         })?;
     }
     Ok(repo.find_tree(index.write_tree_to(repo)?)?)

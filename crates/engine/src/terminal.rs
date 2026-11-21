@@ -3,6 +3,8 @@
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;
+#[cfg(windows)]
+mod windows;
 use crate::cancel::Cancel;
 #[cfg(target_os = "macos")]
 use crate::process;
@@ -42,6 +44,8 @@ pub fn open(path: &Path, cancel: &Cancel) -> Result<()> {
         )?
         .success(i18n::tr!(OpenRepositoryTerminal))?;
     }
+    #[cfg(windows)]
+    windows::open(path, cancel)?;
     Ok(())
 }
 

@@ -42,19 +42,8 @@ pub(crate) fn resolve(agent: Agent) -> Result<PathBuf> {
     resolve_in(command, &path, &cwd)
 }
 fn resolve_in(command: &str, path: &std::ffi::OsStr, cwd: &Path) -> Result<PathBuf> {
-    use std::os::unix::fs::PermissionsExt;
-    for directory in std::env::split_paths(&path) {
-        let candidate = cwd.join(directory).join(command);
-        match std::fs::metadata(&candidate) {
-            Ok(metadata) if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0 => {
-                return Ok(candidate);
-            }
-            Ok(_) => {}
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-            Err(error) => return Err(error).with_context(|| candidate.display().to_string()),
-        }
-    }
-    anyhow::bail!("{}: {command}", i18n::tr!(AgentNotFound))
+    crate::platform::files::find_program(command, path, cwd)?
+        .with_context(|| format!("{}: {command}", i18n::tr!(AgentNotFound)))
 }
 
 #[cfg(test)]

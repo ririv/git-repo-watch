@@ -1,10 +1,8 @@
 //! Hand desktop opens to the Windows shell on the opener's worker thread.
-use super::Target;
+use super::{Local, Target};
+use crate::platform::windows::{shell_path, wide};
 use anyhow::{Result, ensure};
-use std::{
-    os::windows::ffi::OsStrExt,
-    ptr::{null, null_mut},
-};
+use std::ptr::{null, null_mut};
 use windows_sys::Win32::{
     System::Com::{
         COINIT_APARTMENTTHREADED, COINIT_DISABLE_OLE1DDE, CoInitializeEx, CoUninitialize,
@@ -13,10 +11,11 @@ use windows_sys::Win32::{
 };
 
 pub(super) fn open(target: &Target) -> Result<()> {
-    let target_path = target.argument();
-    let mut path: Vec<_> = target_path.encode_wide().collect();
-    ensure!(!path.contains(&0), "{}", target.label());
-    path.push(0);
+    let argument = match target {
+        Target::Local(Local(path)) | Target::Directory(Local(path)) => shell_path(path),
+        Target::Web(_) => target.argument(),
+    };
+    let path = wide(&argument)?;
     let explore: Vec<_> = "explore\0".encode_utf16().collect();
     let verb = match target {
         Target::Directory(_) => explore.as_ptr(),

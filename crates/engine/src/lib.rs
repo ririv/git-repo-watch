@@ -16,6 +16,7 @@ pub mod notify;
 pub mod observation;
 pub mod operations;
 pub mod paths;
+mod platform;
 pub mod process;
 pub mod scheduler;
 pub mod service;
@@ -25,7 +26,5 @@ pub mod terminal;
 pub mod transport;
 pub mod workflow;
 
-#[cfg(not(any(target_os = "macos", target_os = "linux")))]
-compile_error!(
-    "This application currently supports macOS and Linux; a Windows platform backend is not implemented yet."
-);
+#[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
+compile_error!("This application currently supports macOS, Linux, and Windows.");

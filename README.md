@@ -1,6 +1,6 @@
 # gw
 
-面向 macOS 和 Linux 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `gw` 进入 TUI；`gw status` 查询已有结果。系统任务每六小时执行一次，完成后退出，期间没有常驻服务，也不依赖 Agent。
+面向 macOS、Linux 和 Windows 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `gw` 进入 TUI；`gw status` 查询已有结果。系统任务每六小时执行一次，完成后退出，期间没有常驻服务，也不依赖 Agent。
 
 项目使用 Rust。本地仓库能力通过 libgit2 实现；fetch、commit、push、快进合并及服务器引用查询固定使用系统 Git，保留网络认证、凭据助手、钩子与提交签名行为。两类后端按职责组合，不在失败时自动换用另一种实现。
 
@@ -47,7 +47,14 @@ Linux 安装位置：
 
 `XDG_CONFIG_HOME`、`XDG_STATE_HOME` 未设置或为空时使用规范默认值；显式值必须为绝对路径。任务文件保存 `HOME` 和解析后的 XDG 目录，后台任务与手动命令读取同一份配置和数据库。安装需能连接 `systemctl --user`，不自动改用 cron。只启用 timer，首轮在配置间隔后运行；每轮是一次性进程，结束后退出。默认随用户会话管理；若需要退出登录后仍运行，可由用户显式执行 `loginctl enable-linger`。日志使用 `journalctl --user -u local.git-repo-watch.service` 查看。自动推送失败通知通过 `notify-send` 发送，需要桌面通知服务和用户会话 D-Bus；无桌面的服务器不能显示通知，失败会写入报告。
 
-Windows 后端尚未实现，当前明确拒绝编译。目录打开入口已接入 `/open explorer`，完整移植后可从文件资源管理器打开选中目录。调度、通知与终端启动分别按平台隔离；后续 Windows 还需实现任务计划、进程树管理、文件锁和权限语义。
+Windows 使用 MSVC C++ 构建工具和 Git for Windows，`git.exe` 需在 PATH 中。在 PowerShell 中从源码构建并运行：
+
+```powershell
+cargo build --release --locked
+.\target\release\app.exe
+```
+
+首次配置可运行 `.\target\release\app.exe init`。如需启用定时检查，再运行 `.\target\release\app.exe install`。Windows 任务计划程序使用当前登录用户运行检查。安装后的命令位于 `%LOCALAPPDATA%\gw\bin\gw.exe`，配置位于 `%APPDATA%\gw\config.toml`，SQLite 状态位于 `%LOCALAPPDATA%\gw`。将 `%LOCALAPPDATA%\gw\bin` 加入 PATH 后，可用 `gw schedule disable` 停用计划，或用 `gw uninstall` 移除计划并保留配置、报告和命令。
 
 构建脚本对 Rust 和 C 依赖执行源码路径裁剪。用户配置、数据库、日志、`var/`、`target/` 和 `dist/` 不进入版本控制。
 
@@ -81,7 +88,7 @@ max_concurrency = 4
 chinese_command_trigger = true
 ```
 
-TUI 运行时通过 macOS FSEvents／Linux inotify 观察已管理仓库及当前会话仓库的本地文件和 Git 引用。外部保存、暂存、提交或切换分支后，会合并连续事件，在后台按仓库更新工作区、概览、分支和历史；不会执行 fetch、pull、push，也不会写入工作区、索引或引用。搜索、勾选、面板焦点与视口保留；确认中的操作和历史文件预览使用原先捕获的快照。原生观察失败会在底部显示原因，不会改用定时扫描。远程检查时间和远程失败记录仍由检查或操作结果更新。
+TUI 运行时通过 macOS FSEvents、Linux inotify 或 Windows 原生文件变更通知观察已管理仓库及当前会话仓库的本地文件和 Git 引用。外部保存、暂存、提交或切换分支后，会合并连续事件，在后台按仓库更新工作区、概览、分支和历史；不会执行 fetch、pull、push，也不会写入工作区、索引或引用。搜索、勾选、面板焦点与视口保留；确认中的操作和历史文件预览使用原先捕获的快照。原生观察失败会在底部显示原因，不会改用定时扫描。远程检查时间和远程失败记录仍由检查或操作结果更新。
 
 仓库以规范绝对路径保存，路径参数可使用 `~` 或 `~/…` 表示当前用户主目录。仓库列表显式维护，检查不会重新扫描发现目录。扫描排除仅对本次请求生效，不保存为配置，也不限制手动添加仓库。旧配置中的 `excluded_roots` 会在配置迁移时移除，已注册仓库保持不变。
 
@@ -246,7 +253,7 @@ interval_seconds = 180
 
 `/open terminal` 在当前目录打开系统默认终端（例如 Ghostty）：仓库、提交和分支视图使用仓库根目录；选中文件夹使用该目录，选中文件使用其所在目录。目标在打开命令时捕获并显示在菜单中，供交互式 Git 操作或其他命令使用；输入 `/open` 后按 Enter 或 Tab 展开子命令。macOS 通过 Launch Services 读取 `public.unix-executable` 的默认应用关联，再将目录作为独立路径参数交给该应用，不拼接 Shell 命令，也不固定使用 Apple Terminal。每次打开都重新读取系统关联，无需重启程序。未配置默认应用、目录不存在或启动失败时明确报错，不切换其他终端或目录。打开终端不改变历史检查报告，也不触发检查、提交或推送。
 
-macOS 的 `/open finder` 在访达中打开同一个目录。Linux 的 `/open browse` 通过 `xdg-open` 打开系统文件管理器。
+macOS 的 `/open finder` 在访达中打开同一个目录。Linux 的 `/open browse` 通过 `xdg-open` 打开系统文件管理器。Windows 的 `/open explorer` 在文件资源管理器中打开同一个目录。Windows 的 `/open terminal` 依赖已启用 `wt.exe` 应用执行别名的 Windows Terminal。
 
 Linux 的 `/open terminal` 通过 [`xdg-terminal-exec`](https://github.com/Vladimir-csp/xdg-terminal-exec) 的 `--dir` 参数打开首选终端。需另行安装该工具并通过 `xdg-terminals.list` 配置首选终端；这是 XDG 终端选择规范的提案实现，目录支持取决于所选终端的桌面条目。程序不会遍历猜测终端名称，也不会改用其他目录。启动确认仅表示启动器未立即失败，不代表用户已看到窗口；终端进程独立于检查任务存活。
 

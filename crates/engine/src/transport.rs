@@ -1,7 +1,12 @@
 //! Network and write operations deliberately delegated to system Git.
 use crate::{cancel::Cancel, domain::PushTarget, process, state::Store};
 use anyhow::{Context, Result, ensure};
-use std::{collections::BTreeMap, ffi::OsString, path::Path, time::Duration};
+use std::{
+    collections::BTreeMap,
+    ffi::OsString,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 #[derive(Debug, Clone)]
 pub struct Git {
     pub timeout: Duration,
@@ -24,6 +29,18 @@ impl Default for Git {
         }
     }
 }
+pub(crate) fn program() -> Result<PathBuf> {
+    #[cfg(unix)]
+    return Ok(PathBuf::from("/usr/bin/git"));
+    #[cfg(windows)]
+    {
+        let path = std::env::var_os("PATH").context("PATH is missing")?;
+        let cwd = std::env::current_dir()?;
+        crate::platform::files::find_program("git.exe", &path, &cwd)?
+            .context("git.exe was not found on PATH")
+    }
+}
+
 impl Git {
     /// Resolve the editor through system Git, including repository-specific configuration.
     pub fn editor(&self, path: &Path, cancel: &Cancel) -> Result<String> {
@@ -31,6 +48,7 @@ impl Git {
         Ok(std::str::from_utf8(&data)?
             .strip_suffix('\n')
             .context(i18n::tr!(ExternalEditorInvalid))?
+            .trim_end_matches('\r')
             .to_owned())
     }
 
@@ -57,7 +75,7 @@ impl Git {
         cancel: &Cancel,
         operation_environment: &[(OsString, OsString)],
     ) -> Result<process::Output> {
-        let mut program = Path::new("/usr/bin/git").to_path_buf();
+        let mut program = program()?;
         let mut environment = Vec::new();
         if let Some(store) = &self.store {
             let config = store.config()?;
@@ -175,8 +193,8 @@ impl Git {
             args,
             cancel,
             &[
-                ("GIT_EDITOR".into(), "/usr/bin/true".into()),
-                ("GIT_SEQUENCE_EDITOR".into(), "/usr/bin/true".into()),
+                ("GIT_EDITOR".into(), noop_editor().into()),
+                ("GIT_SEQUENCE_EDITOR".into(), noop_editor().into()),
             ],
         )?
         .success("git")?;
@@ -474,4 +492,11 @@ fn stash_arguments(mode: RepositoryStash, message: Option<&str>) -> Vec<OsString
         args.extend(strings(&["--message", message]));
     }
     args
+}
+
+fn noop_editor() -> &'static str {
+    #[cfg(unix)]
+    return "/usr/bin/true";
+    #[cfg(windows)]
+    return ":";
 }

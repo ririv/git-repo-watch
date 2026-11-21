@@ -1,5 +1,6 @@
 //! Review and discard selected worktree entries against a frozen index and file identity.
 use super::{Area, Change, Files, Location, partial::capture};
+use crate::platform::files as platform_files;
 use crate::{
     cancel::Cancel,
     local::{index_lock::IndexLock, open},
@@ -8,9 +9,8 @@ use anyhow::{Context, Result, ensure};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeSet,
-    fs::{self, OpenOptions},
+    fs,
     io::{ErrorKind, Read},
-    os::unix::fs::{MetadataExt, OpenOptionsExt},
     path::{Path, PathBuf},
 };
 
@@ -40,6 +40,7 @@ struct Identity {
     changed: (i64, i64),
 }
 
+#[cfg(unix)]
 impl From<&fs::Metadata> for Identity {
     fn from(meta: &fs::Metadata) -> Self {
         Self {
@@ -49,6 +50,59 @@ impl From<&fs::Metadata> for Identity {
             size: meta.size(),
             modified: (meta.mtime(), meta.mtime_nsec()),
             changed: (meta.ctime(), meta.ctime_nsec()),
+        }
+    }
+}
+
+#[cfg(unix)]
+use std::os::unix::fs::MetadataExt;
+
+impl Identity {
+    fn at(path: &Path, metadata: &fs::Metadata) -> std::io::Result<Self> {
+        #[cfg(unix)]
+        {
+            let _ = path;
+            Ok(Self::from(metadata))
+        }
+        #[cfg(windows)]
+        {
+            use std::os::windows::fs::OpenOptionsExt;
+            use windows_sys::Win32::Storage::FileSystem::{
+                FILE_FLAG_BACKUP_SEMANTICS, FILE_FLAG_OPEN_REPARSE_POINT,
+            };
+            let _ = metadata;
+            let handle = fs::OpenOptions::new()
+                .access_mode(0)
+                .custom_flags(FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OPEN_REPARSE_POINT)
+                .open(path)?;
+            Self::of(&handle)
+        }
+    }
+
+    fn of(file: &fs::File) -> std::io::Result<Self> {
+        #[cfg(unix)]
+        return Ok(Self::from(&file.metadata()?));
+        #[cfg(windows)]
+        {
+            use std::os::windows::io::AsRawHandle;
+            use windows_sys::Win32::Storage::FileSystem::{
+                BY_HANDLE_FILE_INFORMATION, GetFileInformationByHandle,
+            };
+            let mut info = BY_HANDLE_FILE_INFORMATION::default();
+            if unsafe { GetFileInformationByHandle(file.as_raw_handle(), &mut info) } == 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            let time = |value: windows_sys::Win32::Foundation::FILETIME| {
+                (value.dwHighDateTime as i64, value.dwLowDateTime as i64)
+            };
+            Ok(Self {
+                device: info.dwVolumeSerialNumber.into(),
+                inode: (u64::from(info.nFileIndexHigh) << 32) | u64::from(info.nFileIndexLow),
+                mode: info.dwFileAttributes,
+                size: (u64::from(info.nFileSizeHigh) << 32) | u64::from(info.nFileSizeLow),
+                modified: time(info.ftLastWriteTime),
+                changed: time(info.ftCreationTime),
+            })
         }
     }
 }
@@ -68,19 +122,16 @@ impl Worktree {
             Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Self::Missing),
             Err(error) => return Err(error.into()),
         };
-        let identity = Identity::from(&meta);
-        let result = if meta.is_symlink() {
+        let identity = Identity::at(path, &meta)?;
+        let result = if platform_files::is_file_link(&meta) {
             Self::Symlink(identity, fs::read_link(path)?)
         } else {
-            ensure!(meta.is_file(), i18n::tr!(DiscardFileUnsupported));
-            let mut file = OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-                .open(path)?;
             ensure!(
-                Identity::from(&file.metadata()?) == identity,
-                i18n::tr!(PartialChanged)
+                meta.is_file() && !platform_files::is_link(&meta),
+                i18n::tr!(DiscardFileUnsupported)
             );
+            let mut file = platform_files::regular_file(path)?;
+            ensure!(Identity::of(&file)? == identity, i18n::tr!(PartialChanged));
             let mut hash = Sha256::new();
             let mut buffer = [0; 32 * 1024];
             loop {
@@ -94,7 +145,7 @@ impl Worktree {
             Self::File(identity, hash.finalize().into())
         };
         ensure!(
-            Identity::from(&fs::symlink_metadata(path)?) == identity,
+            Identity::at(path, &fs::symlink_metadata(path)?)? == identity,
             i18n::tr!(PartialChanged)
         );
         Ok(result)
@@ -158,11 +209,14 @@ enum Replacement {
 impl Replacement {
     fn read(source: PathBuf) -> Result<Self> {
         let meta = fs::symlink_metadata(&source)?;
-        if meta.is_symlink() {
+        if platform_files::is_file_link(&meta) {
             let target = fs::read_link(&source)?;
             return Ok(Self::Symlink { source, target });
         }
-        ensure!(meta.is_file(), i18n::tr!(DiscardFileUnsupported));
+        ensure!(
+            meta.is_file() && !platform_files::is_link(&meta),
+            i18n::tr!(DiscardFileUnsupported)
+        );
         fs::File::open(&source)?.sync_all()?;
         Ok(Self::File(source))
     }
@@ -172,13 +226,13 @@ impl Replacement {
             // 即使外部新建了同名文件，安装时也不会覆盖它。
             match self {
                 Self::File(source) => fs::hard_link(source, full)?,
-                Self::Symlink { target, .. } => std::os::unix::fs::symlink(target, full)?,
+                Self::Symlink { target, .. } => platform_files::symlink_file(&target, full)?,
             }
         } else {
             let source = match self {
                 Self::File(source) | Self::Symlink { source, .. } => source,
             };
-            fs::rename(source, full)?;
+            platform_files::replace(&source, full)?;
         }
         Ok(())
     }

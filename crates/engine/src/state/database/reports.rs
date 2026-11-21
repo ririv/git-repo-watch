@@ -6,7 +6,7 @@ use crate::{
     state::{OperationOrigin, OperationRecord, StoredOperation},
 };
 use rusqlite::{OptionalExtension, params};
-use std::{collections::BTreeMap, num::NonZeroU64, os::unix::ffi::OsStringExt, path::PathBuf};
+use std::{collections::BTreeMap, num::NonZeroU64, path::PathBuf};
 
 impl Store {
     pub fn report(&self) -> Result<Option<Report>> {
@@ -51,7 +51,19 @@ impl Store {
         })?;
         rows.map(|row| {
             let (path, json) = row?;
-            let path = PathBuf::from(std::ffi::OsString::from_vec(path));
+            #[cfg(unix)]
+            let path = {
+                use std::os::unix::ffi::OsStringExt;
+                PathBuf::from(std::ffi::OsString::from_vec(path))
+            };
+            #[cfg(windows)]
+            let path = {
+                use std::os::windows::ffi::OsStringExt;
+                let (units, remaining) = path.as_chunks::<2>();
+                ensure!(remaining.is_empty(), i18n::tr!(InvalidStateDatabase));
+                let units: Vec<_> = units.iter().copied().map(u16::from_le_bytes).collect();
+                PathBuf::from(std::ffi::OsString::from_wide(&units))
+            };
             let report = decode_single(&path, &json)?;
             Ok((path, report))
         })

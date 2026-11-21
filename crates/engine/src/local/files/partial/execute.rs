@@ -5,7 +5,7 @@ use crate::{
     local::{index_lock::IndexLock, open},
 };
 use anyhow::Context;
-use std::{fs, io::Write, os::unix::fs::PermissionsExt};
+use std::{fs, io::Write};
 
 pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Files> {
     let snapshot = &plan.snapshot;
@@ -30,13 +30,11 @@ pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Files> {
                 let mut pending = tempfile::NamedTempFile::new_in(
                     full.parent().context(i18n::tr!(PartialChanged))?,
                 )?;
-                pending
-                    .as_file()
-                    .set_permissions(fs::Permissions::from_mode(mode & 0o777))?;
+                crate::platform::files::worktree_mode(pending.as_file(), mode & 0o777)?;
                 pending.write_all(data.as_bytes())?;
                 pending.as_file().sync_all()?;
                 snapshot.validate(&repo, cancel)?;
-                pending.persist(&full).map_err(|error| error.error)?;
+                crate::platform::files::publish(pending, &full, true)?;
             }
         }
     } else {
@@ -53,6 +51,7 @@ pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Files> {
                 index.remove_path(path)?;
             }
             Version::Text { data, mode } => {
+                let git_path = crate::local::git_path_bytes(path)?;
                 let mut entry = index.get_path(path, 0).unwrap_or_else(|| git2::IndexEntry {
                     ctime: git2::IndexTime::new(0, 0),
                     mtime: git2::IndexTime::new(0, 0),
@@ -65,7 +64,7 @@ pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Files> {
                     id: git2::Oid::ZERO_SHA1,
                     flags: 0,
                     flags_extended: 0,
-                    path: path.as_os_str().as_encoded_bytes().to_vec(),
+                    path: git_path.into_owned(),
                 });
                 entry.id = repo.blob(data.as_bytes())?;
                 entry.mode = *mode;

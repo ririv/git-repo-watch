@@ -5,12 +5,18 @@ mod platform;
 #[cfg(target_os = "linux")]
 #[path = "notify/linux.rs"]
 mod platform;
+#[cfg(windows)]
+#[path = "notify/windows.rs"]
+mod platform;
+#[cfg(unix)]
+use crate::process;
 use crate::{
     cancel::Cancel,
     domain::{Notice, PushTarget},
-    process,
 };
-use std::{path::Path, time::Duration};
+use std::path::Path;
+#[cfg(unix)]
+use std::time::Duration;
 struct Payload {
     title: String,
     subtitle: String,
@@ -35,7 +41,10 @@ impl Payload {
     }
 }
 pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -> Notice {
-    let args = platform::arguments(&Payload::new(path, target, error));
+    let payload = Payload::new(path, target, error);
+    #[cfg(unix)]
+    let args = platform::arguments(&payload);
+    #[cfg(unix)]
     let attempt = process::run(
         platform::program(),
         &args,
@@ -44,6 +53,8 @@ pub fn failure(path: &Path, target: &PushTarget, error: &str, cancel: &Cancel) -
         Duration::from_secs(15),
     )
     .and_then(|o| o.success(i18n::tr!(SystemNotification)));
+    #[cfg(windows)]
+    let attempt = platform::send(&payload, cancel);
     match attempt {
         Ok(_) => Notice::Accepted {
             path: path.to_owned(),

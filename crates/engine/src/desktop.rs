@@ -68,7 +68,12 @@ impl Target {
         }
         let decoded = decode_path(value)?;
         let path = if let Some(tail) = value.strip_prefix("~/") {
-            PathBuf::from(std::env::var_os("HOME")?).join(tail)
+            PathBuf::from(std::env::var_os(if cfg!(windows) {
+                "USERPROFILE"
+            } else {
+                "HOME"
+            })?)
+            .join(tail)
         } else {
             let path = decoded.as_path();
             if path.is_absolute() {

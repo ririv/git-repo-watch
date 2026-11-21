@@ -1,4 +1,5 @@
 //! Hard reset previews capture tracked edits and untracked paths obstructing the target tree.
+use crate::platform::files as platform_files;
 use crate::{
     cancel::Cancel,
     local::{
@@ -11,13 +12,8 @@ use git2::{Index, ObjectType, Repository, Tree};
 use sha2::{Digest, Sha256};
 use std::{
     collections::BTreeMap,
-    ffi::OsStr,
-    fs::{self, Metadata, OpenOptions},
+    fs::{self, Metadata},
     io::{ErrorKind, Read},
-    os::unix::{
-        ffi::OsStrExt,
-        fs::{MetadataExt, OpenOptionsExt},
-    },
     path::{Component, Path, PathBuf},
 };
 
@@ -109,7 +105,13 @@ fn inspect(
 ) -> Result<()> {
     for entry in tree.iter() {
         cancel.check()?;
-        let name = Path::new(OsStr::from_bytes(entry.name_bytes()));
+        #[cfg(unix)]
+        let name = {
+            use std::os::unix::ffi::OsStrExt;
+            Path::new(std::ffi::OsStr::from_bytes(entry.name_bytes()))
+        };
+        #[cfg(windows)]
+        let name = Path::new(std::str::from_utf8(entry.name_bytes())?);
         let mut components = name.components();
         ensure!(
             matches!(components.next(), Some(Component::Normal(part)) if Path::new(part) == name)
@@ -124,10 +126,15 @@ fn inspect(
             Err(error) => return Err(error.into()),
         };
         let kind = entry.kind();
-        if kind == Some(ObjectType::Tree) && metadata.is_dir() {
+        if kind == Some(ObjectType::Tree)
+            && metadata.is_dir()
+            && !platform_files::is_link(&metadata)
+        {
             let tree = repo.find_tree(entry.id())?;
             inspect(root, &relative, repo, index, &tree, cancel, found)?;
-        } else if !(kind == Some(ObjectType::Commit) && metadata.is_dir())
+        } else if !(kind == Some(ObjectType::Commit)
+            && metadata.is_dir()
+            && !platform_files::is_link(&metadata))
             && (metadata.is_dir() || index.get_path(&relative, 0).is_none())
         {
             let mut digest = Sha256::new();
@@ -140,8 +147,8 @@ fn inspect(
 
 fn hash_path(digest: &mut Sha256, path: &Path, metadata: &Metadata, cancel: &Cancel) -> Result<()> {
     cancel.check()?;
-    digest.update(metadata.mode().to_le_bytes());
-    if metadata.is_symlink() {
+    digest.update(platform_files::original_mode(metadata).to_le_bytes());
+    if platform_files::is_link(metadata) {
         digest.update(b"link");
         let target = fs::read_link(path)?;
         let bytes = target.as_os_str().as_encoded_bytes();
@@ -150,10 +157,7 @@ fn hash_path(digest: &mut Sha256, path: &Path, metadata: &Metadata, cancel: &Can
     } else if metadata.is_file() {
         digest.update(b"file");
         digest.update(metadata.len().to_le_bytes());
-        let mut file = OpenOptions::new()
-            .read(true)
-            .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-            .open(path)?;
+        let mut file = platform_files::regular_file(path)?;
         let mut buffer = vec![0; 65536];
         loop {
             cancel.check()?;

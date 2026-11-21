@@ -1,5 +1,6 @@
 //! Terminal-reported appearance adapts interface contrast while preserving semantic color roles.
 mod diff;
+#[cfg(any(unix, test))]
 pub(crate) mod probe;
 use ratatui::{
     buffer::Buffer,
@@ -18,6 +19,7 @@ const SELECTED_VALUE: Color = Color::Rgb(0, 108, 78);
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Background {
     Light,
+    #[cfg_attr(windows, allow(dead_code))]
     Dark,
     #[default]
     Unreported,
@@ -30,6 +32,7 @@ impl Background {
             Self::Dark | Self::Unreported => highlight::Theme::Dark,
         }
     }
+    #[cfg(any(unix, test))]
     pub fn rgb(red: u8, green: u8, blue: u8) -> Self {
         let linear = |channel: u8| {
             let value = f64::from(channel) / 255.0;

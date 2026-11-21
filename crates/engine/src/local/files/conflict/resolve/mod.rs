@@ -15,7 +15,7 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 pub use markers::Block;
-use std::{fs, io::Write, os::unix::fs::PermissionsExt, path::Path};
+use std::{io::Write, path::Path};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -197,16 +197,14 @@ pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<Files> {
         unreachable!("resolution preserves a text file")
     };
     let mut pending = tempfile::NamedTempFile::new_in(parent)?;
-    pending
-        .as_file()
-        .set_permissions(fs::Permissions::from_mode(mode & 0o777))?;
+    crate::platform::files::worktree_mode(pending.as_file(), mode & 0o777)?;
     pending.write_all(data.as_bytes())?;
     pending.as_file().sync_all()?;
     ensure!(
         plan.validate(&repo, cancel)? == full,
         i18n::tr!(ConflictResolveChanged)
     );
-    pending.persist(&full).map_err(|error| error.error)?;
-    fs::File::open(parent)?.sync_all()?;
+    crate::platform::files::publish(pending, &full, true)?;
+    crate::platform::files::sync_directory(parent)?;
     super::super::read(&plan.files.path)
 }

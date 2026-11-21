@@ -1,4 +1,5 @@
 //! Ownership-checked native installation and platform scheduling.
+use crate::platform::files;
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
@@ -10,10 +11,13 @@ mod linux;
 pub mod timing;
 #[cfg(test)]
 mod timing_tests;
+#[cfg(windows)]
+mod windows;
+#[cfg(unix)]
+use crate::process;
 use crate::{
     cancel::Cancel,
     directories::UserDirectories,
-    process,
     state::{self, Store},
 };
 use anyhow::{Context, Result, ensure};
@@ -90,9 +94,11 @@ impl Schedule {
     }
 }
 
+#[cfg(unix)]
 fn plan_comment(plan: &timing::Plan) -> Result<String> {
     Ok(format!("schedule-plan={}", serde_json::to_string(plan)?))
 }
+#[cfg(unix)]
 fn read_plan(contents: &str, prefix: &str, suffix: &str) -> Result<Option<timing::Plan>> {
     let entries = contents
         .lines()
@@ -115,7 +121,6 @@ pub const BINARY_MARKER: &str = concat!(
 
 /// Identify the managed task independently of its current interval or executable version.
 pub fn task_marker(store: &Store, binary: &Path) -> String {
-    use std::os::unix::ffi::OsStrExt;
     let mut paths = Vec::new();
     for path in [
         store.config_dir(),
@@ -123,7 +128,7 @@ pub fn task_marker(store: &Store, binary: &Path) -> String {
         store.log_dir(),
         binary.to_owned(),
     ] {
-        let bytes = path.as_os_str().as_bytes();
+        let bytes = path.as_os_str().as_encoded_bytes();
         paths.extend_from_slice(&(bytes.len() as u64).to_le_bytes());
         paths.extend_from_slice(bytes);
     }
@@ -131,13 +136,18 @@ pub fn task_marker(store: &Store, binary: &Path) -> String {
 }
 impl Manager {
     pub fn new() -> Result<Self> {
-        let user_home = std::env::var_os("HOME").context(i18n::tr!(CannotReadUserHomeDirectory))?;
+        let user_home = std::env::var_os(if cfg!(windows) { "USERPROFILE" } else { "HOME" })
+            .context(i18n::tr!(CannotReadUserHomeDirectory))?;
         let user_home = PathBuf::from(user_home);
         ensure!(
             user_home.is_absolute(),
             i18n::tr!(UserHomeDirectoryIsNotAnAbsolute)
         );
-        let mut manager = Self::for_user(user_home, unsafe { libc::getuid() })?;
+        #[cfg(target_os = "macos")]
+        let uid = unsafe { libc::getuid() };
+        #[cfg(not(target_os = "macos"))]
+        let uid = 0;
+        let mut manager = Self::for_user(user_home, uid)?;
         manager.directories = UserDirectories::from_environment(&manager.user_home)?;
         Ok(manager)
     }
@@ -158,8 +168,17 @@ impl Manager {
         &self.user_home
     }
     pub fn binary(&self) -> PathBuf {
-        self.user_home.join(".local/bin").join(identity::COMMAND)
+        #[cfg(unix)]
+        return self.user_home.join(".local/bin").join(identity::COMMAND);
+        #[cfg(windows)]
+        return self
+            .directories
+            .state_base
+            .join(identity::DATA_DIRECTORY)
+            .join("bin")
+            .join(format!("{}.exe", identity::COMMAND));
     }
+    #[cfg(unix)]
     pub fn definition(&self) -> PathBuf {
         #[cfg(target_os = "macos")]
         {
@@ -184,8 +203,25 @@ impl Manager {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(error.into()),
         }
-        self.verify_task_owner(store)
+        #[cfg(unix)]
+        return self.verify_task_owner(store);
+        #[cfg(windows)]
+        {
+            let _ = store;
+            Ok(())
+        }
     }
+
+    #[cfg(unix)]
+    pub(crate) fn schedule_state(
+        &self,
+        _store: &Store,
+        cancel: &Cancel,
+    ) -> Result<(Registration, Schedule)> {
+        Ok((self.registration(cancel)?, self.schedule(cancel)?))
+    }
+
+    #[cfg(unix)]
     pub fn verify_task_owner(&self, store: &Store) -> Result<()> {
         let expected = task_marker(store, &self.binary());
         for path in self.definitions() {
@@ -208,6 +244,7 @@ impl Manager {
         );
         self.verify_install_target(store)
     }
+    #[cfg(unix)]
     fn definitions(&self) -> Vec<PathBuf> {
         #[cfg(target_os = "macos")]
         {
@@ -219,10 +256,9 @@ impl Manager {
         }
     }
     fn prepare_storage(store: &Store) -> Result<()> {
-        use std::os::unix::fs::PermissionsExt;
         for directory in [store.state_dir(), store.log_dir()] {
             fs::create_dir_all(&directory)?;
-            fs::set_permissions(directory, fs::Permissions::from_mode(0o700))?;
+            files::private_path(&directory, 0o700)?;
         }
         Ok(())
     }

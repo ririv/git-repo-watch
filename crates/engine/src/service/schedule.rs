@@ -14,6 +14,7 @@ impl Service {
         self.scheduler.verify_install_target(&self.store)?;
         if operation == Control::Apply {
             self.scheduler.verify_owner(&self.store)?;
+            #[cfg(unix)]
             ensure!(
                 self.scheduler.definition().try_exists()?,
                 i18n::tr!(ScheduleDefinitionMissing)
@@ -23,7 +24,8 @@ impl Service {
         if config.schedule_anchor.is_unset() {
             ensure!(
                 operation == Control::Enable
-                    || self.scheduler.registration(cancel)? == Registration::Loaded,
+                    || self.scheduler.schedule_state(&self.store, cancel)?.0
+                        == Registration::Loaded,
                 i18n::tr!(ScheduleEnableToSetAnchor)
             );
             config.schedule_anchor = Anchor::Set(Basis::automatic(chrono::Local::now()));
@@ -50,8 +52,10 @@ impl Service {
         cancel: &Cancel,
         emit: impl FnMut(Event),
     ) -> Result<Option<Report>> {
+        #[cfg(unix)]
         self.scheduler.verify_task_owner(&self.store)?;
-        let Schedule::Anchored { plan } = self.scheduler.schedule(cancel)? else {
+        let (_, schedule) = self.scheduler.schedule_state(&self.store, cancel)?;
+        let Schedule::Anchored { plan } = schedule else {
             anyhow::bail!(i18n::tr!(ScheduleEnableToSetAnchor));
         };
         let Some(due) = plan.occurrence_in_minute(chrono::Local::now())? else {

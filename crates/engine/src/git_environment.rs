@@ -60,6 +60,8 @@ pub fn display_words<'a>(words: impl IntoIterator<Item = &'a str>) -> String {
 
 pub fn validate_variable(name: &str) -> Result<()> {
     let mut bytes = name.bytes();
+    #[cfg(windows)]
+    let name = name.to_ascii_uppercase();
     ensure!(
         bytes
             .next()
@@ -77,7 +79,7 @@ impl Environment {
         for path in &self.path_prepend {
             let value = path.as_os_str().as_encoded_bytes();
             ensure!(
-                !value.is_empty() && !value.contains(&0) && !value.contains(&b':'),
+                !value.is_empty() && !value.contains(&0) && env::join_paths([path]).is_ok(),
                 i18n::tr!(GitEnvironmentInvalidPath)
             );
         }

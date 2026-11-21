@@ -5,12 +5,11 @@ mod schema;
 mod tasks;
 mod transfer;
 use super::{Lock, Store};
-use crate::cancel::Cancel;
+use crate::{cancel::Cancel, platform::files};
 use anyhow::{Context, Result, ensure};
 use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
 use std::{
     fs,
-    os::unix::{ffi::OsStrExt, fs::PermissionsExt},
     path::Path,
     time::{Duration, Instant},
 };
@@ -50,7 +49,7 @@ impl Database {
             fs::symlink_metadata(path)?.file_type().is_file(),
             i18n::tr!(InvalidStateDatabase)
         );
-        fs::set_permissions(path, fs::Permissions::from_mode(0o600))?;
+        files::private_path(path, 0o600)?;
         let connection = Connection::open_with_flags(
             path,
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
@@ -135,12 +134,21 @@ impl Database {
         drop(database);
         staged.as_file().sync_all()?;
         cancel.check()?;
-        staged.persist_noclobber(store.database_path())?;
-        fs::File::open(directory)?.sync_all()?;
+        files::publish(staged, &store.database_path(), false)?;
+        files::sync_directory(&directory)?;
         Ok(())
     }
 }
 
+#[cfg(unix)]
 fn path_key(path: &Path) -> &[u8] {
-    path.as_os_str().as_bytes()
+    path.as_os_str().as_encoded_bytes()
+}
+#[cfg(windows)]
+fn path_key(path: &Path) -> Vec<u8> {
+    use std::os::windows::ffi::OsStrExt;
+    path.as_os_str()
+        .encode_wide()
+        .flat_map(u16::to_le_bytes)
+        .collect()
 }

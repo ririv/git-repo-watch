@@ -1,5 +1,6 @@
 //! Copy an explicitly selected legacy home without overwriting destination data.
 use super::*;
+use crate::platform::files;
 use rusqlite::backup::{Backup, StepResult};
 use serde::Serialize;
 use std::{io::Write, path::PathBuf};
@@ -32,7 +33,7 @@ impl Store {
         // 占住全部源仓库并发槽位，正在执行的写操作会使导入立即报忙。
         let slots = source.state_dir().join("operation-slots");
         fs::create_dir_all(&slots)?;
-        fs::set_permissions(&slots, fs::Permissions::from_mode(0o700))?;
+        files::private_path(&slots, 0o700)?;
         let _operations = (0..32)
             .map(|slot| Lock::acquire(&slots.join(format!("{slot}.lock"))))
             .collect::<Result<Vec<_>>>()?;
@@ -43,12 +44,10 @@ impl Store {
         let directory = self.config_dir();
         fs::create_dir_all(&directory)?;
         if matches!(self, Store::Standard { .. }) {
-            fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+            files::private_path(&directory, 0o700)?;
         }
         let mut staged_config = tempfile::NamedTempFile::new_in(&directory)?;
-        staged_config
-            .as_file()
-            .set_permissions(fs::Permissions::from_mode(0o600))?;
+        files::private_path(staged_config.path(), 0o600)?;
         staged_config.write_all(&configuration)?;
         staged_config.as_file().sync_all()?;
         let staged_database = database
@@ -58,16 +57,16 @@ impl Store {
         cancel.check()?;
         // 数据库先落盘，配置最后出现；失败时仅移除本次创建的目标，源 TOML 与数据库保留。
         if let Some(staged) = staged_database {
-            staged.persist_noclobber(self.database_path())?;
+            files::publish(staged, &self.database_path(), false)?;
         }
-        if let Err(error) = staged_config.persist_noclobber(self.config_path()) {
+        if let Err(error) = files::publish(staged_config, &self.config_path(), false) {
             if database.is_some() {
                 fs::remove_file(self.database_path())?;
             }
             return Err(error.into());
         }
-        fs::File::open(directory)?.sync_all()?;
-        fs::File::open(self.state_dir())?.sync_all()?;
+        files::sync_directory(&directory)?;
+        files::sync_directory(&self.state_dir())?;
         Ok(match database {
             Some(_) => Transfer::Database {
                 config: self.config_path(),
@@ -85,9 +84,7 @@ fn stage_database(
     cancel: &Cancel,
 ) -> Result<tempfile::NamedTempFile> {
     let staged = tempfile::NamedTempFile::new_in(store.state_dir())?;
-    staged
-        .as_file()
-        .set_permissions(fs::Permissions::from_mode(0o600))?;
+    files::private_path(staged.path(), 0o600)?;
     let mut destination = Connection::open(staged.path())?;
     {
         let backup = Backup::new(&source.connection, &mut destination)?;

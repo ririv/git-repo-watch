@@ -3,9 +3,10 @@ use super::{
     media::{Format, Image, MAX_IMAGE_BYTES},
     patch::{MAX_SOURCE_BYTES, Source, SourceOmission},
 };
+use crate::platform::files as platform_files;
 use anyhow::{Context, Result};
 use git2::{FileMode, Oid, Repository};
-use std::{fs::OpenOptions, io::Read, os::unix::fs::OpenOptionsExt, path::PathBuf};
+use std::{io::Read, path::PathBuf};
 
 pub(super) struct FileInfo {
     pub path: PathBuf,
@@ -36,10 +37,7 @@ impl FileInfo {
                 .context(i18n::tr!(BareRepositoriesAreNotSupported))?
                 .join(&self.path);
             // 拒绝符号链接替换和特殊文件；只读取上限加一个字节，防止读取期间文件增长。
-            let mut file = OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-                .open(path)?;
+            let mut file = platform_files::regular_file(&path)?;
             if !file.metadata()?.is_file() {
                 return Ok(Source::Unavailable(SourceOmission::NonRegular));
             }

@@ -3,15 +3,19 @@ use anyhow::Result;
 use graph::pixels::Metrics;
 use image::{DynamicImage, RgbaImage};
 use ratatui::layout::Size;
+#[cfg(unix)]
+use ratatui_image::picker::cap_parser::QueryStdioOptions;
 use ratatui_image::{
-    picker::cap_parser::{Parser, QueryStdioOptions, Response},
+    picker::cap_parser::{Parser, Response},
     protocol::{Protocol, iterm2::Iterm2, kitty::Kitty, sixel::Sixel},
 };
 use std::{
     io::{self, Write},
     num::NonZeroU16,
-    time::{Duration, Instant},
 };
+
+#[cfg(unix)]
+use std::time::{Duration, Instant};
 
 #[derive(Debug, Clone, Copy)]
 enum Transport {

@@ -1,5 +1,6 @@
 //! Bounded file previews never traverse symbolic links or read special files.
 use super::checked_path;
+use crate::platform::files as platform_files;
 use crate::{
     cancel::Cancel,
     local::files::{
@@ -9,9 +10,8 @@ use crate::{
 };
 use anyhow::{Context, Result, ensure};
 use std::{
-    fs::{self, OpenOptions},
+    fs,
     io::Read,
-    os::unix::fs::OpenOptionsExt,
     path::{Path, PathBuf},
 };
 
@@ -38,16 +38,16 @@ pub fn read(root: &Path, path: &Path, cancel: &Cancel) -> Result<Content> {
     if metadata.is_symlink() {
         return Ok(Content::Symlink(fs::read_link(full)?));
     }
+    if platform_files::is_link(&metadata) && !metadata.is_symlink() {
+        return Ok(Content::Special);
+    }
     if metadata.is_dir() {
         return Ok(Content::Directory);
     }
     if !metadata.is_file() {
         return Ok(Content::Special);
     }
-    let mut file = OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(full)?;
+    let mut file = platform_files::regular_file(&full)?;
     ensure!(file.metadata()?.is_file(), i18n::tr!(BrowserSpecialFile));
     let mut bytes = Vec::new();
     file.by_ref().take(12).read_to_end(&mut bytes)?;

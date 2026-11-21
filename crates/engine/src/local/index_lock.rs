@@ -49,15 +49,14 @@ impl IndexLock {
         let LockState::Held(path) = &self.state else {
             unreachable!("index lock is installed only once");
         };
-        fs::rename(path, &self.destination)?;
+        crate::platform::files::replace(path, &self.destination)?;
         // 替换后立即解除清理责任，避免误删随后由其它进程创建的新锁。
         self.state = LockState::Installed;
-        File::open(
+        crate::platform::files::sync_directory(
             self.destination
                 .parent()
                 .context(i18n::tr!(ComposeInvalid))?,
-        )?
-        .sync_all()?;
+        )?;
         Ok(())
     }
 }

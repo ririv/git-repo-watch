@@ -59,10 +59,11 @@ impl Service {
         let _batch = self.store.batch_lock()?;
         {
             let _configuration = self.store.transaction(cancel)?;
-            if self.scheduler.registration(cancel)? != crate::scheduler::Registration::Loaded {
+            let (registration, schedule) = self.scheduler.schedule_state(&self.store, cancel)?;
+            if registration != crate::scheduler::Registration::Loaded {
                 return Ok(None);
             }
-            if !matches!(self.scheduler.schedule(cancel)?, crate::scheduler::Schedule::Anchored { plan: current } if current == *plan)
+            if !matches!(schedule, crate::scheduler::Schedule::Anchored { plan: current } if current == *plan)
             {
                 return Ok(None);
             }

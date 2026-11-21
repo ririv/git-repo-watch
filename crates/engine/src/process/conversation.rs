@@ -18,13 +18,12 @@ pub fn run<T: Send>(
 ) -> Result<T> {
     cancel.check()?;
     let program = command.get_program().to_string_lossy().into_owned();
-    let mut child = command
+    command
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0)
-        .spawn()
-        .with_context(|| i18n::tf!(UnableToStart, program))?;
+        .stderr(Stdio::piped());
+    let mut tree = Tree::spawn(&mut command).with_context(|| i18n::tf!(UnableToStart, program))?;
+    let child = &mut tree.child;
     let stdout = child.stdout.take().context(i18n::tr!(CannotAttachStdout))?;
     let stdin = child.stdin.take().context(i18n::tr!(CannotAttachStdout))?;
     let mut stderr = child.stderr.take().context(i18n::tr!(CannotAttachStderr))?;
@@ -57,7 +56,7 @@ pub fn run<T: Send>(
             if matches!(completion, Completion::Process) {
                 loop {
                     check()?;
-                    if let Some(status) = child.try_wait()? {
+                    if let Some(status) = tree.child.try_wait()? {
                         anyhow::ensure!(
                             status.success(),
                             "{}: exit {}",
@@ -72,10 +71,7 @@ pub fn run<T: Send>(
             Ok(value)
         })();
         // 成功、失败和取消均收尾整个进程组，App Server 只在本次生成期间运行。
-        unsafe {
-            libc::kill(-(child.id() as i32), libc::SIGKILL);
-        }
-        let _ = child.wait();
+        tree.finish();
         let stderr = errors
             .join()
             .map_err(|_| anyhow::anyhow!(i18n::tr!(StderrReaderPanicked)))??;

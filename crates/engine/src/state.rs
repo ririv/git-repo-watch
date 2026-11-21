@@ -7,17 +7,15 @@ pub mod view;
 pub use configuration::{Config, ConfigurationMigration, MouseConfig, MouseSetting};
 pub use interaction::InteractionMode;
 mod operation;
-use crate::cancel::Cancel;
+use crate::{cancel::Cancel, platform::files};
 use anyhow::{Context, Result, ensure};
 pub use database::Transfer;
 pub use operation::{Completion, Operation, OperationOrigin, OperationRecord, StoredOperation};
+#[cfg(unix)]
+use std::os::unix::fs::OpenOptionsExt;
 use std::{
-    fs::{self, File, OpenOptions},
+    fs::{self, File, OpenOptions, TryLockError},
     io::Write,
-    os::{
-        fd::AsRawFd,
-        unix::fs::{OpenOptionsExt, PermissionsExt},
-    },
     path::{Path, PathBuf},
 };
 
@@ -67,17 +65,15 @@ impl Store {
         let directory = self.config_dir();
         fs::create_dir_all(&directory)?;
         if matches!(self, Self::Standard { .. }) {
-            fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+            files::private_path(&directory, 0o700)?;
         }
         let mut temporary = tempfile::NamedTempFile::new_in(&directory)?;
-        temporary
-            .as_file()
-            .set_permissions(fs::Permissions::from_mode(0o600))?;
+        files::private_path(temporary.path(), 0o600)?;
         let data = configuration::encode(&Config::default(), None)?;
         temporary.write_all(data.as_bytes())?;
         temporary.as_file().sync_all()?;
-        temporary.persist_noclobber(path)?;
-        File::open(directory)?.sync_all()?;
+        files::publish(temporary, &path, false)?;
+        files::sync_directory(&directory)?;
         Ok(())
     }
     pub fn lock(&self) -> Result<Lock> {
@@ -91,7 +87,7 @@ impl Store {
     }
     pub(crate) fn prepare_state(&self) -> Result<()> {
         fs::create_dir_all(self.state_dir())?;
-        fs::set_permissions(self.state_dir(), fs::Permissions::from_mode(0o700))?;
+        files::private_path(&self.state_dir(), 0o700)?;
         Ok(())
     }
     /// Serialize complete batches without locking unrelated repository operations.
@@ -101,12 +97,11 @@ impl Store {
     }
     /// Worktrees sharing Git storage deliberately share the same operation lock.
     pub fn repository_lock(&self, common_dir: &Path, cancel: &Cancel) -> Result<Lock> {
-        use std::os::unix::ffi::OsStrExt;
         self.prepare_state()?;
         let directory = self.state_dir().join("repository-locks");
         fs::create_dir_all(&directory)?;
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
-        let key = crate::scheduler::digest(common_dir.as_os_str().as_bytes());
+        files::private_path(&directory, 0o700)?;
+        let key = crate::scheduler::digest(common_dir.as_os_str().as_encoded_bytes());
         Lock::wait(&directory.join(format!("{key}.lock")), cancel)
     }
     /// Bound active Git operations across batches, manual tasks, and processes.
@@ -118,7 +113,7 @@ impl Store {
         self.prepare_state()?;
         let directory = self.state_dir().join("operation-slots");
         fs::create_dir_all(&directory)?;
-        fs::set_permissions(&directory, fs::Permissions::from_mode(0o700))?;
+        files::private_path(&directory, 0o700)?;
         loop {
             cancel.check()?;
             for slot in 0..limit {
@@ -152,7 +147,9 @@ impl std::fmt::Display for Busy {
 }
 impl std::error::Error for Busy {}
 #[derive(Debug)]
-pub struct Lock(File);
+pub struct Lock {
+    _file: File,
+}
 impl Lock {
     pub fn wait(path: &Path, cancel: &Cancel) -> Result<Self> {
         loop {
@@ -166,31 +163,21 @@ impl Lock {
         }
     }
     pub fn acquire(path: &Path) -> Result<Self> {
-        let file = OpenOptions::new()
-            .create(true)
-            .truncate(false)
-            .read(true)
-            .write(true)
-            .mode(0o600)
-            .open(path)?;
-        // flock 由文件描述符持有，退出或展开错误时由 RAII 释放。
-        if unsafe { libc::flock(file.as_raw_fd(), libc::LOCK_EX | libc::LOCK_NB) } != 0 {
-            let e = std::io::Error::last_os_error();
-            if e.raw_os_error() == Some(libc::EWOULDBLOCK) {
-                return Err(Busy.into());
-            }
-            return Err(e.into());
-        }
-        Ok(Self(file))
-    }
-}
-impl Drop for Lock {
-    fn drop(&mut self) {
-        unsafe {
-            libc::flock(self.0.as_raw_fd(), libc::LOCK_UN);
+        let mut options = OpenOptions::new();
+        options.create(true).truncate(false).read(true).write(true);
+        #[cfg(unix)]
+        options.mode(0o600);
+        let file = options.open(path)?;
+        #[cfg(windows)]
+        files::private_path(path, 0o600)?;
+        match file.try_lock() {
+            Ok(()) => Ok(Self { _file: file }),
+            Err(TryLockError::WouldBlock) => Err(Busy.into()),
+            Err(TryLockError::Error(error)) => Err(error.into()),
         }
     }
 }
+
 pub fn atomic(path: &Path, data: &[u8], mode: u32) -> Result<()> {
     let parent = path
         .parent()
@@ -198,12 +185,11 @@ pub fn atomic(path: &Path, data: &[u8], mode: u32) -> Result<()> {
     let mut tmp = tempfile::Builder::new()
         .prefix(".atomic-")
         .tempfile_in(parent)?;
-    tmp.as_file()
-        .set_permissions(fs::Permissions::from_mode(mode))?;
+    files::private_path(tmp.path(), mode)?;
     tmp.write_all(data)?;
     tmp.as_file().sync_all()?;
-    tmp.persist(path).map_err(|e| e.error)?;
-    File::open(parent)?.sync_all()?;
+    files::publish(tmp, path, true)?;
+    files::sync_directory(&parent)?;
     Ok(())
 }
 pub fn canonical(path: &Path) -> Result<PathBuf> {

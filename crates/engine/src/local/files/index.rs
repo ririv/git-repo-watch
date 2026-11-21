@@ -55,7 +55,7 @@ pub fn edit(snapshot: &Files, action: IndexAction, selection: &[Change]) -> Resu
                                 id: oid,
                                 flags: 0,
                                 flags_extended: 0,
-                                path: path.as_os_str().as_encoded_bytes().to_vec(),
+                                path: crate::local::git_path_bytes(path)?.into_owned(),
                             };
                             index.add(&entry)?;
                             // 子模块使用内存条目写入，需显式清除冲突阶段。

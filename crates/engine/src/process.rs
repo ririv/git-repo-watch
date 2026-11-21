@@ -1,16 +1,17 @@
 //! Cancellable subprocess execution with process-group cleanup.
 pub(crate) mod conversation;
+mod tree;
 use crate::cancel::Cancel;
 use anyhow::{Context, Result, bail};
 use std::{
     ffi::OsString,
     io::Read,
-    os::unix::process::CommandExt,
     path::Path,
     process::{Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
+use tree::Tree;
 #[derive(Debug)]
 pub struct Output {
     pub code: i32,
@@ -54,8 +55,7 @@ pub(crate) fn run_with_environment(
         .args(args)
         .stdin(Stdio::null())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .process_group(0);
+        .stderr(Stdio::piped());
     if let Some(cwd) = cwd {
         command.current_dir(cwd);
     }
@@ -65,7 +65,11 @@ pub(crate) fn run_with_environment(
         .env("GIT_OPTIONAL_LOCKS", "0")
         .env(
             "GIT_SSH_COMMAND",
-            "/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15",
+            if cfg!(windows) {
+                "ssh -o BatchMode=yes -o ConnectTimeout=15"
+            } else {
+                "/usr/bin/ssh -o BatchMode=yes -o ConnectTimeout=15"
+            },
         );
     execute(command, cancel, timeout, usize::MAX)
 }
@@ -78,9 +82,8 @@ fn execute(
 ) -> Result<Output> {
     cancel.check()?;
     let program = command.get_program().to_string_lossy().into_owned();
-    let mut child = command
-        .spawn()
-        .with_context(|| i18n::tf!(UnableToStart, program))?;
+    let mut tree = Tree::spawn(&mut command).with_context(|| i18n::tf!(UnableToStart, program))?;
+    let child = &mut tree.child;
     let mut stdout = child.stdout.take().context(i18n::tr!(CannotAttachStdout))?;
     let mut stderr = child.stderr.take().context(i18n::tr!(CannotAttachStderr))?;
     let overflow = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -111,10 +114,7 @@ fn execute(
         thread::sleep(Duration::from_millis(20));
     };
     // 连同 SSH、钩子和凭据子进程一起收尾，避免取消后继续产生副作用。
-    unsafe {
-        libc::kill(-(child.id() as i32), libc::SIGKILL);
-    }
-    let _ = child.wait();
+    tree.finish();
     let stdout = out
         .join()
         .map_err(|_| anyhow::anyhow!(i18n::tr!(StdoutReaderPanicked)))??;

@@ -1,14 +1,10 @@
 //! Typed TOML configuration and explicit legacy JSON conversion.
 use super::{Store, atomic};
 use crate::cancel::Cancel;
+use crate::platform::files;
 use anyhow::{Context, Result, ensure};
 use serde::{Deserialize, Serialize};
-use std::{
-    fs::{self, File},
-    io::Write,
-    os::unix::fs::PermissionsExt,
-    path::PathBuf,
-};
+use std::{fs, io::Write, path::PathBuf};
 use toml_edit::{Array, DocumentMut, Item, Value};
 mod ai;
 mod retired;
@@ -533,14 +529,12 @@ impl Store {
             }
         } else {
             let mut staged = tempfile::NamedTempFile::new_in(self.config_dir())?;
-            staged
-                .as_file()
-                .set_permissions(fs::Permissions::from_mode(0o600))?;
+            files::private_path(staged.path(), 0o600)?;
             staged.write_all(encode(&config, None)?.as_bytes())?;
             staged.as_file().sync_all()?;
             cancel.check()?;
-            staged.persist_noclobber(self.config_path())?;
-            File::open(self.config_dir())?.sync_all()?;
+            files::publish(staged, &self.config_path(), false)?;
+            files::sync_directory(&self.config_dir())?;
         }
         ensure!(
             parse(&fs::read_to_string(self.config_path())?)? == config,
@@ -551,7 +545,7 @@ impl Store {
             i18n::tr!(ConfigurationMigrationConflict)
         );
         fs::remove_file(legacy)?;
-        File::open(self.config_dir())?.sync_all()?;
+        files::sync_directory(&self.config_dir())?;
         Ok(ConfigurationMigration::Converted)
     }
 }

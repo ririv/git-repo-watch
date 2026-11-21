@@ -5,18 +5,14 @@ use super::{
     source::{FileInfo, Storage},
     validate,
 };
+use crate::platform::files as platform_files;
 use crate::{
     cancel::Cancel,
     local::{Head, open, utf8_path},
 };
 use anyhow::{Context, Result, ensure};
 use git2::{DiffFile, DiffFormat, DiffLine, DiffLineType, DiffOptions};
-use std::{
-    fs::{self, OpenOptions},
-    io::Read,
-    num::NonZeroU32,
-    os::unix::fs::OpenOptionsExt,
-};
+use std::{fs, io::Read, num::NonZeroU32};
 
 pub fn diff(snapshot: &Files, change: &Change) -> Result<String> {
     Ok(document(snapshot, change, &Cancel::default())?.text())
@@ -47,10 +43,7 @@ pub fn document(snapshot: &Files, change: &Change, cancel: &Cancel) -> Result<Do
         }
         if meta.len() > MAX_SOURCE_BYTES as u64 {
             let mut prefix = Vec::new();
-            OpenOptions::new()
-                .read(true)
-                .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-                .open(&path)?
+            platform_files::regular_file(&path)?
                 .take(12)
                 .read_to_end(&mut prefix)?;
             if super::media::Format::detect(&prefix).is_some() {

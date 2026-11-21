@@ -107,3 +107,18 @@ pub fn common_dir(repo: &Repository) -> Result<PathBuf> {
 pub fn utf8_path(path: &Path) -> Result<&str> {
     path.to_str().context(i18n::tr!(GitPathIsNotUtf8And))
 }
+
+pub(crate) fn git_path_bytes(path: &Path) -> anyhow::Result<std::borrow::Cow<'_, [u8]>> {
+    #[cfg(unix)]
+    return Ok(std::borrow::Cow::Borrowed(
+        path.as_os_str().as_encoded_bytes(),
+    ));
+    #[cfg(windows)]
+    {
+        use anyhow::Context;
+        let path = path.to_str().context(i18n::tr!(InstallationPathNotUtf8))?;
+        Ok(std::borrow::Cow::Owned(
+            path.replace('\\', "/").into_bytes(),
+        ))
+    }
+}

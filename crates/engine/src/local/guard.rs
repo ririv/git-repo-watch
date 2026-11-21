@@ -90,14 +90,13 @@ impl Guard {
             hash.update(name.as_bytes());
             let full = path.join(name);
             match fs::symlink_metadata(&full) {
-                Ok(metadata) if metadata.is_symlink() => {
+                Ok(metadata) if crate::platform::files::is_link(&metadata) => {
                     hash.update(b"link");
                     hash.update(fs::read_link(&full)?.as_os_str().as_encoded_bytes());
                 }
                 Ok(metadata) if metadata.is_file() => {
-                    use std::os::unix::fs::PermissionsExt;
                     hash.update(b"file");
-                    hash.update(metadata.permissions().mode().to_le_bytes());
+                    hash.update(crate::platform::files::original_mode(&metadata).to_le_bytes());
                     let mut file = fs::File::open(&full)?;
                     let mut buffer = [0; 65536];
                     loop {

@@ -22,6 +22,10 @@ impl UserDirectories {
         {
             Self::linux(home, None, None).expect("absolute user home")
         }
+        #[cfg(windows)]
+        {
+            Self::windows(home, None, None).expect("absolute user home")
+        }
     }
     pub fn from_environment(home: &Path) -> Result<Self> {
         #[cfg(target_os = "macos")]
@@ -36,7 +40,26 @@ impl UserDirectories {
                 std::env::var_os("XDG_STATE_HOME"),
             )
         }
+        #[cfg(windows)]
+        {
+            Self::windows(
+                home,
+                std::env::var_os("APPDATA"),
+                std::env::var_os("LOCALAPPDATA"),
+            )
+        }
     }
+    #[cfg(windows)]
+    fn windows(home: &Path, roaming: Option<OsString>, local: Option<OsString>) -> Result<Self> {
+        let config_base = xdg_directory("APPDATA", roaming, home.join("AppData/Roaming"))?;
+        let state_base = xdg_directory("LOCALAPPDATA", local, home.join("AppData/Local"))?;
+        Ok(Self {
+            config_base,
+            log_base: state_base.clone(),
+            state_base,
+        })
+    }
+
     pub fn macos(home: &Path) -> Self {
         let support = home.join("Library/Application Support");
         Self {

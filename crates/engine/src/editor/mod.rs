@@ -9,7 +9,6 @@ pub use catalog::Known;
 use serde::{Deserialize, Serialize};
 use std::{
     ffi::{OsStr, OsString},
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -105,24 +104,9 @@ impl Environment {
         }
     }
     fn program(&self, name: &str) -> Result<Option<PathBuf>> {
-        for directory in std::env::split_paths(&self.path) {
-            let path = if directory.is_absolute() {
-                directory.join(name)
-            } else {
-                self.home.join(directory).join(name)
-            };
-            match std::fs::metadata(&path) {
-                Ok(metadata)
-                    if metadata.is_file() && metadata.permissions().mode() & 0o111 != 0 =>
-                {
-                    return Ok(Some(path));
-                }
-                Ok(_) => {}
-                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
-                Err(error) => return Err(error.into()),
-            }
-        }
-        Ok(None)
+        Ok(crate::platform::files::find_program(
+            name, &self.path, &self.home,
+        )?)
     }
 }
 #[derive(Debug, Clone)]
@@ -241,20 +225,28 @@ pub fn prepare(
                 Preference::Command(command) => command.clone(),
                 _ => unreachable!(),
             };
-            // 与 Git 一样将命令交给 POSIX shell；目标路径始终通过独立参数传入。
-            let script = format!("{} \"$@\"", command.text());
-            let arguments = vec![
-                OsString::from("-c"),
-                script.into(),
-                command.text().into(),
-                target.as_os_str().to_owned(),
-            ];
-            (
+            #[cfg(unix)]
+            let (program, arguments) = (
                 PathBuf::from("/bin/sh"),
-                arguments,
-                command.interface(),
-                true,
-            )
+                vec![
+                    "-c".into(),
+                    format!("{} \"$@\"", command.text()).into(),
+                    command.text().into(),
+                    target.as_os_str().to_owned(),
+                ],
+            );
+            // Git for Windows 使用随 Git 安装的 shell 解析编辑器命令。
+            #[cfg(windows)]
+            let (program, arguments) = (
+                crate::transport::program()?,
+                vec![
+                    "-c".into(),
+                    format!("alias.gw-external-editor=!{}", command.text()).into(),
+                    "gw-external-editor".into(),
+                    target.as_os_str().to_owned(),
+                ],
+            );
+            (program, arguments, command.interface(), true)
         }
     };
     ensure!(

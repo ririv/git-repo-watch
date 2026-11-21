@@ -25,8 +25,7 @@ impl Service {
                 }
             }
         };
-        let registration = self.scheduler.registration(cancel)?;
-        let schedule = self.scheduler.schedule(cancel)?;
+        let (registration, schedule) = self.scheduler.schedule_state(&self.store, cancel)?;
         let next_trigger = schedule.next_trigger(registration, chrono::Local::now())?;
         Ok(Snapshot {
             registration,

@@ -4,17 +4,13 @@ use crate::local::files::{
     Area, Location,
     patch::{Document, Extent, Line, MAX_SOURCE_BYTES, Metadata, Source},
 };
+use crate::platform::files as platform_files;
 use crate::{
     cancel::Cancel,
     local::{Head, open},
 };
 use anyhow::{Context, ensure};
-use std::{
-    fs::OpenOptions,
-    io::Read,
-    os::unix::fs::{OpenOptionsExt, PermissionsExt},
-    path::Path,
-};
+use std::{io::Read, path::Path};
 
 pub(super) fn indexed(
     repo: &git2::Repository,
@@ -42,11 +38,7 @@ fn object(repo: &git2::Repository, oid: git2::Oid, mode: u32) -> Result<Version>
     })
 }
 pub(crate) fn working(path: &Path) -> Result<Version> {
-    let mut file = match OpenOptions::new()
-        .read(true)
-        .custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK)
-        .open(path)
-    {
+    let mut file = match platform_files::regular_file(path) {
         Ok(file) => file,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Version::Absent),
         Err(error) => return Err(error.into()),
@@ -66,7 +58,7 @@ pub(crate) fn working(path: &Path) -> Result<Version> {
     );
     Ok(Version::Text {
         data: String::from_utf8(data)?.into(),
-        mode: 0o100000 | (meta.permissions().mode() & 0o777),
+        mode: 0o100000 | (platform_files::original_mode(&meta) & 0o777),
     })
 }
 pub(crate) fn checked_worktree_path(root: &Path, path: &Path) -> Result<std::path::PathBuf> {
@@ -80,7 +72,7 @@ pub(crate) fn checked_worktree_path(root: &Path, path: &Path) -> Result<std::pat
         if index + 1 < components.len() {
             match std::fs::symlink_metadata(&full) {
                 Ok(metadata) => ensure!(
-                    metadata.is_dir() && !metadata.is_symlink(),
+                    metadata.is_dir() && !platform_files::is_link(&metadata),
                     i18n::tr!(PartialUnsupported)
                 ),
                 Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
