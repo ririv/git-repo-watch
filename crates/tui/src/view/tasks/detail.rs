@@ -81,7 +81,14 @@ fn text(record: &Record, width: u16) -> (Text<'static>, Option<usize>) {
     };
     let mut failure_line = record.unread_failure().then_some(1);
     if !body.trim().is_empty() {
-        let body = multiline(body);
+        let legacy_push = match &record.state {
+            State::Finished {
+                outcome: Completion::Succeeded { .. },
+                ..
+            } => crate::task_center::push_detail::from_legacy(body),
+            _ => None,
+        };
+        let body = multiline(legacy_push.as_deref().unwrap_or(body));
         lines.push(Line::default());
         if color == BAD
             && let Some(first_reason) = batch::append_lines(record, &body, width, &mut lines)

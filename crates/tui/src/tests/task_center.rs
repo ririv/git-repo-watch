@@ -656,6 +656,64 @@ fn task_list_shows_local_time_and_failure_lines_share_their_task_hit_region() {
 }
 
 #[test]
+fn current_and_legacy_successful_pushes_show_the_same_readable_details() {
+    use engine::domain::{Publication, PushTarget, RemoteTip};
+
+    let _language = i18n::using(i18n::Language::Chinese);
+    let (_home, mut s) = fixture(vec![]);
+    let publication = Publication::Pushed {
+        target: PushTarget {
+            branch: "feature/\"demo\"".into(),
+            local_ref: "refs/heads/feature/\"demo\"".into(),
+            local_oid: "6249075da20e93a11c87c07da098bb5445993a07".into(),
+            remote: "origin".into(),
+            remote_ref: "refs/heads/release".into(),
+            remote_oid: RemoteTip::Existing("15e9af29988a2203fe20b1da730b9394dac630a8".into()),
+            ahead_commits: 5,
+        },
+    };
+    let legacy = Completion::Succeeded {
+        detail: format!("{publication:#?}"),
+    };
+    let cancel = Cancel::default();
+    let current = crate::task_center::outcome(
+        &Ok(Outcome::Published(publication)),
+        &cancel,
+        i18n::tr!(PushCurrentBranch),
+        Effect::Push,
+    );
+
+    for outcome in [legacy, current] {
+        let mut record = presentation_record(0, false);
+        record.spec.title = i18n::tr!(PushCurrentBranch).into();
+        let State::Finished { outcome: saved, .. } = &mut record.state else {
+            unreachable!()
+        };
+        *saved = outcome;
+        s.tasks.selection = Some(record.id.clone());
+        s.tasks.records = vec![record];
+        s.open_tasks();
+        for width in [70, 160] {
+            if width < 100 {
+                key(&mut s, KeyCode::Enter);
+            } else {
+                key(&mut s, KeyCode::Esc);
+            }
+            let details = render(&mut s, width, 26);
+            assert!(
+                details.contains("feature/\"demo\" → origin/release"),
+                "{details}"
+            );
+            assert!(details.contains("已推送（5 个提交）"), "{details}");
+            assert!(details.contains("推送后提交: 6249075da20e"), "{details}");
+            assert!(!details.contains("PushTarget") && !details.contains("ahead_commits"));
+        }
+        s.close_tasks();
+    }
+    s.shutdown();
+}
+
+#[test]
 fn stage_timings_have_a_separate_detail_section_and_never_replace_failure_previews() {
     use engine::tasks::progress::{Measurement, Stage};
     for language in [i18n::Language::Chinese, i18n::Language::English] {

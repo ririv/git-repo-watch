@@ -1,4 +1,5 @@
 //! A task screen and asynchronous journal cache do not take ownership of Git workers.
+pub(crate) mod push_detail;
 use super::*;
 use engine::tasks::{Journal, Outcome as Completion, Record, Retry, Scope, State};
 use std::{
@@ -670,7 +671,7 @@ pub(crate) fn outcome(
                 format!("{:#?}", completed.last())
             }
         },
-        Outcome::Published(value) => format!("{value:#?}"),
+        Outcome::Published(Publication::Pushed { target }) => push_detail::from_target(target),
         Outcome::PushPrepared(preparation) => crate::push::preparation_notice(preparation).into(),
         Outcome::MutationCompleted(engine::operations::mutation::Change::FetchSkipped {
             reason,
