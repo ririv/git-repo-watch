@@ -1,8 +1,9 @@
 use super::*;
 use crate::{
-    conflict::{Body, DisplayMode, Focus},
+    conflict::{Body, DisplayMode, Focus, controls},
     document::View,
 };
+use engine::local::files::conflict::resolve::Choice;
 
 pub(super) fn automatic_setup() -> (support::Fixture, tempfile::TempDir, Screen) {
     let f = support::Fixture::create();
@@ -186,18 +187,18 @@ fn conflict_menu_uses_one_candidate_tree_for_search_groups_and_parameters() {
                     .lines()
                     .position(|row| row.contains("├─ --view …"))
                     .unwrap();
-                let accept = menu
+                let undo = menu
                     .lines()
-                    .position(|row| row.contains("├─ accept …"))
+                    .position(|row| row.contains("├─ undo"))
                     .unwrap();
-                assert!(context < conflict && conflict + 1 == parameter && parameter < accept);
+                assert!(context < conflict && conflict + 1 == parameter && parameter < undo);
                 assert!(!menu.contains(&group_title));
             }
         }
         assert_eq!(s.bar.text(), "/repo diff conflict");
         let closed_group = render(&mut s, 140, 38);
         assert!(closed_group.contains("├─ --view …"));
-        assert!(closed_group.contains("├─ accept …"));
+        assert!(closed_group.contains("├─ undo"));
         assert!(!closed_group.contains(&group_title));
         let before = s.command_candidates().unwrap();
         let expand = if scoped { KeyCode::Tab } else { KeyCode::Enter };
@@ -212,12 +213,7 @@ fn conflict_menu_uses_one_candidate_tree_for_search_groups_and_parameters() {
                 .filter_map(|item| item.command())
                 .map(|cmd| cmd.name)
                 .collect::<Vec<_>>(),
-            [
-                "repo diff conflict accept",
-                "repo diff conflict block",
-                "repo diff conflict undo",
-                "repo diff conflict reset",
-            ],
+            ["repo diff conflict undo", "repo diff conflict reset",],
         );
         let rendered = render(&mut s, 140, 38);
         let lines = rendered.lines().collect::<Vec<_>>();
@@ -225,14 +221,14 @@ fn conflict_menu_uses_one_candidate_tree_for_search_groups_and_parameters() {
         let first_row = usize::from(s.command_items[0].0.y);
         assert!(lines[first_row - 1].contains(&group_title));
         assert!(lines[first_row].contains("├─ --view …"));
-        assert!(lines[first_row + 1].contains("├─ accept …"));
-        assert!(lines[first_row + 4].contains("└─ reset"));
+        assert!(lines[first_row + 1].contains("├─ undo"));
+        assert!(lines[first_row + 2].contains("└─ reset"));
         key(&mut s, KeyCode::Char(' '));
         assert_eq!(s.command_candidates().unwrap().len(), entries.len());
         key(&mut s, KeyCode::Backspace);
-        s.paste("acc");
+        s.paste("und");
         assert!(matches!(s.command_candidates().unwrap().as_slice(),
-            [Candidate::Command(cmd)] if cmd.name == "repo diff conflict accept"));
+            [Candidate::Command(cmd)] if cmd.name == "repo diff conflict undo"));
         key(&mut s, KeyCode::Esc);
 
         s.paste(if scoped { "/con" } else { "//repo diff con" });
@@ -249,7 +245,7 @@ fn conflict_menu_uses_one_candidate_tree_for_search_groups_and_parameters() {
         assert_eq!(super::options::choices(&s).options.len(), 8);
         key(&mut s, KeyCode::Esc);
         assert_eq!(s.bar.text(), "/repo diff conflict ");
-        assert_eq!(s.command_candidates().unwrap().len(), 5);
+        assert_eq!(s.command_candidates().unwrap().len(), 3);
         while matches!(s.bar, bar::InputBar::Command { .. }) {
             key(&mut s, KeyCode::Esc);
         }
@@ -906,8 +902,30 @@ fn resolution_setup() -> (support::Fixture, tempfile::TempDir, Screen, String) {
     wait(&mut s);
     (f, home, s, text)
 }
+fn open_conflict_actions(s: &mut Screen) {
+    if matches!(&s.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Files) {
+        key(s, KeyCode::Right);
+    }
+    if s.focused_conflict_control().is_none() {
+        key(s, KeyCode::Enter);
+    }
+    assert!(s.focused_conflict_control().is_some());
+}
+
+fn accept_current_block(s: &mut Screen, choice: Choice) {
+    open_conflict_actions(s);
+    for _ in controls::Action::ALL {
+        if s.focused_conflict_control() == Some(controls::Action::Accept(choice)) {
+            key(s, KeyCode::Enter);
+            return;
+        }
+        key(s, KeyCode::Right);
+    }
+    panic!("冲突处理页没有采用选项");
+}
+
 #[test]
-fn accepting_a_block_uses_parameter_completion_and_advances_without_staging_or_leaving_the_view() {
+fn accepting_a_block_keeps_the_controls_open_and_advances_without_staging() {
     let (f, _home, mut s, original) = resolution_setup();
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let depth = s.history.len();
@@ -916,15 +934,7 @@ fn accepting_a_block_uses_parameter_completion_and_advances_without_staging_or_l
         before.contains(&i18n::tf!(ConflictBlockCount, current = 1, total = 2)),
         "{before}"
     );
-    command(&mut s, "repo diff conflict accept");
-    assert_eq!(super::options::choices(&s).options.len(), 3);
-    key(&mut s, KeyCode::Tab);
-    assert!(s.bar.text().ends_with("accept left"));
-    assert_eq!(
-        std::fs::read_to_string(f.repo.join("src/中文 空格.ts")).unwrap(),
-        original
-    );
-    key(&mut s, KeyCode::Enter);
+    accept_current_block(&mut s, Choice::Left);
     wait(&mut s);
     let expected = original.replacen(
         "<<<<<<< HEAD\nleft one\n=======\nright one\n>>>>>>> incoming\n",
@@ -947,7 +957,11 @@ fn accepting_a_block_uses_parameter_completion_and_advances_without_staging_or_l
         engine::state::Operation::Workspace { action: engine::operations::mutation::Action::ResolveConflict { file, intent: engine::local::files::conflict::resolve::Intent::Accept { choice: engine::local::files::conflict::resolve::Choice::Left } }, .. }
             if file == std::path::Path::new("src/中文 空格.ts"))));
     assert!(review(&s).resolution.undo().is_some());
-    command(&mut s, "repo diff conflict accept right");
+    assert_eq!(
+        s.focused_conflict_control(),
+        Some(controls::Action::Accept(Choice::Left))
+    );
+    accept_current_block(&mut s, Choice::Right);
     wait(&mut s);
     let text = render(&mut s, 180, 44);
     assert!(
@@ -958,7 +972,8 @@ fn accepting_a_block_uses_parameter_completion_and_advances_without_staging_or_l
         support::git(&f.repo, &["ls-files", "-u"]).lines().count(),
         3
     );
-    command(&mut s, "repo diff stage");
+    assert_eq!(s.focused_conflict_control(), Some(controls::Action::Stage));
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert_eq!(support::git(&f.repo, &["ls-files", "-u"]), "");
     s.shutdown();
@@ -970,7 +985,8 @@ fn block_navigation_highlights_the_selected_region_and_preserves_all_source_byte
     render(&mut s, 180, 44);
     let depth = s.history.len();
     assert!(review(&s).selected_line(3, 1));
-    command(&mut s, "repo diff conflict block next");
+    open_conflict_actions(&mut s);
+    key(&mut s, KeyCode::Down);
     assert!(!review(&s).selected_line(3, 1));
     assert!(review(&s).selected_line(3, 7));
     for mode in [
@@ -984,14 +1000,16 @@ fn block_navigation_highlights_the_selected_region_and_preserves_all_source_byte
         "result-right",
     ] {
         command(&mut s, &format!("repo diff conflict --view {mode}"));
-        command(&mut s, "repo diff conflict block previous");
+        open_conflict_actions(&mut s);
+        key(&mut s, KeyCode::Up);
         assert!(review(&s).resolution.label().contains("1/2"));
         let text = render(&mut s, 180, 44);
         assert!(
             text.contains(&i18n::tf!(ConflictBlockCount, current = 1, total = 2)),
             "{text}"
         );
-        command(&mut s, "repo diff conflict block next");
+        open_conflict_actions(&mut s);
+        key(&mut s, KeyCode::Down);
         assert!(review(&s).resolution.label().contains("2/2"));
     }
     assert_eq!(s.history.len(), depth);
@@ -1005,8 +1023,9 @@ fn block_navigation_highlights_the_selected_region_and_preserves_all_source_byte
 #[test]
 fn undo_restores_the_last_selected_block_and_both_keeps_left_before_right() {
     let (f, _home, mut s, original) = resolution_setup();
-    command(&mut s, "repo diff conflict block next");
-    command(&mut s, "repo diff conflict accept right");
+    open_conflict_actions(&mut s);
+    key(&mut s, KeyCode::Down);
+    accept_current_block(&mut s, Choice::Right);
     wait(&mut s);
     command(&mut s, "repo diff conflict undo");
     wait(&mut s);
@@ -1015,7 +1034,7 @@ fn undo_restores_the_last_selected_block_and_both_keeps_left_before_right() {
         original
     );
     assert!(review(&s).resolution.label().contains("2/2"));
-    command(&mut s, "repo diff conflict accept both");
+    accept_current_block(&mut s, Choice::Both);
     wait(&mut s);
     let text = std::fs::read_to_string(f.repo.join("src/中文 空格.ts")).unwrap();
     assert!(text.contains("left two\nright two\n"));
@@ -1027,7 +1046,7 @@ fn undo_restores_the_last_selected_block_and_both_keeps_left_before_right() {
 fn stale_accepts_and_undo_cannot_overwrite_external_editor_saves() {
     let (f, _home, mut s, _original) = resolution_setup();
     support::write(f.repo.join("src/中文 空格.ts"), "external editor result\n");
-    command(&mut s, "repo diff conflict accept left");
+    accept_current_block(&mut s, Choice::Left);
     wait(&mut s);
     assert_eq!(
         std::fs::read_to_string(f.repo.join("src/中文 空格.ts")).unwrap(),
@@ -1041,11 +1060,18 @@ fn stale_accepts_and_undo_cannot_overwrite_external_editor_saves() {
 }
 
 #[test]
-fn an_open_accept_menu_cannot_apply_to_an_externally_refreshed_block() {
+fn a_prepared_accept_cannot_apply_to_an_externally_refreshed_block() {
     let (f, _home, mut s, original) = resolution_setup();
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "repo diff conflict accept");
-    key(&mut s, KeyCode::Tab);
+    open_conflict_actions(&mut s);
+    let selection = s.copy_selection();
+    let accept = s
+        .prepare_command(
+            Action::ConflictAccept(Choice::Left),
+            Some(&f.repo),
+            &selection,
+        )
+        .unwrap();
     let updated = original.replace("left one", "external left one");
     support::write(f.repo.join("src/中文 空格.ts"), &updated);
     let files = engine::local::files::read(&f.repo).unwrap();
@@ -1054,8 +1080,7 @@ fn an_open_accept_menu_cannot_apply_to_an_externally_refreshed_block() {
     };
     session.refreshed(files);
     wait(&mut s);
-    assert!(s.bar.text().ends_with("accept left"));
-    key(&mut s, KeyCode::Enter);
+    accept.execute(&mut s, &Cancel::default()).unwrap();
     wait(&mut s);
     assert_eq!(
         std::fs::read_to_string(f.repo.join("src/中文 空格.ts")).unwrap(),
@@ -1077,7 +1102,7 @@ fn accepting_the_exact_head_source_keeps_the_result_pair_comparisons_and_undo() 
     let file = f.repo.join("src/中文 空格.ts");
     let original = std::fs::read(&file).unwrap();
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "repo diff conflict accept left");
+    accept_current_block(&mut s, Choice::Left);
     wait(&mut s);
     assert_eq!(
         std::fs::read_to_string(&file).unwrap().trim_end(),
@@ -1344,7 +1369,7 @@ fn resetting_a_resolved_file_requires_confirmation_and_returns_to_the_same_view(
     let (f, _home, mut s) = setup();
     let path = f.repo.join("src/中文 空格.ts");
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    command(&mut s, "repo diff conflict accept left");
+    accept_current_block(&mut s, Choice::Left);
     wait(&mut s);
     let resolved = std::fs::read_to_string(&path).unwrap();
     assert!(review(&s).resolution.resolved());
@@ -1404,7 +1429,8 @@ fn resetting_a_resolved_file_requires_confirmation_and_returns_to_the_same_view(
 #[test]
 fn reset_confirmation_refuses_external_changes_and_escape_preserves_the_original_selection() {
     let (f, _home, mut s, original) = resolution_setup();
-    command(&mut s, "repo diff conflict block next");
+    open_conflict_actions(&mut s);
+    key(&mut s, KeyCode::Down);
     command(&mut s, "repo diff conflict reset");
     wait(&mut s);
     key(&mut s, KeyCode::Esc);

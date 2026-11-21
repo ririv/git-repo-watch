@@ -20,8 +20,6 @@ fn prefixes_include_all_descendants_without_a_trailing_space() {
         "repo diff discard-file",
         "repo diff view",
         "repo diff conflict",
-        "repo diff conflict accept",
-        "repo diff conflict block",
         "repo diff conflict undo",
         "repo diff conflict reset",
     ];
@@ -201,17 +199,6 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
 #[test]
 fn nested_parameter_commands_choose_the_longest_name_and_keep_bare_undo_unambiguous() {
     assert_eq!(
-        argument_input("repo diff conflict accept left"),
-        Some((
-            ArgumentAction::Option(options::Kind::ConflictAccept),
-            "left"
-        ))
-    );
-    assert_eq!(
-        argument_input("repo diff conflict accept "),
-        Some((ArgumentAction::Option(options::Kind::ConflictAccept), ""))
-    );
-    assert_eq!(
         argument_input("repo diff conflict --view "),
         Some((ArgumentAction::Option(options::Kind::Conflict), ""))
     );
@@ -222,6 +209,8 @@ fn nested_parameter_commands_choose_the_longest_name_and_keep_bare_undo_unambigu
     for query in [
         "repo diff conflict ",
         "repo diff conflict acc",
+        "repo diff conflict accept left",
+        "repo diff conflict block next",
         "repo diff conflict base-left",
     ] {
         assert_eq!(argument_input(query), None);

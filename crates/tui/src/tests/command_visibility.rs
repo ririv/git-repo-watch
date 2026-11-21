@@ -74,7 +74,6 @@ fn contextual_menus_hide_unrelated_targets_but_global_search_explains_them_witho
             ("repo diff discard", Action::Discard),
             ("repo diff discard-file", Action::DiscardFile),
             ("repo diff conflict", Action::ConflictMenu),
-            ("repo diff conflict accept", Action::ConflictAcceptMenu),
             ("copy path", Action::CopyPath),
         ];
         for (_, action) in unrelated {

@@ -226,12 +226,6 @@ impl Action {
             Self::PartialSelectMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::DiffSelection))
             }
-            Self::ConflictAcceptMenu => {
-                Some(ArgumentAction::Option(super::options::Kind::ConflictAccept))
-            }
-            Self::ConflictBlockMenu => {
-                Some(ArgumentAction::Option(super::options::Kind::ConflictBlock))
-            }
             Self::BranchFilterMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::BranchFilter))
             }

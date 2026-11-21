@@ -73,8 +73,6 @@ fn command_tree_groups_index_actions_and_layout_without_mutation_or_legacy_alias
                 "repo diff discard-file",
                 "repo diff view",
                 "repo diff conflict",
-                "repo diff conflict accept",
-                "repo diff conflict block",
                 "repo diff conflict undo",
                 "repo diff conflict reset",
             ]

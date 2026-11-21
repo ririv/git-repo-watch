@@ -20,13 +20,9 @@ impl<'a> CommandContext<'a> {
             return Target::Unavailable(reason.into());
         }
         let reason = match (&target, action) {
-            (
-                Value::Conflict(view),
-                Action::ConflictAcceptMenu
-                | Action::ConflictAccept(_)
-                | Action::ConflictBlockMenu
-                | Action::ConflictBlock(_),
-            ) => view.view.resolution.reason().map(str::to_owned),
+            (Value::Conflict(view), Action::ConflictAccept(_)) => {
+                view.view.resolution.reason().map(str::to_owned)
+            }
             (Value::Conflict(view), Action::ConflictReset) => {
                 view.view.resolution.reset_reason().map(str::to_owned)
             }

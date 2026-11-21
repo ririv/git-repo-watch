@@ -27,10 +27,6 @@ pub enum Message {
     ConflictResolveChanged,
     ConflictMarkersInvalid,
     ConflictBlockRequired,
-    ConflictAcceptCommand,
-    ConflictBlockCommand,
-    ConflictBlockPrevious,
-    ConflictBlockNext,
     ConflictResetCommand,
     ConflictResetConfirm,
     ConflictResetUnsupported,
@@ -63,7 +59,6 @@ pub enum Message {
     ConflictEmpty,
     ConflictLineLimit,
     ConflictNonText,
-    ConflictResultHint,
     BranchFilterCommand,
     BranchFilterRequiresView,
     HistoryParentCommand,
@@ -1481,16 +1476,6 @@ impl Message {
             }
             (Self::ConflictBlockRequired, Language::Chinese) => "没有待处理的冲突块",
             (Self::ConflictBlockRequired, Language::English) => "No unresolved conflict block",
-            (Self::ConflictAcceptCommand, Language::Chinese) => "采用当前冲突块的版本",
-            (Self::ConflictAcceptCommand, Language::English) => {
-                "Resolve the selected conflict block"
-            }
-            (Self::ConflictBlockCommand, Language::Chinese) => "选择冲突块",
-            (Self::ConflictBlockCommand, Language::English) => "Select a conflict block",
-            (Self::ConflictBlockPrevious, Language::Chinese) => "上一个冲突块",
-            (Self::ConflictBlockPrevious, Language::English) => "Previous conflict block",
-            (Self::ConflictBlockNext, Language::Chinese) => "下一个冲突块",
-            (Self::ConflictBlockNext, Language::English) => "Next conflict block",
             (Self::ConflictResetCommand, Language::Chinese) => "重置冲突结果",
             (Self::ConflictResetCommand, Language::English) => "Reset conflict result",
             (Self::ConflictResetConfirm, Language::Chinese) => {
@@ -1575,12 +1560,6 @@ impl Message {
             (Self::ConflictNonText, Language::Chinese) => "此版本无法完整读取为文本",
             (Self::ConflictNonText, Language::English) => {
                 "This version is not plain text; line comparison is unavailable"
-            }
-            (Self::ConflictResultHint, Language::Chinese) => {
-                "采用：/repo diff conflict accept · 编辑：/editor"
-            }
-            (Self::ConflictResultHint, Language::English) => {
-                "Accept: /repo diff conflict accept · Edit: /editor"
             }
             (Self::SearchTargetContent, Language::English) => "content",
             (Self::SearchTargetContent, Language::Chinese) => "内容",

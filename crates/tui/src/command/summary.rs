@@ -6,8 +6,7 @@ impl Command {
         match self.action {
             Action::ConflictMenu => Summary::ConflictGroup,
             Action::ConflictView(_) => Summary::Conflict,
-            Action::ConflictAcceptMenu | Action::ConflictAccept(_) => Summary::ConflictAccept,
-            Action::ConflictBlockMenu | Action::ConflictBlock(_) => Summary::ConflictBlock,
+            Action::ConflictAccept(_) => Summary::ConflictAccept,
             Action::ConflictUndo => Summary::ConflictUndo,
             Action::ConflictReset => Summary::ConflictReset,
             Action::PartialSelectMenu | Action::PartialSelect(_) => Summary::PartialSelect,

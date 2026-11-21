@@ -2,11 +2,6 @@
 use engine::local::files::conflict::resolve::{self, Block, Choice, Plan};
 use std::sync::Arc;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Direction {
-    Previous,
-    Next,
-}
 #[derive(Debug, Clone, Copy)]
 pub(crate) enum Action {
     Accept(Choice),
@@ -128,18 +123,6 @@ impl Session {
             return true;
         }
         false
-    }
-    pub fn advance(&mut self, direction: Direction) {
-        if let State::Blocks { snapshot, selected } = &mut self.state {
-            let len = snapshot.blocks().len();
-            *selected = (*selected
-                + if direction == Direction::Previous {
-                    len - 1
-                } else {
-                    1
-                })
-                % len;
-        }
     }
     pub fn undo(&self) -> Option<&Plan> {
         self.undo.as_ref().map(|undo| undo.plan.as_ref())

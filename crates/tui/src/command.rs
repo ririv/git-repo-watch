@@ -63,10 +63,7 @@ pub enum Action {
     Diff,
     DiffGroup(crate::files::Group),
     ConflictMenu,
-    ConflictAcceptMenu,
     ConflictAccept(engine::local::files::conflict::resolve::Choice),
-    ConflictBlockMenu,
-    ConflictBlock(crate::conflict::resolution::Direction),
     ConflictUndo,
     ConflictReset,
     ConflictView(crate::conflict::DisplayMode),
@@ -314,16 +311,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo diff conflict",
         action: ConflictMenu,
         description: i18n::Message::ConflictControlsTitle,
-    },
-    Command {
-        name: "repo diff conflict accept",
-        action: ConflictAcceptMenu,
-        description: i18n::Message::ConflictAcceptCommand,
-    },
-    Command {
-        name: "repo diff conflict block",
-        action: ConflictBlockMenu,
-        description: i18n::Message::ConflictBlockCommand,
     },
     Command {
         name: "repo diff conflict undo",

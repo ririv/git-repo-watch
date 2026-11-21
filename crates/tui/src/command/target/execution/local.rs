@@ -43,11 +43,6 @@ impl Screen {
             Action::CommitGenerate if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 self.generate_commit_message()
             }
-            Action::ConflictAcceptMenu => self.open_conflict_controls(),
-            Action::ConflictBlockMenu => {
-                self.open_option_menu(command::options::Kind::ConflictBlock, path, selection)
-            }
-            Action::ConflictBlock(direction) => self.navigate_conflict(direction),
             Action::ConflictMenu => {
                 self.open_command_entry(command::options::Kind::Conflict.command(), path, selection)
             }

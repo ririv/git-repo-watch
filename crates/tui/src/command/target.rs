@@ -135,8 +135,7 @@ impl Action {
             Stage | Unstage => Requirement::IndexSelection,
             Discard | PartialSelectMenu | PartialSelect(_) => Requirement::DiffSelection,
             DiscardFile => Requirement::WorktreeFiles,
-            ConflictMenu | ConflictView(_) | ConflictAcceptMenu | ConflictAccept(_)
-            | ConflictBlockMenu | ConflictBlock(_) | ConflictReset | ConflictUndo => {
+            ConflictMenu | ConflictView(_) | ConflictAccept(_) | ConflictReset | ConflictUndo => {
                 Requirement::Conflict
             }
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,

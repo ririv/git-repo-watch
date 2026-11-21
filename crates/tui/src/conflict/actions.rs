@@ -1,26 +1,7 @@
-//! Built-in resolution uses the repository worker and the existing command menus.
-use super::resolution::{Action, Direction};
-use crate::{
-    Effect, Mode, Outcome, Screen,
-    changes::{Focus, Preview},
-    document::View,
-};
+//! Built-in conflict resolution executes through the repository worker.
+use super::resolution::Action;
+use crate::{Effect, Mode, Outcome, Screen, changes::Preview, document::View};
 impl Screen {
-    pub(crate) fn navigate_conflict(&mut self, direction: Direction) {
-        if let Mode::Changes(session) = &mut self.mode
-            && let Preview::Ready {
-                content, scroll, ..
-            } = &mut session.preview
-            && let View::Conflict(view) = content.as_mut()
-        {
-            view.resolution.advance(direction);
-            view.refresh_selection();
-            view.select(super::Focus::Result, scroll);
-            view.seek_selected(scroll);
-            session.focus = Focus::Preview;
-            self.sync_bar();
-        }
-    }
     fn conflict_plan_current(
         &self,
         plan: &engine::local::files::conflict::resolve::Plan,
