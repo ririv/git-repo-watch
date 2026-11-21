@@ -150,7 +150,7 @@ impl Screen {
             .to_owned();
         self.bar = InputBar::Search(Editor::new(query));
     }
-    fn normalize_bar(&mut self) {
+    pub(super) fn normalize_bar(&mut self) {
         if let InputBar::Command {
             input: command::Input::Global(editor),
             ..
@@ -662,6 +662,9 @@ impl Screen {
                 }
             }
             self.refresh_option_candidates();
+            return Ok(BarEvent::Handled);
+        }
+        if key.code == KeyCode::Tab && key.modifiers.is_empty() && self.complete_filter() {
             return Ok(BarEvent::Handled);
         }
         if key.code == KeyCode::Esc && !self.active_bar().editor().text.is_empty() {

@@ -1374,6 +1374,7 @@ pub enum Message {
     PushError,
     TabCompleteCandidatesEnterRunEscClear,
     SearchEditingHint,
+    FilterCompletionHint,
     SelectSpaceInsMarkCtrlAAll,
     ScrollEscFilesCommands,
     SelectEnterEditBackCommands,
@@ -5728,6 +5729,8 @@ impl Message {
             (Self::TabCompleteCandidatesEnterRunEscClear, Language::Chinese) => {
                 "Tab 补全 · ↑↓候选 · Enter 执行选中命令 · Esc 清空"
             }
+            (Self::FilterCompletionHint, Language::English) => "Tab complete selected item",
+            (Self::FilterCompletionHint, Language::Chinese) => "Tab 补全选中项",
             (Self::SearchEditingHint, Language::English) => {
                 "↑↓ navigate · ←→ cursor · Esc clear"
             }

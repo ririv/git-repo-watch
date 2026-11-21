@@ -1,4 +1,5 @@
 //! Search semantics and match navigation are independent of list rendering.
+mod completion;
 pub(crate) mod highlight;
 mod literal;
 mod screen;

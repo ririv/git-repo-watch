@@ -87,6 +87,53 @@ fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows(
 }
 
 #[test]
+fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let first = PathBuf::from("/example/01/工具 Beta");
+    let selected = PathBuf::from("/example/02/Beta");
+    let (_home, mut s) = fixture(vec![first, selected.clone()]);
+    s.order = Order::Path;
+    key(&mut s, KeyCode::Tab);
+    assert!(s.query.is_empty());
+
+    s.paste("be");
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.selected_path(), Some(selected.clone()));
+    assert!(render(&mut s, 100, 26).contains(i18n::tr!(FilterCompletionHint)));
+    key(&mut s, KeyCode::Left);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "be");
+    key(&mut s, KeyCode::End);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "Beta");
+    assert_eq!(s.rows().len(), 2);
+    assert_eq!(s.selected_path(), Some(selected.clone()));
+    assert!(s.repository_tasks.is_empty());
+
+    key(&mut s, KeyCode::Esc);
+    s.paste("02/be");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), selected.to_string_lossy());
+    assert!(matches!(s.bar, bar::InputBar::Search(_)));
+    assert_eq!(s.selected_path(), Some(selected));
+    key(&mut s, KeyCode::Char('/'));
+    assert!(s.bar.command_input().is_some());
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.bar.text(), "/example/02/Beta");
+
+    key(&mut s, KeyCode::Esc);
+    s.paste("nothing matches");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "nothing matches");
+    change_mode(&mut s, "locate");
+    key(&mut s, KeyCode::Esc);
+    s.paste("be");
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "be");
+    s.shutdown();
+}
+
+#[test]
 fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
     let _language = i18n::using(i18n::Language::English);
     let (_home, mut s) = fixture(vec!["/example/beta".into(), "/example/alpha".into()]);

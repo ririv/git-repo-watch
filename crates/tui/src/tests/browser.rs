@@ -175,6 +175,32 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
 }
 
 #[test]
+fn tab_completes_the_selected_file_and_retains_it_when_the_search_finishes() {
+    let f = support::Fixture::create();
+    write(f.repo.join("a/src/文档.txt"), "other file\n");
+    write(f.repo.join("src/文档.txt"), "selected file\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo files");
+    ready(&mut s);
+    s.paste("文档");
+    ready(&mut s);
+    let target = std::path::Path::new("src/文档.txt");
+    let index = session(&mut s)
+        .rows()
+        .iter()
+        .position(|row| row.entry.path == target)
+        .unwrap();
+    session(&mut s).select(index);
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "src/文档.txt");
+    ready(&mut s);
+    assert_eq!(session(&mut s).selected().unwrap().path, target);
+    assert_eq!(session(&mut s).focus, Focus::Tree);
+    assert!(text(&mut s).contains("selected file"));
+    s.shutdown();
+}
+
+#[test]
 fn search_reaches_unopened_directories_and_pointer_selection_uses_the_rendered_tree() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     let f = support::Fixture::create();

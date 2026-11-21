@@ -3,6 +3,7 @@ pub(crate) mod push_detail;
 use super::*;
 use engine::tasks::{Journal, Outcome as Completion, Record, Retry, Scope, State};
 use std::{
+    borrow::Cow,
     collections::BTreeSet,
     time::{Duration, Instant},
 };
@@ -219,17 +220,9 @@ impl Center {
             })
             .filter(|(_, record)| {
                 query.is_empty()
-                    || record.spec.title.to_lowercase().contains(&query)
-                    || status_label(record).to_lowercase().contains(&query)
-                    || match &record.spec.scope {
-                        Scope::Repository { path } => {
-                            path.to_string_lossy().to_lowercase().contains(&query)
-                        }
-                        Scope::All => i18n::tr!(TasksAll).to_lowercase().contains(&query),
-                        Scope::Application => {
-                            i18n::tr!(TasksApplication).to_lowercase().contains(&query)
-                        }
-                    }
+                    || search_fields(record)
+                        .iter()
+                        .any(|field| field.to_lowercase().contains(&query))
             })
             .map(|(index, _)| index)
             .collect()
@@ -621,6 +614,19 @@ impl Screen {
         true
     }
 }
+pub(crate) fn search_fields(record: &Record) -> [Cow<'_, str>; 3] {
+    let scope = match &record.spec.scope {
+        Scope::Repository { path } => path.to_string_lossy(),
+        Scope::All => Cow::Borrowed(i18n::tr!(TasksAll)),
+        Scope::Application => Cow::Borrowed(i18n::tr!(TasksApplication)),
+    };
+    [
+        Cow::Borrowed(&record.spec.title),
+        scope,
+        Cow::Borrowed(status_label(record)),
+    ]
+}
+
 pub(crate) fn status_label(record: &Record) -> &'static str {
     match &record.state {
         State::Running { .. } => i18n::tr!(TasksRunning),

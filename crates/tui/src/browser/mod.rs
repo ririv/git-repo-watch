@@ -117,7 +117,10 @@ impl Preview {
 #[derive(Debug)]
 enum Search {
     Idle,
-    Loading(String),
+    Loading {
+        query: String,
+        selected: Option<PathBuf>,
+    },
     Ready {
         query: String,
         entries: Vec<Entry>,
@@ -199,6 +202,13 @@ impl Session {
             .sync(entry.as_ref(), presentation, positions, Instant::now());
     }
     pub fn search(&mut self, query: String) {
+        self.set_search(query, None);
+    }
+    pub fn complete_search(&mut self, query: String) {
+        let selected = self.selected_row().map(|row| row.entry.path.clone());
+        self.set_search(query, selected);
+    }
+    fn set_search(&mut self, query: String, selected: Option<PathBuf>) {
         if query == self.query {
             return;
         }
@@ -209,7 +219,7 @@ impl Session {
         self.search = if query.is_empty() {
             Search::Idle
         } else {
-            Search::Loading(query)
+            Search::Loading { query, selected }
         };
         self.state = ListState::default();
         self.focus = Focus::Tree;

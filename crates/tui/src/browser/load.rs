@@ -32,7 +32,10 @@ impl Session {
         self.panes.invalidate();
         if !self.query.is_empty() {
             self.search_reader.clear();
-            self.search = Search::Loading(self.query.clone());
+            self.search = Search::Loading {
+                query: self.query.clone(),
+                selected: None,
+            };
         }
         self.sync_preview();
         if let Some(path) = navigation {
@@ -45,7 +48,7 @@ impl Session {
             || self.directory_reader.pending()
             || self.panes.pending()
             || self.search_reader.pending()
-            || matches!(self.search, Search::Loading(_))
+            || matches!(self.search, Search::Loading { .. })
     }
     pub fn animate(&mut self) -> bool {
         self.pending() && self.animation.tick(Instant::now())
@@ -58,7 +61,7 @@ impl Session {
             return Some(error);
         }
         match &self.search {
-            Search::Loading(_) => Some(i18n::tr!(BrowserSearching)),
+            Search::Loading { .. } => Some(i18n::tr!(BrowserSearching)),
             Search::Failed(error) => Some(error),
             Search::Ready {
                 extent: SearchExtent::Limited,
@@ -85,7 +88,7 @@ impl Session {
         )
     }
     pub fn poll(&mut self, service: &Arc<Service>) -> bool {
-        let selected = self.selected_row().map(|row| row.head.to_owned());
+        let mut selected = self.selected_row().map(|row| row.head.to_owned());
         let mut changed = false;
         if let Some((path, result)) = self.directory_reader.poll() {
             changed = true;
@@ -121,6 +124,12 @@ impl Session {
         if let Some((query, result)) = self.search_reader.poll()
             && self.query == query
         {
+            if let Search::Loading {
+                selected: target, ..
+            } = &mut self.search
+            {
+                selected = target.take();
+            }
             self.search = match result {
                 Ok(found) => Search::Ready {
                     query,
@@ -131,7 +140,7 @@ impl Session {
             };
             changed = true;
         }
-        if let Search::Loading(query) = &self.search
+        if let Search::Loading { query, .. } = &self.search
             && self.search_reader.requested() != Some(query)
         {
             let service = service.clone();

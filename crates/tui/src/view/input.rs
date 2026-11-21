@@ -56,7 +56,15 @@ fn search_hint(support: crate::search::Support) -> String {
         Some(crate::search::Mode::Locate) => i18n::tr!(SearchLocateHint),
         _ => i18n::tr!(SearchEditingHint),
     };
-    format!("{} · {navigation}", i18n::tr!(SearchCommandOnly))
+    if support.mode() == Some(crate::search::Mode::Filter) {
+        format!(
+            "{} · {} · {navigation}",
+            i18n::tr!(SearchCommandOnly),
+            i18n::tr!(FilterCompletionHint)
+        )
+    } else {
+        format!("{} · {navigation}", i18n::tr!(SearchCommandOnly))
+    }
 }
 fn task_hint(screen: &Screen) -> Option<&'static str> {
     match &screen.mode {
@@ -357,7 +365,16 @@ pub(super) fn render_task_input(
         .as_deref()
         .or_else(|| command.map(command_hint))
         .unwrap_or(view_hint);
-    render_hint(frame, hint_area, hint);
+    match bar {
+        crate::bar::InputBar::Search(editor) if !editor.text.trim().is_empty() => {
+            render_hint(
+                frame,
+                hint_area,
+                &format!("{} · {hint}", i18n::tr!(FilterCompletionHint)),
+            );
+        }
+        _ => render_hint(frame, hint_area, hint),
+    }
     screen.input_surface.update(frame, surface);
 }
 
