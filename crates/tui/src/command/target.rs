@@ -7,6 +7,7 @@ mod history_targets;
 mod index_request;
 mod resolved;
 mod result;
+mod selection;
 mod worktree;
 use super::Action;
 use crate::{Mode, Page, Screen, changes, history};
@@ -37,7 +38,7 @@ pub(super) enum Requirement {
     BranchList,
     WorktreeEntry,
     HistoryGraph,
-    HistorySelection,
+    ListSelection,
     CommitSelection,
     MergeCommit,
     StashDetail,
@@ -144,7 +145,7 @@ impl Action {
             WorktreeOpen | WorktreeRemove => Requirement::WorktreeEntry,
             BranchFilterMenu | BranchFilter(_) => Requirement::BranchList,
             LogMore => Requirement::HistoryGraph,
-            LogSelect | LogSelectAll | LogSelectClear => Requirement::HistorySelection,
+            Select(_) => Requirement::ListSelection,
             Replay(_) | ResetBranch(_) => Requirement::CommitSelection,
             LogParent => Requirement::MergeCommit,
             StashPreviewMenu | StashPreview(_) => Requirement::StashDetail,

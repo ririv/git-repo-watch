@@ -5,7 +5,7 @@ pub(crate) mod list;
 pub(crate) use folding::Expansion;
 pub(super) mod tree;
 use crate::{Change, Files};
-pub(crate) use cursor::{CheckState, Cursor, Group};
+pub(crate) use cursor::{CheckState, Cursor, Group, MarkEdit};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Layout {
@@ -43,7 +43,6 @@ impl Marks {
         self.0 = (!indices.is_empty()).then_some((group, indices));
     }
 
-    #[cfg(test)]
     pub fn clear(&mut self) {
         self.0 = None;
     }

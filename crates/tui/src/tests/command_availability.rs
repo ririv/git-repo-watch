@@ -56,7 +56,7 @@ fn empty_history_keeps_its_commands_disabled_then_enables_them_after_a_commit() 
         wait(&mut s);
         s.paste("/");
         let before = names(&s);
-        for name in ["repo log cherry-pick", "repo log revert", "repo log select"] {
+        for name in ["repo log cherry-pick", "repo log revert", "select"] {
             assert!(before.contains(&name), "{before:?}");
         }
         let action = Action::Replay(Kind::CherryPick);

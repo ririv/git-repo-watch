@@ -28,26 +28,32 @@ impl Group {
             return None;
         }
         let query = input.query().trim_start().to_ascii_lowercase();
-        let parent = super::COMMANDS
+        let relative = input.editor().text.trim_start().to_ascii_lowercase();
+        super::COMMANDS
             .iter()
             .filter(|command| {
                 input
                     .menu_context()
                     .is_none_or(|context| context.admits(command) || command.common())
             })
-            .filter(|command| query.trim_end() == command.name)
-            .filter(|command| {
-                has_children(command, candidates) || super::named::has_parameters(command)
+            .filter_map(|command| {
+                let matched = if command.common() && input.menu_context().is_some() {
+                    &relative
+                } else {
+                    &query
+                };
+                (matched.trim_end() == command.name
+                    && (has_children(command, candidates) || super::named::has_parameters(command)))
+                .then_some(Self {
+                    parent: command,
+                    location: if matched == command.name {
+                        Location::Parent
+                    } else {
+                        Location::Children
+                    },
+                })
             })
-            .max_by_key(|command| command.name.len())?;
-        Some(Self {
-            parent,
-            location: if query == parent.name {
-                Location::Parent
-            } else {
-                Location::Children
-            },
-        })
+            .max_by_key(|group| group.parent.name.len())
     }
 
     pub fn at_parent(&self, command: &Command) -> bool {

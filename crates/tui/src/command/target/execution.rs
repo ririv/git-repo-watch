@@ -19,6 +19,7 @@ pub(crate) struct Permit {
 }
 enum Request {
     Task(crate::task_center::Operation),
+    Selection(super::selection::Prepared),
     Worktree {
         repository: PathBuf,
         entry: Box<engine::local::worktrees::Entry>,
@@ -90,6 +91,9 @@ impl Resolved<'_> {
     ) -> anyhow::Result<Execution> {
         let request = match (self.value, action) {
             (Value::Task(operation), _) => Request::Task(operation),
+            (Value::Selection(target), Action::Select(operation)) => {
+                Request::Selection(target.prepare(operation, selection)?)
+            }
             (Value::Worktree(repository, entry), _) => Request::Worktree {
                 repository: repository.to_owned(),
                 entry: Box::new(entry.clone()),

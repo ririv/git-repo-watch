@@ -158,8 +158,9 @@ pub enum Message {
     ReplayConflictFiles,
     ReplayReadyContinue,
     HistoryMarked,
-    HistorySelect,
-    HistorySelectAll,
+    SelectionToggleItem,
+    SelectionSelectAll,
+    SelectionClearMarks,
     HistorySelectClear,
     HistorySelectDone,
     HistorySelectionHint,
@@ -265,6 +266,8 @@ pub enum Message {
     ReadingCommandCandidates,
     ValueCompletionHint,
     CommandRequiresHistory,
+    CommandRequiresSelectableList,
+    CommandSelectionChanged,
     CommandRequiresBrowser,
     CommandNeedsUnstaged,
     CommandNeedsStaged,
@@ -1928,10 +1931,14 @@ impl Message {
             (Self::ReplayReadyContinue, Language::Chinese) => "冲突已暂存，可以继续",
             (Self::HistoryMarked, Language::English) => "Selected commits",
             (Self::HistoryMarked, Language::Chinese) => "已选提交",
-            (Self::HistorySelect, Language::English) => "Toggle commit selection",
-            (Self::HistorySelect, Language::Chinese) => "切换提交选择模式",
-            (Self::HistorySelectAll, Language::Chinese) => "全选当前已加载的提交，不自动加载更多历史",
-            (Self::HistorySelectAll, Language::English) => "Select all loaded commits without loading more history",
+            (Self::SelectionToggleItem, Language::English) => {
+                "Toggle selection of the current item"
+            }
+            (Self::SelectionToggleItem, Language::Chinese) => "勾选或取消勾选当前项",
+            (Self::SelectionSelectAll, Language::English) => "Select all items in the current list",
+            (Self::SelectionSelectAll, Language::Chinese) => "全选当前列表",
+            (Self::SelectionClearMarks, Language::English) => "Clear all marks",
+            (Self::SelectionClearMarks, Language::Chinese) => "清空勾选",
             (Self::HistorySelectClear, Language::English) => "Clear selected commits",
             (Self::HistorySelectClear, Language::Chinese) => "清空已选提交",
             (Self::HistorySelectDone, Language::English) => "Exit selection and clear marks",
@@ -2273,6 +2280,16 @@ impl Message {
             (Self::ValueCompletionHint, Language::Chinese) => {
                 "↑↓ 选择 · Tab 补全 · Enter 预览 · Esc 收起"
             }
+            (Self::CommandRequiresSelectableList, Language::English) => {
+                "Focus the worktree file list or commit graph first"
+            }
+            (Self::CommandRequiresSelectableList, Language::Chinese) => {
+                "请先聚焦工作区文件列表或提交历史图"
+            }
+            (Self::CommandSelectionChanged, Language::English) => {
+                "The selection target has changed"
+            }
+            (Self::CommandSelectionChanged, Language::Chinese) => "选择目标已变化",
             (Self::CommandRequiresHistory, Language::English) => "Open commit history first",
             (Self::CommandRequiresHistory, Language::Chinese) => "请先打开提交历史",
             (Self::CommandRequiresBrowser, Language::English) => "Open the file browser first",

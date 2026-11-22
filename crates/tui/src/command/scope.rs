@@ -14,6 +14,61 @@ pub(crate) struct CommandMenu {
 }
 
 impl Screen {
+    pub(crate) fn promote_common_command(&mut self) {
+        let InputBar::Command {
+            input,
+            path,
+            selection,
+            ..
+        } = self.active_bar()
+        else {
+            return;
+        };
+        let super::Input::Scoped { editor, .. } = input else {
+            return;
+        };
+        let Some(head) = editor.text.split_whitespace().next() else {
+            return;
+        };
+        let Some(common) = super::COMMANDS
+            .iter()
+            .find(|command| command.common() && command.name.eq_ignore_ascii_case(head))
+        else {
+            return;
+        };
+        let path = path.as_deref();
+        if !self
+            .command_availability(common.action, path, selection)
+            .visible(super::Discovery::Context)
+        {
+            return;
+        }
+        let query = input.query();
+        let scoped_action = super::argument_input(&query)
+            .map(|(argument, _)| argument.action())
+            .or_else(|| {
+                super::COMMANDS
+                    .iter()
+                    .find(|command| command.name.eq_ignore_ascii_case(query.trim()))
+                    .map(|command| command.action)
+            });
+        // 有同名的局部命令时，当前焦点决定入口。局部入口不可见时采用一级命令。
+        if let Some(action) = scoped_action
+            && !self
+                .command_availability(action, path, selection)
+                .visible(super::Discovery::Context)
+        {
+            let editor = crate::Editor {
+                text: format!("/{}", editor.text),
+                cursor: editor.cursor + 1,
+            };
+            let InputBar::Command { input, .. } = self.active_bar_mut() else {
+                unreachable!("active command draft")
+            };
+            *input = super::Input::global(editor);
+        }
+    }
+
     pub(crate) fn command_menu(&self) -> Option<CommandMenu> {
         let InputBar::Command {
             input,

@@ -14,6 +14,11 @@ impl Execution {
         let permit = Permit { _private: () };
         match request {
             Request::Task(operation) => screen.execute_task(operation, &permit),
+            Request::Selection(operation) => {
+                if let Err(error) = operation.execute(screen, &permit) {
+                    screen.message = crate::message::Message::error(error.to_string());
+                }
+            }
             Request::Worktree { repository, entry } => match action {
                 Action::WorktreeOpen => {
                     match std::sync::Arc::make_mut(&mut screen.service).authorize_worktree(

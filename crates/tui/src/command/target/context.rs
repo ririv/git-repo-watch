@@ -113,7 +113,12 @@ impl<'a> CommandContext<'a> {
                 }
             }
             HistoryGraph => self.history().map(Value::History),
-            HistorySelection => self.history_selection().map(Value::History),
+            ListSelection => {
+                let Action::Select(operation) = action else {
+                    unreachable!("list selection command")
+                };
+                self.list_selection(operation).map(Value::Selection)
+            }
             CommitSelection => self.commits().map(Value::Commits),
             MergeCommit => self.merge_commit().map(Value::MergeCommit),
             StashDetail => self.stash().map(Value::Stash),

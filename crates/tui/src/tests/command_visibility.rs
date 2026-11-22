@@ -29,7 +29,7 @@ fn contextual_menus_hide_unrelated_targets_but_global_search_explains_them_witho
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         s.paste("/");
-        assert!(!candidates(&s).contains(&Action::LogSelect));
+        assert!(!candidates(&s).contains(&Action::Select(crate::command::SelectionAction::Toggle)));
         assert!(!candidates(&s).contains(&Action::BrowserDiff));
         key(&mut s, KeyCode::Esc);
         key(&mut s, KeyCode::Enter);
@@ -47,9 +47,18 @@ fn contextual_menus_hide_unrelated_targets_but_global_search_explains_them_witho
         let unrelated = [
             ("repo branch filter", Action::BranchFilterMenu),
             ("repo log more", Action::LogMore),
-            ("repo log select", Action::LogSelect),
-            ("repo log select all", Action::LogSelectAll),
-            ("repo log select clear", Action::LogSelectClear),
+            (
+                "select",
+                Action::Select(crate::command::SelectionAction::Toggle),
+            ),
+            (
+                "select all",
+                Action::Select(crate::command::SelectionAction::All),
+            ),
+            (
+                "select clear",
+                Action::Select(crate::command::SelectionAction::Clear),
+            ),
             (
                 "repo log cherry-pick",
                 Action::Replay(engine::operations::replay::Kind::CherryPick),

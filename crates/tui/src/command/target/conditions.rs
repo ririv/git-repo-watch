@@ -67,16 +67,6 @@ impl<'a> CommandContext<'a> {
             (Value::History(graph), Action::LogMore) if graph.cursor().is_none() => {
                 Some(i18n::tr!(HistoryNoMore).into())
             }
-            (Value::History(_), Action::LogSelect | Action::LogSelectAll)
-                if self.selection.commit().is_none() =>
-            {
-                Some(i18n::tr!(ReplaySelectCommit).into())
-            }
-            (Value::History(graph), Action::LogSelectAll)
-                if graph.records.len() > engine::operations::replay::batch::MAX_COMMITS =>
-            {
-                Some(i18n::tr!(ReplayBatchTooLarge).into())
-            }
             (Value::Partial(partial), Action::Discard) if partial.editing.selected().is_empty() => {
                 Some(i18n::tr!(PartialSelectionIdle).into())
             }

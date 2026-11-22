@@ -25,6 +25,7 @@ impl Screen {
             | Action::Unstage
             | Action::Discard
             | Action::DiscardFile
+            | Action::Select(_)
             | Action::LogMore
             | Action::LogParent
             | Action::BrowserDiff
@@ -44,9 +45,6 @@ impl Screen {
                 path,
                 selection,
             ),
-            Action::LogSelect => self.mark_history(history::SelectionAction::ToggleMode),
-            Action::LogSelectAll => self.mark_history(history::SelectionAction::All),
-            Action::LogSelectClear => self.mark_history(history::SelectionAction::Clear),
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {

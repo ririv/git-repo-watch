@@ -28,10 +28,14 @@ fn empty_history_is_a_real_target_while_selection_is_temporarily_unavailable() {
     assert!(graph.records.is_empty());
     assert_eq!(graph.references.path, repo);
     assert!(matches!(
-        context.resolve(Action::LogSelect),
+        context.resolve(Action::Select(crate::command::SelectionAction::Toggle)),
         Target::Unavailable(_)
     ));
-    let unavailable = s.resolve_command(Action::LogSelect, Some(&repo), &selection);
+    let unavailable = s.resolve_command(
+        Action::Select(crate::command::SelectionAction::Toggle),
+        Some(&repo),
+        &selection,
+    );
     assert!(matches!(
         unavailable,
         Availability::Target(Target::Unavailable(_))

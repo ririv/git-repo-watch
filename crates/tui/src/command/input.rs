@@ -1,5 +1,5 @@
 //! A locked context token and its editable suffix have separate ownership.
-use super::{Command, Context, prefix};
+use super::{Command, Context, hierarchy::Location, prefix};
 use crate::Editor;
 use crossterm::event::{KeyCode, KeyEvent};
 
@@ -152,6 +152,18 @@ impl Input {
                     },
                 };
             }
+        }
+    }
+    pub fn set_group(&mut self, command: &Command, location: Location) {
+        let suffix = match location {
+            Location::Parent => "",
+            Location::Children => " ",
+        };
+        let editor = Editor::new(format!("/{}{suffix}", command.name));
+        if command.common() {
+            *self = Self::global(editor);
+        } else {
+            self.replace_canonical(editor);
         }
     }
     pub fn complete(&mut self, command: &Command) {

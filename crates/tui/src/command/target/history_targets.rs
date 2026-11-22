@@ -9,18 +9,6 @@ impl<'a> CommandContext<'a> {
             None => Target::OutOfScope(i18n::tr!(CommandRequiresHistory).into()),
         }
     }
-    pub fn history_selection(&self) -> Target<&'a history::Session> {
-        match self.selection {
-            clipboard::Selection::Log(
-                clipboard::CommitSelection::Graph { .. }
-                | clipboard::CommitSelection::Unavailable(_),
-            ) => match self.screen.history_graph_target() {
-                Some(graph) => Target::Ready(graph),
-                None => Target::Unavailable(i18n::tr!(CommandRequiresHistory).into()),
-            },
-            _ => Target::OutOfScope(i18n::tr!(CommandRequiresHistory).into()),
-        }
-    }
     pub fn commits(&self) -> Target<Commits<'a>> {
         match self.selection {
             clipboard::Selection::Log(_) => match self.selection.commit() {

@@ -128,13 +128,6 @@ impl Session {
     }
     pub fn mark(&mut self, action: super::SelectionAction) -> Result<()> {
         match action {
-            super::SelectionAction::ToggleMode => {
-                if self.selection.active() {
-                    self.selection.finish();
-                } else {
-                    self.selection.begin();
-                }
-            }
             super::SelectionAction::All => {
                 ensure!(
                     self.records.len() <= engine::operations::replay::batch::MAX_COMMITS,
@@ -148,16 +141,20 @@ impl Session {
             super::SelectionAction::Clear => self.selection.begin().clear(),
             super::SelectionAction::ToggleCommit => {
                 if let Some(oid) = self.selected().map(|entry| entry.oid) {
-                    let marked = self.selection.begin();
-                    if !marked.remove(&oid) {
-                        ensure!(
-                            marked.len() < engine::operations::replay::batch::MAX_COMMITS,
-                            i18n::tr!(ReplayBatchTooLarge)
-                        );
-                        marked.insert(oid);
-                    }
+                    self.toggle_mark(oid)?;
                 }
             }
+        }
+        Ok(())
+    }
+    pub fn toggle_mark(&mut self, oid: Oid) -> Result<()> {
+        let marked = self.selection.begin();
+        if !marked.remove(&oid) {
+            ensure!(
+                marked.len() < engine::operations::replay::batch::MAX_COMMITS,
+                i18n::tr!(ReplayBatchTooLarge)
+            );
+            marked.insert(oid);
         }
         Ok(())
     }

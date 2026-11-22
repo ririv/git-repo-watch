@@ -151,6 +151,7 @@ impl Screen {
         self.bar = InputBar::Search(Editor::new(query));
     }
     pub(super) fn normalize_bar(&mut self) {
+        self.promote_common_command();
         if let InputBar::Command {
             input: command::Input::Global(editor),
             ..
@@ -386,12 +387,8 @@ impl Screen {
             } = self.tasks.input_bar_mut(&mut self.bar)
             && let Some(group) = group
             && group.location == command::hierarchy::Location::Children
-            && input
-                .query()
-                .trim_end()
-                .eq_ignore_ascii_case(group.parent.name)
         {
-            input.replace_canonical(Editor::new(format!("/{}", group.parent.name)));
+            input.set_group(group.parent, command::hierarchy::Location::Parent);
             *selected = 0;
             self.message.clear();
             return Ok(BarEvent::Handled);
@@ -516,7 +513,7 @@ impl Screen {
                             }
                         } else {
                             if group.is_some_and(|group| group.at_parent(c)) {
-                                input.replace_canonical(Editor::new(format!("/{} ", c.name)));
+                                input.set_group(c, command::hierarchy::Location::Children);
                             } else {
                                 selection.complete(input, c);
                             }

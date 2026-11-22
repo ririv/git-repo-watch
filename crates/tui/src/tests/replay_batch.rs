@@ -72,7 +72,7 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
         matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Commit(_)))
     );
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     let choosing = render(&mut s, 120, 30);
     assert!(choosing.contains("│[ ]"), "{choosing}");
     assert!(
@@ -86,11 +86,13 @@ fn history_selection_is_explicit_and_exiting_restores_the_ordinary_list() {
     assert_eq!(s.message, i18n::tr!(HistorySelectionRequired));
     key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s).len(), 1);
-    command(&mut s, "repo log select");
+    command(&mut s, "select");
     assert!(marked(&s).is_empty());
+    assert!(render(&mut s, 120, 30).contains("[ ]"));
+    key(&mut s, KeyCode::Esc);
     assert!(!render(&mut s, 120, 30).contains("[ ]"));
-    command(&mut s, "repo log select");
-    key(&mut s, KeyCode::Insert);
+    command(&mut s, "select");
+    assert_eq!(marked(&s).len(), 1);
     key(&mut s, KeyCode::Esc);
     assert!(
         matches!(&s.mode, Mode::History(view) if matches!(view.as_ref(), crate::history::View::Graph(_)))
@@ -108,7 +110,7 @@ fn selected_count_remains_visible_while_graphics_load_or_are_unavailable() {
     wait(&mut s);
     key(&mut s, KeyCode::Insert);
     assert!(marked(&s).is_empty());
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     key(&mut s, KeyCode::Insert);
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
@@ -138,7 +140,7 @@ fn shift_arrows_extend_shrink_and_start_separate_ranges_with_search_text_present
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     let ids = match &s.mode {
         Mode::History(view) => view
             .session()
@@ -190,7 +192,7 @@ fn selection_space_marks_rows_while_nonempty_search_keeps_spaces_for_editing() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     key(&mut s, KeyCode::Char(' '));
     assert_eq!(marked(&s).len(), 1);
     assert!(s.bar.editor().text.is_empty());
@@ -228,7 +230,7 @@ fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selec
     command(&mut s, "repo log");
     wait(&mut s);
     select(&mut s, &second);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     key(&mut s, KeyCode::Insert);
     assert_eq!(marked(&s).as_slice(), std::slice::from_ref(&second));
     select(&mut s, &first);
@@ -266,12 +268,12 @@ fn checkbox_commands_search_and_preview_return_share_a_frozen_oldest_first_selec
     key(&mut s, KeyCode::Esc);
     assert!(s.bar.is_plain());
     assert_eq!(marked(&s), [first.clone(), second.clone()]);
-    // 退出选择会清空勾选；已有搜索文字时通过 Insert 重新勾选，搜索仍用于定位。
+    // 清空勾选后，仍可在已有搜索文字时通过 Insert 重新勾选。
     s.paste("picked");
     assert_eq!(s.bar.editor().text, "picked");
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     assert!(marked(&s).is_empty());
-    command(&mut s, "repo log select");
+    assert_eq!(s.bar.editor().text, "picked");
     select(&mut s, &first);
     key(&mut s, KeyCode::Insert);
     select(&mut s, &second);
@@ -326,7 +328,7 @@ fn a_batch_conflict_opens_files_and_clicking_skip_runs_the_remaining_commits() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     for oid in &commits {
         select(&mut s, oid);
         key(&mut s, KeyCode::Insert);
@@ -481,7 +483,7 @@ fn an_empty_commit_pause_keeps_the_recovery_actions_in_the_changes_view() {
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     command(&mut s, "repo log");
     wait(&mut s);
-    command(&mut s, "repo log select");
+    command(&mut s, "select clear");
     for oid in [first, second] {
         select(&mut s, &oid);
         key(&mut s, KeyCode::Insert);

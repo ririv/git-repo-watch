@@ -45,6 +45,7 @@ pub(super) enum Value<'a> {
     Branches(&'a crate::branches::Session),
     Worktree(&'a Path, &'a engine::local::worktrees::Entry),
     History(&'a history::Session),
+    Selection(super::selection::Selection<'a>),
     Commits(Commits<'a>),
     MergeCommit(&'a history::Commit),
     Stash(Stash<'a>),
@@ -112,6 +113,11 @@ impl Resolved<'_> {
                 Some(label.display().to_string())
             }
             Value::Worktree(_, entry) => Some(entry.path.display().to_string()),
+            Value::Selection(super::selection::Selection::Files(files))
+                if action == crate::Action::Select(crate::command::SelectionAction::All) =>
+            {
+                files.group().map(|group| group.label().into())
+            }
             Value::File(target) => Some(target.label()),
             Value::Index(target) => Some(target.label()),
             Value::WorktreeFiles(target) => match target.changes {

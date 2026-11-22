@@ -1,5 +1,5 @@
 //! Every command action supplies a concise candidate description.
-use super::{Action, Command};
+use super::{Action, Command, SelectionAction};
 use i18n::CommandSummary as Summary;
 impl Command {
     pub fn summary(&self) -> Summary {
@@ -58,9 +58,11 @@ impl Command {
             }
             Action::Log => Summary::Log,
             Action::LogMore => Summary::LogMore,
-            Action::LogSelect => Summary::LogSelection,
-            Action::LogSelectAll => Summary::LogSelectionAll,
-            Action::LogSelectClear => Summary::LogSelectionClear,
+            Action::Select(action) => match action {
+                SelectionAction::Toggle => Summary::SelectionToggle,
+                SelectionAction::All => Summary::SelectionAll,
+                SelectionAction::Clear => Summary::SelectionClear,
+            },
             Action::Replay(engine::operations::replay::Kind::CherryPick) => {
                 Summary::ReplayCherryPick
             }

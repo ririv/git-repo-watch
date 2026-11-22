@@ -1,7 +1,7 @@
 //! File and directory focus share navigation, while checked identities remain individual changes.
 use super::{FileSession, Layout, tree::Row};
 use crate::{Area, Change};
-use std::path::PathBuf;
+use std::{collections::BTreeSet, path::PathBuf};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(crate) enum Group {
@@ -63,6 +63,17 @@ pub(crate) enum CheckState {
     Unchecked,
     Mixed,
     Checked,
+}
+
+pub(crate) struct MarkTargets {
+    group: Group,
+    indices: BTreeSet<usize>,
+}
+
+pub(crate) enum MarkEdit {
+    Toggle(MarkTargets),
+    Add(MarkTargets),
+    Clear,
 }
 
 impl Row {
@@ -153,29 +164,60 @@ impl FileSession {
         }
     }
     pub fn toggle_current(&mut self) {
-        if let Some(group) = self.group() {
-            let indices = self
-                .focused_changes()
-                .into_iter()
-                .map(|change| self.change_index(change))
-                .collect();
-            self.toggle_marks(group, indices);
+        if let Some(targets) = self.current_mark_targets() {
+            self.edit_marks(MarkEdit::Toggle(targets));
         }
     }
 
     pub fn toggle_visible_group(&mut self) {
-        if let Some(group) = self.group() {
-            let indices = self
-                .rows()
-                .into_iter()
-                .filter(|change| Group::of(change.area) == group)
-                .map(|change| self.change_index(change))
-                .collect();
-            self.toggle_marks(group, indices);
+        if let Some(targets) = self.visible_mark_targets() {
+            self.edit_marks(MarkEdit::Toggle(targets));
         }
     }
 
-    fn toggle_marks(&mut self, group: Group, indices: std::collections::BTreeSet<usize>) {
+    pub fn current_mark_targets(&self) -> Option<MarkTargets> {
+        let group = self.group()?;
+        let visible = self.filtered_indices();
+        let indices = match &self.cursor {
+            Cursor::Empty => return None,
+            Cursor::File(index) => [*visible.get(*index)?].into(),
+            Cursor::Directory { path, .. } => visible
+                .iter()
+                .copied()
+                .filter(|&index| {
+                    let change = &self.snapshot.changes[index];
+                    Group::of(change.area) == group
+                        && change
+                            .location
+                            .name()
+                            .parent()
+                            .is_some_and(|parent| parent.starts_with(path))
+                })
+                .collect(),
+        };
+        Some(MarkTargets { group, indices })
+    }
+
+    pub fn visible_mark_targets(&self) -> Option<MarkTargets> {
+        let group = self.group()?;
+        let indices = self
+            .filtered_indices()
+            .iter()
+            .copied()
+            .filter(|&index| Group::of(self.snapshot.changes[index].area) == group)
+            .collect();
+        Some(MarkTargets { group, indices })
+    }
+
+    pub fn edit_marks(&mut self, edit: MarkEdit) {
+        let (MarkTargets { group, indices }, toggle) = match edit {
+            MarkEdit::Toggle(targets) => (targets, true),
+            MarkEdit::Add(targets) => (targets, false),
+            MarkEdit::Clear => {
+                self.selected.clear();
+                return;
+            }
+        };
         if indices.is_empty() {
             return;
         }
@@ -186,7 +228,7 @@ impl FileSession {
             .filter(|(active, _)| *active == group)
             .map(|(_, indices)| indices)
             .unwrap_or_default();
-        if indices.is_subset(&marked) {
+        if toggle && indices.is_subset(&marked) {
             marked.retain(|index| !indices.contains(index));
         } else {
             marked.extend(indices);
@@ -196,14 +238,10 @@ impl FileSession {
 
     #[cfg(test)]
     pub(crate) fn mark_file(&mut self, index: usize) {
-        let group = Group::of(self.snapshot.changes[index].area);
-        if !self
-            .selected
-            .indices(group)
-            .is_some_and(|marks| marks.contains(&index))
-        {
-            self.toggle_marks(group, [index].into());
-        }
+        self.edit_marks(MarkEdit::Add(MarkTargets {
+            group: Group::of(self.snapshot.changes[index].area),
+            indices: [index].into(),
+        }));
     }
 
     pub fn check_state(&self, row: &Row, group: Group) -> CheckState {

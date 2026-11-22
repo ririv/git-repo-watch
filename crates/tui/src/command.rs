@@ -28,6 +28,13 @@ pub(crate) use context::Context;
 pub use environment::Field as EnvironmentField;
 pub(crate) use input::{Discovery, Input, NamespaceEvent};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SelectionAction {
+    Toggle,
+    All,
+    Clear,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Action {
     Tasks,
     TaskCancel,
@@ -80,9 +87,7 @@ pub enum Action {
     Log,
     LogMore,
     LogParent,
-    LogSelect,
-    LogSelectAll,
-    LogSelectClear,
+    Select(SelectionAction),
     Replay(engine::operations::replay::Kind),
     ResetBranch(engine::operations::reset::Mode),
     ReplayControl(engine::operations::replay::Control),
@@ -160,6 +165,7 @@ impl Command {
             self.action,
             Action::Copy
                 | Action::CopyPath
+                | Action::Select(_)
                 | Action::Refresh
                 | Action::OpenEditor
                 | Action::OpenMenu
@@ -230,21 +236,6 @@ pub const COMMANDS: &[Command] = &[
         name: "repo log cherry-pick",
         action: Replay(engine::operations::replay::Kind::CherryPick),
         description: i18n::Message::ReplayCherryPick,
-    },
-    Command {
-        name: "repo log select",
-        action: LogSelect,
-        description: i18n::Message::HistorySelect,
-    },
-    Command {
-        name: "repo log select all",
-        action: LogSelectAll,
-        description: i18n::Message::HistorySelectAll,
-    },
-    Command {
-        name: "repo log select clear",
-        action: LogSelectClear,
-        description: i18n::Message::HistorySelectClear,
     },
     Command {
         name: "repo log revert",
@@ -540,6 +531,21 @@ pub const COMMANDS: &[Command] = &[
         name: "zoom",
         action: Zoom,
         description: i18n::Message::PaneZoomCommand,
+    },
+    Command {
+        name: "select",
+        action: Select(SelectionAction::Toggle),
+        description: i18n::Message::SelectionToggleItem,
+    },
+    Command {
+        name: "select all",
+        action: Select(SelectionAction::All),
+        description: i18n::Message::SelectionSelectAll,
+    },
+    Command {
+        name: "select clear",
+        action: Select(SelectionAction::Clear),
+        description: i18n::Message::SelectionClearMarks,
     },
     Command {
         name: "editor",

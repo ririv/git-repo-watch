@@ -29,11 +29,7 @@ fn selection_subcommands_are_discoverable_and_tab_does_not_toggle_selection() {
                 .iter()
                 .map(|c| c.name)
                 .collect::<Vec<_>>(),
-            [
-                "repo log select",
-                "repo log select all",
-                "repo log select clear"
-            ]
+            ["select", "select all", "select clear"]
         );
         let text = render(&mut s, 150, 32);
         assert!(
@@ -46,13 +42,18 @@ fn selection_subcommands_are_discoverable_and_tab_does_not_toggle_selection() {
                 .contains(i18n::tr!(CommandChildrenKeys))
         );
         key(&mut s, KeyCode::Tab);
-        assert_eq!(s.bar.text(), "/repo log select ");
+        assert_eq!(s.bar.text(), "/select ");
         assert!(!graph(&s).selection.active());
         key(&mut s, KeyCode::Esc);
-        assert_eq!(s.bar.text(), "/repo log select");
+        assert_eq!(s.bar.text(), "/select");
         key(&mut s, KeyCode::Enter);
         assert!(graph(&s).selection.active());
+        assert_eq!(graph(&s).selection.count(), 1);
+        command(&mut s, "select");
+        assert!(graph(&s).selection.active());
         assert_eq!(graph(&s).selection.count(), 0);
+        key(&mut s, KeyCode::Esc);
+        assert!(!graph(&s).selection.active());
         s.shutdown();
     }
 }
@@ -73,7 +74,7 @@ fn all_selects_the_loaded_list_without_paging_and_clear_keeps_the_selection_mode
     let query = graph(&s).records[4].entry.oid.to_string();
     s.paste(&query);
     let selected = graph(&s).state.selected();
-    command(&mut s, "repo log select all");
+    command(&mut s, "select all");
     assert!(graph(&s).selection.active());
     assert_eq!(graph(&s).selection.count(), 100);
     assert_eq!(graph(&s).records.len(), 100);
@@ -94,13 +95,14 @@ fn all_selects_the_loaded_list_without_paging_and_clear_keeps_the_selection_mode
             .iter()
             .all(|r| graph(&s).selection.contains(&r.entry.oid))
     );
-    command(&mut s, "repo log select clear");
+    command(&mut s, "select clear");
     assert!(graph(&s).selection.active());
     assert_eq!(graph(&s).selection.count(), 0);
     assert_eq!(s.bar.text(), query);
     key(&mut s, KeyCode::Insert);
     assert_eq!(graph(&s).selection.count(), 1);
-    command(&mut s, "repo log select");
+    key(&mut s, KeyCode::Esc);
+    key(&mut s, KeyCode::Esc);
     assert!(!graph(&s).selection.active());
     assert_eq!(graph(&s).selection.count(), 0);
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -126,17 +128,17 @@ fn the_selection_limit_is_atomic_and_clear_remains_available_above_it() {
         })
         .collect::<Vec<_>>();
     graph_mut(&mut s).records = Arc::new(records[..limit].to_vec());
-    command(&mut s, "repo log select all");
+    command(&mut s, "select all");
     assert_eq!(graph(&s).selection.count(), limit);
     graph_mut(&mut s).records = Arc::new(records);
     let before = graph(&s).picks();
-    command(&mut s, "repo log select all");
+    command(&mut s, "select all");
     assert_eq!(s.message, i18n::tr!(ReplayBatchTooLarge));
     assert_eq!(graph(&s).picks(), before);
     assert!(graph_mut(&mut s).mark(SelectionAction::All).is_err());
     assert_eq!(graph(&s).picks(), before);
     key(&mut s, KeyCode::Esc);
-    command(&mut s, "repo log select clear");
+    command(&mut s, "select clear");
     assert!(graph(&s).selection.active());
     assert_eq!(graph(&s).selection.count(), 0);
     s.shutdown();
@@ -147,12 +149,66 @@ fn selection_children_require_a_history_graph_and_cannot_modify_repository_files
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
-    for name in ["repo log select all", "repo log select clear"] {
+    for name in ["select all", "select clear"] {
         command(&mut s, name);
         assert!(matches!(s.mode, Mode::Browsing));
-        assert_eq!(s.message, i18n::tr!(CommandRequiresHistory));
+        assert_eq!(s.message, i18n::tr!(CommandRequiresSelectableList));
         key(&mut s, KeyCode::Esc);
     }
+    assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
+    assert!(s.repository_tasks.is_empty());
+    s.shutdown();
+}
+
+#[test]
+fn worktree_select_uses_visible_files_in_the_focused_group_and_leaves_the_index_untouched() {
+    let f = support::Fixture::create();
+    for name in ["keep-a.txt", "keep-b.txt", "other.txt", "staged.txt"] {
+        f.commit(name, "before\n");
+        support::write(f.repo.join(name), "after\n");
+    }
+    support::git(&f.repo, &["add", "staged.txt"]);
+    let index = std::fs::read(f.repo.join(".git/index")).unwrap();
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff unstaged");
+    wait(&mut s);
+    let count = |s: &Screen| s.worktree_file_list().unwrap().all_marked_changes().count();
+    s.paste("keep");
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("select");
+    assert_eq!(
+        s.search_commands()
+            .unwrap()
+            .iter()
+            .map(|command| command.name)
+            .collect::<Vec<_>>(),
+        ["select", "select all", "select clear"]
+    );
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(count(&s), 1);
+    assert_eq!(s.bar.editor().text, "keep");
+    command(&mut s, "select");
+    assert_eq!(count(&s), 0);
+    key(&mut s, KeyCode::Char('/'));
+    s.paste("select all");
+    key(&mut s, KeyCode::Enter);
+    assert_eq!(count(&s), 2);
+    command(&mut s, "select all");
+    let files = s.worktree_file_list().unwrap();
+    assert_eq!(
+        files
+            .all_marked_changes()
+            .map(|change| change.location.name().to_str().unwrap())
+            .collect::<Vec<_>>(),
+        ["keep-a.txt", "keep-b.txt"]
+    );
+
+    key(&mut s, KeyCode::Esc);
+    s.paste("no matching file");
+    assert_eq!(count(&s), 2);
+    command(&mut s, "select clear");
+    assert_eq!(count(&s), 0);
+    assert_eq!(s.bar.editor().text, "no matching file");
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
     assert!(s.repository_tasks.is_empty());
     s.shutdown();
