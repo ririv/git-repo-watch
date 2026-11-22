@@ -1,0 +1,6 @@
+{
+  "name": "gw-panel",
+  "version": "0.1.0",
+  "description": "在 Claude Code 内浏览当前 Git 仓库的 gw 面板",
+  "author": { "name": "git-repo-watch contributors" }
+}

@@ -42,6 +42,7 @@ mod multiline_editor;
 mod mutations;
 mod navigation;
 mod overview;
+pub mod panel;
 mod pointer;
 mod preview;
 mod prompt_editor;

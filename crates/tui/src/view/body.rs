@@ -1,5 +1,5 @@
 use super::*;
-pub(super) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
+pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if screen.page == Page::Detail
         && screen.workspace.path().is_some()
         && crate::workspace::Workspace::is_root(&screen.mode)

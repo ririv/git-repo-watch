@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "crates/engine", "crates/tui", "crates/graph", "crates/highlight", "crates/test-support", "crates/i18n", "crates/identity"]
+members = [".", "crates/engine", "crates/tui", "crates/graph", "crates/highlight", "crates/test-support", "crates/i18n", "crates/identity", "crates/claude-panel"]
 default-members = [".", "crates/engine", "crates/tui", "crates/graph", "crates/highlight", "crates/i18n", "crates/identity"]
 resolver = "3"
 

@@ -45,7 +45,7 @@ mod workflow;
 mod workspace;
 mod worktrees;
 use super::*;
-use body::render_body;
+pub(super) use body::render_body;
 use engine::{
     domain::IssueKind,
     scheduler::{Registration, Schedule},

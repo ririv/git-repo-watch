@@ -1,0 +1,19 @@
+[package]
+name = "gw-claude-panel"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+publish = false
+description = "Claude Code 终端面板的 gw 字符格适配器"
+
+[dependencies]
+anyhow.workspace = true
+base64 = "0.22"
+engine.workspace = true
+i18n.workspace = true
+ratatui.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tui.workspace = true
+unicode-width.workspace = true
