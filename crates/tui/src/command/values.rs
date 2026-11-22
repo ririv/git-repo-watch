@@ -15,10 +15,7 @@ impl Kind {
         match argument {
             ArgumentAction::Editor => Some(Self::Editor),
             ArgumentAction::BranchSwitch => Some(Self::Branch),
-            ArgumentAction::WorktreeAdd
-                if !raw.trim_start().starts_with('-')
-                    && !raw.trim_start().contains(char::is_whitespace) =>
-            {
+            ArgumentAction::WorktreeAdd if !raw.trim_start().contains(char::is_whitespace) => {
                 Some(Self::WorktreeBranch)
             }
             ArgumentAction::StashApply | ArgumentAction::StashPop | ArgumentAction::StashDrop => {
@@ -33,6 +30,7 @@ pub(crate) struct Choice {
     pub token: String,
     pub label: String,
     pub description: String,
+    pub unavailable: Option<String>,
 }
 #[derive(Debug)]
 pub(crate) struct Candidates {
@@ -92,12 +90,23 @@ impl Candidates {
             .or_else(|| {
                 previous.and_then(|entry| self.options.iter().position(|index| *index == entry))
             })
+            .or_else(|| {
+                self.options
+                    .iter()
+                    .position(|index| self.entries[*index].unavailable.is_none())
+            })
             .or_else(|| (!self.options.is_empty()).then_some(0));
         self.command = editor.text[..start].into();
         if matches!(self.kind, Kind::Editor | Kind::WorktreeBranch) && self.options.is_empty() {
             return None;
         }
         Some(())
+    }
+    pub fn unavailable(&self) -> Option<&str> {
+        self.entries
+            .get(*self.options.get(self.selected?)?)?
+            .unavailable
+            .as_deref()
     }
     pub fn entries(&self) -> impl Iterator<Item = &Choice> {
         self.options.iter().map(|index| &self.entries[*index])
@@ -127,6 +136,9 @@ impl Candidates {
     }
     pub fn choose(&self) -> Option<Editor> {
         let entry = &self.entries[*self.options.get(self.selected?)?];
+        if entry.unavailable.is_some() {
+            return None;
+        }
         let suffix = if self.kind == Kind::WorktreeBranch {
             " "
         } else {

@@ -40,7 +40,9 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
 }
 fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     let State::Finished {
-        outcome: Completion::Failed { detail, .. },
+        outcome: Completion::Failed {
+            detail, summary, ..
+        },
         ..
     } = &record.state
     else {
@@ -49,7 +51,12 @@ fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     if width <= 2 {
         return vec![];
     }
-    let text = multiline(detail);
+    let reason = if matches!(record.spec.scope, TaskScope::All) {
+        detail
+    } else {
+        summary.as_deref().unwrap_or(detail)
+    };
+    let text = multiline(reason);
     let color = if record.unread_failure() { BAD } else { MUTED };
     let mut lines = text
         .lines()

@@ -10,17 +10,18 @@ pub(crate) struct Parameter {
     pub description: i18n::Message,
 }
 
+pub(crate) const RESET_MODE: Parameter = Parameter {
+    name: "--mode",
+    kind: Kind::Reset,
+    description: i18n::Message::ResetMode,
+};
 const PARAMETERS: &[Parameter] = &[
     Parameter {
         name: "--view",
         kind: Kind::Conflict,
         description: i18n::Message::ConflictViewCommand,
     },
-    Parameter {
-        name: "--mode",
-        kind: Kind::Reset,
-        description: i18n::Message::ResetMode,
-    },
+    RESET_MODE,
 ];
 
 pub(crate) struct Query<'a> {
@@ -40,12 +41,12 @@ impl Parameter {
         self.kind.command()
     }
 
+    pub fn value_editor(self, value: &str) -> Editor {
+        Editor::new(format!("/{} {} {value}", self.command().name, self.name))
+    }
+
     pub fn complete(self, input: &mut Input) {
-        input.replace_canonical(Editor::new(format!(
-            "/{} {} ",
-            self.command().name,
-            self.name
-        )));
+        input.replace_canonical(self.value_editor(""));
     }
 }
 

@@ -73,6 +73,27 @@ fn reset_reviews_the_selected_ancestor_and_defaults_to_cancel() {
     select(&mut s, &target);
     s.paste("//repo log reset");
     select(&mut s, &before);
+    assert!(
+        s.command_enter_hint()
+            .unwrap()
+            .contains(i18n::tr!(CommandEnterParameters))
+    );
+    key(&mut s, KeyCode::Enter);
+    let modes = super::options::choices(&s);
+    assert_eq!(
+        modes
+            .options
+            .iter()
+            .map(|option| option.token)
+            .collect::<Vec<_>>(),
+        ["soft", "hard"]
+    );
+    assert_eq!(modes.selected, 0);
+    let menu = render(&mut s, 140, 42);
+    assert!(menu.contains(i18n::tr!(ResetSoftOption)), "{menu}");
+    assert!(menu.contains(i18n::tr!(ResetHardOption)), "{menu}");
+    assert!(menu.contains(i18n::tr!(CommandEnterReview)), "{menu}");
+    assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
 
@@ -86,15 +107,16 @@ fn reset_reviews_the_selected_ancestor_and_defaults_to_cancel() {
     let mutation::Plan::Reset(plan) = plan.as_ref() else {
         panic!("应预览软重置");
     };
+    assert_eq!(plan.mode(), engine::operations::reset::Mode::Soft);
     assert_eq!(plan.target().oid.to_string(), target);
     assert_eq!(plan.removed().1, 2);
     let review = render(&mut s, 140, 42);
     assert!(review.contains(i18n::tr!(ResetKeepChanges)), "{review}");
     key(&mut s, KeyCode::Enter);
+    assert!(s.bar.text().ends_with("--mode soft"));
     assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
 
-    select(&mut s, &target);
-    command(&mut s, "repo log reset");
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     key(&mut s, KeyCode::Left);
     key(&mut s, KeyCode::Enter);
@@ -106,7 +128,7 @@ fn reset_reviews_the_selected_ancestor_and_defaults_to_cancel() {
 }
 
 #[test]
-fn hard_reset_mode_is_explicit_and_cancel_leaves_local_edits_intact() {
+fn hard_reset_is_discoverable_and_cancel_leaves_local_edits_intact() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = support::Fixture::create();
     let target = support::git(&f.repo, &["rev-parse", "HEAD"]);
@@ -117,7 +139,12 @@ fn hard_reset_mode_is_explicit_and_cancel_leaves_local_edits_intact() {
     command(&mut s, "repo log");
     wait(&mut s);
     select(&mut s, &target);
-    command(&mut s, "repo log reset --mode hard");
+    command(&mut s, "repo log reset");
+    key(&mut s, KeyCode::Esc);
+    assert!(s.bar.text().trim_end().ends_with("repo log reset"));
+    key(&mut s, KeyCode::Enter);
+    key(&mut s, KeyCode::Down);
+    key(&mut s, KeyCode::Enter);
     wait(&mut s);
     let Mode::Confirm {
         operation: Confirmation::Mutation { plan, .. },

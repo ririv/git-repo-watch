@@ -30,7 +30,7 @@ pub(crate) fn from_legacy(detail: &str) -> Option<String> {
     ))
 }
 
-fn debug_string(quoted: &str) -> Option<String> {
+pub(super) fn debug_string(quoted: &str) -> Option<String> {
     let mut input = quoted.strip_prefix('"')?.strip_suffix('"')?.chars();
     let mut result = String::new();
     while let Some(character) = input.next() {

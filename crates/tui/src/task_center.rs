@@ -1,5 +1,6 @@
 //! A task screen and asynchronous journal cache do not take ownership of Git workers.
 pub(crate) mod push_detail;
+pub(crate) mod result_detail;
 use super::*;
 use engine::tasks::{Journal, Outcome as Completion, Record, Retry, Scope, State};
 use std::{
@@ -663,7 +664,7 @@ pub(crate) fn outcome(
             format!("{} · {}", i18n::tr!(ScanResults), report.repositories.len())
         }
         Outcome::RegistrationsAdded(count) => i18n::tf!(AddedRepositories, count),
-        Outcome::Committed(value) => format!("{value:#?}"),
+        Outcome::Committed(value) => result_detail::commit(value),
         Outcome::Composed(prepared) => format!(
             "{}: {}\n{}: {}",
             i18n::tr!(ComposePending),
@@ -672,16 +673,15 @@ pub(crate) fn outcome(
             prepared.snapshot.units.len()
         ),
         Outcome::CompositionCommitted(progress) => match progress.as_ref() {
-            engine::composition::Progress::More { result, .. } => format!("{result:#?}"),
-            engine::composition::Progress::Complete { completed } => {
-                format!("{:#?}", completed.last())
-            }
+            engine::composition::Progress::More { result, .. } => result_detail::commit(result),
+            engine::composition::Progress::Complete { completed } => completed
+                .iter()
+                .map(result_detail::commit)
+                .collect::<Vec<_>>()
+                .join("\n"),
         },
         Outcome::Published(Publication::Pushed { target }) => push_detail::from_target(target),
         Outcome::PushPrepared(preparation) => crate::push::preparation_notice(preparation).into(),
-        Outcome::MutationCompleted(engine::operations::mutation::Change::FetchSkipped {
-            reason,
-        }) => reason.label().into(),
         Outcome::MutationPrepared { plan, .. }
             if matches!(plan.as_ref(), engine::operations::mutation::Plan::Sync(_)) =>
         {
@@ -689,32 +689,7 @@ pub(crate) fn outcome(
                 .map(str::to_owned)
                 .unwrap_or_else(|| crate::mutations::review(plan))
         }
-        Outcome::MutationCompleted(engine::operations::mutation::Change::Synchronized {
-            result: change,
-        }) => change.detail(),
-        Outcome::MutationCompleted(engine::operations::mutation::Change::Replayed {
-            kind,
-            commit,
-        }) => format!("{}\n{}: {}", kind.label(), i18n::tr!(ReplaySource), commit),
-        Outcome::MutationCompleted(engine::operations::mutation::Change::ReplayedSequence {
-            commits,
-        }) => format!(
-            "{}\n{}\n{}",
-            i18n::tr!(ReplayBatchTitle),
-            i18n::tr!(ReplayOrder),
-            commits.join("\n")
-        ),
-        Outcome::MutationCompleted(engine::operations::mutation::Change::ReplayControlled {
-            kind,
-            control,
-        }) => format!("{} · {}", kind.label(), control.label()),
-        Outcome::MutationCompleted(engine::operations::mutation::Change::ResetBranch {
-            mode,
-            branch,
-            from,
-            to,
-        }) => format!("{} · {branch}\n{from} → {to}", mode.label()),
-        Outcome::MutationCompleted(value) => format!("{value:#?}"),
+        Outcome::MutationCompleted(value) => result_detail::mutation(value),
         _ => title.to_owned(),
     });
     match outcome {

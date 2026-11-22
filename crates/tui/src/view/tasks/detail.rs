@@ -79,16 +79,23 @@ fn text(record: &Record, width: u16) -> (Text<'static>, Option<usize>) {
             ..
         } => (i18n::tr!(OperationResult), WARN, detail.as_str()),
     };
+    let summary = match &record.state {
+        State::Finished {
+            outcome: Completion::Failed { summary, .. },
+            ..
+        } => summary.as_deref(),
+        _ => None,
+    };
     let mut failure_line = record.unread_failure().then_some(1);
     if !body.trim().is_empty() {
-        let legacy_push = match &record.state {
+        let legacy_result = match &record.state {
             State::Finished {
                 outcome: Completion::Succeeded { .. },
                 ..
-            } => crate::task_center::push_detail::from_legacy(body),
+            } => crate::task_center::result_detail::from_legacy(body),
             _ => None,
         };
-        let body = multiline(legacy_push.as_deref().unwrap_or(body));
+        let body = multiline(legacy_result.as_deref().unwrap_or(body));
         lines.push(Line::default());
         if color == BAD
             && let Some(first_reason) = batch::append_lines(record, &body, width, &mut lines)
@@ -100,7 +107,17 @@ fn text(record: &Record, width: u16) -> (Text<'static>, Option<usize>) {
             if failure_line.is_some() {
                 failure_line = Some(lines.len());
             }
-            let body_color = if color == BAD { BAD } else { Color::Gray };
+            let body_color = if let Some(summary) = summary {
+                lines.push(Line::styled(safe(summary), Style::default().fg(BAD)));
+                lines.push(Line::default());
+                lines.push(section(i18n::tr!(TaskOutput), MUTED, width));
+                lines.push(Line::default());
+                Color::Gray
+            } else if color == BAD {
+                BAD
+            } else {
+                Color::Gray
+            };
             lines.extend(
                 body.lines()
                     .map(|line| Line::styled(line.to_owned(), Style::default().fg(body_color))),

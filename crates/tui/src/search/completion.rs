@@ -70,7 +70,7 @@ impl Screen {
                 &self.rows(),
                 self.repository_viewport.selected(),
                 query,
-                |row| path_fields(&row.path),
+                |row| [self.repository_search_field.text(&row.path).into_owned()],
             ),
             Mode::Management(session) => {
                 selected(&session.rows(), session.state.selected(), query, |index| {

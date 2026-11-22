@@ -79,6 +79,48 @@ fn overview_is_live_localized_and_distinct_from_cached_preview() {
 }
 
 #[test]
+fn overview_and_branch_list_color_each_commit_count_independently() {
+    use crate::workspace::Section;
+    use ratatui::style::Color;
+
+    let f = support::Fixture::create();
+    f.commit("ahead.txt", "one local commit\n");
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    key(&mut s, KeyCode::Enter);
+    wait_overview(&mut s);
+    wait_workspace(&mut s);
+
+    let mut terminal = Terminal::new(TestBackend::new(180, 40)).unwrap();
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let buffer = terminal.backend().buffer();
+    for section in [Section::Overview, Section::Branches] {
+        let area = s
+            .workspace_areas
+            .iter()
+            .find(|(_, pane)| *pane == section)
+            .unwrap()
+            .0;
+        let mut counts = Vec::new();
+        for y in area.y..area.bottom() {
+            for x in area.x..area.right().saturating_sub(1) {
+                let arrow = &buffer[(x, y)];
+                if matches!(arrow.symbol(), "↑" | "↓") {
+                    let number = &buffer[(x + 1, y)];
+                    counts.push((arrow.symbol(), number.symbol(), arrow.fg, number.fg));
+                }
+            }
+        }
+        assert_eq!(
+            counts,
+            [
+                ("↑", "1", Color::Yellow, Color::Yellow),
+                ("↓", "0", Color::LightGreen, Color::LightGreen),
+            ]
+        );
+    }
+}
+
+#[test]
 fn compact_overview_keeps_navigation_visible_while_scrolling_and_resizing() {
     let f = support::Fixture::create();
     for n in 0..12 {
@@ -223,7 +265,10 @@ fn overview_only_shows_checks_recorded_for_the_open_repository() {
     wait_overview(&mut s);
     wait_workspace(&mut s);
     let overview = render(&mut s, 180, 45);
-    assert!(overview.contains(i18n::tr!(RemoteRepositories)), "{overview}");
+    assert!(
+        overview.contains(i18n::tr!(RemoteRepositories)),
+        "{overview}"
+    );
     assert!(!overview.contains(i18n::tr!(OverviewCheck)), "{overview}");
     assert!(!overview.contains(i18n::tr!(CheckUpdatedAt)), "{overview}");
 

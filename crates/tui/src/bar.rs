@@ -194,20 +194,7 @@ impl Screen {
                     session.files.search(query);
                     session.focus = crate::changes::Focus::Files;
                 }
-                Mode::Browsing if self.query != query => {
-                    self.query = query;
-                    match self.search_mode {
-                        crate::search::Mode::Filter => self.select(0),
-                        crate::search::Mode::Locate => {
-                            if let Some(index) = self
-                                .repository_matches()
-                                .nearest(self.repository_viewport.selected())
-                            {
-                                self.select(index);
-                            }
-                        }
-                    }
-                }
+                Mode::Browsing => self.search_repositories(query),
                 _ => {}
             }
         }
@@ -462,8 +449,10 @@ impl Screen {
                                 return self.bar_key_inner(key, root, submitted);
                             }
                         } else {
-                            self.message =
-                                crate::message::Message::error(i18n::tr!(NoMatchingOptions).into());
+                            let reason = candidates
+                                .unavailable()
+                                .unwrap_or(i18n::tr!(NoMatchingOptions));
+                            self.message = crate::message::Message::error(reason.into());
                         }
                     }
                     _ => {
@@ -808,12 +797,8 @@ impl Screen {
         if self.search_support() == crate::search::Support::Unavailable {
             self.bar = InputBar::CommandsOnly;
         } else {
-            let path = self.selected_path();
             self.bar = InputBar::default();
             self.normalize_bar();
-            if self.page == Page::Repositories && matches!(self.mode, Mode::Browsing) {
-                self.focus(path);
-            }
         }
         self.message.clear();
     }
@@ -831,6 +816,11 @@ impl Screen {
             self.message.clear();
             return;
         }
+        if self.repository_list_active() {
+            self.scroll = 0;
+            self.clear_input_bar();
+            return;
+        }
         let path = self.selected_path();
         self.bar = InputBar::default();
         match &mut self.mode {
@@ -845,6 +835,7 @@ impl Screen {
             }
             _ => {
                 self.query.clear();
+                self.selection_before_repository_filter = None;
                 self.page = Page::Repositories;
                 self.scroll = 0;
                 self.focus(path)

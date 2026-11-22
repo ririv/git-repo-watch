@@ -4,6 +4,7 @@ use crate::{cancel::Cancel, transport::Git};
 use anyhow::{Context, Result, ensure};
 use git2::{BranchType, ErrorCode, Oid, Repository, StatusOptions, WorktreeLockStatus};
 use std::{
+    collections::BTreeMap,
     fs,
     path::{Path, PathBuf},
 };
@@ -166,6 +167,67 @@ pub fn read(path: &Path, cancel: &Cancel) -> Result<Snapshot> {
     })
 }
 
+pub struct BranchCandidate {
+    pub name: String,
+    pub subject: String,
+    pub occupied_at: Option<PathBuf>,
+}
+
+pub struct AddCandidates {
+    pub branches: Vec<BranchCandidate>,
+    pub start: Option<Oid>,
+}
+
+fn occupied_branches(repo: &Repository, cancel: &Cancel) -> Result<BTreeMap<String, PathBuf>> {
+    let mut occupied = BTreeMap::new();
+    let mut inspect = |checkout: &Repository, path: &Path| -> Result<()> {
+        cancel.check()?;
+        if let Some(name) = checkout
+            .find_reference("HEAD")?
+            .symbolic_target()?
+            .and_then(|reference| reference.strip_prefix("refs/heads/"))
+        {
+            occupied
+                .entry(name.to_owned())
+                .or_insert_with(|| path.to_owned());
+        }
+        Ok(())
+    };
+    let main = Repository::open(repo.commondir())?;
+    if let Some(path) = main.workdir() {
+        inspect(&main, path)?;
+    }
+    for name in repo.worktrees()?.iter() {
+        let worktree = repo.find_worktree(name?.context(i18n::tr!(GitPathIsNotUtf8And))?)?;
+        inspect(&Repository::open_from_worktree(&worktree)?, worktree.path())?;
+    }
+    Ok(occupied)
+}
+
+fn new_branch_start(repo: &Repository) -> Result<Option<Oid>> {
+    match repo.head() {
+        Ok(head) => Ok(Some(head.peel_to_commit()?.id())),
+        Err(error) if error.code() == ErrorCode::UnbornBranch => Ok(None),
+        Err(error) => Err(error.into()),
+    }
+}
+
+pub fn add_candidates(path: &Path, cancel: &Cancel) -> Result<AddCandidates> {
+    cancel.check()?;
+    let repo = open(path)?;
+    let start = new_branch_start(&repo)?;
+    let mut occupied = occupied_branches(&repo, cancel)?;
+    let branches = super::branches::names::read(path, cancel)?
+        .into_iter()
+        .map(|entry| BranchCandidate {
+            occupied_at: occupied.remove(&entry.name),
+            name: entry.name,
+            subject: entry.subject,
+        })
+        .collect();
+    Ok(AddCandidates { branches, start })
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Branch {
     Existing,
@@ -279,11 +341,17 @@ pub fn prepare(path: &Path, request: Request, cancel: &Cancel) -> Result<Plan> {
             let start = match branch {
                 Branch::New => {
                     ensure!(existing.is_none(), i18n::tr!(WorktreeBranchExists));
-                    repo.head()?.peel_to_commit()?.id()
+                    new_branch_start(&repo)?.context(i18n::tr!(WorktreeNewBranchNeedsCommit))?
                 }
                 Branch::Existing => {
                     let entry = existing.context(i18n::tr!(MutationLocalBranchRequired))?;
-                    super::branches::edit::available(&repo, &format!("refs/heads/{name}"))?;
+                    if let Some(path) = occupied_branches(&repo, cancel)?.get(&name) {
+                        anyhow::bail!(format!(
+                            "{} {}",
+                            i18n::tr!(WorktreeBranchOccupied),
+                            path.display()
+                        ));
+                    }
                     entry.get().peel_to_commit()?.id()
                 }
             };

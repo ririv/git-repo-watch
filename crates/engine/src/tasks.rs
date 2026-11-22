@@ -91,6 +91,8 @@ pub enum Outcome {
     },
     Failed {
         detail: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        summary: Option<String>,
         resolution: Resolution,
         #[serde(default)]
         read: FailureRead,
@@ -158,11 +160,22 @@ impl Record {
 }
 impl Outcome {
     pub fn failure(detail: impl Into<String>) -> Self {
+        let detail = detail.into();
+        let summary = crate::process::Failure::git_summary(&detail).map(Self::short_reason);
+        Self::failed(detail, summary)
+    }
+
+    fn failed(detail: String, summary: Option<String>) -> Self {
         Self::Failed {
-            detail: detail.into(),
+            detail,
+            summary,
             resolution: Resolution::Pending,
             read: FailureRead::Unread,
         }
+    }
+
+    fn short_reason(summary: &str) -> String {
+        summary.chars().take(500).collect()
     }
 
     pub fn capture<T>(
@@ -177,7 +190,17 @@ impl Outcome {
             Err(error) if cancel.is_cancelled() => Self::Cancelled {
                 detail: format!("{error:#}"),
             },
-            Err(error) => Self::failure(format!("{error:#}")),
+            Err(error) => {
+                let detail = format!("{error:#}");
+                if let Some(summary) = error
+                    .downcast_ref::<crate::process::Failure>()
+                    .and_then(crate::process::Failure::summary)
+                {
+                    Self::failed(detail, Some(Self::short_reason(summary)))
+                } else {
+                    Self::failure(detail)
+                }
+            }
         }
     }
 }
@@ -298,5 +321,38 @@ pub struct Reporter {
 impl Reporter {
     pub fn progress(&self, message: String) -> Result<()> {
         self.store.task_progress(&self.id, &message)
+    }
+}
+
+#[cfg(test)]
+mod failure_summary_tests {
+    use super::*;
+
+    #[test]
+    fn failure_summary_preserves_the_full_git_output() {
+        let result = crate::process::Output {
+            code: 1,
+            stderr: b"error: failed to push some refs\n".to_vec(),
+            stdout: "Running pre-push hooks\n❌ The Python environment does not provide pyright\n"
+                .as_bytes()
+                .to_vec(),
+        }
+        .success("git")
+        .context("Transfer stage");
+        let Outcome::Failed {
+            detail, summary, ..
+        } = Outcome::capture(&result, &Cancel::default(), |_| unreachable!())
+        else {
+            panic!("failed Git command");
+        };
+        assert_eq!(
+            summary.as_deref(),
+            Some("The Python environment does not provide pyright")
+        );
+        assert!(detail.contains("Transfer stage") && detail.contains("failed to push some refs"));
+        assert!(detail.contains("Running pre-push hooks\n❌ The Python environment"));
+        assert!(
+            matches!(Outcome::failure(&detail), Outcome::Failed { summary: restored, .. } if summary == restored)
+        );
     }
 }

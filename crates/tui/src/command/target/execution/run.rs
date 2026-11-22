@@ -82,15 +82,10 @@ impl Execution {
                 repository,
                 target,
             } => {
-                use engine::operations::reset::Mode;
-                let mut draft =
-                    screen.mutation_draft(Action::ResetBranch(Mode::Soft), Some(repository));
-                if mode == Mode::Hard {
-                    draft.input.replace_canonical(crate::Editor::new(format!(
-                        "/repo log reset --mode {}",
-                        mode.token()
-                    )));
-                }
+                let mut draft = screen.mutation_draft(Action::ResetMenu, Some(repository));
+                draft.input.replace_canonical(
+                    crate::command::named::RESET_MODE.value_editor(mode.token()),
+                );
                 draft.selection = selection;
                 draft.return_to = return_to;
                 screen.prepare_mutation(

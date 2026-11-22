@@ -142,7 +142,7 @@ pub fn execute(plan: &Plan, cancel: &Cancel) -> Result<()> {
     }
     Ok(())
 }
-pub(crate) fn available(repo: &Repository, reference: &str) -> Result<()> {
+fn available(repo: &Repository, reference: &str) -> Result<()> {
     let mut others = vec![Repository::open(repo.commondir())?];
     for name in repo.worktrees()?.iter() {
         let name = name?.context(i18n::tr!(GitPathIsNotUtf8And))?;

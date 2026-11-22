@@ -735,7 +735,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 } = bar
                 {
                     match values.kind {
-                        command::values::Kind::Editor => i18n::tr!(OptionCompletionHint),
+                        command::values::Kind::Editor | command::values::Kind::WorktreeBranch => {
+                            i18n::tr!(OptionCompletionHint)
+                        }
                         _ => i18n::tr!(ValueCompletionHint),
                     }
                 } else if matches!(
@@ -946,7 +948,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         None
     };
-    let title = if (matches!(bar, crate::bar::InputBar::Search(_)) || command_search.is_some())
+    let title = if matches!(content, Content::Conflict { .. })
+        && let Mode::Changes(session) = mode
+        && screen
+            .body_area
+            .and_then(|area| super::changes::conflict_target(area, session))
+            .is_none()
+    {
+        format!("{title} › {}", i18n::tr!(ConflictResult))
+    } else if (matches!(bar, crate::bar::InputBar::Search(_)) || command_search.is_some())
         && screen.focus_mode == crate::focus::State::Inactive
         && matches!(content, Content::Editable { .. })
         && !matches!(mode, Mode::CommitMessage { .. })
@@ -983,6 +993,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         MUTED
     };
+    let mut filter_field_hit = None;
     let mut block = styled_editor_block(area, accent);
     if area.height >= 3 {
         let recovery = screen
@@ -1021,6 +1032,25 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 Style::default().fg(MUTED),
             ));
             block = block.title(Line::from(spans));
+        } else if let Some(field) = screen.repository_filter_field()
+            && matches!(bar, crate::bar::InputBar::Search(_))
+            && matches!(content, Content::Editable { .. })
+            && let Some(prefix) = title.strip_suffix(field.label())
+            && title.width() + 4 <= usize::from(area.width)
+        {
+            let prefix = format!(" {prefix}");
+            let label = field.label();
+            filter_field_hit = Some(Rect::new(
+                area.x + 1 + prefix.width() as u16,
+                area.y,
+                label.width() as u16,
+                1,
+            ));
+            block = block.title(Line::from(vec![
+                Span::raw(prefix),
+                Span::styled(label, Style::default().fg(ACCENT)),
+                Span::raw(" "),
+            ]));
         } else if !title.trim().is_empty() {
             block = block.title(format!(" {} ", title.trim()));
         }
@@ -1166,6 +1196,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             Paragraph::new(truncate(&text, inner.width as usize)).style(Style::default().fg(MUTED)),
             inner,
         ),
+    }
+    if let Some(hit) = filter_field_hit {
+        screen
+            .pointer
+            .button(hit, crate::pointer::Action::RepositoryFilterField);
     }
     screen.input_surface.update(frame, surface);
     render_hint(frame, hint_area, &hint);

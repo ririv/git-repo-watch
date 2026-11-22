@@ -57,6 +57,15 @@ impl Service {
         local::worktrees::read(root, cancel)
     }
 
+    pub fn worktree_add_candidates(
+        &self,
+        root: &Path,
+        cancel: &Cancel,
+    ) -> Result<local::worktrees::AddCandidates> {
+        self.validate_repository(root, cancel)?;
+        local::worktrees::add_candidates(root, cancel)
+    }
+
     pub fn authorize_worktree(
         &mut self,
         root: &Path,

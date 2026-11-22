@@ -45,6 +45,9 @@ impl Screen {
                 path,
                 selection,
             ),
+            Action::ResetMenu => {
+                self.open_option_menu(command::options::Kind::Reset, path, selection)
+            }
             Action::Compose(action) => self.compose_action(action, path),
             Action::Commit if matches!(self.mode, Mode::CommitMessage { .. }) => {
                 if let Mode::CommitMessage { editor, .. } = &mut self.mode {
@@ -82,7 +85,10 @@ impl Screen {
             Action::SearchMenu => self.search_menu(),
             Action::Search(mode) => self.set_search_mode(mode),
             Action::Tasks => self.open_tasks(),
-            Action::TaskCancel | Action::TaskRetry | Action::TaskFilterMenu | Action::TaskFilter(_) => {
+            Action::TaskCancel
+            | Action::TaskRetry
+            | Action::TaskFilterMenu
+            | Action::TaskFilter(_) => {
                 unreachable!("task target is prepared")
             }
             Action::Focus => self.enter_focus(),

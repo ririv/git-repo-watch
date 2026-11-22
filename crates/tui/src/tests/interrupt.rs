@@ -23,8 +23,9 @@ fn three_presses_clear_all_command_input_warn_then_exit_without_writes() {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
         let config = std::fs::read(s.service.store.config_path()).unwrap();
-        s.paste("beta");
         let selected = s.selected_path();
+        s.paste("beta");
+        assert_eq!(s.selected_path(), Some(PathBuf::from("/example/beta")));
         s.paste("//settings concurrency ");
         assert!(matches!(s.bar, bar::InputBar::Command { .. }));
         assert!(!interrupt(&mut s));

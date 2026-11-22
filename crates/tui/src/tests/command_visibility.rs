@@ -67,10 +67,7 @@ fn contextual_menus_hide_unrelated_targets_but_global_search_explains_them_witho
                 "repo log revert",
                 Action::Replay(engine::operations::replay::Kind::Revert),
             ),
-            (
-                "repo log reset",
-                Action::ResetBranch(engine::operations::reset::Mode::Soft),
-            ),
+            ("repo log reset", Action::ResetMenu),
             ("repo log parent", Action::LogParent),
             ("repo files diff", Action::BrowserDiff),
             ("repo files mode", Action::BrowserModeMenu),

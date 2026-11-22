@@ -1,7 +1,7 @@
 //! Compact live facts complement the existing repository check overview.
 use super::*;
 use crate::overview::Content;
-use engine::local::overview::{Checkout, Comparison, Operation, Tracking};
+use engine::local::overview::{Checkout, Operation};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Presentation {
@@ -25,7 +25,6 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
         repository_title
     };
     let mut lines = Vec::new();
-    let mut current_branch = None;
     if presentation == Presentation::Expanded
         && let Some(path) = path
     {
@@ -53,36 +52,12 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
                     oid,
                     tracking,
                 }) => {
-                    current_branch = Some(name.as_str());
                     lines.push(field(
                         i18n::tr!(Branch),
                         format!("{}  {}", safe(name), &oid.to_string()[..8]),
                         ACCENT,
                     ));
-                    match tracking {
-                        Ok(Tracking::Absent) => lines.push(field(
-                            i18n::tr!(OverviewUpstream),
-                            i18n::tr!(NoUpstream),
-                            MUTED,
-                        )),
-                        Ok(
-                            Tracking::Local { name, comparison }
-                            | Tracking::Remote { name, comparison },
-                        ) => {
-                            let value = match comparison {
-                                Comparison::Missing => {
-                                    format!("{} · {}", safe(name), i18n::tr!(OverviewGone))
-                                }
-                                Comparison::Known { ahead, behind } => {
-                                    format!("{} · ↑{ahead} ↓{behind}", safe(name))
-                                }
-                            };
-                            lines.push(field(i18n::tr!(OverviewUpstream), value, Color::Reset));
-                        }
-                        Err(error) => {
-                            lines.push(field(i18n::tr!(OverviewUpstream), safe(error), BAD))
-                        }
-                    }
+                    lines.push(synchronization::upstream(tracking));
                 }
                 Ok(Checkout::Detached(oid)) => lines.push(field(
                     i18n::tr!(HeadState),
@@ -188,10 +163,7 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
                 path: path.to_owned(),
                 result: Some(observation.result.clone()),
             };
-            let check = repository::detail_text(
-                &row,
-                repository::Scope::AllBranches(current_branch),
-            );
+            let check = repository::detail_text(&row, repository::Scope::Check);
             lines.extend(check.lines.into_iter().skip(1));
         }
     }

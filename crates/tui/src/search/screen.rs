@@ -60,6 +60,12 @@ impl Screen {
         match &mut self.mode {
             Mode::Browsing if self.page == Page::Repositories => {
                 let path = self.selected_path();
+                if self.search_mode != mode {
+                    self.selection_before_repository_filter = match mode {
+                        SearchMode::Filter if !self.query.is_empty() => path.clone(),
+                        _ => None,
+                    };
+                }
                 self.search_mode = mode;
                 self.focus(path);
                 if mode == SearchMode::Locate
@@ -95,6 +101,35 @@ impl Screen {
         self.sync_bar();
         self.poll_changes();
     }
+    pub(crate) fn search_repositories(&mut self, query: String) {
+        if self.query == query {
+            return;
+        }
+        match self.search_mode {
+            SearchMode::Filter => {
+                if self.query.is_empty() {
+                    self.selection_before_repository_filter = self.selected_path();
+                }
+                self.query = query;
+                if self.query.is_empty() {
+                    let path = self.selection_before_repository_filter.take();
+                    self.focus(path);
+                } else {
+                    self.select(0);
+                }
+            }
+            SearchMode::Locate => {
+                self.query = query;
+                if let Some(index) = self
+                    .repository_matches()
+                    .nearest(self.repository_viewport.selected())
+                {
+                    self.select(index);
+                }
+            }
+        }
+    }
+
     pub(crate) fn repository_matches(&self) -> Matches {
         let query = self.query.to_lowercase();
         Matches::new(
@@ -213,6 +248,10 @@ impl Screen {
             _ => unreachable!("searchable view has a target"),
         };
         let mut title = i18n::tf!(SearchInputTitle, mode = mode.label(), target = target);
+        if let Some(field) = self.repository_filter_field() {
+            title.push_str(" · ");
+            title.push_str(field.label());
+        }
         if mode == SearchMode::Locate
             && self
                 .search_query_in(&self.mode)

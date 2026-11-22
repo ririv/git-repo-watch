@@ -7,6 +7,9 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         workspace::render(frame, screen, area);
         return;
     }
+    let conflict_accent = screen
+        .focused_conflict_control()
+        .map(|_| input::active_accent(screen));
     match &mut screen.mode {
         Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::Management(_)) => {
             let Mode::Management(session) = pending.origin.as_mut() else {
@@ -109,23 +112,30 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 &mut screen.pointer,
             );
         }
-        Mode::Changes(session) => changes::render(
-            frame,
-            area,
-            session,
-            crate::diff::Options {
-                layout: screen.diff_preference,
-                header: screen.diff_header,
-                context: screen.diff_context,
-                wrap: screen.config.text_wrap,
-            },
-            crate::files::Options {
-                layout: screen.file_layout,
-                icons: screen.config.file_icons.into(),
-            },
-            &mut screen.graphics,
-            &mut screen.pointer,
-        ),
+        Mode::Changes(session) => {
+            changes::render(
+                frame,
+                area,
+                session,
+                crate::diff::Options {
+                    layout: screen.diff_preference,
+                    header: screen.diff_header,
+                    context: screen.diff_context,
+                    wrap: screen.config.text_wrap,
+                },
+                crate::files::Options {
+                    layout: screen.file_layout,
+                    icons: screen.config.file_icons.into(),
+                },
+                &mut screen.graphics,
+                &mut screen.pointer,
+            );
+            if let Some(accent) = conflict_accent
+                && let Some(target) = changes::conflict_target(area, session)
+            {
+                target.highlight(frame, accent);
+            }
+        }
         Mode::CommitMessage {
             plan,
             editor,

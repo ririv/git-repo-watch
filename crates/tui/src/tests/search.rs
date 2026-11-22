@@ -87,6 +87,91 @@ fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows(
 }
 
 #[test]
+fn clearing_repository_filter_restores_the_command_target() {
+    let other = PathBuf::from("/example/alpha");
+    let selected = PathBuf::from("/example/target");
+    let (_home, mut s) = fixture(vec![other.clone(), selected.clone()]);
+    s.order = Order::Path;
+    key(&mut s, KeyCode::Down);
+    assert_eq!(s.selected_path(), Some(selected.clone()));
+
+    for (character, clear, filtered_selection) in [
+        ('l', KeyCode::Backspace, Some(other)),
+        ('z', KeyCode::Esc, None),
+    ] {
+        key(&mut s, KeyCode::Char(character));
+        assert_eq!(s.selected_path(), filtered_selection);
+        key(&mut s, clear);
+        assert!(s.bar.text().is_empty());
+        assert_eq!(s.selected_path(), Some(selected.clone()));
+        key(&mut s, KeyCode::Char('/'));
+        let bar::InputBar::Command { path, .. } = &s.bar else {
+            panic!("expected the command input");
+        };
+        assert_eq!(path.as_ref(), Some(&selected));
+        key(&mut s, KeyCode::Esc);
+    }
+    s.shutdown();
+}
+
+#[test]
+fn repository_filter_scope_switches_from_the_title_and_retains_the_query() {
+    use crate::{pointer, repository_list::SearchField};
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Position;
+
+    let root = PathBuf::from("/example/infinity");
+    let child = root.join("agent-backend");
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let (_home, mut s) = fixture(vec![root.clone(), child.clone()]);
+        s.paste("INFINITY");
+        let check = |s: &mut Screen, field: SearchField, count: usize| {
+            assert_eq!(s.repository_filter_field(), Some(field));
+            assert_eq!(s.bar.text(), "INFINITY");
+            assert_eq!(s.rows().len(), count);
+            let view = render(s, 100, 26);
+            assert!(view.contains(&format!(" · {} ", field.label())), "{view}");
+        };
+        let click = |s: &mut Screen| {
+            let pos = (0..26)
+                .flat_map(|y| (0..100).map(move |x| Position::new(x, y)))
+                .find(|&pos| {
+                    s.pointer.hit(pos)
+                        == Some(pointer::Hit::Button(pointer::Action::RepositoryFilterField))
+                })
+                .unwrap();
+            assert!(
+                s.mouse(
+                    MouseEvent {
+                        kind: MouseEventKind::Down(MouseButton::Left),
+                        column: pos.x,
+                        row: pos.y,
+                        modifiers: KeyModifiers::NONE,
+                    },
+                    &Cancel::default(),
+                )
+                .unwrap()
+            );
+        };
+        check(&mut s, SearchField::Name, 1);
+        assert_eq!(s.selected_path(), Some(root.clone()));
+        click(&mut s);
+        check(&mut s, SearchField::Path, 2);
+        assert_eq!(s.selected_path(), Some(root.clone()));
+        key(&mut s, KeyCode::Down);
+        assert_eq!(s.selected_path(), Some(child.clone()));
+        click(&mut s);
+        check(&mut s, SearchField::Name, 1);
+        assert_eq!(s.selected_path(), Some(root.clone()));
+        change_mode(&mut s, "locate");
+        assert_eq!(s.repository_filter_field(), None);
+        assert_eq!(s.bar.text(), "INFINITY");
+        s.shutdown();
+    }
+}
+
+#[test]
 fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
     let _language = i18n::using(i18n::Language::Chinese);
     let first = PathBuf::from("/example/01/工具 Beta");
@@ -111,6 +196,7 @@ fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
     assert!(s.repository_tasks.is_empty());
 
     key(&mut s, KeyCode::Esc);
+    assert!(s.toggle_repository_filter_field());
     s.paste("02/be");
     key(&mut s, KeyCode::Tab);
     assert_eq!(s.bar.text(), selected.to_string_lossy());

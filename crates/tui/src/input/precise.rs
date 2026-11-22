@@ -137,6 +137,7 @@ impl Screen {
                 self.preview_replay_control(control);
             }
             Action::Command(_) => return false,
+            Action::RepositoryFilterField => return self.toggle_repository_filter_field(),
             Action::RepositoryMenu(menu) => {
                 if !self.repository_list_active() {
                     return false;

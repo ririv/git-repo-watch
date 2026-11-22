@@ -669,6 +669,7 @@ pub enum Message {
     ContextPrefixHint,
     RepositoryFilterCommand,
     RepositoryFilterLabel,
+    RepositorySearchName,
     RepositoryFilterAll,
     RepositoryFilterProblems,
     RepositoryFilterClean,
@@ -1046,6 +1047,31 @@ pub enum Message {
     ArgumentsMustBeUtf8,
     HomeRequiresAPath,
     ConfigurationMissingRunInit,
+    SetupTitle,
+    SetupIntro,
+    SetupAddCurrent,
+    SetupChooseDirectory,
+    SetupInitializeOnly,
+    SetupKeys,
+    ConfigurationMissingSelectedHome,
+    WorktreeNewBranchChoice,
+    WorktreeNewBranchNeedsCommit,
+    WorktreeBranchOccupied,
+    TaskCommitCreated,
+    TaskBranchCreated,
+    TaskBranchSwitched,
+    TaskWorktreeCreated,
+    TaskWorktreeRemoved,
+    TaskFetchedFrom,
+    TaskBranchPulled,
+    TaskStashSaved,
+    TaskStashApplied,
+    TaskStashPopped,
+    TaskStashDropped,
+    TaskConflictAccepted,
+    TaskConflictUndone,
+    TaskConflictReset,
+    TaskOutput,
     HomeMustBeAnAbsolutePath,
     StatusOnlyAcceptsJson,
     NoCompleteReportYetWaitForThe,
@@ -1387,7 +1413,7 @@ pub enum Message {
     RemoteChangedAfterFetchOrFetchRefspecAlt,
     RefMismatch,
     Remote,
-    NoRepositoriesMatchAddToAddOne,
+    SetupEmptyRepositories,
     Path,
     Status,
     Unchecked,
@@ -1549,8 +1575,12 @@ impl Message {
             (Self::SaveCommandHistoryFailed, Language::English) => {
                 "Could not save command history: {0}"
             }
-            (Self::WorktreeHorizontalHint, Language::Chinese) => "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选",
-            (Self::WorktreeHorizontalHint, Language::English) => "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check",
+            (Self::WorktreeHorizontalHint, Language::Chinese) => {
+                "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选"
+            }
+            (Self::WorktreeHorizontalHint, Language::English) => {
+                "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check"
+            }
             (Self::ConflictControlsTitle, Language::Chinese) => "冲突处理",
             (Self::ConflictControlsTitle, Language::English) => "Resolve conflicts",
             (Self::ConflictControlsHint, Language::Chinese) => {
@@ -2044,13 +2074,21 @@ impl Message {
             (Self::ResetMode, Language::Chinese) => "重置方式",
             (Self::ResetSoftOption, Language::English) => "Soft · keep the index and worktree",
             (Self::ResetSoftOption, Language::Chinese) => "软重置 · 保留暂存区和工作区",
-            (Self::ResetHardOption, Language::English) => "Hard · restore the index and worktree to the target",
+            (Self::ResetHardOption, Language::English) => {
+                "Hard · restore the index and worktree to the target"
+            }
             (Self::ResetHardOption, Language::Chinese) => "硬重置 · 暂存区和工作区恢复到目标提交",
-            (Self::ResetAttachedRequired, Language::English) => "Check out a local branch before resetting",
+            (Self::ResetAttachedRequired, Language::English) => {
+                "Check out a local branch before resetting"
+            }
             (Self::ResetAttachedRequired, Language::Chinese) => "请切换到本地分支再重置",
-            (Self::ResetCurrentCommit, Language::English) => "The branch already points to this commit",
+            (Self::ResetCurrentCommit, Language::English) => {
+                "The branch already points to this commit"
+            }
             (Self::ResetCurrentCommit, Language::Chinese) => "当前分支已指向此提交",
-            (Self::ResetAncestorRequired, Language::English) => "Select an ancestor of the current branch tip",
+            (Self::ResetAncestorRequired, Language::English) => {
+                "Select an ancestor of the current branch tip"
+            }
             (Self::ResetAncestorRequired, Language::Chinese) => "请选择当前分支最新提交的祖先提交",
             (Self::ResetBefore, Language::English) => "Current commit",
             (Self::ResetBefore, Language::Chinese) => "当前提交",
@@ -2058,13 +2096,23 @@ impl Message {
             (Self::ResetTarget, Language::Chinese) => "重置到",
             (Self::ResetRemovedCommits, Language::English) => "Commits removed from this branch",
             (Self::ResetRemovedCommits, Language::Chinese) => "移出当前分支的提交",
-            (Self::ResetKeepChanges, Language::English) => "Moves the local branch and preserves the index and worktree. Check whether these commits have been pushed.",
-            (Self::ResetKeepChanges, Language::Chinese) => "移动本地分支，保留暂存区和工作区。请确认这些提交是否已推送。",
-            (Self::ResetDiscardChanges, Language::English) => "The local branch, index, and tracked files will match the target commit. Staged and unstaged edits will be discarded. Untracked paths in the way may be removed.",
-            (Self::ResetDiscardChanges, Language::Chinese) => "本地分支、暂存区和受跟踪文件将恢复到目标提交。已暂存和未暂存的改动会丢弃，阻挡目标路径的未跟踪文件可能被移除。",
+            (Self::ResetKeepChanges, Language::English) => {
+                "Moves the local branch and preserves the index and worktree. Check whether these commits have been pushed."
+            }
+            (Self::ResetKeepChanges, Language::Chinese) => {
+                "移动本地分支，保留暂存区和工作区。请确认这些提交是否已推送。"
+            }
+            (Self::ResetDiscardChanges, Language::English) => {
+                "The local branch, index, and tracked files will match the target commit. Staged and unstaged edits will be discarded. Untracked paths in the way may be removed."
+            }
+            (Self::ResetDiscardChanges, Language::Chinese) => {
+                "本地分支、暂存区和受跟踪文件将恢复到目标提交。已暂存和未暂存的改动会丢弃，阻挡目标路径的未跟踪文件可能被移除。"
+            }
             (Self::ResetTrackedChanges, Language::English) => "Local changes affected",
             (Self::ResetTrackedChanges, Language::Chinese) => "受影响的本地改动",
-            (Self::ResetObstructions, Language::English) => "Local paths in the way of the target tree",
+            (Self::ResetObstructions, Language::English) => {
+                "Local paths in the way of the target tree"
+            }
             (Self::ResetObstructions, Language::Chinese) => "阻挡目标路径的本地文件",
             (Self::ReplayContinue, Language::English) => "Continue operation",
             (Self::ReplayContinue, Language::Chinese) => "继续操作",
@@ -2268,18 +2316,30 @@ impl Message {
             (Self::CommandEnterFillValue, Language::Chinese) => "Enter 使用选中值",
             (Self::CommandEnterWaiting, Language::English) => "Loading candidates",
             (Self::CommandEnterWaiting, Language::Chinese) => "正在加载候选",
-            (Self::CommandScopedCandidateKeys, Language::English) => "/ global commands · Tab complete · ⌫ edit prefix",
-            (Self::CommandScopedCandidateKeys, Language::Chinese) => "/ 全局命令 · Tab 补全 · ⌫ 编辑前缀",
-            (Self::CommandChildrenKeys, Language::English) => "Tab enter subcommands · ↑↓ choose · Esc back",
+            (Self::CommandScopedCandidateKeys, Language::English) => {
+                "/ global commands · Tab complete · ⌫ edit prefix"
+            }
+            (Self::CommandScopedCandidateKeys, Language::Chinese) => {
+                "/ 全局命令 · Tab 补全 · ⌫ 编辑前缀"
+            }
+            (Self::CommandChildrenKeys, Language::English) => {
+                "Tab enter subcommands · ↑↓ choose · Esc back"
+            }
             (Self::CommandChildrenKeys, Language::Chinese) => "Tab 进入子命令 · ↑↓选择 · Esc 返回",
             (Self::CommandChildrenTitle, Language::English) => "{name} subcommands",
             (Self::CommandChildrenTitle, Language::Chinese) => "{name} 子命令",
             (Self::CommandGroupTitle, Language::English) => "{name} command group",
             (Self::CommandGroupTitle, Language::Chinese) => "{name} 命令组",
-            (Self::CommandCandidateKeys, Language::English) => "Tab complete · ↑↓ choose · Esc back",
+            (Self::CommandCandidateKeys, Language::English) => {
+                "Tab complete · ↑↓ choose · Esc back"
+            }
             (Self::CommandCandidateKeys, Language::Chinese) => "Tab 补全 · ↑↓选择 · Esc 返回",
-            (Self::CommandCandidateHistoryKeys, Language::English) => "Tab complete · ↓ choose · ↑ history · Esc close",
-            (Self::CommandCandidateHistoryKeys, Language::Chinese) => "Tab 补全 · ↓候选 · ↑历史 · Esc 关闭",
+            (Self::CommandCandidateHistoryKeys, Language::English) => {
+                "Tab complete · ↓ choose · ↑ history · Esc close"
+            }
+            (Self::CommandCandidateHistoryKeys, Language::Chinese) => {
+                "Tab 补全 · ↓候选 · ↑历史 · Esc 关闭"
+            }
             (Self::OptionCompletionHint, Language::English) => {
                 "↑↓ choose · Tab complete · Enter apply · Esc close options"
             }
@@ -2464,9 +2524,7 @@ impl Message {
             (Self::SearchLocateHint, Language::English) => {
                 "↑↓ previous/next match · ←→ edit · Esc clear"
             }
-            (Self::SearchLocateHint, Language::Chinese) => {
-                "↑↓ 切换匹配 · ←→ 编辑 · Esc 清空"
-            }
+            (Self::SearchLocateHint, Language::Chinese) => "↑↓ 切换匹配 · ←→ 编辑 · Esc 清空",
             (Self::SearchCommandOnly, Language::English) => "Press / to open the command menu",
             (Self::SearchCommandOnly, Language::Chinese) => "按 / 打开命令菜单",
             (Self::SearchUnavailable, Language::English) => {
@@ -2522,9 +2580,13 @@ impl Message {
             (Self::TaskCommandRequiresSelection, Language::Chinese) => "请先选择任务。",
             (Self::TaskCommandRequiresView, Language::English) => "Open the task view first.",
             (Self::TaskCommandRequiresView, Language::Chinese) => "请先打开任务页。",
-            (Self::TaskCommandBusy, Language::English) => "Wait for the current operation to finish.",
+            (Self::TaskCommandBusy, Language::English) => {
+                "Wait for the current operation to finish."
+            }
             (Self::TaskCommandBusy, Language::Chinese) => "请等待当前操作结束。",
-            (Self::TaskCommandOutsideView, Language::English) => "This command requires a different view.",
+            (Self::TaskCommandOutsideView, Language::English) => {
+                "This command requires a different view."
+            }
             (Self::TaskCommandOutsideView, Language::Chinese) => "请在相应视图中使用此命令。",
             (Self::TasksHint, Language::English) => {
                 "↑↓ select · Enter details · Ctrl+X cancel · Ctrl+R retry · Esc back"
@@ -2542,8 +2604,12 @@ impl Message {
             (Self::TasksFilterUnread, Language::Chinese) => "未读失败",
             (Self::TasksSearchTitle, Language::English) => "Filter tasks",
             (Self::TasksSearchTitle, Language::Chinese) => "过滤任务",
-            (Self::TasksSearchPlaceholder, Language::English) => "Search by task, repository or status, or type / for commands",
-            (Self::TasksSearchPlaceholder, Language::Chinese) => "搜索任务、仓库或状态，或输入 / 查看命令",
+            (Self::TasksSearchPlaceholder, Language::English) => {
+                "Search by task, repository or status, or type / for commands"
+            }
+            (Self::TasksSearchPlaceholder, Language::Chinese) => {
+                "搜索任务、仓库或状态，或输入 / 查看命令"
+            }
             (Self::TasksNoMatches, Language::English) => "No matching tasks",
             (Self::TasksNoMatches, Language::Chinese) => "没有匹配的任务",
             (Self::TasksFailed, Language::English) => "Failed",
@@ -2568,12 +2634,8 @@ impl Message {
             (Self::TasksUnavailable, Language::Chinese) => {
                 "此任务不支持直接重试，请查看详情后重新执行操作。"
             }
-            (Self::TasksDetailsHint, Language::English) => {
-                "↑↓ scroll · / commands · Esc back"
-            }
-            (Self::TasksDetailsHint, Language::Chinese) => {
-                "↑↓滚动 · / 命令 · Esc 返回"
-            }
+            (Self::TasksDetailsHint, Language::English) => "↑↓ scroll · / commands · Esc back",
+            (Self::TasksDetailsHint, Language::Chinese) => "↑↓滚动 · / 命令 · Esc 返回",
             (Self::TasksInteractive, Language::English) => "Interactive",
             (Self::TasksInteractive, Language::Chinese) => "手动",
             (Self::TasksScheduled, Language::English) => "Scheduled",
@@ -2605,15 +2667,27 @@ impl Message {
             (Self::GitEnvironmentLauncher, Language::Chinese) => "设置 Git 启动命令",
             (Self::GitEnvironmentLauncher, Language::English) => "Configure a Git launcher",
             (Self::GitEnvironmentArgumentHint, Language::Chinese) => "含空格的参数请加引号",
-            (Self::GitEnvironmentArgumentHint, Language::English) => "Quote arguments that contain spaces",
+            (Self::GitEnvironmentArgumentHint, Language::English) => {
+                "Quote arguments that contain spaces"
+            }
             (Self::GitEnvironmentInvalidInput, Language::Chinese) => "Git 环境参数无效",
-            (Self::GitEnvironmentInvalidInput, Language::English) => "Invalid Git environment input",
-            (Self::GitEnvironmentInvalidVariable, Language::Chinese) => "请输入有效的变量名。PATH 请使用前置目录，GIT_ 变量由程序管理。",
-            (Self::GitEnvironmentInvalidVariable, Language::English) => "Use a valid variable name. Add PATH directories separately. GIT_ variables are managed by the application.",
+            (Self::GitEnvironmentInvalidInput, Language::English) => {
+                "Invalid Git environment input"
+            }
+            (Self::GitEnvironmentInvalidVariable, Language::Chinese) => {
+                "请输入有效的变量名。PATH 请使用前置目录，GIT_ 变量由程序管理。"
+            }
+            (Self::GitEnvironmentInvalidVariable, Language::English) => {
+                "Use a valid variable name. Add PATH directories separately. GIT_ variables are managed by the application."
+            }
             (Self::GitEnvironmentInvalidPath, Language::Chinese) => "PATH 目录不能为空或包含冒号",
-            (Self::GitEnvironmentInvalidPath, Language::English) => "PATH directories must be nonempty and contain no colon",
+            (Self::GitEnvironmentInvalidPath, Language::English) => {
+                "PATH directories must be nonempty and contain no colon"
+            }
             (Self::GitEnvironmentMissingPath, Language::Chinese) => "Git 环境目录不存在或无法访问",
-            (Self::GitEnvironmentMissingPath, Language::English) => "Git environment directory is missing or inaccessible",
+            (Self::GitEnvironmentMissingPath, Language::English) => {
+                "Git environment directory is missing or inaccessible"
+            }
             (Self::TasksProgress, Language::English) => "Progress",
             (Self::TasksProgress, Language::Chinese) => "进度",
             (Self::TasksSource, Language::English) => "Source",
@@ -3416,6 +3490,8 @@ impl Message {
             (Self::RepositoryFilterCommand, Language::Chinese) => "筛选仓库",
             (Self::RepositoryFilterLabel, Language::English) => "Filter",
             (Self::RepositoryFilterLabel, Language::Chinese) => "筛选",
+            (Self::RepositorySearchName, Language::English) => "Name",
+            (Self::RepositorySearchName, Language::Chinese) => "名称",
             (Self::RepositoryFilterAll, Language::English) => "All registered repositories",
             (Self::RepositoryFilterAll, Language::Chinese) => "全部已注册仓库",
             (Self::RepositoryFilterProblems, Language::English) => {
@@ -4224,32 +4300,66 @@ impl Message {
             (Self::OpenRepositoryTerminal, Language::Chinese) => "在当前目录打开终端",
             (Self::OpenDirectoryMenu, Language::English) => "Open directory",
             (Self::OpenDirectoryMenu, Language::Chinese) => "打开目录",
-            (Self::OpenInFileManager, Language::English) if cfg!(target_os = "macos") => "Open in Finder",
-            (Self::OpenInFileManager, Language::Chinese) if cfg!(target_os = "macos") => "在访达中打开",
-            (Self::OpenInFileManager, Language::English) if cfg!(target_os = "windows") => "Open in File Explorer",
-            (Self::OpenInFileManager, Language::Chinese) if cfg!(target_os = "windows") => "在文件资源管理器中打开",
+            (Self::OpenInFileManager, Language::English) if cfg!(target_os = "macos") => {
+                "Open in Finder"
+            }
+            (Self::OpenInFileManager, Language::Chinese) if cfg!(target_os = "macos") => {
+                "在访达中打开"
+            }
+            (Self::OpenInFileManager, Language::English) if cfg!(target_os = "windows") => {
+                "Open in File Explorer"
+            }
+            (Self::OpenInFileManager, Language::Chinese) if cfg!(target_os = "windows") => {
+                "在文件资源管理器中打开"
+            }
             (Self::OpenInFileManager, Language::English) => "Open in file manager",
             (Self::OpenInFileManager, Language::Chinese) => "在文件管理器中打开",
-            (Self::FolderSelectionRequired, Language::English) => "Select a repository, file or folder",
+            (Self::FolderSelectionRequired, Language::English) => {
+                "Select a repository, file or folder"
+            }
             (Self::FolderSelectionRequired, Language::Chinese) => "请选择仓库、文件或目录",
             (Self::FolderInvalidPath, Language::English) => "Invalid directory path",
             (Self::FolderInvalidPath, Language::Chinese) => "目录路径无效",
-            (Self::FolderOpening, Language::English) if cfg!(target_os = "macos") => "Opening in Finder…",
-            (Self::FolderOpening, Language::Chinese) if cfg!(target_os = "macos") => "正在访达中打开…",
-            (Self::FolderOpening, Language::English) if cfg!(target_os = "windows") => "Opening in File Explorer…",
-            (Self::FolderOpening, Language::Chinese) if cfg!(target_os = "windows") => "正在文件资源管理器中打开…",
+            (Self::FolderOpening, Language::English) if cfg!(target_os = "macos") => {
+                "Opening in Finder…"
+            }
+            (Self::FolderOpening, Language::Chinese) if cfg!(target_os = "macos") => {
+                "正在访达中打开…"
+            }
+            (Self::FolderOpening, Language::English) if cfg!(target_os = "windows") => {
+                "Opening in File Explorer…"
+            }
+            (Self::FolderOpening, Language::Chinese) if cfg!(target_os = "windows") => {
+                "正在文件资源管理器中打开…"
+            }
             (Self::FolderOpening, Language::English) => "Opening folder…",
             (Self::FolderOpening, Language::Chinese) => "正在打开目录…",
-            (Self::FolderOpenRequested, Language::English) if cfg!(target_os = "macos") => "Folder sent to Finder",
-            (Self::FolderOpenRequested, Language::Chinese) if cfg!(target_os = "macos") => "已请求访达打开目录",
-            (Self::FolderOpenRequested, Language::English) if cfg!(target_os = "windows") => "Folder sent to File Explorer",
-            (Self::FolderOpenRequested, Language::Chinese) if cfg!(target_os = "windows") => "已请求文件资源管理器打开目录",
+            (Self::FolderOpenRequested, Language::English) if cfg!(target_os = "macos") => {
+                "Folder sent to Finder"
+            }
+            (Self::FolderOpenRequested, Language::Chinese) if cfg!(target_os = "macos") => {
+                "已请求访达打开目录"
+            }
+            (Self::FolderOpenRequested, Language::English) if cfg!(target_os = "windows") => {
+                "Folder sent to File Explorer"
+            }
+            (Self::FolderOpenRequested, Language::Chinese) if cfg!(target_os = "windows") => {
+                "已请求文件资源管理器打开目录"
+            }
             (Self::FolderOpenRequested, Language::English) => "Folder sent to the file manager",
             (Self::FolderOpenRequested, Language::Chinese) => "已请求文件管理器打开目录",
-            (Self::FolderOpenFailed, Language::English) if cfg!(target_os = "macos") => "Could not open in Finder",
-            (Self::FolderOpenFailed, Language::Chinese) if cfg!(target_os = "macos") => "无法在访达中打开",
-            (Self::FolderOpenFailed, Language::English) if cfg!(target_os = "windows") => "Could not open in File Explorer",
-            (Self::FolderOpenFailed, Language::Chinese) if cfg!(target_os = "windows") => "无法在文件资源管理器中打开",
+            (Self::FolderOpenFailed, Language::English) if cfg!(target_os = "macos") => {
+                "Could not open in Finder"
+            }
+            (Self::FolderOpenFailed, Language::Chinese) if cfg!(target_os = "macos") => {
+                "无法在访达中打开"
+            }
+            (Self::FolderOpenFailed, Language::English) if cfg!(target_os = "windows") => {
+                "Could not open in File Explorer"
+            }
+            (Self::FolderOpenFailed, Language::Chinese) if cfg!(target_os = "windows") => {
+                "无法在文件资源管理器中打开"
+            }
             (Self::FolderOpenFailed, Language::English) => "Could not open folder",
             (Self::FolderOpenFailed, Language::Chinese) => "打开目录失败",
             (Self::RepositoryTerminalOpened, Language::English) => "Opened terminal: {}",
@@ -4301,19 +4411,81 @@ impl Message {
             (Self::ArgumentsMustBeUtf8, Language::Chinese) => "参数必须为 UTF-8",
             (Self::HomeRequiresAPath, Language::English) => "--home requires a path",
             (Self::HomeRequiresAPath, Language::Chinese) => "--home 缺少路径",
+            (Self::SetupTitle, Language::Chinese) => "首次设置",
+            (Self::SetupTitle, Language::English) => "Set up gw",
+            (Self::SetupIntro, Language::Chinese) => "选择如何初始化，可稍后添加仓库。",
+            (Self::SetupIntro, Language::English) => {
+                "Choose how to set up gw. You can add repositories later."
+            }
+            (Self::SetupAddCurrent, Language::Chinese) => "初始化并添加当前仓库",
+            (Self::SetupAddCurrent, Language::English) => {
+                "Initialize and add the current repository"
+            }
+            (Self::SetupChooseDirectory, Language::Chinese) => "初始化并选择仓库目录",
+            (Self::SetupChooseDirectory, Language::English) => {
+                "Initialize and choose a repository directory"
+            }
+            (Self::SetupInitializeOnly, Language::Chinese) => "仅初始化",
+            (Self::SetupInitializeOnly, Language::English) => "Initialize only",
+            (Self::SetupKeys, Language::Chinese) => "↑↓选择 · Enter 确认 · Esc 退出",
+            (Self::SetupKeys, Language::English) => "↑↓ Select · Enter Confirm · Esc Exit",
+            (Self::ConfigurationMissingSelectedHome, Language::Chinese) => {
+                "所选配置目录尚未初始化，请运行 gw --home <目录> init"
+            }
+            (Self::ConfigurationMissingSelectedHome, Language::English) => {
+                "The selected profile is uninitialized. Run gw --home <directory> init."
+            }
+            (Self::WorktreeNewBranchChoice, Language::Chinese) => "从当前提交新建分支",
+            (Self::WorktreeNewBranchChoice, Language::English) => {
+                "Create a branch from the current commit"
+            }
+            (Self::WorktreeNewBranchNeedsCommit, Language::Chinese) => {
+                "创建工作树前需要至少一个提交"
+            }
+            (Self::WorktreeNewBranchNeedsCommit, Language::English) => {
+                "A commit is required before creating a worktree"
+            }
+            (Self::WorktreeBranchOccupied, Language::Chinese) => "分支已检出于",
+            (Self::WorktreeBranchOccupied, Language::English) => "Branch is checked out at",
+            (Self::TaskCommitCreated, Language::Chinese) => "已提交",
+            (Self::TaskCommitCreated, Language::English) => "Committed",
+            (Self::TaskBranchCreated, Language::Chinese) => "已创建分支",
+            (Self::TaskBranchCreated, Language::English) => "Created branch",
+            (Self::TaskBranchSwitched, Language::Chinese) => "已切换到分支",
+            (Self::TaskBranchSwitched, Language::English) => "Switched to branch",
+            (Self::TaskWorktreeCreated, Language::Chinese) => "已创建工作树",
+            (Self::TaskWorktreeCreated, Language::English) => "Created worktree",
+            (Self::TaskWorktreeRemoved, Language::Chinese) => "已移除工作树",
+            (Self::TaskWorktreeRemoved, Language::English) => "Removed worktree",
+            (Self::TaskFetchedFrom, Language::Chinese) => "已获取远程信息",
+            (Self::TaskFetchedFrom, Language::English) => "Fetched remotes",
+            (Self::TaskBranchPulled, Language::Chinese) => "已快进分支",
+            (Self::TaskBranchPulled, Language::English) => "Fast-forwarded branch",
+            (Self::TaskStashSaved, Language::Chinese) => "已保存改动",
+            (Self::TaskStashSaved, Language::English) => "Stashed changes",
+            (Self::TaskStashApplied, Language::Chinese) => "已恢复改动并保留 stash",
+            (Self::TaskStashApplied, Language::English) => "Applied changes and kept the stash",
+            (Self::TaskStashPopped, Language::Chinese) => "已恢复改动并移除 stash",
+            (Self::TaskStashPopped, Language::English) => "Applied changes and removed the stash",
+            (Self::TaskStashDropped, Language::Chinese) => "已删除 stash",
+            (Self::TaskStashDropped, Language::English) => "Deleted stash",
+            (Self::TaskConflictAccepted, Language::Chinese) => "已采用冲突版本",
+            (Self::TaskConflictAccepted, Language::English) => "Accepted a conflict version",
+            (Self::TaskConflictUndone, Language::Chinese) => "已撤销冲突处理",
+            (Self::TaskConflictUndone, Language::English) => "Undid conflict resolution",
+            (Self::TaskConflictReset, Language::Chinese) => "已重置冲突结果",
+            (Self::TaskConflictReset, Language::English) => "Reset conflict result",
+            (Self::TaskOutput, Language::Chinese) => "原始输出",
+            (Self::TaskOutput, Language::English) => "Original output",
             (Self::ConfigurationMissingRunInit, Language::English) => {
                 concat!(
                     "Configuration is missing; run ",
                     identity::command!(),
-                    " init or specify --home"
+                    " init"
                 )
             }
             (Self::ConfigurationMissingRunInit, Language::Chinese) => {
-                concat!(
-                    "配置不存在，请运行 ",
-                    identity::command!(),
-                    " init，或显式传入 --home"
-                )
+                concat!("配置不存在，请运行 ", identity::command!(), " init")
             }
             (Self::HomeMustBeAnAbsolutePath, Language::English) => {
                 "--home must be an absolute path"
@@ -5812,11 +5984,11 @@ impl Message {
             (Self::RefMismatch, Language::Chinese) => "引用不符",
             (Self::Remote, Language::English) => "Remote",
             (Self::Remote, Language::Chinese) => "远程",
-            (Self::NoRepositoriesMatchAddToAddOne, Language::English) => {
-                "No repositories match; /repos add to add one"
+            (Self::SetupEmptyRepositories, Language::English) => {
+                "No repositories added yet · /repos add to choose a directory"
             }
-            (Self::NoRepositoriesMatchAddToAddOne, Language::Chinese) => {
-                "当前筛选没有仓库；/repos add 添加仓库"
+            (Self::SetupEmptyRepositories, Language::Chinese) => {
+                "尚未添加仓库 · /repos add 选择目录"
             }
             (Self::Path, Language::English) => "Path",
             (Self::Path, Language::Chinese) => "路径",
@@ -5848,11 +6020,17 @@ impl Message {
             (Self::CheckFailedSeeOriginalError, Language::Chinese) => "检查失败，详情见原始错误",
             (Self::RepositoryPathMissing, Language::English) => "Registered path does not exist",
             (Self::RepositoryPathMissing, Language::Chinese) => "注册路径不存在",
-            (Self::RepositoryReadDenied, Language::English) => "Permission denied when reading the local repository",
+            (Self::RepositoryReadDenied, Language::English) => {
+                "Permission denied when reading the local repository"
+            }
             (Self::RepositoryReadDenied, Language::Chinese) => "没有权限读取本地仓库",
-            (Self::RepositoryMissingAtPath, Language::English) => "No Git repository found at the registered path",
+            (Self::RepositoryMissingAtPath, Language::English) => {
+                "No Git repository found at the registered path"
+            }
             (Self::RepositoryMissingAtPath, Language::Chinese) => "注册路径下找不到 Git 仓库",
-            (Self::LocalRepositoryOpenFailed, Language::English) => "Could not open the local Git repository",
+            (Self::LocalRepositoryOpenFailed, Language::English) => {
+                "Could not open the local Git repository"
+            }
             (Self::LocalRepositoryOpenFailed, Language::Chinese) => "无法打开本地 Git 仓库",
             (Self::Reason, Language::English) => "Reason",
             (Self::Reason, Language::Chinese) => "失败原因",
@@ -5912,12 +6090,8 @@ impl Message {
             }
             (Self::FilterCompletionHint, Language::English) => "Tab complete selected item",
             (Self::FilterCompletionHint, Language::Chinese) => "Tab 补全选中项",
-            (Self::SearchEditingHint, Language::English) => {
-                "↑↓ navigate · ←→ cursor · Esc clear"
-            }
-            (Self::SearchEditingHint, Language::Chinese) => {
-                "↑↓ 浏览 · ←→ 移动光标 · Esc 清空"
-            }
+            (Self::SearchEditingHint, Language::English) => "↑↓ navigate · ←→ cursor · Esc clear",
+            (Self::SearchEditingHint, Language::Chinese) => "↑↓ 浏览 · ←→ 移动光标 · Esc 清空",
             (Self::SelectSpaceInsMarkCtrlAAll, Language::English) => {
                 "→/Enter diff · ←/Esc back · Space/Ins mark"
             }

@@ -978,6 +978,52 @@ fn accepting_a_block_keeps_the_controls_open_and_advances_without_staging() {
     assert_eq!(support::git(&f.repo, &["ls-files", "-u"]), "");
     s.shutdown();
 }
+
+#[test]
+fn conflict_actions_mark_the_worktree_result_in_each_layout() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let (_f, _home, mut s) = setup();
+    let mut terminal = Terminal::new(TestBackend::new(180, 44)).unwrap();
+    open_conflict_actions(&mut s);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let preview_area = match &s.mode {
+        Mode::Changes(session) => crate::view::changes::areas(s.body_area.unwrap(), session)
+            .into_iter()
+            .find_map(|(area, focus)| (focus == crate::changes::Focus::Preview).then_some(area))
+            .unwrap(),
+        _ => unreachable!(),
+    };
+    let parts = crate::view::conflict::areas(preview_area, review(&s).mode);
+    let result = parts.result.unwrap();
+    let compare = parts.comparison;
+    let buffer = terminal.backend().buffer();
+    let footer = s.input_area.unwrap();
+    let accent = buffer[(footer.x, footer.y)].fg;
+    assert_eq!(buffer[(result.x, result.y)].fg, accent);
+    assert_ne!(buffer[(compare.x, compare.y)].fg, accent);
+
+    key(&mut s, KeyCode::Esc);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    assert_ne!(terminal.backend().buffer()[(result.x, result.y)].fg, accent);
+
+    command(&mut s, "repo diff conflict --view base-result");
+    open_conflict_actions(&mut s);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let heading = compare.y + 1;
+    let result_heading = (compare.x + 1..compare.right() - 1)
+        .find(|&x| buffer[(x, heading)].symbol() == "工")
+        .unwrap();
+    assert_eq!(buffer[(result_heading, heading)].fg, accent);
+    assert_ne!(buffer[(compare.x + 1, heading)].fg, accent);
+
+    command(&mut s, "repo diff conflict --view left-right");
+    open_conflict_actions(&mut s);
+    let text = render(&mut s, 180, 44);
+    assert!(text.contains("冲突处理 › 工作区结果"), "{text}");
+    s.shutdown();
+}
+
 #[test]
 fn block_navigation_highlights_the_selected_region_and_preserves_all_source_bytes() {
     let (f, _home, mut s, original) = resolution_setup();

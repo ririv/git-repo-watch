@@ -315,6 +315,8 @@ struct Screen {
     filter: Filter,
     query: String,
     search_mode: search::Mode,
+    repository_search_field: repository_list::SearchField,
+    selection_before_repository_filter: Option<PathBuf>,
     order: Order,
     setting_selected: usize,
     settings_focus: Option<settings::Focus>,
@@ -391,6 +393,8 @@ impl Screen {
             filter: Filter::All,
             query: String::new(),
             search_mode: Default::default(),
+            repository_search_field: Default::default(),
+            selection_before_repository_filter: None,
             order: view_preferences.repository_order.into(),
             setting_selected: 0,
             settings_focus: None,
@@ -419,16 +423,19 @@ impl Screen {
     }
     fn rows(&self) -> Vec<Row> {
         let mut rows = Vec::new();
+        let query = self.query.to_lowercase();
         for path in &self.config.repositories {
             let result = self.result_for(path);
             if !self.filter.matches(result, self.repository_status(path)) {
                 continue;
             }
             if self.search_mode == search::Mode::Filter
-                && !path
-                    .to_string_lossy()
+                && !query.is_empty()
+                && !self
+                    .repository_search_field
+                    .text(path)
                     .to_lowercase()
-                    .contains(&self.query.to_lowercase())
+                    .contains(&query)
             {
                 continue;
             }
@@ -595,7 +602,9 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
         io::stdin().is_terminal() && io::stdout().is_terminal(),
         i18n::tr!(InteractiveTerminalRequired)
     );
-    let mut screen = start.resolve(&root)?.open(service, &root)?;
+    let Some(mut screen) = startup::open(start, service, &root)? else {
+        return Ok(());
+    };
     let mut guard = TerminalGuard::enter(screen.config.interaction_mode)?;
     (screen.graphics, screen.background) = graphics::Display::detect();
     let mut link_output = links::Native::default();

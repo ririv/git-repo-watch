@@ -24,6 +24,26 @@ pub(crate) fn areas(area: Rect, session: &Session) -> Vec<(Rect, Focus)> {
     };
     vec![(parts[0], Focus::Files), (parts[1], Focus::Preview)]
 }
+
+pub(super) fn conflict_target(
+    area: Rect,
+    session: &Session,
+) -> Option<super::conflict::ResultTarget> {
+    let Preview::Ready { content, .. } = &session.preview else {
+        return None;
+    };
+    let crate::document::View::Conflict(view) = content.as_ref() else {
+        return None;
+    };
+    if session.feedback.previous().is_some() {
+        return None;
+    }
+    let preview = areas(area, session)
+        .into_iter()
+        .find_map(|(area, focus)| (focus == Focus::Preview).then_some(area))?;
+    super::conflict::result_target(preview, view.mode)
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,

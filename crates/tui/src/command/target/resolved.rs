@@ -133,13 +133,17 @@ impl Resolved<'_> {
                 clipboard::Amount::Files(count) => i18n::tf!(CommandTargetFiles, count = count),
                 clipboard::Amount::Commits(count) => i18n::tf!(CommandTargetCommits, count = count),
             }),
-            Value::Commits(target) => Some(i18n::tf!(
-                CommandTargetCommits,
-                count = match action {
-                    crate::Action::Replay(engine::operations::replay::Kind::Revert) => 1,
-                    _ => target.marked.len(),
+            Value::Commits(target) => match action {
+                crate::Action::Replay(kind) => {
+                    use engine::operations::replay::Kind;
+                    let count = match kind {
+                        Kind::CherryPick => target.marked.len(),
+                        Kind::Revert => 1,
+                    };
+                    Some(i18n::tf!(CommandTargetCommits, count = count))
                 }
-            )),
+                _ => None,
+            },
             Value::Repository(_)
                 if matches!(
                     action,

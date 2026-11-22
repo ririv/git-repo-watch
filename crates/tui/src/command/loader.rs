@@ -76,6 +76,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
                         entry.label
                     },
                     description: entry.detail,
+                    unavailable: None,
                 })
                 .collect::<Vec<_>>();
             if !entries.iter().any(|entry| entry.token == current.value()) {
@@ -85,6 +86,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
                         token: current.value(),
                         label: format!("✓ {}", current.label()),
                         description: i18n::tr!(ExternalEditorCurrent).into(),
+                        unavailable: None,
                     },
                 );
             }
@@ -101,7 +103,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
             Ok(Output::Directory { editor, menu })
         }
         Request::Values {
-            kind: kind @ (Kind::Branch | Kind::WorktreeBranch),
+            kind: Kind::Branch,
             path,
         } => {
             let entries = service
@@ -111,9 +113,40 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
                     token: entry.name.clone(),
                     label: entry.name,
                     description: entry.subject,
+                    unavailable: None,
                 })
                 .collect();
-            Ok(Output::Values { kind, entries })
+            Ok(Output::Values {
+                kind: Kind::Branch,
+                entries,
+            })
+        }
+        Request::Values {
+            kind: Kind::WorktreeBranch,
+            path,
+        } => {
+            let candidates = service.worktree_add_candidates(&path, cancel)?;
+            let mut entries = vec![Choice {
+                token: "--new".into(),
+                label: i18n::tr!(WorktreeNewBranchChoice).into(),
+                description: "--new".into(),
+                unavailable: candidates
+                    .start
+                    .is_none()
+                    .then(|| i18n::tr!(WorktreeNewBranchNeedsCommit).into()),
+            }];
+            entries.extend(candidates.branches.into_iter().map(|entry| Choice {
+                token: entry.name.clone(),
+                label: entry.name,
+                description: entry.subject,
+                unavailable: entry.occupied_at.map(|path| {
+                    format!("{} {}", i18n::tr!(WorktreeBranchOccupied), path.display())
+                }),
+            }));
+            Ok(Output::Values {
+                kind: Kind::WorktreeBranch,
+                entries,
+            })
         }
         Request::Values {
             kind: Kind::Stash,
@@ -127,6 +160,7 @@ fn read(request: Request, service: &Service, cancel: &Cancel) -> anyhow::Result<
                     token: entry.oid.to_string(),
                     label: format!("stash@{{{}}} {}", entry.index, &entry.oid.to_string()[..8]),
                     description: entry.message,
+                    unavailable: None,
                 })
                 .collect();
             Ok(Output::Values {

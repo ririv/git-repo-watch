@@ -4,7 +4,39 @@ use crate::{Mode, Page, Row, Screen};
 use chrono::{DateTime, FixedOffset};
 use engine::{domain::RepositoryResult, service::CachedReport};
 pub(crate) use status::{Counts, Status};
-use std::{cmp::Reverse, path::Path};
+use std::{borrow::Cow, cmp::Reverse, path::Path};
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) enum SearchField {
+    #[default]
+    Name,
+    Path,
+}
+impl SearchField {
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Name => i18n::tr!(RepositorySearchName),
+            Self::Path => i18n::tr!(Path),
+        }
+    }
+
+    pub fn text(self, path: &Path) -> Cow<'_, str> {
+        match self {
+            Self::Name => path
+                .file_name()
+                .unwrap_or(path.as_os_str())
+                .to_string_lossy(),
+            Self::Path => path.to_string_lossy(),
+        }
+    }
+
+    fn next(self) -> Self {
+        match self {
+            Self::Name => Self::Path,
+            Self::Path => Self::Name,
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Filter {
@@ -89,6 +121,26 @@ impl Screen {
     pub(crate) fn repository_list_active(&self) -> bool {
         self.page == Page::Repositories && matches!(self.mode, Mode::Browsing)
     }
+    pub(crate) fn repository_filter_field(&self) -> Option<SearchField> {
+        (self.repository_list_active() && self.search_mode == crate::search::Mode::Filter)
+            .then_some(self.repository_search_field)
+    }
+
+    pub(crate) fn toggle_repository_filter_field(&mut self) -> bool {
+        let Some(field) = self.repository_filter_field() else {
+            return false;
+        };
+        if !matches!(self.active_bar(), crate::bar::InputBar::Search(_))
+            || self.tasks.session.open()
+        {
+            return false;
+        }
+        let selected = self.selected_path();
+        self.repository_search_field = field.next();
+        self.focus(selected);
+        true
+    }
+
     pub(crate) fn list_menu(&mut self, menu: Menu) {
         if !self.repository_list_active() {
             self.message = crate::message::Message::error(i18n::tr!(RepositoryListOnly).into());

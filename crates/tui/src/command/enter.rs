@@ -17,6 +17,12 @@ enum Intent {
     Waiting,
 }
 impl Intent {
+    fn option(action: Action) -> Self {
+        match action {
+            Action::ResetBranch(_) => Self::Review,
+            _ => Self::Apply,
+        }
+    }
     fn text(self) -> String {
         match self {
             Self::Parameters => i18n::tr!(CommandEnterParameters).into(),
@@ -45,8 +51,8 @@ impl super::Command {
                 Intent::Argument
             };
         }
-        if matches!(self.action, Action::ResetBranch(_)) {
-            return Intent::Review;
+        if self.action == Action::ResetMenu {
+            return Intent::Parameters;
         }
         if self.action == Action::OpenMenu || super::named::has_parameters(self) {
             return Intent::Group;
@@ -116,7 +122,7 @@ impl Screen {
                 {
                     return Some(format!("{reason} · {keys}"));
                 }
-                Intent::Apply
+                Intent::option(option.value.action())
             }
             Menu::Directories(_) => Intent::FillPath,
             Menu::History(_) => Intent::FillCommand,
@@ -135,8 +141,7 @@ impl Screen {
                     match argument {
                         ArgumentAction::Option(_) if raw.trim().is_empty() => Intent::Parameters,
                         ArgumentAction::Option(kind) => {
-                            kind.parse(raw).ok()?;
-                            Intent::Apply
+                            Intent::option(kind.parse(raw).ok()?.action())
                         }
                         ArgumentAction::AiPrompt if raw.trim().is_empty() => Intent::Open,
                         ArgumentAction::Editor | ArgumentAction::AiAgent => Intent::FillValue,

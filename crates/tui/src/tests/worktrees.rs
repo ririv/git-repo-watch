@@ -62,6 +62,48 @@ fn worktree_list_creates_opens_and_removes_a_linked_checkout() {
     screen.shutdown();
 }
 
+#[test]
+fn creating_a_worktree_offers_a_new_branch_and_marks_a_checked_out_branch_unavailable() {
+    use crate::command::completion::Menu;
+    let repo = support::Fixture::create();
+    let (_home, mut screen) = fixture(vec![repo.repo.clone()]);
+    command(&mut screen, "repo worktree");
+    wait(&mut screen);
+    screen.paste("//repo worktree add ");
+    wait(&mut screen);
+    let crate::bar::InputBar::Command {
+        menu: Menu::Values(values),
+        ..
+    } = screen.active_bar()
+    else {
+        panic!("worktree branch candidates");
+    };
+    let occupied = values
+        .entries()
+        .find(|entry| entry.token == "main")
+        .unwrap();
+    assert!(
+        occupied
+            .unavailable
+            .as_ref()
+            .unwrap()
+            .contains(repo.repo.to_str().unwrap())
+    );
+    assert!(
+        values
+            .entries()
+            .any(|entry| entry.token == "--new" && entry.unavailable.is_none())
+    );
+    assert!(render(&mut screen, 180, 32).contains(i18n::tr!(WorktreeNewBranchChoice)));
+    key(&mut screen, KeyCode::Down);
+    key(&mut screen, KeyCode::Enter);
+    assert!(render(&mut screen, 180, 32).contains(i18n::tr!(WorktreeBranchOccupied)));
+    key(&mut screen, KeyCode::Up);
+    key(&mut screen, KeyCode::Enter);
+    assert!(screen.active_bar().text().ends_with("--new "));
+    screen.shutdown();
+}
+
 fn confirm_worktree(screen: &mut Screen) {
     assert!(
         matches!(&screen.mode, Mode::Confirm {

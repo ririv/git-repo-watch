@@ -89,6 +89,7 @@ pub enum Action {
     LogParent,
     Select(SelectionAction),
     Replay(engine::operations::replay::Kind),
+    ResetMenu,
     ResetBranch(engine::operations::reset::Mode),
     ReplayControl(engine::operations::replay::Control),
     FileLayoutMenu,
@@ -253,8 +254,8 @@ pub const COMMANDS: &[Command] = &[
     },
     Command {
         name: "repo log reset",
-        action: ResetBranch(engine::operations::reset::Mode::Soft),
-        description: i18n::Message::ResetCommand,
+        action: ResetMenu,
+        description: i18n::Message::ResetMode,
     },
     Command {
         name: "repo continue",

@@ -256,10 +256,10 @@ fn partial_search_connects_every_matched_parent_without_losing_cross_group_resul
             s.config.ai.enabled = true;
             s.paste(entry);
             let before = s.bar.text();
-            let commands = s.search_commands().unwrap();
-            let names = commands
+            let candidates = s.command_candidates().unwrap();
+            let names = candidates
                 .iter()
-                .map(|command| command.name)
+                .map(|candidate| candidate.owner().name)
                 .collect::<Vec<_>>();
             for (parent, child, label) in [
                 ("repo commit", "repo commit generate", "└─ generate"),

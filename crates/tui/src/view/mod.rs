@@ -40,6 +40,7 @@ mod settings;
 mod shell;
 pub(crate) mod stash_save;
 mod stashes;
+mod synchronization;
 mod tasks;
 mod text_editor;
 #[cfg(feature = "developer-scheduler")]

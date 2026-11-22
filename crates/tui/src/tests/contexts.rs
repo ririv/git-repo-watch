@@ -358,7 +358,8 @@ fn repository_command_returns_from_a_repository_to_the_same_filtered_searched_li
     let other = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone(), other.repo.clone()]);
     s.order = Order::Path;
-    s.query = f.repo.to_string_lossy().to_string();
+    assert!(s.toggle_repository_filter_field());
+    s.query = f.repo.to_string_lossy().into_owned();
     s.sync_bar();
     s.focus(Some(f.repo.clone()));
     key(&mut s, KeyCode::Enter);
@@ -369,6 +370,10 @@ fn repository_command_returns_from_a_repository_to_the_same_filtered_searched_li
     assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(s.selected_path(), Some(f.repo));
     assert_eq!(s.order, Order::Path);
+    assert_eq!(
+        s.repository_filter_field(),
+        Some(crate::repository_list::SearchField::Path)
+    );
     assert_eq!(s.bar.editor().text, s.query);
     assert!(s.history.is_empty());
     s.shutdown();

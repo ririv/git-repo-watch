@@ -51,6 +51,40 @@ pub(crate) fn highlight(frame: &mut Frame, area: Rect, mode: DisplayMode, focus:
         }
     }
 }
+
+pub(super) enum ResultTarget {
+    Pane(Rect),
+    Heading(Rect),
+}
+
+impl ResultTarget {
+    pub(super) fn highlight(self, frame: &mut Frame, accent: Color) {
+        match self {
+            Self::Pane(area) => highlight_border_with(frame, area, accent),
+            Self::Heading(area) => frame
+                .buffer_mut()
+                .set_style(area, Style::default().fg(accent)),
+        }
+    }
+}
+
+pub(super) fn result_target(area: Rect, mode: DisplayMode) -> Option<ResultTarget> {
+    let areas = areas(area, mode);
+    if let Some(result) = areas.result {
+        return (!result.is_empty()).then_some(ResultTarget::Pane(result));
+    }
+    let content = block("").inner(areas.comparison);
+    let (panel, _) = panels(content, layout::Arrangement::Columns, mode)
+        .into_iter()
+        .find(|(panel, index)| *index == 3 && !panel.is_empty())?;
+    Some(ResultTarget::Heading(Rect::new(
+        panel.x,
+        panel.y,
+        panel.width,
+        1,
+    )))
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,

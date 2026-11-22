@@ -12,8 +12,8 @@ mod command_hierarchy;
 mod command_history;
 mod command_navigation;
 mod command_polish;
-mod command_trigger;
 mod command_targets;
+mod command_trigger;
 mod command_values;
 mod command_visibility;
 mod commands;
@@ -172,6 +172,8 @@ fn screen(service: Service) -> Screen {
         filter: Filter::All,
         query: String::new(),
         search_mode: Default::default(),
+        repository_search_field: Default::default(),
+        selection_before_repository_filter: None,
         order: view_preferences.repository_order.into(),
         setting_selected: 0,
         settings_focus: None,

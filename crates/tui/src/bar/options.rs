@@ -42,7 +42,15 @@ impl Screen {
         path: Option<PathBuf>,
         selection: crate::clipboard::Selection,
     ) {
-        self.open_command_entry(kind.command(), path, selection);
+        let command = kind.command();
+        let editor = command::named::parameters(command)
+            .find(|parameter| parameter.kind == kind)
+            .map_or_else(
+                || Editor::new(format!("/{} ", command.name)),
+                |parameter| parameter.value_editor(""),
+            );
+        let input = command::Input::from_canonical(self.command_context(), editor);
+        self.open_command_input(input, path, selection);
     }
     pub(crate) fn open_command_entry(
         &mut self,
@@ -56,6 +64,14 @@ impl Screen {
         } else {
             command::Input::from_canonical(self.command_context(), editor)
         };
+        self.open_command_input(input, path, selection);
+    }
+    fn open_command_input(
+        &mut self,
+        input: command::Input,
+        path: Option<PathBuf>,
+        selection: crate::clipboard::Selection,
+    ) {
         *self.active_bar_mut() = InputBar::Command {
             input,
             selected: 0,

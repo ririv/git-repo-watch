@@ -223,11 +223,13 @@ fn pending_reads_filter_the_latest_query_and_cancelled_directory_results_do_not_
                     token: "中文".into(),
                     label: "中文".into(),
                     description: String::new(),
+                    unavailable: None,
                 },
                 Choice {
                     token: "other".into(),
                     label: "other".into(),
                     description: String::new(),
+                    unavailable: None,
                 },
             ],
         })

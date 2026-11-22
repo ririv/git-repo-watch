@@ -470,6 +470,10 @@ impl Store {
     pub fn legacy_config_path(&self) -> PathBuf {
         self.config_dir().join("config.json")
     }
+    /// Whether a profile has neither current configuration nor a legacy migration to perform.
+    pub fn needs_initialization(&self) -> Result<bool> {
+        Ok(!self.config_path().try_exists()? && !self.legacy_config_path().try_exists()?)
+    }
     pub fn config(&self) -> Result<Config> {
         ensure!(
             !self.legacy_config_path().try_exists()?,
@@ -477,7 +481,10 @@ impl Store {
         );
         ensure!(
             self.config_path().try_exists()?,
-            i18n::tr!(ConfigurationMissingRunInit)
+            match self {
+                Self::Standard { .. } => i18n::tr!(ConfigurationMissingRunInit),
+                Self::Custom { .. } => i18n::tr!(ConfigurationMissingSelectedHome),
+            }
         );
         parse(
             &fs::read_to_string(self.config_path())

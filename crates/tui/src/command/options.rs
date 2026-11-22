@@ -512,7 +512,7 @@ impl Kind {
         match self {
             Self::StashPreview => Action::StashPreviewMenu,
             Self::Conflict => Action::ConflictMenu,
-            Self::Reset => Action::ResetBranch(engine::operations::reset::Mode::Soft),
+            Self::Reset => Action::ResetMenu,
             Self::StashSave => Action::StashSave,
             Self::DiffSelection => Action::PartialSelectMenu,
             Self::BranchFilter => Action::BranchFilterMenu,
@@ -554,8 +554,7 @@ impl Kind {
                 Value::StashPreview(detail.scope)
             }
             Self::DiffSelection => Value::DiffSelection(screen.partial_mode()?),
-            Self::ComposeOrder | Self::StashSave => return None,
-            Self::Reset => Value::Reset(engine::operations::reset::Mode::Soft),
+            Self::ComposeOrder | Self::StashSave | Self::Reset => return None,
             Self::DiffHeader => Value::DiffHeader(screen.diff_header),
             #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),

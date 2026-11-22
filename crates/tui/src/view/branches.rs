@@ -36,7 +36,7 @@ pub(super) fn render(
                 .unwrap_or_else(|| format!("{}: {}", i18n::tr!(HistoryInvalidTime), entry.time));
             lines.push(field(i18n::tr!(HistoryTime), &time));
             if let Kind::Local(tracking) = &entry.kind {
-                lines.push(field(i18n::tr!(OverviewUpstream), &upstream(tracking)));
+                lines.push(synchronization::upstream(tracking));
                 lines.push(Line::styled(
                     i18n::tr!(BranchLocalRefs),
                     Style::default().fg(MUTED),
@@ -96,9 +96,9 @@ pub(super) fn list(
         .enumerate()
         .map(|(index, entry)| {
             let current = session.snapshot.current(entry);
-            let (kind, color, suffix) = match &entry.kind {
-                Kind::Local(tracking) => (i18n::tr!(BranchLocal), GOOD, compact(tracking)),
-                Kind::Remote => (i18n::tr!(BranchRemote), ACCENT, String::new()),
+            let (kind, color) = match entry.kind {
+                Kind::Local(_) => (i18n::tr!(BranchLocal), GOOD),
+                Kind::Remote => (i18n::tr!(BranchRemote), ACCENT),
             };
             let mut spans = vec![Span::styled(
                 format!("{} ", if current { "*" } else { " " }),
@@ -115,10 +115,10 @@ pub(super) fn list(
                 )
                 .spans,
             );
-            spans.push(Span::styled(
-                format!("{kind}{suffix}"),
-                Style::default().fg(MUTED),
-            ));
+            spans.push(Span::styled(kind, Style::default().fg(MUTED)));
+            if let Kind::Local(tracking) = &entry.kind {
+                append_comparison(&mut spans, tracking);
+            }
             ListItem::new(Line::from(spans)).style(row_style(selection == Some(index)))
         })
         .collect::<Vec<_>>();
@@ -138,27 +138,22 @@ pub(super) fn list(
         crate::pointer::Target::Branches,
     );
 }
-fn compact(tracking: &Result<Tracking, String>) -> String {
+fn append_comparison(spans: &mut Vec<Span<'static>>, tracking: &Result<Tracking, String>) {
+    let muted = Style::default().fg(MUTED);
     match tracking {
-        Ok(Tracking::Absent) => String::new(),
+        Ok(Tracking::Absent) => {}
         Ok(Tracking::Local { comparison, .. } | Tracking::Remote { comparison, .. }) => {
             match comparison {
-                Comparison::Known { ahead, behind } => format!(" ↑{ahead} ↓{behind}"),
-                Comparison::Missing => format!(" · {}", i18n::tr!(OverviewGone)),
+                Comparison::Known { ahead, behind } => {
+                    spans.push(Span::raw(" "));
+                    spans.extend(synchronization::commit_counts(*ahead, *behind));
+                }
+                Comparison::Missing => spans.push(Span::styled(
+                    format!(" · {}", i18n::tr!(OverviewGone)),
+                    muted,
+                )),
             }
         }
-        Err(_) => " !".into(),
-    }
-}
-fn upstream(tracking: &Result<Tracking, String>) -> String {
-    match tracking {
-        Ok(Tracking::Absent) => i18n::tr!(NoUpstream).into(),
-        Ok(Tracking::Local { name, comparison } | Tracking::Remote { name, comparison }) => {
-            match comparison {
-                Comparison::Known { ahead, behind } => format!("{name} · ↑{ahead} ↓{behind}"),
-                Comparison::Missing => format!("{name} · {}", i18n::tr!(OverviewGone)),
-            }
-        }
-        Err(error) => multiline(error),
+        Err(_) => spans.push(Span::styled(" !", muted)),
     }
 }

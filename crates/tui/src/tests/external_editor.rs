@@ -23,11 +23,13 @@ fn editor_completion_prefers_explicit_identity_over_current_command_details() {
             token: "git".into(),
             label: "✓ 跟随 Git".into(),
             description: "code --reuse-window".into(),
+            unavailable: None,
         },
         Choice {
             token: "code".into(),
             label: "Visual Studio Code".into(),
             description: "/usr/local/bin/code".into(),
+            unavailable: None,
         },
     ];
     let empty = Input::global(Editor::new("/settings editor ".into()));

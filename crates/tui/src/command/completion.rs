@@ -16,6 +16,9 @@ pub(crate) enum Menu {
 pub(crate) trait Selection {
     fn advance(&mut self, backwards: bool);
     fn choose(&self) -> Option<Editor>;
+    fn unavailable(&self) -> Option<&str> {
+        None
+    }
 }
 impl Selection for path::Directories {
     fn advance(&mut self, backwards: bool) {
@@ -31,6 +34,9 @@ impl Selection for super::values::Candidates {
     }
     fn choose(&self) -> Option<Editor> {
         self.choose()
+    }
+    fn unavailable(&self) -> Option<&str> {
+        self.unavailable()
     }
 }
 impl Menu {

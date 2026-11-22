@@ -265,7 +265,7 @@ fn unread_failures_survive_success_and_reading_preserves_the_original_result() {
     assert_eq!(journal.records.len(), 3);
     let opened = reopened.task(&older_id).unwrap().unwrap();
     assert!(matches!(&opened.state, State::Finished {
-        outcome: Outcome::Failed { detail, resolution: Resolution::Pending, read: FailureRead::Read { .. } }, ..
+        outcome: Outcome::Failed { detail, resolution: Resolution::Pending, read: FailureRead::Read { .. }, .. }, ..
     } if detail == "older failure"));
     reopened.read_task_failure(&older_id).unwrap();
     assert_eq!(reopened.task(&older_id).unwrap().unwrap(), opened);

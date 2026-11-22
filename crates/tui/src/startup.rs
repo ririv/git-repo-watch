@@ -1,5 +1,6 @@
 //! Resolve the initial view independently from persistent repository registration.
-use crate::{Screen, Service};
+mod setup;
+use crate::{Screen, Service, clipboard, command};
 use anyhow::Result;
 use engine::cancel::Cancel;
 use std::path::{Path, PathBuf};
@@ -45,5 +46,33 @@ impl Entry {
                 Ok(screen)
             }
         }
+    }
+}
+
+pub(super) fn open(start: Start, service: Service, cancel: &Cancel) -> Result<Option<Screen>> {
+    let entry = start.resolve(cancel)?;
+    if !service.store.needs_initialization()? {
+        return entry.open(service, cancel).map(Some);
+    }
+    let Some(choice) = setup::choose(&entry, &service.store.config_path(), cancel)? else {
+        return Ok(None);
+    };
+    cancel.check()?;
+    service.store.initialize()?;
+    match choice {
+        setup::Choice::CurrentRepository(path) => {
+            service.add(&[path.to_owned()])?;
+            entry.open(service, cancel).map(Some)
+        }
+        setup::Choice::Directory => {
+            let mut screen = Entry::Repositories.open(service, cancel)?;
+            screen.open_command_entry(
+                command::ConfigArgument::Add.command(),
+                None,
+                clipboard::Selection::None,
+            );
+            Ok(Some(screen))
+        }
+        setup::Choice::Later => entry.open(service, cancel).map(Some),
     }
 }

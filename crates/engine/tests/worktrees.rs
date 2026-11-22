@@ -16,6 +16,22 @@ fn worktree_plans_preserve_the_source_and_refuse_unreviewed_files() {
     let git_backend = Git::default();
     let source = &fixture.repo;
     let source_head = open(source).unwrap().head().unwrap().target();
+    let unavailable = worktrees::prepare(
+        source,
+        Request::Add {
+            branch: Branch::Existing,
+            name: "main".into(),
+            directory: fixture.temp.path().join("already checked out"),
+        },
+        &cancel,
+    )
+    .unwrap_err();
+    assert!(
+        unavailable
+            .to_string()
+            .contains(&source.to_string_lossy().to_string())
+    );
+
     let linked = fixture.temp.path().join("工作树 with spaces");
     let request = Request::Add {
         branch: Branch::New,
@@ -31,6 +47,17 @@ fn worktree_plans_preserve_the_source_and_refuse_unreviewed_files() {
         open(&linked).unwrap().head().unwrap().shorthand().unwrap(),
         "topic"
     );
+
+    let candidates = worktrees::add_candidates(source, &cancel).unwrap();
+    for (name, expected) in [("main", source), ("topic", &linked)] {
+        let candidate = candidates
+            .branches
+            .iter()
+            .find(|entry| entry.name == name)
+            .unwrap();
+        assert_eq!(candidate.occupied_at.as_ref(), Some(expected));
+    }
+    assert_eq!(candidates.start, source_head);
 
     let snapshot = worktrees::read(source, &cancel).unwrap();
     assert_eq!(snapshot.entries.len(), 2);

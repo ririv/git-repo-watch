@@ -81,14 +81,21 @@ pub(super) fn render_values(
             let label = crate::horizontal::clip(&Line::from(safe(&entry.label)), 0, label_width);
             let gap = label_width.saturating_sub(label.width()) + 2;
             let description = crate::horizontal::clip(
-                &Line::from(safe(&entry.description)),
+                &Line::from(safe(
+                    entry.unavailable.as_deref().unwrap_or(&entry.description),
+                )),
                 0,
                 width.saturating_sub(label_width + 2),
             );
+            let label_style = if entry.unavailable.is_some() {
+                Style::default().fg(MUTED)
+            } else {
+                Style::default().fg(PARAMETER).bold()
+            };
             let mut spans = label
                 .spans
                 .into_iter()
-                .map(|span| span.style(Style::default().fg(PARAMETER).bold()))
+                .map(|span| span.style(label_style))
                 .collect::<Vec<_>>();
             spans.push(Span::raw(
                 " ".repeat(gap.min(width.saturating_sub(label_width))),

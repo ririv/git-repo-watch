@@ -5,6 +5,7 @@ use crate::cancel::Cancel;
 use anyhow::{Context, Result, bail};
 use std::{
     ffi::OsString,
+    fmt,
     io::Read,
     path::Path,
     process::{Command, Stdio},
@@ -18,18 +19,74 @@ pub struct Output {
     pub stdout: Vec<u8>,
     pub stderr: Vec<u8>,
 }
+#[derive(Debug)]
+pub struct Failure {
+    label: String,
+    code: i32,
+    stderr: String,
+    stdout: String,
+}
+
+fn diagnostic<'a, I: Iterator<Item = &'a str>>(lines: impl Fn() -> I) -> Option<&'a str> {
+    let candidates = || lines().map(str::trim).filter(|line| !line.is_empty());
+    for marker in ["❌", "fatal: ", "error: "] {
+        if let Some(reason) = candidates().find_map(|line| {
+            line.strip_prefix(marker)
+                .map(str::trim)
+                .filter(|reason| !reason.is_empty())
+        }) {
+            return Some(reason);
+        }
+    }
+    candidates().next()
+}
+
+impl Failure {
+    pub(crate) fn summary(&self) -> Option<&str> {
+        diagnostic(|| self.stderr.lines().chain(self.stdout.lines()))
+    }
+
+    /// Recognize the persisted Git process error, including an outer operation or phase label.
+    pub(crate) fn git_summary(detail: &str) -> Option<&str> {
+        for (opening, closing) in [("git failed (", "):\n"), ("git 失败（", "）：\n")] {
+            if let Some((code, output)) = detail
+                .split_once(opening)
+                .and_then(|(_, rest)| rest.split_once(closing))
+                && code.parse::<i32>().is_ok()
+            {
+                return diagnostic(|| output.lines());
+            }
+        }
+        None
+    }
+}
+
+impl fmt::Display for Failure {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(&i18n::tf!(
+            LabelFailed,
+            self.code,
+            self.stderr,
+            self.stdout,
+            label = self.label
+        ))
+    }
+}
+
+impl std::error::Error for Failure {}
+
 impl Output {
     pub fn success(self, label: &str) -> Result<Vec<u8>> {
         if self.code == 0 {
             Ok(self.stdout)
         } else {
-            bail!(i18n::tf!(
-                LabelFailed,
-                self.code,
-                String::from_utf8_lossy(&self.stderr),
-                String::from_utf8_lossy(&self.stdout),
-                label = label
-            ))
+            Err(Failure {
+                label: label.to_owned(),
+                code: self.code,
+                stderr: String::from_utf8_lossy(&self.stderr).into_owned(),
+                stdout: String::from_utf8_lossy(&self.stdout).into_owned(),
+            }
+            .into())
         }
     }
 }

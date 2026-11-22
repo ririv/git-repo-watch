@@ -158,6 +158,9 @@ impl Resolved<'_> {
                     engine::operations::replay::Kind::Revert => vec![commits.selected],
                 },
             },
+            (Value::Commits(commits), Action::ResetMenu) => Request::Local {
+                path: Some(commits.repository.to_owned()),
+            },
             (Value::Commits(commits), Action::ResetBranch(mode)) => Request::ResetBranch {
                 mode,
                 repository: commits.repository.to_owned(),
