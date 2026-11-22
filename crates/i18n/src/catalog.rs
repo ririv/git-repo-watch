@@ -270,7 +270,6 @@ pub enum Message {
     CommandEnterOpen,
     CommandEnterRun,
     CommandEnterApply,
-    CommandEnterFillCommand,
     CommandEnterFillPath,
     CommandEnterFillValue,
     CommandEnterWaiting,
@@ -1558,10 +1557,10 @@ impl Message {
             (Self::CommandHistoryEmpty, Language::Chinese) => "暂无命令历史",
             (Self::CommandHistoryEmpty, Language::English) => "No command history yet",
             (Self::CommandHistoryHint, Language::Chinese) => {
-                "↑↓选择 · Enter/Tab 填入 · Esc 返回命令"
+                "↑↓选择 · Enter 执行 · Tab 填入 · Esc 返回命令"
             }
             (Self::CommandHistoryHint, Language::English) => {
-                "↑↓ select · Enter/Tab fill · Esc commands"
+                "↑↓ select · Enter run · Tab fill · Esc commands"
             }
             (Self::InvalidCommandHistory, Language::Chinese) => "命令历史格式或容量不受支持",
             (Self::InvalidCommandHistory, Language::English) => {
@@ -2308,8 +2307,6 @@ impl Message {
             (Self::CommandEnterApply, Language::Chinese) => "Enter 应用",
             (Self::CommandEnterOpen, Language::English) => "Enter open",
             (Self::CommandEnterOpen, Language::Chinese) => "Enter 打开",
-            (Self::CommandEnterFillCommand, Language::English) => "Enter fill command",
-            (Self::CommandEnterFillCommand, Language::Chinese) => "Enter 填入命令",
             (Self::CommandEnterFillPath, Language::English) => "Enter fill path",
             (Self::CommandEnterFillPath, Language::Chinese) => "Enter 填入路径",
             (Self::CommandEnterFillValue, Language::English) => "Enter use selected value",

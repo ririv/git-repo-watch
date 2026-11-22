@@ -11,7 +11,6 @@ enum Intent {
     Open,
     Run,
     Apply,
-    FillCommand,
     FillPath,
     FillValue,
     Waiting,
@@ -33,7 +32,6 @@ impl Intent {
             Self::Open => i18n::tr!(CommandEnterOpen).into(),
             Self::Run => i18n::tr!(CommandEnterRun).into(),
             Self::Apply => i18n::tr!(CommandEnterApply).into(),
-            Self::FillCommand => i18n::tr!(CommandEnterFillCommand).into(),
             Self::FillPath => i18n::tr!(CommandEnterFillPath).into(),
             Self::FillValue => i18n::tr!(CommandEnterFillValue).into(),
             Self::Waiting => i18n::tr!(CommandEnterWaiting).into(),
@@ -125,7 +123,7 @@ impl Screen {
                 Intent::option(option.value.action())
             }
             Menu::Directories(_) => Intent::FillPath,
-            Menu::History(_) => Intent::FillCommand,
+            Menu::History(_) => return Some(i18n::tr!(CommandHistoryHint).into()),
             Menu::Values(_) => Intent::FillValue,
             Menu::Loading(_) => Intent::Waiting,
             Menu::Failed(_) => return None,

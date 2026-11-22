@@ -715,14 +715,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 let hint = if matches!(
                     bar,
                     crate::bar::InputBar::Command {
-                        menu: command::completion::Menu::History(_),
-                        ..
-                    }
-                ) {
-                    i18n::tr!(CommandHistoryHint)
-                } else if matches!(
-                    bar,
-                    crate::bar::InputBar::Command {
                         menu: command::completion::Menu::Loading(_),
                         ..
                     }

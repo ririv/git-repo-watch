@@ -40,6 +40,8 @@ fn history_entry_preserves_plain_list_navigation_and_only_opens_at_the_empty_com
     ));
     key(&mut s, KeyCode::Up);
     assert!(history(&s).entries.is_empty());
+    key(&mut s, KeyCode::Enter);
+    assert!(history(&s).entries.is_empty());
     let text = render(&mut s, 80, 24);
     assert!(text.contains(i18n::tr!(CommandHistoryEmpty)), "{text}");
     key(&mut s, KeyCode::Esc);
@@ -57,7 +59,7 @@ fn history_entry_preserves_plain_list_navigation_and_only_opens_at_the_empty_com
 }
 
 #[test]
-fn history_records_submissions_with_options_and_fills_without_executing() {
+fn history_runs_selected_commands_and_tab_only_fills_the_draft() {
     let (home, mut s) = fixture(vec![]);
     s.paste("/repos filter");
     key(&mut s, KeyCode::Tab);
@@ -97,9 +99,6 @@ fn history_records_submissions_with_options_and_fills_without_executing() {
     );
     key(&mut s, KeyCode::Up);
     key(&mut s, KeyCode::Enter);
-    assert_eq!(s.filter, Filter::All);
-    assert_eq!(s.bar.text(), "/repos filter problems");
-    key(&mut s, KeyCode::Enter);
     assert_eq!(s.filter, Filter::Problems);
     assert_eq!(
         Store::custom(home.path().into()).command_history().unwrap(),
@@ -129,8 +128,11 @@ fn history_records_submissions_with_options_and_fills_without_executing() {
         &Cancel::default(),
     )
     .unwrap();
-    assert_eq!(s.bar.text(), "/repos filter all");
-    assert_eq!(s.filter, Filter::Problems);
+    assert_eq!(s.filter, Filter::All);
+    assert_eq!(
+        Store::custom(home.path().into()).command_history().unwrap(),
+        ["/repos filter all", "/repos filter problems"]
+    );
     s.shutdown();
 }
 
@@ -215,12 +217,9 @@ fn history_retains_the_newly_captured_repository_and_hides_disabled_features() {
     s.focus(Some(second.repo.clone()));
     key(&mut s, KeyCode::Up);
     assert_eq!(history(&s).entries, ["/repo branch create history-test"]);
-    key(&mut s, KeyCode::Enter);
-    assert_eq!(s.bar.text(), "/repo branch create history-test");
     assert!(
         matches!(&s.bar, bar::InputBar::Command { path: Some(path), .. } if path == &first.repo)
     );
-    assert!(matches!(s.mode, Mode::Browsing));
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert!(

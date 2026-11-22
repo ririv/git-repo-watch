@@ -1,4 +1,4 @@
-//! History is a completion source; accepting a row only fills the command draft.
+//! Command history supplies canonical drafts for completion and submission.
 use crate::Editor;
 
 #[derive(Debug)]

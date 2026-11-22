@@ -50,10 +50,14 @@ impl Screen {
         }
         let InputBar::Command {
             input,
-            menu: Menu::History(history),
+            selected,
+            menu,
             ..
         } = self.active_bar_mut()
         else {
+            return false;
+        };
+        let Menu::History(history) = menu else {
             return false;
         };
         match key.code {
@@ -66,21 +70,18 @@ impl Screen {
                 };
                 // 历史保存完整命令；仓库和选中目标仍使用本次打开菜单时捕获的上下文。
                 *input = command::Input::global(editor);
-                if let InputBar::Command { menu, selected, .. } = self.active_bar_mut() {
-                    *menu = Menu::Commands;
-                    *selected = 0;
+                *menu = Menu::Commands;
+                *selected = 0;
+                if key.code == KeyCode::Enter {
+                    // 同一次 Enter 继续交给普通命令解析、目标校验和确认流程。
+                    self.message.clear();
+                    return false;
                 }
                 self.refresh_option_candidates();
             }
-            KeyCode::Esc => {
-                if let InputBar::Command { menu, .. } = self.active_bar_mut() {
-                    *menu = Menu::Commands;
-                }
-            }
+            KeyCode::Esc => *menu = Menu::Commands,
             _ => {
-                if let InputBar::Command { menu, .. } = self.active_bar_mut() {
-                    *menu = Menu::Commands;
-                }
+                *menu = Menu::Commands;
                 return false;
             }
         }
