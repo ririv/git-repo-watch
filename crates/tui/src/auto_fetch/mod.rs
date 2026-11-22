@@ -155,22 +155,25 @@ impl Screen {
             .due(now)
             .into_iter()
             .filter(|path| {
-                !self.auto_fetch.workers.contains_key(path)
-                    && !self.repository_tasks.contains_key(path)
-                    && !self.live.is_reading(path)
-                    && !self
-                        .check_task
-                        .as_ref()
-                        .is_some_and(|task| task.fetching(path))
-                    && !(self.workspace.path() == Some(path.as_path()) && self.workspace.loading())
-                    && !self.tasks.records.iter().any(|task| {
+                let workspace_loading =
+                    self.workspace.path() == Some(path.as_path()) && self.workspace.loading();
+                let checking = self
+                    .check_task
+                    .as_ref()
+                    .is_some_and(|task| task.fetching(path));
+                !(self.auto_fetch.workers.contains_key(path)
+                    || self.repository_tasks.contains_key(path)
+                    || self.live.is_reading(path)
+                    || checking
+                    || workspace_loading
+                    || self.tasks.records.iter().any(|task| {
                         task.active()
                             && match &task.spec.scope {
                                 Scope::All => true,
                                 Scope::Repository { path: active } => active == path,
                                 Scope::Application => false,
                             }
-                    })
+                    }))
             })
             .take(available)
             .collect::<Vec<_>>();

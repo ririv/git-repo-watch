@@ -55,7 +55,7 @@ pub fn parse_words(value: &str) -> Result<Vec<String>> {
 }
 
 pub fn display_words<'a>(words: impl IntoIterator<Item = &'a str>) -> String {
-    shlex::try_join(words.into_iter()).expect("validated Git environment contains no NUL bytes")
+    shlex::try_join(words).expect("validated Git environment contains no NUL bytes")
 }
 
 pub fn validate_variable(name: &str) -> Result<()> {

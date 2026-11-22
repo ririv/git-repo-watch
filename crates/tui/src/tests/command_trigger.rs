@@ -45,7 +45,7 @@ fn alias_retains_scope_supports_global_escape_and_replaces_selected_prefix() {
             selected: 0,
             menu: Default::default(),
             path: None,
-            selection: crate::clipboard::Selection::None,
+            selection: Default::default(),
             repository: Default::default(),
         };
         key(&mut s, KeyCode::Char('、'));

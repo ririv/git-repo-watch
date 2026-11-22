@@ -7,33 +7,47 @@ use crate::history::{Session, View};
 use crate::search::highlight::{self, Emphasis};
 use engine::local::history::{Continuation, Entry, Head, Label, References};
 
+pub(super) struct RenderContext<'a> {
+    pub icons: crate::file_icons::Display,
+    pub preview: &'a mut crate::history::preview::Preview,
+    pub graphics: &'a mut crate::graphics::Display,
+    pub hits: &'a mut crate::pointer::Map,
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
     view: &mut View,
     preference: crate::diff::Options,
-    icons: crate::file_icons::Display,
-    preview: &mut crate::history::preview::Preview,
-    graphics: &mut crate::graphics::Display,
-    hits: &mut crate::pointer::Map,
+    context: RenderContext<'_>,
 ) {
     match view {
         View::Graph(session) => graph(
             frame,
             area,
             session,
-            icons,
-            preview,
-            graphics,
-            hits,
+            context,
             name(&session.references.path),
         ),
-        View::Commit(commit) => {
-            super::inspection::render(frame, area, &mut commit.inspect, preference, icons, hits)
-        }
+        View::Commit(commit) => super::inspection::render(
+            frame,
+            area,
+            &mut commit.inspect,
+            preference,
+            context.icons,
+            context.hits,
+        ),
         View::Diff {
             content, scroll, ..
-        } => super::document::render(frame, area, content, scroll, preference, graphics, hits),
+        } => super::document::render(
+            frame,
+            area,
+            content,
+            scroll,
+            preference,
+            context.graphics,
+            context.hits,
+        ),
     }
 }
 
@@ -79,19 +93,13 @@ pub(super) fn panel(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
-    icons: crate::file_icons::Display,
-    preview: &mut crate::history::preview::Preview,
-    graphics: &mut crate::graphics::Display,
-    hits: &mut crate::pointer::Map,
+    context: RenderContext<'_>,
 ) {
     graph(
         frame,
         area,
         session,
-        icons,
-        preview,
-        graphics,
-        hits,
+        context,
         i18n::tr!(WorkspaceHistory).into(),
     );
 }
@@ -100,12 +108,15 @@ fn graph(
     frame: &mut Frame,
     area: Rect,
     session: &mut Session,
-    icons: crate::file_icons::Display,
-    preview: &mut crate::history::preview::Preview,
-    graphics: &mut crate::graphics::Display,
-    hits: &mut crate::pointer::Map,
+    context: RenderContext<'_>,
     title: String,
 ) {
+    let RenderContext {
+        icons,
+        preview,
+        graphics,
+        hits,
+    } = context;
     let parts = if area.width >= 120 && area.height >= 10 && !session.records.is_empty() {
         Layout::horizontal([Constraint::Min(65), Constraint::Length(42)]).split(area)
     } else {

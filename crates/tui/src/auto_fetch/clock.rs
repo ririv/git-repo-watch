@@ -15,46 +15,6 @@ pub(super) enum Clock {
     },
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    #[test]
-    fn deadlines_follow_completion_and_interval_changes_without_catchup() {
-        let at = Instant::now();
-        let a = PathBuf::from("/a");
-        let b = PathBuf::from("/b");
-        let mut clock = Clock::default();
-        clock.configure(true, 180, &[a.clone(), b.clone()]);
-        assert_eq!(clock.due(at), [a.clone(), b.clone()]);
-        clock.started(&a);
-        clock.started(&b);
-        assert!(clock.due(at + Duration::from_secs(600)).is_empty());
-        clock.finished(&a, at);
-        clock.finished(&b, at + Duration::from_secs(40));
-        assert!(clock.due(at + Duration::from_secs(179)).is_empty());
-        assert_eq!(clock.due(at + Duration::from_secs(180)), [a.clone()]);
-        clock.started(&a);
-        clock.finished(&a, at + Duration::from_secs(1000));
-        assert_eq!(clock.due(at + Duration::from_secs(1000)), [b.clone()]);
-        clock.configure(true, 60, &[a.clone()]);
-        assert!(clock.due(at + Duration::from_secs(1059)).is_empty());
-        assert_eq!(clock.due(at + Duration::from_secs(1060)), [a]);
-    }
-    #[test]
-    fn disabling_and_reenabling_start_a_new_schedule_without_old_repositories() {
-        let now = Instant::now();
-        let mut clock = Clock::default();
-        let paths = vec![PathBuf::from("/a")];
-        clock.configure(false, 180, &paths);
-        assert!(clock.due(now).is_empty());
-        clock.configure(true, 180, &paths);
-        clock.started(&paths[0]);
-        clock.configure(false, 180, &paths);
-        assert!(clock.due(now).is_empty());
-        clock.configure(true, 180, &[PathBuf::from("/b")]);
-        assert_eq!(clock.due(now), [PathBuf::from("/b")]);
-    }
-}
 pub(super) enum Deadline {
     Due,
     Fetching,
@@ -118,5 +78,52 @@ impl Clock {
                 })
                 .collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn deadlines_follow_completion_and_interval_changes_without_catchup() {
+        let at = Instant::now();
+        let a = PathBuf::from("/a");
+        let b = PathBuf::from("/b");
+        let mut clock = Clock::default();
+        clock.configure(true, 180, &[a.clone(), b.clone()]);
+        assert_eq!(clock.due(at), [a.clone(), b.clone()]);
+        clock.started(&a);
+        clock.started(&b);
+        assert!(clock.due(at + Duration::from_secs(600)).is_empty());
+        clock.finished(&a, at);
+        clock.finished(&b, at + Duration::from_secs(40));
+        assert!(clock.due(at + Duration::from_secs(179)).is_empty());
+        assert_eq!(
+            clock.due(at + Duration::from_secs(180)),
+            std::slice::from_ref(&a)
+        );
+        clock.started(&a);
+        clock.finished(&a, at + Duration::from_secs(1000));
+        assert_eq!(
+            clock.due(at + Duration::from_secs(1000)),
+            std::slice::from_ref(&b)
+        );
+        clock.configure(true, 60, std::slice::from_ref(&a));
+        assert!(clock.due(at + Duration::from_secs(1059)).is_empty());
+        assert_eq!(clock.due(at + Duration::from_secs(1060)), [a]);
+    }
+    #[test]
+    fn disabling_and_reenabling_start_a_new_schedule_without_old_repositories() {
+        let now = Instant::now();
+        let mut clock = Clock::default();
+        let paths = vec![PathBuf::from("/a")];
+        clock.configure(false, 180, &paths);
+        assert!(clock.due(now).is_empty());
+        clock.configure(true, 180, &paths);
+        clock.started(&paths[0]);
+        clock.configure(false, 180, &paths);
+        assert!(clock.due(now).is_empty());
+        clock.configure(true, 180, &[PathBuf::from("/b")]);
+        assert_eq!(clock.due(now), [PathBuf::from("/b")]);
     }
 }

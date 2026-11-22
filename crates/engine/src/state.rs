@@ -189,7 +189,7 @@ pub fn atomic(path: &Path, data: &[u8], mode: u32) -> Result<()> {
     tmp.write_all(data)?;
     tmp.as_file().sync_all()?;
     files::publish(tmp, path, true)?;
-    files::sync_directory(&parent)?;
+    files::sync_directory(parent)?;
     Ok(())
 }
 pub fn canonical(path: &Path) -> Result<PathBuf> {

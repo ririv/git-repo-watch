@@ -226,16 +226,27 @@ fn plain_value(
     }
 }
 
+struct Editable<'a> {
+    editor: &'a Editor,
+    command: Option<&'a command::Input>,
+    placeholder: &'a str,
+    command_search: Option<&'a str>,
+    show_cursor: bool,
+}
+
 fn render_editable(
     frame: &mut Frame,
     screen: &Screen,
     inner: Rect,
-    editor: &Editor,
-    command: Option<&command::Input>,
-    placeholder: &str,
-    command_search: Option<&str>,
-    show_cursor: bool,
+    input: Editable<'_>,
 ) -> Surface {
+    let Editable {
+        editor,
+        command,
+        placeholder,
+        command_search,
+        show_cursor,
+    } = input;
     let prefix = command
         .and_then(|input| input.context())
         .map(|context| {
@@ -354,11 +365,13 @@ pub(super) fn render_task_input(
         frame,
         screen,
         inner,
-        bar.editor(),
-        command,
-        placeholder,
-        command_search,
-        true,
+        Editable {
+            editor: bar.editor(),
+            command,
+            placeholder,
+            command_search,
+            show_cursor: true,
+        },
     );
     let hint = screen.command_enter_hint();
     let hint = hint
@@ -1059,11 +1072,13 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 frame,
                 screen,
                 inner,
-                editor,
-                bar.command_input(),
-                placeholder,
-                command_search,
-                show_cursor,
+                Editable {
+                    editor,
+                    command: bar.command_input(),
+                    placeholder,
+                    command_search,
+                    show_cursor,
+                },
             );
         }
         Content::Conflict { selected } => {

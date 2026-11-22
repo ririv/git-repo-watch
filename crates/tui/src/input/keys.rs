@@ -488,7 +488,7 @@ impl Screen {
                                     self.bar = crate::bar::InputBar::Command {
                                         input: draft.input,
                                         path: draft.path,
-                                        selection: draft.selection,
+                                        selection: Box::new(draft.selection),
                                         repository: draft.repository,
                                         selected: 0,
                                         menu: Default::default(),

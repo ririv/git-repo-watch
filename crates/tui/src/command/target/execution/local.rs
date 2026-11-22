@@ -404,7 +404,7 @@ impl Screen {
                     menu: Default::default(),
                     repository: self.capture_repository(path.as_deref()),
                     path,
-                    selection: self.copy_selection(),
+                    selection: Box::new(self.copy_selection()),
                 };
                 self.refresh_option_candidates();
             }

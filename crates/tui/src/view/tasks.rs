@@ -121,10 +121,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             list::render(frame, screen, panels[0]);
             if panels.len() > 1
                 && let Some(record) = screen.tasks.selected()
+                && detail::render(frame, record, panels[1], None).shows_unread_failure
             {
-                if detail::render(frame, record, panels[1], None).shows_unread_failure {
-                    screen.tasks.visible_unread_failure = Some(record.id.clone());
-                }
+                screen.tasks.visible_unread_failure = Some(record.id.clone());
             }
         }
         Session::Detail { id, scroll } => {

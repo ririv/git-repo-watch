@@ -162,7 +162,7 @@ impl Screen {
             selected: 0,
             menu: Default::default(),
             path: session.draft.path,
-            selection: session.draft.selection,
+            selection: Box::new(session.draft.selection),
             repository: session.draft.repository,
         };
         self.refresh_option_candidates();

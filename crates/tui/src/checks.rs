@@ -55,7 +55,7 @@ impl<'a> From<&'a Update> for Observation<'a> {
 enum Progress {
     Queued,
     Checking,
-    Finished(Update),
+    Finished(Box<Update>),
 }
 #[derive(Debug)]
 enum Event {
@@ -89,7 +89,7 @@ impl CheckTask {
     }
     pub(crate) fn update(&self, path: &std::path::Path) -> Option<&Update> {
         match self.progress.get(path) {
-            Some(Progress::Finished(update)) => Some(update),
+            Some(Progress::Finished(update)) => Some(update.as_ref()),
             _ => None,
         }
     }
@@ -425,12 +425,12 @@ impl Screen {
                         }
                         task.progress.insert(
                             result.path().to_owned(),
-                            Progress::Finished(Update {
+                            Progress::Finished(Box::new(Update {
                                 result,
                                 revision,
                                 finished_at: DateTime::parse_from_rfc3339(&finished_at)
                                     .expect("service timestamp"),
-                            }),
+                            })),
                         );
                         changed = true;
                     }
@@ -460,7 +460,7 @@ impl Screen {
             for (path, progress) in task.progress {
                 self.note_fetch_finished(&path);
                 if let Progress::Finished(update) = progress {
-                    self.merge_check(path, update);
+                    self.merge_check(path, *update);
                 }
             }
             let result = if task.handle.join().is_err() {

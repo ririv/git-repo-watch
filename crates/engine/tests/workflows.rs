@@ -61,34 +61,33 @@ fn repositories_without_remotes_skip_remote_steps_and_finish_local_inspection() 
             service
                 .configure(ConfigEdit::ScheduledWorkflow(plan(workflow)))
                 .unwrap();
-            for report in [service.run_scheduled(&Cancel::default(), |_| {}).unwrap()] {
-                let result = &report.repositories[0];
-                assert!(
-                    !matches!(result, RepositoryResult::Failed { .. }),
-                    "{result:?}"
-                );
-                assert!(matches!(
-                    result.synchronization(),
-                    engine::domain::synchronization::Synchronization::Current {
-                        checkout: engine::domain::synchronization::Checkout::NoUpstream { .. }
-                            | engine::domain::synchronization::Checkout::Unborn { .. },
-                        ..
+            let report = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
+            let result = &report.repositories[0];
+            assert!(
+                !matches!(result, RepositoryResult::Failed { .. }),
+                "{result:?}"
+            );
+            assert!(matches!(
+                result.synchronization(),
+                engine::domain::synchronization::Synchronization::Current {
+                    checkout: engine::domain::synchronization::Checkout::NoUpstream { .. }
+                        | engine::domain::synchronization::Checkout::Unborn { .. },
+                    ..
+                }
+            ));
+            let records = &report.execution.as_ref().unwrap().repositories[0].steps;
+            assert_eq!(records.len(), plan(workflow).steps().len());
+            for record in records {
+                match record.step {
+                    Step::Inspect => {
+                        assert!(matches!(record.outcome, StepOutcome::Succeeded { .. }))
                     }
-                ));
-                let records = &report.execution.as_ref().unwrap().repositories[0].steps;
-                assert_eq!(records.len(), plan(workflow).steps().len());
-                for record in records {
-                    match record.step {
-                        Step::Inspect => {
-                            assert!(matches!(record.outcome, StepOutcome::Succeeded { .. }))
+                    _ => assert!(matches!(
+                        record.outcome,
+                        StepOutcome::Skipped {
+                            reason: SkipReason::NoRemotes
                         }
-                        _ => assert!(matches!(
-                            record.outcome,
-                            StepOutcome::Skipped {
-                                reason: SkipReason::NoRemotes
-                            }
-                        )),
-                    }
+                    )),
                 }
             }
             let saved = service.store.repository_report(&repo).unwrap().unwrap();

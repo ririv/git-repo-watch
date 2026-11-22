@@ -66,10 +66,12 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 context: screen.diff_context,
                 wrap: screen.config.text_wrap,
             },
-            screen.config.file_icons.into(),
-            &mut screen.history_preview,
-            &mut screen.graphics,
-            &mut screen.pointer,
+            history::RenderContext {
+                icons: screen.config.file_icons.into(),
+                preview: &mut screen.history_preview,
+                graphics: &mut screen.graphics,
+                hits: &mut screen.pointer,
+            },
         ),
         Mode::Busy(pending) if matches!(pending.origin.as_ref(), Mode::History(_)) => {
             let Mode::History(view) = pending.origin.as_mut() else {
@@ -85,10 +87,12 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     context: screen.diff_context,
                     wrap: screen.config.text_wrap,
                 },
-                screen.config.file_icons.into(),
-                &mut screen.history_preview,
-                &mut screen.graphics,
-                &mut screen.pointer,
+                history::RenderContext {
+                    icons: screen.config.file_icons.into(),
+                    preview: &mut screen.history_preview,
+                    graphics: &mut screen.graphics,
+                    hits: &mut screen.pointer,
+                },
             );
         }
         Mode::Files(s) => {

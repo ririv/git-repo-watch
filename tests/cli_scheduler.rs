@@ -70,19 +70,19 @@ fn status_and_noninteractive_tui_never_start_checks() {
 fn config_commands_are_explicit_and_do_not_run_checks() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, store) = fixture();
-    for args in [
-        #[cfg(feature = "developer-scheduler")]
-        &["interval", "12h"][..],
-        &["concurrency", "2"][..],
-        #[cfg(feature = "developer-scheduler")]
-        &["autopush", "fast_forward"][..],
-    ] {
+    let save = |args: &[&str]| {
         let out = cli(&store, args);
         assert!(
             out.status.success(),
             "{}",
             String::from_utf8_lossy(&out.stderr)
         );
+    };
+    save(&["concurrency", "2"]);
+    #[cfg(feature = "developer-scheduler")]
+    {
+        save(&["interval", "12h"]);
+        save(&["autopush", "fast_forward"]);
     }
     let config = store.config().unwrap();
     #[cfg(feature = "developer-scheduler")]
@@ -110,14 +110,15 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
 #[test]
 fn workflow_cli_saves_scheduled_steps_without_running_them() {
     let (_temp, store) = fixture();
-    for args in [&["scheduled-actions", "fetch", "pull", "push", "inspect"][..]] {
-        let out = cli(&store, args);
-        assert!(
-            out.status.success(),
-            "{}",
-            String::from_utf8_lossy(&out.stderr)
-        );
-    }
+    let out = cli(
+        &store,
+        &["scheduled-actions", "fetch", "pull", "push", "inspect"],
+    );
+    assert!(
+        out.status.success(),
+        "{}",
+        String::from_utf8_lossy(&out.stderr)
+    );
     assert_eq!(
         store.config().unwrap().scheduled_actions.tokens(),
         "fetch pull push inspect"

@@ -56,7 +56,7 @@ impl Screen {
                 selected: cursor,
                 menu: Default::default(),
                 path: draft.path,
-                selection: draft.selection,
+                selection: Box::new(draft.selection),
                 repository: draft.repository,
             };
             self.refresh_option_candidates();
@@ -226,7 +226,7 @@ impl Screen {
                         Box::new(CommandDraft {
                             input,
                             path,
-                            selection,
+                            selection: *selection,
                             repository,
                             return_to: ReturnTo::Command,
                         }),

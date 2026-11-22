@@ -216,25 +216,23 @@ fn narrow_workflow_actions_reveal_selected_choices_and_escape_returns_to_step_ac
 #[test]
 fn editor_breadcrumb_has_one_settings_page_and_one_editor_level() {
     let (_home, mut s) = fixture(vec![]);
-    for (command_name, section, title) in [(
-        "schedule actions",
-        Configuration::Schedule,
-        i18n::tr!(WorkflowScheduledActions),
-    )] {
-        command(&mut s, command_name);
-        let labels = s
-            .breadcrumbs()
-            .into_iter()
-            .map(|crumb| crumb.label)
-            .collect::<Vec<_>>();
-        assert_eq!(
-            labels,
-            vec![i18n::tr!(Repositories), section.title(), title]
-        );
-        key(&mut s, KeyCode::Esc);
-        assert_eq!(s.page, Page::Configuration(section));
-        key(&mut s, KeyCode::Esc);
-    }
+    command(&mut s, "schedule actions");
+    let labels = s
+        .breadcrumbs()
+        .into_iter()
+        .map(|crumb| crumb.label)
+        .collect::<Vec<_>>();
+    assert_eq!(
+        labels,
+        vec![
+            i18n::tr!(Repositories),
+            Configuration::Schedule.title(),
+            i18n::tr!(WorkflowScheduledActions),
+        ]
+    );
+    key(&mut s, KeyCode::Esc);
+    assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+    key(&mut s, KeyCode::Esc);
 }
 
 #[test]

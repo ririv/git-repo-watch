@@ -41,9 +41,9 @@ impl Review {
             .filter(|change| match change.area {
                 Area::Staged => true,
                 Area::Untracked => false,
-                Area::Unstaged => !index
+                Area::Unstaged => index
                     .get_path(change.location.name(), 0)
-                    .is_some_and(|entry| entry.mode == 0o160000),
+                    .is_none_or(|entry| entry.mode != 0o160000),
             })
             .collect();
         let obstructions = obstructions(path, repo, tree, cancel)?;

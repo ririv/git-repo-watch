@@ -22,11 +22,10 @@ impl Screen {
                     }
                 }
             }
-            Mode::CommitMessage { editor, .. } if self.bar.is_plain() => {
-                if let crate::commit_form::Draft::Editing { focus, .. } = editor {
-                    focus.start_typing();
-                }
-            }
+            Mode::CommitMessage {
+                editor: crate::commit_form::Draft::Editing { focus, .. },
+                ..
+            } if self.bar.is_plain() => focus.start_typing(),
             Mode::StashSave(session) => session.focus.start_typing(),
             Mode::Files(_) | Mode::Changes(_) => {
                 let resume = if let Some(action) = self.focused_conflict_control() {

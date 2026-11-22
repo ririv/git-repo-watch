@@ -136,10 +136,12 @@ fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
             frame,
             history_area,
             session,
-            screen.config.file_icons.into(),
-            &mut screen.history_preview,
-            &mut screen.graphics,
-            &mut screen.pointer,
+            history::RenderContext {
+                icons: screen.config.file_icons.into(),
+                preview: &mut screen.history_preview,
+                graphics: &mut screen.graphics,
+                hits: &mut screen.pointer,
+            },
         );
     } else if let Some(session) = screen.workspace.session_mut() {
         match &mut session.history {
@@ -147,10 +149,12 @@ fn graph(frame: &mut Frame, screen: &mut Screen, history_area: Rect) {
                 frame,
                 history_area,
                 graph,
-                screen.config.file_icons.into(),
-                &mut screen.history_preview,
-                &mut screen.graphics,
-                &mut screen.pointer,
+                history::RenderContext {
+                    icons: screen.config.file_icons.into(),
+                    preview: &mut screen.history_preview,
+                    graphics: &mut screen.graphics,
+                    hits: &mut screen.pointer,
+                },
             ),
             Panel::Loading => placeholder(
                 frame,

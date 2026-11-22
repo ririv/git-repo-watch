@@ -30,7 +30,7 @@ pub(crate) enum InputBar {
         selected: usize,
         menu: command::completion::Menu,
         path: Option<PathBuf>,
-        selection: crate::clipboard::Selection,
+        selection: Box<crate::clipboard::Selection>,
         repository: command::repository::Captured,
     },
 }
@@ -529,7 +529,7 @@ impl Screen {
                         if let command::ArgumentAction::Option(kind) = argument {
                             let action = kind.parse(value).map(|value| value.action());
                             let target = path.clone();
-                            let selection = selection.clone();
+                            let selection = selection.as_ref().clone();
                             match action {
                                 Ok(action) => {
                                     *submitted = Some(input.text());
@@ -578,7 +578,7 @@ impl Screen {
                                 let draft = CommandDraft {
                                     input: input.clone(),
                                     path: path.clone(),
-                                    selection: selection.clone(),
+                                    selection: selection.as_ref().clone(),
                                     repository: repository.clone(),
                                     return_to: ReturnTo::Command,
                                 };
@@ -601,7 +601,7 @@ impl Screen {
                                 let draft = CommandDraft {
                                     input: input.clone(),
                                     path: path.clone(),
-                                    selection: selection.clone(),
+                                    selection: selection.as_ref().clone(),
                                     repository: repository.clone(),
                                     return_to: ReturnTo::Command,
                                 };
@@ -645,7 +645,7 @@ impl Screen {
                             *submitted = Some(format!("/{}", command.name));
                             let action = command.action;
                             let path = path.clone();
-                            let selection = selection.clone();
+                            let selection = selection.as_ref().clone();
                             self.sync_active_bar();
                             self.message.clear();
                             if self.activate(action, path, selection, root)? {
@@ -797,7 +797,7 @@ impl Screen {
             menu: Default::default(),
             repository: command::repository::Captured::new(path.clone()),
             path,
-            selection: self.copy_selection(),
+            selection: Box::new(self.copy_selection()),
         };
     }
     pub(crate) fn clear_input_bar(&mut self) {

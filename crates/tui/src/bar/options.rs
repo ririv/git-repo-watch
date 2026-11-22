@@ -62,7 +62,7 @@ impl Screen {
             menu: Menu::Commands,
             repository: self.capture_repository(path.as_deref()),
             path,
-            selection,
+            selection: Box::new(selection),
         };
         self.refresh_option_candidates();
     }
