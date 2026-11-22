@@ -271,14 +271,16 @@ impl Screen {
                     let finished_at = DateTime::parse_from_rfc3339(&report.finished_at)
                         .expect("validated service timestamp");
                     if let Some(result) = report.repositories.into_iter().next() {
-                        self.merge_update(
-                            path.clone(),
-                            checks::Update {
-                                result,
-                                finished_at,
-                                revision: report.repository_revisions[&path],
-                            },
-                        );
+                        let update = checks::Update {
+                            result,
+                            finished_at,
+                            revision: report.repository_revisions[&path],
+                        };
+                        if task.effect == Effect::Check {
+                            self.merge_check(path.clone(), update);
+                        } else {
+                            self.merge_update(path.clone(), update);
+                        }
                     }
                 }
                 Refresh::Failed(error) => {

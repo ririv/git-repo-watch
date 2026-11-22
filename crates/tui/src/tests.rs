@@ -173,6 +173,7 @@ fn screen(service: Service) -> Screen {
         repository_errors: BTreeMap::new(),
         view_revision: 0,
         updates: BTreeMap::new(),
+        repository_checks: Default::default(),
         live: Default::default(),
         window_focus: crate::live::WindowFocus::Focused,
         auto_fetch: Default::default(),

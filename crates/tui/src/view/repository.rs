@@ -227,7 +227,7 @@ pub(super) fn repository_detail(screen: &Screen, row: &Row, scope: Scope<'_>) ->
     }
     text
 }
-fn detail_text(row: &Row, scope: Scope<'_>) -> Text<'static> {
+pub(super) fn detail_text(row: &Row, scope: Scope<'_>) -> Text<'static> {
     let mut lines = vec![field(
         i18n::tr!(Path),
         safe(&row.path.to_string_lossy()),

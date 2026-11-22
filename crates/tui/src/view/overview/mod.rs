@@ -171,42 +171,29 @@ fn draw(frame: &mut Frame, screen: &mut Screen, area: Rect, presentation: Presen
     }
     if let Some(path) = path {
         lines.extend(super::remotes::lines(screen, path));
-        if presentation == Presentation::Expanded {
-            lines.push(Line::default());
-        }
-        lines.push(Line::styled(
-            i18n::tr!(OverviewCheck),
-            Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
-        ));
-        let row = crate::Row {
-            path: path.to_owned(),
-            result: screen.result_for(path).cloned(),
-        };
-        let mut check = repository::repository_detail(
-            screen,
-            &row,
-            repository::Scope::AllBranches(current_branch),
-        );
-        // 路径由概览统一显示一次；检查详情沿用列表预览的同一实现。
-        check.lines.remove(0);
-        if presentation == Presentation::Embedded {
-            // 先展示检查状态，避免较短的概览面板被长路径占满。
-            check.lines.insert(
-                1,
-                field(i18n::tr!(Path), safe(&path.to_string_lossy()), MUTED),
-            );
-        }
-        if screen.latest_update(path).is_none()
-            && let CachedReport::Available { report, .. } = &screen.snapshot.report
-            && row.result.is_some()
-        {
+        if let Some(observation) = screen.repository_check(path) {
+            if presentation == Presentation::Expanded {
+                lines.push(Line::default());
+            }
+            lines.push(Line::styled(
+                i18n::tr!(OverviewCheck),
+                Style::default().fg(ACCENT).add_modifier(Modifier::BOLD),
+            ));
             lines.push(field(
                 i18n::tr!(CheckUpdatedAt),
-                local_time(&report.finished_at),
+                local_time(&observation.finished_at.to_rfc3339()),
                 MUTED,
             ));
+            let row = crate::Row {
+                path: path.to_owned(),
+                result: Some(observation.result.clone()),
+            };
+            let check = repository::detail_text(
+                &row,
+                repository::Scope::AllBranches(current_branch),
+            );
+            lines.extend(check.lines.into_iter().skip(1));
         }
-        lines.extend(check.lines);
     }
     review::styled_text_view(
         frame,

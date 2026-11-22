@@ -47,12 +47,13 @@ fn overview_is_live_localized_and_distinct_from_cached_preview() {
             i18n::tr!(OverviewUntracked),
             i18n::tr!(WorkspaceOverview),
             i18n::tr!(WorkspaceHistory),
-            i18n::tr!(OverviewCheck),
             "origin/main",
         ] {
             assert!(text.contains(value), "{value}: {text}");
         }
         assert!(!text.contains(i18n::tr!(NoCompleteReportYet)));
+        assert!(!text.contains(i18n::tr!(OverviewCheck)));
+        assert!(!text.contains(i18n::tr!(CheckUpdatedAt)));
         assert!(text.contains("中文 pending.ts"), "{text}");
         let area = s
             .workspace_areas
@@ -84,6 +85,9 @@ fn compact_overview_keeps_navigation_visible_while_scrolling_and_resizing() {
         support::git(&f.repo, &["branch", &format!("feature-{n}")]);
     }
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let cancel = Cancel::default();
+    s.service.run(&cancel, |_| {}).unwrap();
+    s.reload(&cancel).unwrap();
     key(&mut s, KeyCode::Right);
     wait_overview(&mut s);
     key(&mut s, KeyCode::Enter);
@@ -173,7 +177,7 @@ fn full_check_errors_are_reachable_after_scrolling_and_resizing() {
     let _language = i18n::using(i18n::Language::English);
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    s.updates.insert(
+    s.merge_check(
         f.repo.clone(),
         crate::checks::Update {
             revision: 0,
@@ -196,4 +200,83 @@ fn full_check_errors_are_reachable_after_scrolling_and_resizing() {
     }
     key(&mut s, KeyCode::Home);
     assert!(render(&mut s, 60, 18).contains("Branch:"));
+}
+
+#[test]
+fn overview_only_shows_checks_recorded_for_the_open_repository() {
+    let checked = support::Fixture::create();
+    let added = support::Fixture::create();
+    let (_home, mut s) = fixture(vec![checked.repo.clone()]);
+    let cancel = Cancel::default();
+    let report = s.service.run(&cancel, |_| {}).unwrap();
+    s.service.add(std::slice::from_ref(&added.repo)).unwrap();
+    s.reload(&cancel).unwrap();
+
+    let (local, _) = engine::check::local_repository(&added.repo, &cancel);
+    s.live = crate::live::State::start();
+    let crate::live::State::Active(controller) = &mut s.live else {
+        panic!("local observation controller");
+    };
+    controller.results.insert(added.repo.clone(), local);
+    assert!(s.result_for(&added.repo).is_some());
+    s.open_repository(added.repo.clone());
+    wait_overview(&mut s);
+    wait_workspace(&mut s);
+    let overview = render(&mut s, 180, 45);
+    assert!(overview.contains(i18n::tr!(RemoteRepositories)), "{overview}");
+    assert!(!overview.contains(i18n::tr!(OverviewCheck)), "{overview}");
+    assert!(!overview.contains(i18n::tr!(CheckUpdatedAt)), "{overview}");
+
+    support::write(added.repo.join("new.txt"), "local change\n");
+    let files = s.service.files(&added.repo, &cancel).unwrap();
+    s.service
+        .edit_index(
+            &files,
+            engine::local::files::IndexAction::Stage,
+            &files.changes,
+            &cancel,
+        )
+        .unwrap();
+    s.reload(&cancel).unwrap();
+    assert!(s.stored_result_for(&added.repo).is_some());
+    assert!(s.repository_check(&added.repo).is_none());
+    assert!(!render(&mut s, 180, 45).contains(i18n::tr!(OverviewCheck)));
+
+    s.open_repository(checked.repo.clone());
+    wait_overview(&mut s);
+    wait_workspace(&mut s);
+    assert!(render(&mut s, 180, 45).contains(i18n::tr!(OverviewCheck)));
+    let previous = s.repository_check(&checked.repo).unwrap();
+    assert_eq!(
+        previous.finished_at,
+        chrono::DateTime::parse_from_rfc3339(&report.repository_finished_at[&checked.repo])
+            .unwrap()
+    );
+
+    s.service
+        .check_repository(&added.repo, &cancel, |_| {})
+        .unwrap();
+    s.reload(&cancel).unwrap();
+    let finished = s.repository_check(&added.repo).unwrap().finished_at;
+    let files = s.service.files(&added.repo, &cancel).unwrap();
+    s.service
+        .edit_index(
+            &files,
+            engine::local::files::IndexAction::Unstage,
+            &files.changes,
+            &cancel,
+        )
+        .unwrap();
+    s.reload(&cancel).unwrap();
+    assert_eq!(
+        s.repository_check(&added.repo).unwrap().finished_at,
+        finished
+    );
+    s.open_repository(added.repo);
+    wait_overview(&mut s);
+    wait_workspace(&mut s);
+    let overview = render(&mut s, 180, 45);
+    assert!(overview.contains(i18n::tr!(OverviewCheck)), "{overview}");
+    assert!(overview.contains(i18n::tr!(CheckUpdatedAt)), "{overview}");
+    s.shutdown();
 }

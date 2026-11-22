@@ -42,10 +42,32 @@ impl Store {
         json.map(|json| decode_single(path, &json)).transpose()
     }
     pub fn repository_reports(&self) -> Result<BTreeMap<PathBuf, Report>> {
+        self.read_repository_reports(
+            "SELECT h.path,o.report FROM repository_heads h
+             JOIN repository_observations o USING(path,revision)",
+        )
+    }
+
+    /// Read the last check for each repository, excluding snapshots written by Git operations.
+    pub fn repository_checks(&self) -> Result<BTreeMap<PathBuf, Report>> {
+        self.read_repository_reports(
+            "SELECT h.path, o.report FROM repository_heads h
+             JOIN repository_observations o ON o.path = h.path AND o.revision = (
+                 SELECT candidate.revision FROM repository_observations candidate
+                 WHERE candidate.path = h.path AND NOT EXISTS (
+                     SELECT 1 FROM operation_events event
+                     WHERE event.path = candidate.path AND event.revision = candidate.revision
+                 )
+                 ORDER BY candidate.revision DESC LIMIT 1
+             )",
+        )
+    }
+
+    fn read_repository_reports(&self, query: &str) -> Result<BTreeMap<PathBuf, Report>> {
         let Some(database) = Database::read(self)? else {
             return Ok(BTreeMap::new());
         };
-        let mut statement = database.connection.prepare("SELECT h.path,o.report FROM repository_heads h JOIN repository_observations o USING(path,revision)")?;
+        let mut statement = database.connection.prepare(query)?;
         let rows = statement.query_map([], |row| {
             Ok((row.get::<_, Vec<u8>>(0)?, row.get::<_, String>(1)?))
         })?;

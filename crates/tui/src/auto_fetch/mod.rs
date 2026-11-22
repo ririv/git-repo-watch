@@ -118,7 +118,7 @@ impl Screen {
             match result {
                 Ok(report) => {
                     if let Some(result) = report.repositories.into_iter().next() {
-                        self.merge_update(
+                        self.merge_check(
                             path.clone(),
                             Update {
                                 result,

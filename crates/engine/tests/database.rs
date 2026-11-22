@@ -120,6 +120,7 @@ fn fresh_store_reads_do_not_create_a_database_and_updates_are_per_repository_row
     let (_temp, store) = fixture();
     assert!(store.report().unwrap().is_none());
     assert!(store.repository_reports().unwrap().is_empty());
+    assert!(store.repository_checks().unwrap().is_empty());
     assert!(!store.database_path().exists());
     let path = Path::new("/example/中文 仓库");
     let mut first = report(path, 0, false);
@@ -132,6 +133,17 @@ fn fresh_store_reads_do_not_create_a_database_and_updates_are_per_repository_row
         .save_operation_report(&mut second, &record(path), &Cancel::default())
         .unwrap();
     assert_eq!(second.repository_revisions[path], 2);
+    let other = Path::new("/example/only-local");
+    store
+        .save_operation_report(
+            &mut report(other, 0, true),
+            &record(other),
+            &Cancel::default(),
+        )
+        .unwrap();
+    let checks = store.repository_checks().unwrap();
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[path].repository_revisions[path], 1);
     assert_eq!(store.repository_history(path, 10).unwrap().len(), 2);
     let events = store.operation_history(path, 10).unwrap();
     assert_eq!(events.len(), 1);

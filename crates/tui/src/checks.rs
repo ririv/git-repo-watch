@@ -15,8 +15,40 @@ pub(crate) struct Update {
     pub revision: u64,
 }
 impl Update {
+    fn from_report(path: &std::path::Path, report: domain::Report) -> Result<Self> {
+        Ok(Self {
+            revision: report.repository_revisions.get(path).copied().unwrap_or(0),
+            finished_at: DateTime::parse_from_rfc3339(&report.finished_at)
+                .context(i18n::tr!(InvalidRepositoryCheckReport))?,
+            result: report
+                .repositories
+                .into_iter()
+                .next()
+                .expect("validated single-repository report"),
+        })
+    }
+
     fn order(&self) -> (u64, DateTime<FixedOffset>) {
         (self.revision, self.finished_at)
+    }
+}
+pub(crate) struct Observation<'a> {
+    pub result: &'a RepositoryResult,
+    pub finished_at: DateTime<FixedOffset>,
+    revision: u64,
+}
+impl Observation<'_> {
+    fn order(&self) -> (u64, DateTime<FixedOffset>) {
+        (self.revision, self.finished_at)
+    }
+}
+impl<'a> From<&'a Update> for Observation<'a> {
+    fn from(update: &'a Update) -> Self {
+        Self {
+            result: &update.result,
+            finished_at: update.finished_at,
+            revision: update.revision,
+        }
     }
 }
 #[derive(Debug)]
@@ -101,6 +133,17 @@ impl Screen {
             self.updates.insert(path, update);
         }
     }
+    pub(crate) fn merge_check(&mut self, path: PathBuf, update: Update) {
+        if self
+            .repository_checks
+            .get(&path)
+            .is_none_or(|old| update.order() > old.order())
+        {
+            self.repository_checks.insert(path.clone(), update.clone());
+        }
+        self.merge_update(path, update);
+    }
+
     pub(crate) fn latest_update(&self, path: &std::path::Path) -> Option<&Update> {
         [
             self.check_task.as_ref().and_then(|task| task.update(path)),
@@ -110,17 +153,11 @@ impl Screen {
         .flatten()
         .max_by_key(|update| update.order())
     }
-    pub(crate) fn observation_order(
-        &self,
-        path: &std::path::Path,
-    ) -> Option<(u64, DateTime<FixedOffset>)> {
-        if let Some(update) = self.latest_update(path) {
-            return Some(update.order());
-        }
+    fn batch_observation(&self, path: &std::path::Path) -> Option<Observation<'_>> {
         let service::CachedReport::Available { report, .. } = &self.snapshot.report else {
             return None;
         };
-        report
+        let result = report
             .repositories
             .iter()
             .find(|result| result.path() == path)?;
@@ -128,10 +165,35 @@ impl Screen {
             .repository_finished_at
             .get(path)
             .unwrap_or(&report.finished_at);
-        Some((
-            report.repository_revisions.get(path).copied().unwrap_or(0),
-            DateTime::parse_from_rfc3339(at).expect("validated report timestamp"),
-        ))
+        Some(Observation {
+            result,
+            revision: report.repository_revisions.get(path).copied().unwrap_or(0),
+            finished_at: DateTime::parse_from_rfc3339(at).expect("validated report timestamp"),
+        })
+    }
+
+    pub(crate) fn repository_check(&self, path: &std::path::Path) -> Option<Observation<'_>> {
+        [
+            self.check_task
+                .as_ref()
+                .and_then(|task| task.update(path))
+                .map(Observation::from),
+            self.repository_checks.get(path).map(Observation::from),
+            self.batch_observation(path),
+        ]
+        .into_iter()
+        .flatten()
+        .max_by_key(Observation::order)
+    }
+
+    pub(crate) fn observation_order(
+        &self,
+        path: &std::path::Path,
+    ) -> Option<(u64, DateTime<FixedOffset>)> {
+        self.latest_update(path).map(Update::order).or_else(|| {
+            self.batch_observation(path)
+                .map(|observation| observation.order())
+        })
     }
     pub(crate) fn result_for(&self, path: &std::path::Path) -> Option<&RepositoryResult> {
         self.live
@@ -151,6 +213,23 @@ impl Screen {
         }
     }
     pub(crate) fn load_updates(&mut self) -> Result<()> {
+        self.repository_checks = self
+            .service
+            .store
+            .repository_checks()?
+            .into_iter()
+            .filter(|(path, _)| {
+                self.config.repositories.contains(path)
+                    || self
+                        .service
+                        .session_paths()
+                        .any(|candidate| candidate == path)
+            })
+            .map(|(path, report)| {
+                let update = Update::from_report(&path, report)?;
+                Ok((path, update))
+            })
+            .collect::<Result<_>>()?;
         let batch_versions = match &self.snapshot.report {
             service::CachedReport::Missing => BTreeMap::new(),
             service::CachedReport::Available { report, .. } => report
@@ -183,18 +262,7 @@ impl Screen {
                     .is_none_or(|version| update.order() > *version)
         });
         for (path, report) in self.service.store.repository_reports()? {
-            let revision = report.repository_revisions.get(&path).copied().unwrap_or(0);
-            let finished_at = DateTime::parse_from_rfc3339(&report.finished_at)
-                .context(i18n::tr!(InvalidRepositoryCheckReport))?;
-            let update = Update {
-                revision,
-                finished_at,
-                result: report
-                    .repositories
-                    .into_iter()
-                    .next()
-                    .expect("validated single-repository report"),
-            };
+            let update = Update::from_report(&path, report)?;
             if (self.config.repositories.contains(&path)
                 || self
                     .service
@@ -392,7 +460,7 @@ impl Screen {
             for (path, progress) in task.progress {
                 self.note_fetch_finished(&path);
                 if let Progress::Finished(update) = progress {
-                    self.merge_update(path, update);
+                    self.merge_check(path, update);
                 }
             }
             let result = if task.handle.join().is_err() {
