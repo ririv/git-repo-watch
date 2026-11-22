@@ -178,16 +178,11 @@ impl Action {
             | CancelCheck
             | Settings
             | AiSettings
-            | Schedule
             | Repositories
             | RepositorySettings
             | Add
             | Scan
-            | Interval
-            | Anchor
-            | Autopush
             | Concurrency
-            | Workflow
             | AutoFetchMenu
             | AutoFetch(_)
             | AutoFetchInterval
@@ -195,14 +190,13 @@ impl Action {
             | StartupFetch(_)
             | WrapMenu
             | Wrap(_)
-            | Apply
-            | EnableSchedule
-            | DisableSchedule
-            | ScheduleEnabledMenu
             | Help
             | InteractionMenu
             | Interaction(_)
             | Quit => Requirement::Global,
+            #[cfg(feature = "developer-scheduler")]
+            Schedule | Interval | Anchor | Autopush | Workflow | Apply | EnableSchedule
+            | DisableSchedule | ScheduleEnabledMenu => Requirement::Global,
         }
     }
 }

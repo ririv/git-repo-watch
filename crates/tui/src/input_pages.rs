@@ -214,6 +214,7 @@ impl crate::Screen {
             {
                 Some(session.focus.page().position())
             }
+            #[cfg(feature = "developer-scheduler")]
             crate::Mode::Workflow(session) => Some(session.page().position()),
             crate::Mode::CommitMessage {
                 editor: crate::commit_form::Draft::Editing { focus, .. },

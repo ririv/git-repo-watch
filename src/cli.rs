@@ -1,11 +1,13 @@
 //! Command routing and backward-compatible machine output.
 use anyhow::{Result, bail, ensure};
+#[cfg(feature = "developer-scheduler")]
+use engine::scheduler::{Registration, Schedule};
 use engine::{
     cancel::{Cancel, Cancelled},
     discovery,
     domain::*,
     paths,
-    scheduler::{Manager, Registration, Schedule},
+    scheduler::Manager,
     service::{Activity, CachedReport, ConfigEdit, Event, Scope, Service, Snapshot},
     state,
 };
@@ -133,7 +135,21 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             none(&args)?;
             let c = service.store.config()?;
             match command.as_str() {
-                "config" => json(&c)?,
+                "config" => {
+                    #[cfg(feature = "developer-scheduler")]
+                    json(&c)?;
+                    #[cfg(not(feature = "developer-scheduler"))]
+                    {
+                        let serde_json::Value::Object(mut config) = serde_json::to_value(&c)?
+                        else {
+                            unreachable!("Config serializes as an object");
+                        };
+                        for key in ["interval_seconds", "schedule_anchor", "scheduled_actions"] {
+                            config.remove(key);
+                        }
+                        json(&config)?;
+                    }
+                }
                 "list" => {
                     for p in c.repositories {
                         println!("{}", p.display())
@@ -156,6 +172,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}", i18n::tf!(AddedNRepositories, n = n));
             Ok(0)
         }
+        #[cfg(feature = "developer-scheduler")]
         "scheduled-actions" => {
             let plan: engine::workflow::Plan = args.join(" ").parse()?;
             let details = plan.details();
@@ -163,18 +180,28 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             println!("{}\n{details}", i18n::tr!(WorkflowSaved));
             Ok(0)
         }
-        "remove" | "interval" | "autopush" | "concurrency" | "anchor" | "startup-fetch" => {
+        #[cfg(feature = "developer-scheduler")]
+        "interval" | "autopush" | "anchor" => {
             let value = one(&args)?;
             let edit = match command.as_str() {
-                "remove" => {
-                    ConfigEdit::Remove(paths::expand_home(value, service.scheduler.user_home())?)
-                }
                 "interval" => ConfigEdit::Interval(state::interval(value)?),
                 "anchor" => ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(
                     value,
                     chrono::Local::now().date_naive(),
                 )?),
                 "autopush" => ConfigEdit::Policy(value.parse()?),
+                _ => unreachable!(),
+            };
+            service.configure(edit)?;
+            println!("{}", i18n::tr!(ConfigurationSavedApplySchedule));
+            Ok(0)
+        }
+        "remove" | "concurrency" | "startup-fetch" => {
+            let value = one(&args)?;
+            let edit = match command.as_str() {
+                "remove" => {
+                    ConfigEdit::Remove(paths::expand_home(value, service.scheduler.user_home())?)
+                }
                 "concurrency" => ConfigEdit::Concurrency(value.parse()?),
                 "startup-fetch" => {
                     ensure!(
@@ -191,7 +218,7 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
                 if command == "startup-fetch" {
                     i18n::tr!(StartupFetchSaved)
                 } else {
-                    i18n::tr!(ConfigurationSavedApplySchedule)
+                    i18n::tr!(PreferenceSaved)
                 }
             );
             Ok(0)
@@ -233,48 +260,12 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
             );
             Ok(i32::from(failed > 0))
         }
-        "fetch" | "scheduled-check" | "scheduled-tick" => {
-            if command == "scheduled-check" || command == "scheduled-tick" {
-                none(&args)?;
-            } else {
-                ensure!(args.len() <= 1, i18n::tr!(CheckAtMostOnePath));
-            }
-            let emit = |event| match event {
-                Event::Checking(p) => println!("{}", i18n::tf!(Checking, p.display())),
-                Event::Checked { result: r, .. } => match serde_json::to_string_pretty(&r) {
-                    Ok(s) => println!("{s}"),
-                    Err(e) => eprintln!("{}", i18n::tf!(UnableToPrintResultE, e = e)),
-                },
-                Event::NotificationProblem(n) => {
-                    eprintln!("{}", i18n::tf!(SystemNotificationFailedN, n = n))
-                }
-            };
-            let report = if command == "scheduled-tick" {
-                let Some(report) = service.scheduled_tick(cancel, emit)? else {
-                    return Ok(0);
-                };
-                report
-            } else if command == "scheduled-check" {
-                service.run_scheduled(cancel, emit)?
-            } else if let Some(path) = args.first() {
-                service.check_repository(
-                    &state::canonical(&paths::expand_home(path, service.scheduler.user_home())?)?,
-                    cancel,
-                    emit,
-                )?
-            } else {
-                service.run(cancel, emit)?
-            };
-            println!(
-                "{}",
-                i18n::tf!(
-                    CheckCompleteRepositories,
-                    report.status,
-                    report.repositories.len()
-                )
-            );
-            Ok(i32::from(report.status != ReportStatus::Clean))
-        }
+        "fetch" => fetch(&service, &args, cancel, Check::Fetch),
+        #[cfg(feature = "developer-scheduler")]
+        "scheduled-check" => fetch(&service, &args, cancel, Check::Scheduled),
+        #[cfg(feature = "developer-scheduler")]
+        "scheduled-tick" => fetch(&service, &args, cancel, Check::Tick),
+        #[cfg(feature = "developer-scheduler")]
         "schedule" => {
             let operation = match one(&args)? {
                 "enable" => engine::scheduler::Control::Enable,
@@ -313,16 +304,29 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         }
         "install" => {
             none(&args)?;
-            service.install(cancel)?;
-            println!(
-                "{}",
-                i18n::tf!(
-                    InstalledCommandAndSystemSchedule,
-                    engine::scheduler::duration::compact(service.store.config()?.interval_seconds)
-                )
-            );
+            #[cfg(not(feature = "developer-scheduler"))]
+            {
+                service
+                    .scheduler
+                    .install_command(&std::env::current_exe()?, cancel)?;
+                println!("{}", service.scheduler.binary().display());
+            }
+            #[cfg(feature = "developer-scheduler")]
+            {
+                service.install(cancel)?;
+                println!(
+                    "{}",
+                    i18n::tf!(
+                        InstalledCommandAndSystemSchedule,
+                        engine::scheduler::duration::compact(
+                            service.store.config()?.interval_seconds
+                        )
+                    )
+                );
+            }
             Ok(0)
         }
+        #[cfg(feature = "developer-scheduler")]
         "uninstall" => {
             none(&args)?;
             let _lock = service.store.lock()?;
@@ -336,6 +340,63 @@ pub fn run(args: Vec<OsString>, cancel: &Cancel) -> Result<i32> {
         _ => bail!(i18n::tf!(UnknownCommandShowHelp, command = command)),
     }
 }
+enum Check {
+    Fetch,
+    #[cfg(feature = "developer-scheduler")]
+    Scheduled,
+    #[cfg(feature = "developer-scheduler")]
+    Tick,
+}
+
+fn fetch(service: &Service, args: &[String], cancel: &Cancel, check: Check) -> Result<i32> {
+    let emit = |event| match event {
+        Event::Checking(p) => println!("{}", i18n::tf!(Checking, p.display())),
+        Event::Checked { result: r, .. } => match serde_json::to_string_pretty(&r) {
+            Ok(s) => println!("{s}"),
+            Err(e) => eprintln!("{}", i18n::tf!(UnableToPrintResultE, e = e)),
+        },
+        Event::NotificationProblem(n) => {
+            eprintln!("{}", i18n::tf!(SystemNotificationFailedN, n = n))
+        }
+    };
+    let report = match check {
+        Check::Fetch => {
+            ensure!(args.len() <= 1, i18n::tr!(CheckAtMostOnePath));
+            if let Some(path) = args.first() {
+                service.check_repository(
+                    &state::canonical(&paths::expand_home(path, service.scheduler.user_home())?)?,
+                    cancel,
+                    emit,
+                )?
+            } else {
+                service.run(cancel, emit)?
+            }
+        }
+        #[cfg(feature = "developer-scheduler")]
+        Check::Scheduled => {
+            none(args)?;
+            service.run_scheduled(cancel, emit)?
+        }
+        #[cfg(feature = "developer-scheduler")]
+        Check::Tick => {
+            none(args)?;
+            let Some(report) = service.scheduled_tick(cancel, emit)? else {
+                return Ok(0);
+            };
+            report
+        }
+    };
+    println!(
+        "{}",
+        i18n::tf!(
+            CheckCompleteRepositories,
+            report.status,
+            report.repositories.len()
+        )
+    );
+    Ok(i32::from(report.status != ReportStatus::Clean))
+}
+
 fn none(args: &[String]) -> Result<()> {
     ensure!(
         args.is_empty(),
@@ -386,6 +447,18 @@ pub fn local_time(value: &str) -> String {
     }
 }
 pub fn render_status(s: &Snapshot) -> String {
+    #[cfg(not(feature = "developer-scheduler"))]
+    let mut text = i18n::tf!(
+        CheckProcessRepositoriesAndConcurrency,
+        if matches!(s.activity, Activity::Running) {
+            i18n::tr!(Running)
+        } else {
+            i18n::tr!(Idle)
+        },
+        s.repository_count,
+        s.max_concurrency,
+    );
+    #[cfg(feature = "developer-scheduler")]
     let mut text = i18n::tf!(
         SystemScheduleCheckProcessConfiguredIntervalEvery,
         if s.registration == Registration::Loaded {
@@ -412,11 +485,13 @@ pub fn render_status(s: &Snapshot) -> String {
             i18n::tr!(TaskDisabled)
         }
     ));
+    #[cfg(feature = "developer-scheduler")]
     text.push_str(&format!(
         "{}: {}\n",
         i18n::tr!(WorkflowScheduledActions),
         s.scheduled_actions.summary()
     ));
+    #[cfg(feature = "developer-scheduler")]
     text.push_str(&format!(
         "{}: {}\n{}: {}\n",
         i18n::tr!(ScheduleAnchorLabel),
@@ -424,6 +499,7 @@ pub fn render_status(s: &Snapshot) -> String {
         i18n::tr!(ScheduleNextLabel),
         s.next_trigger.display()
     ));
+    #[cfg(feature = "developer-scheduler")]
     match &s.schedule {
         Schedule::Missing => text.push_str(i18n::tr!(SystemScheduleFileMissing)),
         Schedule::Saved { interval_seconds } => {
@@ -470,6 +546,7 @@ pub fn render_status(s: &Snapshot) -> String {
                     stats.notice_failed
                 ))
             }
+            #[cfg(feature = "developer-scheduler")]
             if report.push_policy == PushPolicy::Disabled
                 && s.push_policy == PushPolicy::FastForward
             {

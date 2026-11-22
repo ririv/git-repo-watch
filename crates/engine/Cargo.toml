@@ -7,6 +7,9 @@ license.workspace = true
 publish = false
 description = "与终端界面无关的 Git 仓库能力和应用服务"
 
+[features]
+developer-scheduler = []
+
 [dependencies]
 identity.workspace = true
 i18n.workspace = true

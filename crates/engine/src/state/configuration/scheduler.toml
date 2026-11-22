@@ -1,0 +1,5 @@
+# 系统定时任务为开发者功能。间隔按秒保存，21600 秒为 6 小时。
+interval_seconds = 21600
+
+# 定时流程按数组顺序执行，失败后的步骤不再执行。
+scheduled_actions = ["fetch", "inspect"]

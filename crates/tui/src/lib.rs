@@ -63,6 +63,7 @@ mod task_center;
 mod view;
 mod view_preferences;
 mod view_refresh;
+#[cfg(feature = "developer-scheduler")]
 mod workflow;
 mod working_target;
 mod workspace;
@@ -114,6 +115,7 @@ enum Mode {
     RepositoryEnvironment(PathBuf),
     StashSave(Box<stash_save::Session>),
     Management(Box<management::Session>),
+    #[cfg(feature = "developer-scheduler")]
     Workflow(Box<workflow::Session>),
     PromptEditor(Box<prompt_editor::Session>),
     Composition(Box<composition::Session>),
@@ -190,6 +192,7 @@ enum Confirmation {
         origin: Box<Mode>,
         draft: bar::CommandDraft,
     },
+    #[cfg(feature = "developer-scheduler")]
     Schedule(engine::scheduler::Control),
     Remove {
         path: PathBuf,
@@ -608,6 +611,7 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
         screen.fetch_on_startup();
         let mut dirty = true;
         let mut pending_event = None;
+        #[cfg(feature = "developer-scheduler")]
         let mut schedule_second = chrono::Local::now().timestamp();
         loop {
             if root.is_cancelled() {
@@ -621,12 +625,14 @@ pub fn run(service: Service, root: Cancel, start: Start) -> Result<()> {
                     break;
                 }
             }
-            let now = chrono::Local::now().timestamp();
-            let schedule_changed = screen.page == Page::Configuration(Configuration::Schedule)
-                && now != schedule_second;
-            schedule_second = now;
-            let changed = schedule_changed
-                | screen.poll(&root)
+            #[cfg(feature = "developer-scheduler")]
+            {
+                let now = chrono::Local::now().timestamp();
+                dirty |= screen.page == Page::Configuration(Configuration::Schedule)
+                    && now != schedule_second;
+                schedule_second = now;
+            }
+            let changed = screen.poll(&root)
                 | screen.poll_check()
                 | screen.poll_live()
                 | screen.poll_auto_fetch()

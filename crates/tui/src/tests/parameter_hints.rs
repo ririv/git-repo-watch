@@ -1,7 +1,9 @@
 use super::*;
 use crate::command::completion::Menu;
+#[cfg(feature = "developer-scheduler")]
 use ratatui::style::{Color, Modifier};
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn parameter_hints_wait_for_confirmation_and_do_not_enter_execution_or_history() {
     let (_home, mut s) = fixture(vec![]);

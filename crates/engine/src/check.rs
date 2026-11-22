@@ -30,6 +30,7 @@ pub fn local_repository(path: &Path, cancel: &Cancel) -> (RepositoryResult, Timi
         cancel,
     )
 }
+#[cfg(feature = "developer-scheduler")]
 pub(crate) fn publish_fetched(
     git: &Git,
     path: &Path,

@@ -21,6 +21,7 @@ pub(super) fn header(screen: &mut Screen, area: Rect) -> Text<'static> {
         ));
     }
     if matches!(screen.mode, Mode::Browsing) && screen.page == Page::Repositories {
+        #[cfg(feature = "developer-scheduler")]
         if screen.snapshot.registration == Registration::NotLoaded
             && screen.page == Page::Repositories
         {

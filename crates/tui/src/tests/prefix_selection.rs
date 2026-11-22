@@ -228,6 +228,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
         }
     }
 }
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
@@ -250,6 +251,7 @@ fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected
     assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
     assert!(s.repository_tasks.is_empty());
 }
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn clicking_a_global_candidate_replaces_the_selected_prefix_before_opening_the_view() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};

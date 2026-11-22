@@ -26,12 +26,14 @@ impl State {
 #[derive(Debug, Clone, Copy)]
 pub(in crate::view) enum Target {
     Button(crate::pointer::Action),
+    #[cfg(feature = "developer-scheduler")]
     Choice(crate::pointer::Target, usize),
 }
 impl Target {
     pub fn hit(self) -> Hit {
         match self {
             Self::Button(action) => Hit::Button(action),
+            #[cfg(feature = "developer-scheduler")]
             Self::Choice(target, index) => Hit::Item(target, index),
         }
     }
@@ -59,6 +61,7 @@ pub(in crate::view) fn management(
         })
         .collect()
 }
+#[cfg(feature = "developer-scheduler")]
 pub(in crate::view) fn workflow(session: &crate::workflow::Session) -> Vec<Item> {
     session
         .page_actions()
@@ -115,6 +118,7 @@ pub(in crate::view) fn render(
         if matches!(item.state, State::Available | State::Selected) {
             match item.target {
                 Target::Button(action) => hits.button(cell, action),
+                #[cfg(feature = "developer-scheduler")]
                 Target::Choice(target, index) => hits.item(cell, target, index),
             }
         }

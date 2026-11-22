@@ -42,14 +42,14 @@ impl Screen {
                 KeyCode::Down => {
                     self.setting_selected = (self.setting_selected + 1).min(
                         section
-                            .items(self.snapshot.registration, &self.config.ai)
+                            .items(&self.snapshot, &self.config.ai)
                             .len()
                             .saturating_sub(1),
                     )
                 }
                 KeyCode::Enter | KeyCode::Right => {
                     if let Some(item) = section
-                        .items(self.snapshot.registration, &self.config.ai)
+                        .items(&self.snapshot, &self.config.ai)
                         .get(self.setting_selected)
                     {
                         return self.activate_setting(*item, root);

@@ -69,6 +69,7 @@ mod repository_environment;
 mod repository_list;
 mod responsive;
 mod scan_management;
+#[cfg(feature = "developer-scheduler")]
 mod schedule;
 mod scrollbars;
 mod search;
@@ -83,6 +84,7 @@ mod task_center;
 mod task_feedback;
 mod text_selection;
 mod view_preferences;
+#[cfg(feature = "developer-scheduler")]
 mod workflows;
 mod workspace;
 mod workspace_navigation;
@@ -93,9 +95,11 @@ mod wrapping;
 use super::*;
 use crate::repository_list::{Filter, Order};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+#[cfg(feature = "developer-scheduler")]
+use engine::scheduler::{Registration, Schedule};
 use engine::{
     domain::*,
-    scheduler::{Manager, Registration, Schedule},
+    scheduler::Manager,
     service::{Activity, CachedReport},
     state::Store,
 };
@@ -109,14 +113,21 @@ fn screen(service: Service) -> Screen {
         .with_selected((!config.repositories.is_empty()).then_some(0));
     Screen {
         snapshot: Snapshot {
+            #[cfg(feature = "developer-scheduler")]
             registration: Registration::Loaded,
             activity: Activity::Idle,
+            #[cfg(feature = "developer-scheduler")]
             configured_interval_seconds: config.interval_seconds,
+            #[cfg(feature = "developer-scheduler")]
             configured_anchor: config.schedule_anchor.clone(),
+            #[cfg(feature = "developer-scheduler")]
             next_trigger: engine::scheduler::NextTrigger::Unanchored,
+            #[cfg(feature = "developer-scheduler")]
             push_policy: config.scheduled_actions.push_policy(),
+            #[cfg(feature = "developer-scheduler")]
             scheduled_actions: config.scheduled_actions.clone(),
             repository_count: config.repositories.len(),
+            #[cfg(feature = "developer-scheduler")]
             schedule: Schedule::Saved {
                 interval_seconds: 21600,
             },
@@ -1403,6 +1414,7 @@ fn configuration_confirmation_returns_to_editing_and_saves_only_on_accept() {
     assert_eq!(s.service.store.config().unwrap().max_concurrency, 7);
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
     use ratatui::{
@@ -1448,6 +1460,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
     let root = command::matches("");
@@ -1527,6 +1540,7 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn schedule_settings_are_separate_from_general_and_repository_management() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
@@ -1566,6 +1580,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu() {
     let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
@@ -1591,6 +1606,7 @@ fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu
     assert!(s.bar.text().starts_with("/schedule interval "));
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_tasks() {
     let (_home, mut s) = fixture(vec![]);
@@ -1647,6 +1663,7 @@ fn schedule_portal_completion_and_page_navigation_do_not_execute_or_install_task
     assert!(s.service.store.report().unwrap().is_none());
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     let (_home, mut s) = fixture(vec![]);
@@ -1672,6 +1689,7 @@ fn selecting_schedule_in_root_candidates_opens_management_with_enter() {
     assert!(s.service.store.report().unwrap().is_none());
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action() {
     use engine::scheduler::Control;
@@ -1788,6 +1806,7 @@ fn inline_add_treats_quoted_unicode_spaces_and_metacharacters_as_one_literal_pat
     assert!(s.service.store.report().unwrap().is_none());
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchanged() {
     let (_home, mut s) = fixture(vec![]);
@@ -1814,6 +1833,7 @@ fn invalid_or_missing_inline_arguments_keep_the_command_and_configuration_unchan
     assert!(config.repositories.is_empty());
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn dashboard_editing_and_confirmation_share_the_inline_command_draft() {
     let (_home, mut s) = fixture(vec![]);

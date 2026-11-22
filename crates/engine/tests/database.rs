@@ -15,6 +15,7 @@ use std::{
 };
 
 const AT: &str = "2026-10-22T12:00:00+00:00";
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn occurrence_claims_are_atomic_across_first_writes() {
     let (_temp, store) = fixture();

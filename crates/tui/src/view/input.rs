@@ -440,6 +440,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
         Mode::Browsing | Mode::RepositoryEnvironment(_) => match screen.page {
             Page::Repositories => i18n::tr!(RepositoryListHint),
             Page::Detail => i18n::tr!(RepositoryPanesHint),
+            #[cfg(feature = "developer-scheduler")]
             Page::Configuration(Configuration::Schedule) => i18n::tr!(ScheduleHelpHint),
             Page::Configuration(_) => i18n::tr!(SelectEnterEditBackCommands),
             Page::Help => i18n::tr!(PgdnScrollEscBackCommands),
@@ -583,6 +584,27 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         }
         _ => None,
     };
+    #[cfg(feature = "developer-scheduler")]
+    let workflow_footer = match mode {
+        Mode::Workflow(session) => Some((
+            if session.page() == crate::input_pages::Pair::Content {
+                i18n::tr!(WorkflowControls)
+            } else {
+                i18n::tr!(WorkflowFinishTitle)
+            },
+            Content::Actions {
+                items: actions::workflow(session),
+            },
+            if session.page() == crate::input_pages::Pair::Content {
+                i18n::tr!(WorkflowEditorHint)
+            } else {
+                i18n::tr!(WorkflowFinishHint)
+            },
+        )),
+        _ => None,
+    };
+    #[cfg(not(feature = "developer-scheduler"))]
+    let workflow_footer = None;
     let (title, content, hint) = if screen.focus_mode == crate::focus::State::Selecting {
         (
             i18n::tr!(PaneFocusTitle),
@@ -608,22 +630,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             },
             i18n::tr!(ScanActionsHint),
         )
-    } else if let Mode::Workflow(session) = mode {
-        (
-            if session.page() == crate::input_pages::Pair::Content {
-                i18n::tr!(WorkflowControls)
-            } else {
-                i18n::tr!(WorkflowFinishTitle)
-            },
-            Content::Actions {
-                items: actions::workflow(session),
-            },
-            if session.page() == crate::input_pages::Pair::Content {
-                i18n::tr!(WorkflowEditorHint)
-            } else {
-                i18n::tr!(WorkflowFinishHint)
-            },
-        )
+    } else if let Some(footer) = workflow_footer {
+        footer
     } else if let Some(selected) = screen.focused_conflict_control() {
         (
             i18n::tr!(ConflictControlsTitle),
@@ -776,7 +784,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                     hint,
                 )
             }
-            Mode::PromptEditor(_) | Mode::Workflow(_) => {
+            #[cfg(feature = "developer-scheduler")]
+            Mode::Workflow(_) => unreachable!("the editor has a compact footer"),
+            Mode::PromptEditor(_) => {
                 unreachable!("the editor has a compact footer")
             }
             Mode::StashSave(session) => (
@@ -814,6 +824,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         Confirmation::ConflictReset { .. } => i18n::tr!(ConflictResetCommand),
                         Confirmation::DiscardFile { .. } => i18n::tr!(DiscardFile),
                         Confirmation::Partial { .. } => i18n::tr!(PartialDiscard),
+                        #[cfg(feature = "developer-scheduler")]
                         Confirmation::Schedule(operation) => match operation {
                             engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
                             engine::scheduler::Control::Disable => i18n::tr!(DisableScheduledTask),

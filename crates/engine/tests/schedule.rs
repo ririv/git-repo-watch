@@ -1,3 +1,5 @@
+#![cfg(feature = "developer-scheduler")]
+
 use engine::{
     cancel::Cancel,
     scheduler::{BINARY_MARKER, Control, Manager, task_marker},

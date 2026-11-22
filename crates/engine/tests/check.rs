@@ -268,6 +268,7 @@ fn independent_repositories_overlap_real_fetches() {
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     let first = Fixture::create();

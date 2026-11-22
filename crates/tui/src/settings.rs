@@ -1,7 +1,10 @@
 //! Settings-page entries can open command editors or update preferences directly.
 use crate::{Action, Configuration, Effect, Outcome, Screen, command};
 use anyhow::Result;
-use engine::{cancel::Cancel, scheduler::Registration, service::ConfigEdit};
+use engine::{
+    cancel::Cancel,
+    service::{ConfigEdit, Snapshot},
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Item {
@@ -41,9 +44,9 @@ impl Item {
     }
 }
 impl Configuration {
-    pub(crate) fn items(self, registration: Registration, ai: &engine::ai::Config) -> Vec<Item> {
+    pub(crate) fn items(self, snapshot: &Snapshot, ai: &engine::ai::Config) -> Vec<Item> {
         let mut items = self
-            .actions(registration)
+            .actions(snapshot)
             .iter()
             .copied()
             .map(Item::Command)

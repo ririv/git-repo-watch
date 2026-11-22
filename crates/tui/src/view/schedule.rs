@@ -51,9 +51,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             (first, height)
         })
         .collect::<Vec<_>>();
-    let count = Configuration::Schedule
-        .actions(screen.snapshot.registration)
-        .len();
+    let count = Configuration::Schedule.actions(&screen.snapshot).len();
     screen.setting_selected = screen.setting_selected.min(count.saturating_sub(1));
     let focus = crate::settings::Focus {
         selected: screen.setting_selected,

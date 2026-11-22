@@ -85,7 +85,7 @@ fn schedule_values_share_rows_with_aligned_action_buttons() {
             let lines = text.lines().collect::<Vec<_>>();
             let mut columns = std::collections::BTreeSet::new();
             for (index, action) in Configuration::Schedule
-                .actions(s.snapshot.registration)
+                .actions(&s.snapshot)
                 .iter()
                 .enumerate()
             {
@@ -109,10 +109,7 @@ fn schedule_values_share_rows_with_aligned_action_buttons() {
             assert_eq!(columns.len(), 1, "{text}");
             assert!(!text.contains(i18n::tr!(EditInterval)), "{text}");
         }
-        s.setting_selected = Configuration::Schedule
-            .actions(s.snapshot.registration)
-            .len()
-            - 1;
+        s.setting_selected = Configuration::Schedule.actions(&s.snapshot).len() - 1;
         render(&mut s, 28, 8);
         assert!(
             (0..8)
@@ -131,7 +128,7 @@ fn schedule_buttons_open_editors_with_one_click_and_keep_control_confirmation() 
     fn click(screen: &mut Screen, action: Action) {
         render(screen, 100, 28);
         let index = Configuration::Schedule
-            .actions(screen.snapshot.registration)
+            .actions(&screen.snapshot)
             .iter()
             .position(|item| *item == action)
             .unwrap();

@@ -179,6 +179,7 @@ fn command_menu_keeps_input_title_in_shared_border_and_restores_search_on_close(
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn description_selection_completes_real_commands_and_returns_parameter_drafts() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {

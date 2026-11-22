@@ -39,7 +39,7 @@ fn fast_ai_toggle_retains_input_presentation_and_applies_without_waiting_for_fee
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings");
-        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        let items = Configuration::General.items(&s.snapshot, &s.config.ai);
         s.setting_selected = items
             .iter()
             .position(|item| *item == crate::settings::Item::AiEnabled)

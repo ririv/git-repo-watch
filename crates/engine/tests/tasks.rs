@@ -202,9 +202,12 @@ fn checks_share_the_journal_and_dirty_repositories_are_successful_tasks() {
             ..
         }
     ));
-    service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
-    assert_eq!(store.tasks(10).unwrap()[0].spec.source, Source::Scheduled);
-    assert_eq!(store.tasks(10).unwrap()[0].spec.retry, Retry::Unavailable);
+    #[cfg(feature = "developer-scheduler")]
+    {
+        service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
+        assert_eq!(store.tasks(10).unwrap()[0].spec.source, Source::Scheduled);
+        assert_eq!(store.tasks(10).unwrap()[0].spec.retry, Retry::Unavailable);
+    }
     let missing = store.config_dir().join("missing-repository");
     assert!(
         service

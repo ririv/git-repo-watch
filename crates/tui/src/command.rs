@@ -123,6 +123,7 @@ pub enum Action {
     Refresh,
     Settings,
     AiSettings,
+    #[cfg(feature = "developer-scheduler")]
     Schedule,
     OpenRepository,
     Repositories,
@@ -132,10 +133,14 @@ pub enum Action {
     Add,
     Remove,
     Scan,
+    #[cfg(feature = "developer-scheduler")]
     Interval,
+    #[cfg(feature = "developer-scheduler")]
     Anchor,
+    #[cfg(feature = "developer-scheduler")]
     Autopush,
     Concurrency,
+    #[cfg(feature = "developer-scheduler")]
     Workflow,
     AutoFetchMenu,
     AutoFetch(bool),
@@ -144,9 +149,13 @@ pub enum Action {
     StartupFetch(bool),
     WrapMenu,
     Wrap(bool),
+    #[cfg(feature = "developer-scheduler")]
     Apply,
+    #[cfg(feature = "developer-scheduler")]
     EnableSchedule,
+    #[cfg(feature = "developer-scheduler")]
     DisableSchedule,
+    #[cfg(feature = "developer-scheduler")]
     ScheduleEnabledMenu,
     Help,
     InteractionMenu,
@@ -608,6 +617,7 @@ pub const COMMANDS: &[Command] = &[
         action: TaskRetry,
         description: i18n::Message::TaskRetry,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule",
         action: Schedule,
@@ -633,16 +643,19 @@ pub const COMMANDS: &[Command] = &[
         action: Scan,
         description: i18n::Message::PreviewScanUsingGitIgnoreRules,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule interval",
         action: Interval,
         description: i18n::Message::SaveCheckInterval,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule anchor",
         action: Anchor,
         description: i18n::Message::SaveScheduleAnchor,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule autopush",
         action: Autopush,
@@ -653,6 +666,7 @@ pub const COMMANDS: &[Command] = &[
         action: Concurrency,
         description: i18n::Message::SetCheckConcurrencyLimit132,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule actions",
         action: Workflow,
@@ -708,11 +722,13 @@ pub const COMMANDS: &[Command] = &[
         action: AiPrompt,
         description: i18n::Message::AgentPromptHint,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule apply",
         action: Apply,
         description: i18n::Message::ApplySystemScheduleWithoutStartingACheck,
     },
+    #[cfg(feature = "developer-scheduler")]
     Command {
         name: "schedule enabled",
         action: ScheduleEnabledMenu,
@@ -900,12 +916,13 @@ impl Command {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Configuration {
     General,
+    #[cfg(feature = "developer-scheduler")]
     Schedule,
     Repositories,
     RepositoryEnvironment,
 }
 impl Configuration {
-    pub fn actions(self, registration: engine::scheduler::Registration) -> &'static [Action] {
+    pub fn actions(self, _snapshot: &engine::service::Snapshot) -> &'static [Action] {
         match self {
             Self::General => &[
                 Concurrency,
@@ -921,7 +938,8 @@ impl Configuration {
                 RepositoryEnvEdit(EnvironmentField::Unset),
                 RepositoryEnvEdit(EnvironmentField::Launcher),
             ],
-            Self::Schedule => match registration {
+            #[cfg(feature = "developer-scheduler")]
+            Self::Schedule => match _snapshot.registration {
                 engine::scheduler::Registration::Loaded => {
                     &[DisableSchedule, Interval, Anchor, Workflow, Apply]
                 }
@@ -936,6 +954,7 @@ impl Configuration {
             Self::General => i18n::tr!(GeneralSettings),
             Self::Repositories => i18n::tr!(RepositoryManagement),
             Self::RepositoryEnvironment => i18n::tr!(GitEnvironment),
+            #[cfg(feature = "developer-scheduler")]
             Self::Schedule => i18n::tr!(ScheduleSettings),
         }
     }

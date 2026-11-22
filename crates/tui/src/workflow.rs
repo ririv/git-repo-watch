@@ -418,7 +418,7 @@ impl Screen {
             unreachable!()
         };
         self.setting_selected = section
-            .items(self.snapshot.registration, &self.config.ai)
+            .items(&self.snapshot, &self.config.ai)
             .iter()
             .position(|item| *item == crate::settings::Item::Command(crate::Action::Workflow))
             .expect("workflow setting");

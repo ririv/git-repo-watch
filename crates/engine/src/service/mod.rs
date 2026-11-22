@@ -1,4 +1,6 @@
 //! UI-independent orchestration, persistence, and bounded repository checks.
+#[cfg(feature = "developer-scheduler")]
+use crate::scheduler::{Registration, Schedule};
 use crate::{
     cancel::Cancel,
     check, discovery,
@@ -11,7 +13,7 @@ use crate::{
     },
     notify,
     operations::{self, commit::CommitResult, push::PushPlan},
-    scheduler::{Manager, Registration, Schedule},
+    scheduler::Manager,
     state::{self, Lock, Store},
     transport::Git,
 };
@@ -58,14 +60,21 @@ pub enum Scope {
 }
 #[derive(Debug, Clone, Serialize)]
 pub struct Snapshot {
+    #[cfg(feature = "developer-scheduler")]
     pub registration: Registration,
     pub activity: Activity,
+    #[cfg(feature = "developer-scheduler")]
     pub configured_interval_seconds: u64,
+    #[cfg(feature = "developer-scheduler")]
     pub configured_anchor: crate::scheduler::timing::Anchor,
+    #[cfg(feature = "developer-scheduler")]
     pub next_trigger: crate::scheduler::NextTrigger,
+    #[cfg(feature = "developer-scheduler")]
     pub push_policy: PushPolicy,
+    #[cfg(feature = "developer-scheduler")]
     pub scheduled_actions: crate::workflow::Plan,
     pub repository_count: usize,
+    #[cfg(feature = "developer-scheduler")]
     pub schedule: Schedule,
     pub report: CachedReport,
     pub max_concurrency: usize,
@@ -78,6 +87,7 @@ pub use checks::{Groups, group};
 mod config;
 mod mutations;
 mod repository;
+#[cfg(feature = "developer-scheduler")]
 mod schedule;
 impl Service {
     pub fn new(store: Store, scheduler: Manager) -> Self {
@@ -121,13 +131,17 @@ pub enum ConfigEdit {
         path: PathBuf,
         edit: crate::git_environment::Edit,
     },
+    #[cfg(feature = "developer-scheduler")]
     Interval(u64),
+    #[cfg(feature = "developer-scheduler")]
     Anchor(crate::scheduler::timing::Anchor),
+    #[cfg(feature = "developer-scheduler")]
     Policy(PushPolicy),
     Concurrency(usize),
     FetchOnStartup(bool),
     AutoFetchEnabled(bool),
     AutoFetchInterval(u64),
+    #[cfg(feature = "developer-scheduler")]
     ScheduledWorkflow(crate::workflow::Plan),
     TextWrap(bool),
     FileIcons(bool),

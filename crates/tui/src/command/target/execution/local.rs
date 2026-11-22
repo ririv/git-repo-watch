@@ -104,6 +104,7 @@ impl Screen {
             Action::ComposeOrderMenu => {
                 self.open_option_menu(command::options::Kind::ComposeOrder, path, selection)
             }
+            #[cfg(feature = "developer-scheduler")]
             Action::ScheduleEnabledMenu => {
                 self.open_option_menu(command::options::Kind::ScheduleEnabled, path, selection)
             }
@@ -196,6 +197,7 @@ impl Screen {
                 }
             }
             Action::AiSettings => self.open_ai_setting(crate::settings::Item::AiEnabled),
+            #[cfg(feature = "developer-scheduler")]
             Action::Schedule => self.open_configuration(Configuration::Schedule),
             Action::Help => self.open_page(Page::Help),
             Action::AutoFetchMenu => {
@@ -340,12 +342,15 @@ impl Screen {
                     self.cancel_check();
                 }
             }
+            #[cfg(feature = "developer-scheduler")]
             Action::Workflow => self.open_workflow(),
+            #[cfg(feature = "developer-scheduler")]
             Action::Apply | Action::EnableSchedule | Action::DisableSchedule => {
                 self.mode = Mode::Confirm {
                     operation: Confirmation::Schedule(match action {
                         Action::EnableSchedule => engine::scheduler::Control::Enable,
                         Action::DisableSchedule => engine::scheduler::Control::Disable,
+                        #[cfg(feature = "developer-scheduler")]
                         Action::Apply => engine::scheduler::Control::Apply,
                         _ => unreachable!(),
                     }),
@@ -361,9 +366,11 @@ impl Screen {
             }
             _ => {
                 let value = match action {
+                    #[cfg(feature = "developer-scheduler")]
                     Action::Interval => {
                         engine::scheduler::duration::compact(self.config.interval_seconds)
                     }
+                    #[cfg(feature = "developer-scheduler")]
                     Action::Anchor => self
                         .config
                         .schedule_anchor
@@ -410,7 +417,7 @@ impl Screen {
     fn open_ai_setting(&mut self, item: crate::settings::Item) {
         self.open_configuration(Configuration::General);
         self.setting_selected = Configuration::General
-            .items(self.snapshot.registration, &self.config.ai)
+            .items(&self.snapshot, &self.config.ai)
             .iter()
             .position(|candidate| *candidate == item)
             .expect("enabled AI setting is present in the general form");

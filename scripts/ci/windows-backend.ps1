@@ -1,4 +1,6 @@
 # 只在临时 Windows runner 中注册任务和操作 Git 测试仓库。
+param([Parameter(Mandatory)][string]$gw)
+
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 if (!$IsWindows -or $env:GITHUB_ACTIONS -ne 'true') {
@@ -6,7 +8,6 @@ if (!$IsWindows -or $env:GITHUB_ACTIONS -ne 'true') {
 }
 
 $identity = ConvertFrom-StringData (Get-Content "$PSScriptRoot/../../application.env" -Raw)
-$gw = "$PSScriptRoot/../../target/release/app.exe"
 $sid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 $label = "$($identity.APP_SERVICE_LABEL)-$sid"
 $profile = Join-Path $env:RUNNER_TEMP "仓库检查 $([guid]::NewGuid())"

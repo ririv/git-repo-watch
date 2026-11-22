@@ -1,5 +1,6 @@
 //! Short SQLite transactions own persistent state; Git work stays outside this module.
 mod reports;
+#[cfg(feature = "developer-scheduler")]
 mod schedule;
 mod schema;
 mod tasks;

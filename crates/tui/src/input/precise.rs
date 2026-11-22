@@ -216,8 +216,9 @@ impl Screen {
                         }
                     }
                     Target::Settings => self.scroll = offset,
-                    Target::ReplayParent
-                    | Target::ScheduleButton
+                    Target::ReplayParent => return false,
+                    #[cfg(feature = "developer-scheduler")]
+                    Target::ScheduleButton
                     | Target::WorkflowSteps
                     | Target::WorkflowToggle
                     | Target::WorkflowActions => {
@@ -273,7 +274,9 @@ impl Screen {
                     }
                     *selected = index;
                 }
+                #[cfg(feature = "developer-scheduler")]
                 Target::ScheduleButton => return false,
+                #[cfg(feature = "developer-scheduler")]
                 Target::WorkflowSteps | Target::WorkflowToggle | Target::WorkflowActions => {
                     if !matches!(self.mode, Mode::Workflow(_)) {
                         return false;
@@ -528,6 +531,7 @@ impl Screen {
                 },
                 ScrollTarget::Text => match &mut self.mode {
                     Mode::StashSave(session) => session.scroll = offset,
+                    #[cfg(feature = "developer-scheduler")]
                     Mode::Workflow(session) => session.scroll = offset,
                     Mode::CompositionWaiting(waiting) => match &mut waiting.state {
                         crate::composition::waiting::State::Failed { scroll, .. } => {

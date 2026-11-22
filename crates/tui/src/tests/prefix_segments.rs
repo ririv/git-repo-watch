@@ -43,6 +43,7 @@ fn every_context_selects_its_last_segment_and_arrows_expand_and_shrink_at_bounda
         Context::Repository,
         Context::Repositories,
         Context::Settings,
+        #[cfg(feature = "developer-scheduler")]
         Context::Schedule,
     ] {
         let mut input = Input::new(Some(context));

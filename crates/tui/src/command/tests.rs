@@ -58,6 +58,7 @@ fn root_menu_stays_compact_and_each_group_defaults_to_its_parent() {
         }));
     }
     assert_eq!(names("repos r"), ["repos remove"]);
+    #[cfg(feature = "developer-scheduler")]
     assert_eq!(
         names("schedule a"),
         [
@@ -85,6 +86,7 @@ fn argument_values_remain_arguments_when_they_contain_spaces_or_command_names() 
         assert_eq!(names(&input), ["repos add"]);
         assert_eq!(argument_input(&input), Some((ArgumentAction::Add, value)));
     }
+    #[cfg(feature = "developer-scheduler")]
     assert_eq!(names("schedule interval 6h"), ["schedule interval"]);
 }
 
@@ -93,6 +95,7 @@ fn chinese_and_english_descriptions_are_searchable_in_either_interface_language(
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (query, expected) in [
+            #[cfg(feature = "developer-scheduler")]
             ("检查频率", "schedule interval"),
             ("LIVE DIFF", "repo diff"),
             ("FETCH CONFIGURED", "repo fetch"),
@@ -193,8 +196,22 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
     assert_eq!(
         names(""),
         [
-            "repo", "repos", "cancel", "search", "focus", "zoom", "editor", "open", "copy",
-            "refresh", "tasks", "schedule", "settings", "help", "quit"
+            "repo",
+            "repos",
+            "cancel",
+            "search",
+            "focus",
+            "zoom",
+            "editor",
+            "open",
+            "copy",
+            "refresh",
+            "tasks",
+            #[cfg(feature = "developer-scheduler")]
+            "schedule",
+            "settings",
+            "help",
+            "quit"
         ]
     );
     for group in ["repo", "repos"] {
@@ -252,5 +269,26 @@ impl Command {
             Some(argument) => format!("{} {}", self.name, argument.placeholder()),
             None => self.name.into(),
         }
+    }
+}
+
+#[cfg(not(feature = "developer-scheduler"))]
+#[test]
+fn release_catalog_and_help_leave_out_system_scheduling() {
+    assert!(
+        COMMANDS
+            .iter()
+            .all(|command| !command.name.starts_with("schedule"))
+    );
+    assert!(
+        COMMANDS
+            .iter()
+            .any(|command| command.name == "settings auto-fetch")
+    );
+    for language in [i18n::Language::English, i18n::Language::Chinese] {
+        let _language = i18n::using(language);
+        let help = i18n::tr!(TuiHelp);
+        assert!(!help.contains("/schedule"));
+        assert!(help.contains("/settings auto-fetch"));
     }
 }

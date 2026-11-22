@@ -17,9 +17,13 @@ pub(crate) enum Target {
     InspectionFiles,
     ReplayParent,
     Settings,
+    #[cfg(feature = "developer-scheduler")]
     ScheduleButton,
+    #[cfg(feature = "developer-scheduler")]
     WorkflowSteps,
+    #[cfg(feature = "developer-scheduler")]
     WorkflowToggle,
+    #[cfg(feature = "developer-scheduler")]
     WorkflowActions,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

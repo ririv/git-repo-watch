@@ -78,7 +78,7 @@ fn icon_toggle_is_localized_persistent_and_browser_slots_keep_their_width() {
         assert!(has_icon(&frame(&mut s), &folder));
         browser::select(&mut s, "中文.ts");
         command(&mut s, "settings");
-        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        let items = Configuration::General.items(&s.snapshot, &s.config.ai);
         s.setting_selected = items
             .iter()
             .position(|item| *item == Item::FileIcons)

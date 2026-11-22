@@ -131,6 +131,7 @@ fn hidden_directories_require_a_dot_prefix_and_children_are_not_traversed() {
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn errors_preserve_the_editor_and_non_path_arguments_do_not_touch_the_filesystem() {
     let temp = directories(&[]);

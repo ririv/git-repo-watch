@@ -1,16 +1,87 @@
 //! Execute one validated workflow while its caller owns the repository lock.
-use super::{Plan, Step, StepOutcome, StepRecord};
+#[cfg(feature = "developer-scheduler")]
+use super::Plan;
+use super::{Step, StepOutcome, StepRecord};
 use crate::{
     cancel::Cancel,
     check,
-    domain::{Publication, RepositoryResult, Timing},
-    local::guard::Position,
+    domain::{RepositoryResult, Timing},
     operations, state,
     transport::Git,
 };
 use anyhow::Result;
 use std::{path::Path, time::Instant};
 
+#[cfg(feature = "developer-scheduler")]
+use crate::{domain::Publication, local::guard::Position};
+
+#[derive(Clone, Copy)]
+enum Action {
+    Fetch,
+    Inspect,
+    #[cfg(feature = "developer-scheduler")]
+    Pull,
+    #[cfg(feature = "developer-scheduler")]
+    Push,
+}
+impl From<Action> for Step {
+    fn from(action: Action) -> Self {
+        match action {
+            Action::Fetch => Self::Fetch,
+            Action::Inspect => Self::Inspect,
+            #[cfg(feature = "developer-scheduler")]
+            Action::Pull => Self::Pull,
+            #[cfg(feature = "developer-scheduler")]
+            Action::Push => Self::Push,
+        }
+    }
+}
+
+#[cfg(feature = "developer-scheduler")]
+impl From<Step> for Action {
+    fn from(step: Step) -> Self {
+        match step {
+            Step::Fetch => Self::Fetch,
+            Step::Inspect => Self::Inspect,
+            Step::Pull => Self::Pull,
+            Step::Push => Self::Push,
+        }
+    }
+}
+
+pub(crate) fn fetch(
+    git: &Git,
+    path: &Path,
+    cancel: &Cancel,
+    progress: impl FnMut(Step) -> Result<()>,
+) -> (RepositoryResult, Timing) {
+    execute(
+        git,
+        path,
+        [Action::Fetch, Action::Inspect],
+        cancel,
+        progress,
+    )
+}
+
+#[cfg(feature = "developer-scheduler")]
+pub(crate) fn scheduled(
+    git: &Git,
+    path: &Path,
+    plan: &Plan,
+    cancel: &Cancel,
+    progress: impl FnMut(Step) -> Result<()>,
+) -> (RepositoryResult, Timing) {
+    execute(
+        git,
+        path,
+        plan.steps().iter().copied().map(Action::from),
+        cancel,
+        progress,
+    )
+}
+
+#[cfg(feature = "developer-scheduler")]
 enum Refresh {
     Cached,
     Fetched(Vec<String>),
@@ -20,10 +91,10 @@ enum State {
     Inspected(RepositoryResult),
     Failed(String),
 }
-pub(crate) fn execute(
+fn execute(
     git: &Git,
     path: &Path,
-    plan: &Plan,
+    actions: impl IntoIterator<Item = Action>,
     cancel: &Cancel,
     mut progress: impl FnMut(Step) -> Result<()>,
 ) -> (RepositoryResult, Timing) {
@@ -38,21 +109,25 @@ pub(crate) fn execute(
         steps: vec![],
     };
     let mut state = State::Running;
+    #[cfg(feature = "developer-scheduler")]
     let mut refresh = Refresh::Cached;
+    #[cfg(feature = "developer-scheduler")]
     let mut publications = Vec::new();
-    for &step in plan.steps() {
+    for action in actions {
+        let step = Step::from(action);
         let started_at = state::now();
         let at = Instant::now();
         let result = (|| -> Result<StepOutcome> {
             cancel.check()?;
             progress(step)?;
+            #[cfg(feature = "developer-scheduler")]
             if skip_without_remotes(path, step)? {
                 return Ok(StepOutcome::Skipped {
                     reason: operations::SkipReason::NoRemotes,
                 });
             }
-            let detail = match step {
-                Step::Fetch => {
+            let detail = match action {
+                Action::Fetch => {
                     let remotes = match operations::fetch::all(git, path, cancel)? {
                         operations::fetch::Outcome::Fetched { remotes } => remotes,
                         operations::fetch::Outcome::Skipped { reason } => {
@@ -60,10 +135,14 @@ pub(crate) fn execute(
                         }
                     };
                     let detail = remotes.join(", ");
-                    refresh = Refresh::Fetched(remotes);
+                    #[cfg(feature = "developer-scheduler")]
+                    {
+                        refresh = Refresh::Fetched(remotes);
+                    }
                     detail
                 }
-                Step::Pull => {
+                #[cfg(feature = "developer-scheduler")]
+                Action::Pull => {
                     let plan = match &refresh {
                         Refresh::Cached => operations::pull::prepare(git, path, cancel)?,
                         Refresh::Fetched(remotes) => {
@@ -74,12 +153,9 @@ pub(crate) fn execute(
                     operations::pull::execute(git, &plan, cancel)?;
                     format!("{}: {} → {}", plan.branch, before, plan.oid)
                 }
-                Step::Push | Step::Inspect => {
-                    let (result, current) = match step {
-                        Step::Push => check::publish_fetched(git, path, cancel),
-                        Step::Inspect => check::local_repository(path, cancel),
-                        _ => unreachable!(),
-                    };
+                #[cfg(feature = "developer-scheduler")]
+                Action::Push => {
+                    let (result, current) = check::publish_fetched(git, path, cancel);
                     publications.extend_from_slice(result.pushes());
                     timing.verify_ms += current.verify_ms;
                     timing.push_ms += current.push_ms;
@@ -92,24 +168,30 @@ pub(crate) fn execute(
                     if result.pushes().iter().any(|push| push.error().is_some()) {
                         anyhow::bail!("{}", publication_detail(result.pushes()));
                     }
-                    let detail = if step == Step::Push {
-                        publication_detail(result.pushes())
-                    } else {
-                        result.label().to_owned()
-                    };
-                    if step == Step::Inspect {
-                        state = State::Inspected(result);
+                    publication_detail(result.pushes())
+                }
+                Action::Inspect => {
+                    let (result, current) = check::local_repository(path, cancel);
+                    timing.verify_ms += current.verify_ms;
+                    timing.push_ms += current.push_ms;
+                    if let RepositoryResult::Failed { error, .. } = &result {
+                        anyhow::bail!("{error}");
                     }
+                    let detail = result.label().to_owned();
+                    state = State::Inspected(result);
                     detail
                 }
             };
             Ok(StepOutcome::Succeeded { detail })
         })();
         let elapsed = at.elapsed().as_millis();
-        match step {
-            Step::Fetch => timing.fetch_ms += elapsed,
-            Step::Push => {}
-            Step::Pull | Step::Inspect => timing.local_ms += elapsed,
+        match action {
+            Action::Fetch => timing.fetch_ms += elapsed,
+            #[cfg(feature = "developer-scheduler")]
+            Action::Push => {}
+            #[cfg(feature = "developer-scheduler")]
+            Action::Pull => timing.local_ms += elapsed,
+            Action::Inspect => timing.local_ms += elapsed,
         }
         let outcome = match result {
             Ok(outcome) => outcome,
@@ -130,7 +212,7 @@ pub(crate) fn execute(
         }
     }
     timing.elapsed_ms = started.elapsed().as_millis();
-    let mut result = match state {
+    let result = match state {
         State::Inspected(result) => result,
         State::Failed(error) => RepositoryResult::Failed {
             path: path.into(),
@@ -139,6 +221,9 @@ pub(crate) fn execute(
         },
         State::Running => unreachable!("validated workflow ends with inspection"),
     };
+    #[cfg(feature = "developer-scheduler")]
+    let mut result = result;
+    #[cfg(feature = "developer-scheduler")]
     match &mut result {
         RepositoryResult::Clean { pushes, .. }
         | RepositoryResult::Attention { pushes, .. }
@@ -146,6 +231,7 @@ pub(crate) fn execute(
     }
     (result, timing)
 }
+#[cfg(feature = "developer-scheduler")]
 fn skip_without_remotes(path: &Path, step: Step) -> Result<bool> {
     if !matches!(step, Step::Pull | Step::Push) {
         return Ok(false);
@@ -172,6 +258,7 @@ fn skip_without_remotes(path: &Path, step: Step) -> Result<bool> {
     }
     Ok(true)
 }
+#[cfg(feature = "developer-scheduler")]
 fn publication_detail(publications: &[Publication]) -> String {
     if publications.is_empty() {
         return i18n::tr!(WorkflowNoPush).into();

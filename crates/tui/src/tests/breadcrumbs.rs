@@ -187,6 +187,7 @@ fn embedded_detail_returns_to_its_focused_pane_and_commands_do_not_navigate_on_c
     s.shutdown();
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn configuration_and_help_follow_the_same_enter_and_return_path() {
     let (_home, mut s) = fixture(vec![]);

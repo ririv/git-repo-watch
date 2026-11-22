@@ -7,6 +7,9 @@ license.workspace = true
 publish = false
 description = "Ratatui 终端交互适配器"
 
+[features]
+developer-scheduler = ["engine/developer-scheduler", "i18n/developer-scheduler"]
+
 [dependencies]
 identity.workspace = true
 i18n.workspace = true

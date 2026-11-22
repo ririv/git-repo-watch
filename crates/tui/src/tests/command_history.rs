@@ -260,6 +260,7 @@ fn invalid_commands_are_not_recorded_and_corrupt_history_is_visible_without_dest
     s.shutdown();
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn context_prefixes_keep_up_in_command_completion_and_explicit_global_slash_opens_history() {
     use command::{Context, context::DiffContext};

@@ -6,6 +6,7 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
     if action == Action::EditorSetting {
         return Some(screen.config.editor.label());
     }
+    #[cfg(feature = "developer-scheduler")]
     if action == Action::ScheduleEnabledMenu {
         return Some(
             match screen.snapshot.registration {
@@ -15,6 +16,7 @@ pub(super) fn annotation(action: Action, screen: &Screen) -> Option<String> {
             .into(),
         );
     }
+    #[cfg(feature = "developer-scheduler")]
     if action == Action::Workflow {
         return Some(screen.config.scheduled_actions.summary());
     }
@@ -79,7 +81,7 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
     let mut row = 0usize;
     let mut mouse_heading = false;
     for (i, item) in section
-        .items(screen.snapshot.registration, &screen.config.ai)
+        .items(&screen.snapshot, &screen.config.ai)
         .iter()
         .enumerate()
     {
@@ -99,10 +101,13 @@ pub(super) fn settings(frame: &mut Frame, screen: &mut Screen, area: Rect, secti
                 i18n::tr!(TaskDisabled)
             }
             .into(),
+            #[cfg(feature = "developer-scheduler")]
             Item::Command(Action::Interval) => {
                 engine::scheduler::duration::compact(screen.config.interval_seconds)
             }
+            #[cfg(feature = "developer-scheduler")]
             Item::Command(Action::Anchor) => screen.config.schedule_anchor.display(),
+            #[cfg(feature = "developer-scheduler")]
             Item::Command(Action::Autopush) => {
                 screen.config.scheduled_actions.push_policy().to_string()
             }

@@ -215,6 +215,7 @@ fn history_branch_and_historical_diff_have_explicit_groups_without_worktree_writ
     assert_eq!(s.search_commands().unwrap()[0].name, "repo branch filter");
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn configuration_scope_preserves_tilde_completion_unicode_and_confirmation_cursor() {
     let (_home, mut s) = fixture(vec![]);

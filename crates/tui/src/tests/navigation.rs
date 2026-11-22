@@ -82,6 +82,7 @@ fn text_and_modified_arrows_stay_in_the_editor_instead_of_navigating() {
     assert_eq!(s.page, Page::Repositories);
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn settings_arrows_open_editing_or_confirmation_without_executing_the_operation() {
     let (_home, mut s) = fixture(vec![]);
@@ -189,6 +190,7 @@ fn view_commands_open_full_views_and_return_to_the_focused_pane() {
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn application_pages_restore_the_full_view_and_pane_search() {
     let f = support::Fixture::create();

@@ -99,6 +99,7 @@ impl Screen {
     pub(super) fn clicked_identity(&self, target: Target) -> Option<Identity> {
         match target {
             Target::Management => None,
+            #[cfg(feature = "developer-scheduler")]
             Target::ScheduleButton
             | Target::WorkflowSteps
             | Target::WorkflowToggle
@@ -209,7 +210,7 @@ impl Screen {
                 Page::Configuration(section) => Some(Identity::Setting(
                     section,
                     *section
-                        .items(self.snapshot.registration, &self.config.ai)
+                        .items(&self.snapshot, &self.config.ai)
                         .get(self.setting_selected)?,
                 )),
                 _ => None,

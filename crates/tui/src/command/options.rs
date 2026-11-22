@@ -7,7 +7,9 @@ use crate::{
     repository_list::{Filter, Order},
     task_center::Filter as TaskFilter,
 };
-use engine::{ai::Agent, domain::PushPolicy, state::InteractionMode};
+#[cfg(feature = "developer-scheduler")]
+use engine::domain::PushPolicy;
+use engine::{ai::Agent, state::InteractionMode};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Kind {
@@ -25,6 +27,7 @@ pub(crate) enum Kind {
     FileLayout,
     DiffHeader,
     ComposeOrder,
+    #[cfg(feature = "developer-scheduler")]
     ScheduleEnabled,
     DiffLayout,
     DiffContext,
@@ -33,6 +36,7 @@ pub(crate) enum Kind {
     AutoFetch,
     StartupFetch,
     TextWrap,
+    #[cfg(feature = "developer-scheduler")]
     Autopush,
     AiAgent,
 }
@@ -52,6 +56,7 @@ pub(crate) enum Value {
     FileLayout(crate::browser::opening::Layout),
     DiffHeader(crate::diff::HeaderVisibility),
     ComposeOrder(crate::composition::Direction),
+    #[cfg(feature = "developer-scheduler")]
     ScheduleEnabled(engine::scheduler::Registration),
     DiffLayout(Preference),
     DiffContext(crate::diff::Context),
@@ -60,6 +65,7 @@ pub(crate) enum Value {
     AutoFetch(bool),
     StartupFetch(bool),
     TextWrap(bool),
+    #[cfg(feature = "developer-scheduler")]
     Autopush(PushPolicy),
     AiAgent(Agent),
 }
@@ -208,11 +214,13 @@ const OPTIONS: &[Option] = &[
         token: "down",
         description: M::ComposeDown,
     },
+    #[cfg(feature = "developer-scheduler")]
     Option {
         value: Value::ScheduleEnabled(engine::scheduler::Registration::Loaded),
         token: "true",
         description: M::EnableScheduledTask,
     },
+    #[cfg(feature = "developer-scheduler")]
     Option {
         value: Value::ScheduleEnabled(engine::scheduler::Registration::NotLoaded),
         token: "false",
@@ -408,11 +416,13 @@ const OPTIONS: &[Option] = &[
         token: "text",
         description: M::InteractionTextCommand,
     },
+    #[cfg(feature = "developer-scheduler")]
     Option {
         value: Value::Autopush(PushPolicy::Disabled),
         token: "disabled",
         description: M::AutoPushDisabledOption,
     },
+    #[cfg(feature = "developer-scheduler")]
     Option {
         value: Value::Autopush(PushPolicy::FastForward),
         token: "fast_forward",
@@ -446,9 +456,11 @@ impl Value {
             Self::FileLayout(value) => Action::BrowserLayout(value),
             Self::DiffHeader(value) => Action::DiffHeaderVisibility(value),
             Self::ComposeOrder(value) => Action::Compose(value.action()),
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled(engine::scheduler::Registration::Loaded) => {
                 Action::EnableSchedule
             }
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled(engine::scheduler::Registration::NotLoaded) => {
                 Action::DisableSchedule
             }
@@ -459,6 +471,7 @@ impl Value {
             Self::AutoFetch(value) => Action::AutoFetch(value),
             Self::StartupFetch(value) => Action::StartupFetch(value),
             Self::TextWrap(value) => Action::Wrap(value),
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush(_) => Action::Autopush,
             Self::AiAgent(_) => Action::AiAgent,
         }
@@ -479,6 +492,7 @@ impl Value {
             Self::FileLayout(_) => Kind::FileLayout,
             Self::DiffHeader(_) => Kind::DiffHeader,
             Self::ComposeOrder(_) => Kind::ComposeOrder,
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled(_) => Kind::ScheduleEnabled,
             Self::DiffLayout(_) => Kind::DiffLayout,
             Self::DiffContext(_) => Kind::DiffContext,
@@ -487,6 +501,7 @@ impl Value {
             Self::AutoFetch(_) => Kind::AutoFetch,
             Self::StartupFetch(_) => Kind::StartupFetch,
             Self::TextWrap(_) => Kind::TextWrap,
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush(_) => Kind::Autopush,
             Self::AiAgent(_) => Kind::AiAgent,
         }
@@ -509,6 +524,7 @@ impl Kind {
             Self::FileLayout => Action::BrowserLayoutMenu,
             Self::DiffHeader => Action::DiffHeader,
             Self::ComposeOrder => Action::ComposeOrderMenu,
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled => Action::ScheduleEnabledMenu,
             Self::DiffLayout => Action::DiffLayoutMenu,
             Self::DiffContext => Action::DiffContextMenu,
@@ -517,6 +533,7 @@ impl Kind {
             Self::AutoFetch => Action::AutoFetchMenu,
             Self::StartupFetch => Action::StartupFetchMenu,
             Self::TextWrap => Action::WrapMenu,
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Action::Autopush,
             Self::AiAgent => Action::AiAgent,
         }
@@ -540,6 +557,7 @@ impl Kind {
             Self::ComposeOrder | Self::StashSave => return None,
             Self::Reset => Value::Reset(engine::operations::reset::Mode::Soft),
             Self::DiffHeader => Value::DiffHeader(screen.diff_header),
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabled => Value::ScheduleEnabled(screen.snapshot.registration),
             Self::FileLayout => {
                 Value::FileLayout(screen.bar.selection()?.opener()?.presentation.layout())
@@ -576,6 +594,7 @@ impl Kind {
             Self::AutoFetch => Value::AutoFetch(screen.config.auto_fetch.enabled),
             Self::StartupFetch => Value::StartupFetch(screen.config.fetch_on_startup),
             Self::TextWrap => Value::TextWrap(screen.config.text_wrap),
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Value::Autopush(screen.config.scheduled_actions.push_policy()),
             Self::AiAgent => Value::AiAgent(screen.config.ai.agent),
         })

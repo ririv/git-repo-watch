@@ -5,7 +5,6 @@ use engine::{
     scheduler::Manager,
     service::{ConfigEdit, Service},
     state::{Config, Store},
-    workflow::Plan,
 };
 use std::{fs, os::unix::fs::PermissionsExt, path::Path};
 use test_support::{Fixture, write};
@@ -44,7 +43,8 @@ fn manual_and_scheduled_pushes_apply_only_their_worktree_git_environment() {
     store
         .save_config(&Config {
             repositories: vec![first.repo.clone(), second.repo.clone()],
-            scheduled_actions: "fetch push inspect".parse::<Plan>().unwrap(),
+            #[cfg(feature = "developer-scheduler")]
+            scheduled_actions: "fetch push inspect".parse().unwrap(),
             ..Config::default()
         })
         .unwrap();
@@ -75,14 +75,17 @@ fn manual_and_scheduled_pushes_apply_only_their_worktree_git_environment() {
         service.push(&plan, &cancel).unwrap(),
         Publication::Pushed { .. }
     ));
-    first.commit("scheduled", "scheduled");
-    let report = service.run_scheduled(&cancel, |_| {}).unwrap();
-    assert_eq!(report.repositories.len(), 2);
-    for repository in report.repositories {
-        assert!(
-            matches!(repository.pushes(), [Publication::Pushed { .. }]),
-            "{repository:?}"
-        );
+    #[cfg(feature = "developer-scheduler")]
+    {
+        first.commit("scheduled", "scheduled");
+        let report = service.run_scheduled(&cancel, |_| {}).unwrap();
+        assert_eq!(report.repositories.len(), 2);
+        for repository in report.repositories {
+            assert!(
+                matches!(repository.pushes(), [Publication::Pushed { .. }]),
+                "{repository:?}"
+            );
+        }
     }
     configure(Edit::Unset("GW_FIXTURE_WORKTREE".into()));
     configure(Edit::Launcher(None));

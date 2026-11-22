@@ -15,6 +15,7 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             management::render(frame, area, session, &mut screen.pointer);
         }
         Mode::Management(session) => management::render(frame, area, session, &mut screen.pointer),
+        #[cfg(feature = "developer-scheduler")]
         Mode::Workflow(session) => workflow::render(frame, area, session, &mut screen.pointer),
         Mode::CompositionWaiting(waiting) => {
             composition::waiting(frame, area, waiting, &mut screen.pointer)
@@ -173,6 +174,7 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 }
                 Confirmation::Partial { review, .. }
                 | Confirmation::ConflictReset { review, .. } => review.clone(),
+                #[cfg(feature = "developer-scheduler")]
                 Confirmation::Schedule(operation) => match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(ScheduleEnableConfirmation),
                     engine::scheduler::Control::Disable => i18n::tr!(ScheduleDisableConfirmation),
@@ -233,6 +235,7 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             }
             Page::Repositories => repositories(frame, screen, area),
             Page::Detail => overview::render(frame, screen, area),
+            #[cfg(feature = "developer-scheduler")]
             Page::Configuration(Configuration::Schedule) => schedule::render(frame, screen, area),
             Page::Configuration(section) => settings(frame, screen, area, section),
             Page::Help => help::render(

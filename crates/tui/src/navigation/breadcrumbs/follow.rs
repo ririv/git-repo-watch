@@ -119,6 +119,7 @@ impl Screen {
                     | crate::Confirmation::Configure { origin, .. }
                     | crate::Confirmation::Mutation { origin, .. }
                     | crate::Confirmation::ReplayParents { origin, .. } => *origin,
+                    #[cfg(feature = "developer-scheduler")]
                     crate::Confirmation::Schedule(_) => Mode::Browsing,
                 },
                 mode => {

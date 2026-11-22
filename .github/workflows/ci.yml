@@ -31,6 +31,10 @@ jobs:
         run: python3 -m unittest discover -s examples/playground -p 'test_*.py' -v
       - name: 运行全部测试
         run: cargo test --workspace --locked
+      - name: 验证定时任务开发构建
+        run: |
+          cargo clippy --workspace --locked --all-targets --features developer-scheduler -- -D warnings
+          cargo test --workspace --locked --features developer-scheduler
       - name: 验证 Linux 原生剪贴板
         if: runner.os == 'Linux'
         run: xvfb-run -a cargo test --package tui --locked clipboard::worker::tests::native_clipboard_roundtrip -- --ignored --exact
@@ -46,7 +50,8 @@ jobs:
           sudo systemctl start "user@$(id -u).service"
           export XDG_RUNTIME_DIR="/run/user/$(id -u)"
           export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-          ./scripts/ci/linux-scheduler.sh
+          cargo build --locked --package app --features developer-scheduler
+          ./scripts/ci/linux-scheduler.sh "$PWD/target/debug/app"
   windows:
     name: Windows
     runs-on: windows-latest
@@ -54,7 +59,13 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: 构建 Windows 程序
-        run: cargo build --locked --release --package app
+        run: cargo build --locked --release --package app --no-default-features
+      - name: 检查 Windows 发布版和开发版的编译边界
+        shell: pwsh
+        run: |
+          $helpText = ./target/release/app.exe --help | Out-String
+          if ($helpText -match 'scheduled-check|schedule enable') { throw '发布版包含定时任务命令。' }
+          cargo build --locked --package app --features developer-scheduler
       - name: 验证 Windows 仓库检查和定时任务
         shell: pwsh
-        run: ./scripts/ci/windows-backend.ps1
+        run: ./scripts/ci/windows-backend.ps1 -gw "$PWD/target/debug/app.exe"

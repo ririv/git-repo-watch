@@ -1,16 +1,5 @@
-# 定时检查间隔，内部保存为秒；命令接受 s、m、h、d、w，也接受对应中文单位。
-# 21600 秒为 6 小时；编辑界面回填为 6h。
-# 未设置时间基准时，首次启用任务会自动保存基准，后续启停和重启沿用。
-interval_seconds = 21600
-
 # 显式注册的仓库绝对路径，可用多行数组填写。
 repositories = []
-
-# 定时流程按数组顺序执行，步骤失败后停止该仓库的后续步骤。
-# fetch：更新 Git 对象及远程跟踪引用；pull：获取上游并快进当前分支，修改工作区。
-# push：推送仅领先上游的本地分支，更新对应的远程分支；之前必须有 fetch 或 pull。
-# inspect：读取并保存本地状态，固定为最后一步。
-scheduled_actions = ["fetch", "inspect"]
 
 # 多仓库检查与写操作共用的并发上限，范围为 1 至 32。
 max_concurrency = 4
@@ -40,7 +29,7 @@ interaction_mode = "application"
 # 界面内自动获取：仅在窗口聚焦、仓库空闲时安排，默认关闭。
 [auto_fetch]
 enabled = false
-# 默认 3 分钟；支持与定时任务相同的时间单位，至少 60 秒。
+# 默认 3 分钟，最短为 60 秒。支持 s、m、h、d、w。
 interval_seconds = 180
 
 [view]

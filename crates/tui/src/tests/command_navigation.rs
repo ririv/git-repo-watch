@@ -119,6 +119,7 @@ fn empty_option_values_reopen_after_escape_without_applying_a_choice() {
         for name in [
             "repos sort",
             "repos filter",
+            #[cfg(feature = "developer-scheduler")]
             "schedule autopush",
             "settings ai agent",
         ] {

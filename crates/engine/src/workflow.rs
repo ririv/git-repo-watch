@@ -2,7 +2,9 @@
 mod run;
 use crate::domain::PushPolicy;
 use anyhow::{Result, ensure};
-pub(crate) use run::execute;
+pub(crate) use run::fetch;
+#[cfg(feature = "developer-scheduler")]
+pub(crate) use run::scheduled;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]

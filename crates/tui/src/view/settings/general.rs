@@ -171,7 +171,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, section
     let inner = panel.inner(area);
     let width = inner.width.min(88);
     let entries = section
-        .items(screen.snapshot.registration, &screen.config.ai)
+        .items(&screen.snapshot, &screen.config.ai)
         .into_iter()
         .map(|item| Entry::new(item, screen))
         .collect::<Vec<_>>();

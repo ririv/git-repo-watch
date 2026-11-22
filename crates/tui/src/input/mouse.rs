@@ -135,9 +135,11 @@ impl Screen {
             return Ok(true);
         }
         let precise = self.config.mouse.precise_click;
+        let action_panel = matches!(&self.mode, Mode::Management(session) if matches!(session.focus, crate::management::Focus::Actions(_)));
+        #[cfg(feature = "developer-scheduler")]
+        let action_panel = action_panel || matches!(self.mode, Mode::Workflow(_));
         if click
-            && (matches!(self.mode, Mode::Workflow(_))
-                || matches!(&self.mode, Mode::Management(session) if matches!(session.focus, crate::management::Focus::Actions(_))))
+            && action_panel
             && self
                 .input_area
                 .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
@@ -344,6 +346,7 @@ impl Screen {
                     self.clicks.reset();
                     self.drag = None;
                 }
+                #[cfg(feature = "developer-scheduler")]
                 if let crate::pointer::Hit::Item(crate::pointer::Target::ScheduleButton, index) =
                     hit
                 {
@@ -354,7 +357,7 @@ impl Screen {
                         return Ok(false);
                     }
                     let Some(item) = Configuration::Schedule
-                        .items(self.snapshot.registration, &self.config.ai)
+                        .items(&self.snapshot, &self.config.ai)
                         .get(index)
                         .copied()
                     else {
@@ -512,6 +515,7 @@ impl Screen {
                 }
             }
         }
+        #[cfg(feature = "developer-scheduler")]
         if self.bar.is_plain()
             && let Mode::Workflow(session) = &mut self.mode
             && session

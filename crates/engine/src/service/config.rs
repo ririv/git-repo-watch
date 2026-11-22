@@ -44,8 +44,11 @@ impl Service {
                     config.repository_environment.remove(&path);
                 }
             }
+            #[cfg(feature = "developer-scheduler")]
             ConfigEdit::Interval(value) => config.interval_seconds = value,
+            #[cfg(feature = "developer-scheduler")]
             ConfigEdit::Anchor(value) => config.schedule_anchor = value,
+            #[cfg(feature = "developer-scheduler")]
             ConfigEdit::Policy(value) => {
                 use crate::workflow::Step;
                 let mut steps = config.scheduled_actions.steps().to_vec();
@@ -59,6 +62,7 @@ impl Service {
             ConfigEdit::FetchOnStartup(value) => config.fetch_on_startup = value,
             ConfigEdit::AutoFetchEnabled(value) => config.auto_fetch.enabled = value,
             ConfigEdit::AutoFetchInterval(value) => config.auto_fetch.interval_seconds = value,
+            #[cfg(feature = "developer-scheduler")]
             ConfigEdit::ScheduledWorkflow(plan) => config.scheduled_actions = plan,
             ConfigEdit::FileIcons(value) => config.file_icons = value,
             ConfigEdit::ExperimentalFeatures(value) => config.experimental_features = value,

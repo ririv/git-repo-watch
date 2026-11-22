@@ -2,6 +2,7 @@
 use super::*;
 impl Service {
     pub fn snapshot(&self, cancel: &Cancel) -> Result<Snapshot> {
+        cancel.check()?;
         let c = self.store.config()?;
         let report = match self.store.report()? {
             None => CachedReport::Missing,
@@ -25,21 +26,30 @@ impl Service {
                 }
             }
         };
+        #[cfg(feature = "developer-scheduler")]
         let (registration, schedule) = self.scheduler.schedule_state(&self.store, cancel)?;
+        #[cfg(feature = "developer-scheduler")]
         let next_trigger = schedule.next_trigger(registration, chrono::Local::now())?;
         Ok(Snapshot {
+            #[cfg(feature = "developer-scheduler")]
             registration,
             activity: if self.store.running()? {
                 Activity::Running
             } else {
                 Activity::Idle
             },
+            #[cfg(feature = "developer-scheduler")]
             configured_interval_seconds: c.interval_seconds,
+            #[cfg(feature = "developer-scheduler")]
             configured_anchor: c.schedule_anchor,
+            #[cfg(feature = "developer-scheduler")]
             next_trigger,
+            #[cfg(feature = "developer-scheduler")]
             push_policy: c.scheduled_actions.push_policy(),
+            #[cfg(feature = "developer-scheduler")]
             scheduled_actions: c.scheduled_actions,
             repository_count: c.repositories.len(),
+            #[cfg(feature = "developer-scheduler")]
             schedule,
             report,
             max_concurrency: c.max_concurrency,

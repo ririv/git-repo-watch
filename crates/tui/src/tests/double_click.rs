@@ -131,12 +131,13 @@ fn double_click_uses_the_existing_file_branch_history_and_stash_enter_handlers()
     s.shutdown();
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn settings_double_click_toggles_once_and_schedule_double_click_stops_at_confirmation() {
     let (_home, mut s) = fixture(vec![]);
     command(&mut s, "settings");
     let index = Configuration::General
-        .items(s.snapshot.registration, &s.config.ai)
+        .items(&s.snapshot, &s.config.ai)
         .iter()
         .position(|item| *item == crate::settings::Item::Mouse(engine::state::MouseSetting::Scroll))
         .unwrap();
@@ -152,7 +153,7 @@ fn settings_double_click_toggles_once_and_schedule_double_click_stops_at_confirm
     assert!(!s.config.mouse.scroll);
     command(&mut s, "schedule");
     let index = Configuration::Schedule
-        .actions(s.snapshot.registration)
+        .actions(&s.snapshot)
         .iter()
         .position(|action| *action == Action::DisableSchedule)
         .unwrap();

@@ -1,7 +1,7 @@
+#[cfg(all(feature = "developer-scheduler", unix))]
+use engine::{cancel::Cancel, scheduler::Manager};
 use engine::{
-    cancel::Cancel,
     domain::PushPolicy,
-    scheduler::Manager,
     state::{Config, Store},
 };
 use std::{
@@ -71,8 +71,10 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, store) = fixture();
     for args in [
+        #[cfg(feature = "developer-scheduler")]
         &["interval", "12h"][..],
         &["concurrency", "2"][..],
+        #[cfg(feature = "developer-scheduler")]
         &["autopush", "fast_forward"][..],
     ] {
         let out = cli(&store, args);
@@ -83,8 +85,10 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
         );
     }
     let config = store.config().unwrap();
+    #[cfg(feature = "developer-scheduler")]
     assert_eq!(config.interval_seconds, 43200);
     assert_eq!(config.max_concurrency, 2);
+    #[cfg(feature = "developer-scheduler")]
     assert_eq!(
         config.scheduled_actions.push_policy(),
         PushPolicy::FastForward
@@ -102,6 +106,7 @@ fn config_commands_are_explicit_and_do_not_run_checks() {
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn workflow_cli_saves_scheduled_steps_without_running_them() {
     let (_temp, store) = fixture();
@@ -153,7 +158,7 @@ fn help_is_available_without_installation() {
     assert!(out.status.success());
     assert!(String::from_utf8_lossy(&out.stdout).contains("concurrency"));
 }
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "developer-scheduler", target_os = "macos"))]
 #[test]
 fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -180,6 +185,7 @@ fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
     assert_eq!(value["ProgramArguments"][2], "/path/中文 & folder");
     assert_eq!(value["ProgramArguments"][3], "scheduled-check");
 }
+#[cfg(all(feature = "developer-scheduler", unix))]
 #[test]
 fn installation_refuses_unowned_binary_before_mutation() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -233,13 +239,21 @@ fn language_overrides_localize_text_and_preserve_machine_output() {
         (
             "en",
             concat!(identity::command!(), ": Git repository"),
-            "System schedule:",
+            if cfg!(feature = "developer-scheduler") {
+                "System schedule:"
+            } else {
+                "Check process:"
+            },
             "interactive terminal",
         ),
         (
             "zh",
             concat!(identity::command!(), "：Git 仓库"),
-            "系统任务：",
+            if cfg!(feature = "developer-scheduler") {
+                "系统任务："
+            } else {
+                "检查进程："
+            },
             "交互式终端",
         ),
     ] {
@@ -333,6 +347,7 @@ fn explicit_single_check_creates_a_repository_report_without_creating_a_batch() 
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_arguments() {
     let (_temp, store) = fixture();
@@ -358,6 +373,7 @@ fn scheduled_check_is_an_explicit_separate_entry_and_rejects_repository_argument
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn schedule_control_arguments_are_explicit_and_invalid_requests_do_not_write() {
     let (_temp, store) = fixture();
@@ -371,7 +387,7 @@ fn schedule_control_arguments_are_explicit_and_invalid_requests_do_not_write() {
     assert!(store.report().unwrap().is_none());
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(all(feature = "developer-scheduler", target_os = "macos"))]
 #[test]
 fn standard_plist_uses_user_storage_logs_and_home_without_checkout_arguments() {
     let home = std::path::Path::new("/example/用户 空格");

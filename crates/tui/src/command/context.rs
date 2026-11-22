@@ -20,6 +20,7 @@ pub(crate) enum Context {
     Repositories,
     Settings,
     Ai,
+    #[cfg(feature = "developer-scheduler")]
     Schedule,
     Files,
     Composition,
@@ -36,11 +37,9 @@ impl Context {
             | Self::Composition
             | Self::RepositoryEnv => Some(Self::Repository),
             Self::Ai => Some(Self::Settings),
-            Self::Tasks
-            | Self::Repository
-            | Self::Repositories
-            | Self::Settings
-            | Self::Schedule => None,
+            Self::Tasks | Self::Repository | Self::Repositories | Self::Settings => None,
+            #[cfg(feature = "developer-scheduler")]
+            Self::Schedule => None,
         }
     }
     pub fn name(self) -> &'static str {
@@ -56,6 +55,7 @@ impl Context {
             Self::Repositories => "repos",
             Self::Settings => "settings",
             Self::Ai => "settings ai",
+            #[cfg(feature = "developer-scheduler")]
             Self::Schedule => "schedule",
             Self::Files => "repo files",
             Self::Composition => "repo compose",
@@ -153,8 +153,12 @@ impl Context {
         // 配置和编排页面保持其专用操作；通用入口用于仓库及内容子视图。
         if matches!(
             self,
-            Self::Settings | Self::Ai | Self::Schedule | Self::Composition | Self::RepositoryEnv
+            Self::Settings | Self::Ai | Self::Composition | Self::RepositoryEnv
         ) {
+            return local;
+        }
+        #[cfg(feature = "developer-scheduler")]
+        if self == Self::Schedule {
             return local;
         }
         if super::argument_input(&format!("{} {input}", self.name())).is_some() {
@@ -200,6 +204,7 @@ impl Screen {
         match &self.mode {
             Mode::Management(_) => Some(Context::Repositories),
             Mode::RepositoryEnvironment(_) => Some(Context::RepositoryEnv),
+            #[cfg(feature = "developer-scheduler")]
             Mode::Workflow(_) => Some(Context::Schedule),
             Mode::Composition(_) | Mode::CompositionWaiting(_) => Some(Context::Composition),
             Mode::Browser(_) => Some(Context::Files),
@@ -227,7 +232,7 @@ impl Screen {
             Mode::Browsing => match self.page {
                 Page::Configuration(Configuration::General) => Some(
                     Configuration::General
-                        .items(self.snapshot.registration, &self.config.ai)
+                        .items(&self.snapshot, &self.config.ai)
                         .get(self.setting_selected)
                         .map_or(Context::Settings, |item| {
                             let context = item.context();
@@ -241,6 +246,7 @@ impl Screen {
                 Page::Repositories => None,
                 Page::Detail => Some(Context::Repository),
                 Page::Configuration(Configuration::Repositories) => Some(Context::Repositories),
+                #[cfg(feature = "developer-scheduler")]
                 Page::Configuration(Configuration::Schedule) => Some(Context::Schedule),
                 _ => None,
             },

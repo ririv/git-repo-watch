@@ -1,7 +1,12 @@
 //! A persisted local-time basis defines every occurrence independently of execution.
+#[cfg(feature = "developer-scheduler")]
 use super::duration;
-use anyhow::{Context, Result, ensure};
-use chrono::{DateTime, Datelike, Duration, Local, NaiveDateTime, TimeZone, Timelike};
+#[cfg(feature = "developer-scheduler")]
+use anyhow::Context;
+use anyhow::{Result, ensure};
+#[cfg(feature = "developer-scheduler")]
+use chrono::{DateTime, Duration, Local, TimeZone};
+use chrono::{Datelike, NaiveDateTime, Timelike};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +26,7 @@ impl Anchor {
             Self::Unset => None,
         }
     }
+    #[cfg(feature = "developer-scheduler")]
     pub fn display(&self) -> String {
         match self {
             Self::Unset => i18n::tr!(ScheduleAnchorUnset).into(),
@@ -48,6 +54,7 @@ pub struct Basis {
     pub at: NaiveDateTime,
 }
 impl Basis {
+    #[cfg(feature = "developer-scheduler")]
     pub fn automatic(now: DateTime<Local>) -> Self {
         Self {
             source: Source::Automatic,
@@ -65,6 +72,7 @@ impl Basis {
         Ok(())
     }
 }
+#[cfg(feature = "developer-scheduler")]
 pub fn parse_anchor(value: &str, today: chrono::NaiveDate) -> Result<Anchor> {
     let value = value.trim();
     if value == "auto" {
@@ -98,24 +106,28 @@ pub fn parse_anchor(value: &str, today: chrono::NaiveDate) -> Result<Anchor> {
     Ok(Anchor::Set(basis))
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(try_from = "RawPlan")]
 pub struct Plan {
     interval_seconds: u64,
     basis: Basis,
 }
+#[cfg(feature = "developer-scheduler")]
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
 struct RawPlan {
     interval_seconds: u64,
     basis: Basis,
 }
+#[cfg(feature = "developer-scheduler")]
 impl TryFrom<RawPlan> for Plan {
     type Error = anyhow::Error;
     fn try_from(raw: RawPlan) -> Result<Self> {
         Self::new(raw.interval_seconds, raw.basis)
     }
 }
+#[cfg(feature = "developer-scheduler")]
 impl Plan {
     pub fn new(interval_seconds: u64, basis: Basis) -> Result<Self> {
         duration::validate(interval_seconds)?;

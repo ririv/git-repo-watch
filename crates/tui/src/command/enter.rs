@@ -59,8 +59,6 @@ impl super::Command {
             | Action::Settings
             | Action::AiSettings
             | Action::AiPrompt
-            | Action::Schedule
-            | Action::Workflow
             | Action::Help
             | Action::Tasks
             | Action::Branches
@@ -75,6 +73,8 @@ impl super::Command {
             | Action::Terminal
             | Action::OpenFolder
             | Action::OpenEditor => Intent::Open,
+            #[cfg(feature = "developer-scheduler")]
+            Action::Schedule | Action::Workflow => Intent::Open,
             _ => Intent::Run,
         }
     }

@@ -117,7 +117,10 @@ fn template_and_initial_configuration_have_all_explicit_defaults_and_private_per
     store.initialize().unwrap();
     assert_eq!(store.config().unwrap(), Config::default());
     let text = fs::read_to_string(store.config_path()).unwrap();
-    assert!(text.contains("# 定时检查间隔"));
+    assert_eq!(
+        text.contains("# 定时检查间隔"),
+        cfg!(feature = "developer-scheduler")
+    );
     assert!(text.contains("max_concurrency = 4"));
     assert!(text.contains("fetch_on_startup = false"));
     assert!(!text.contains("check_on_startup") && !text.contains("startup_actions"));
@@ -221,6 +224,7 @@ chinese_command_trigger = true # 中文输入
     assert_eq!(store.config().unwrap(), config);
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn automatic_and_explicit_bases_persist_and_interval_edits_keep_the_original_basis() {
     use engine::scheduler::timing::{Anchor, Basis, parse_anchor};

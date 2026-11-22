@@ -9,7 +9,7 @@ use std::fs;
 use test_support::{Fixture, git, write};
 
 #[test]
-fn scheduled_workflow_and_all_repository_readers_preserve_uncommitted_submodule_migration() {
+fn checks_and_repository_readers_preserve_uncommitted_submodule_migration() {
     let parent = Fixture::create();
     let source = Fixture::create();
     fs::create_dir_all(source.repo.join("packages/cpython")).unwrap();
@@ -99,8 +99,13 @@ fn scheduled_workflow_and_all_repository_readers_preserve_uncommitted_submodule_
         .unwrap();
     let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
     let service = Service::new(store, manager);
-    let report = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
-    assert_eq!(report.repositories.len(), 2);
+    let cancel = Cancel::default();
+    let assert_scope = |report: engine::domain::Report| {
+        assert_eq!(report.repositories.len(), 2);
+    };
+    assert_scope(service.run(&cancel, |_| {}).unwrap());
+    #[cfg(feature = "developer-scheduler")]
+    assert_scope(service.run_scheduled(&cancel, |_| {}).unwrap());
     for (i, path) in paths.iter().enumerate() {
         service.overview(path, &Cancel::default()).unwrap();
         service.branches(path, &Cancel::default()).unwrap();

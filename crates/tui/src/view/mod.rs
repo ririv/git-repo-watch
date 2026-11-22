@@ -34,6 +34,7 @@ mod replay;
 mod repository;
 mod repository_list;
 mod review;
+#[cfg(feature = "developer-scheduler")]
 mod schedule;
 mod settings;
 mod shell;
@@ -41,14 +42,16 @@ pub(crate) mod stash_save;
 mod stashes;
 mod tasks;
 mod text_editor;
+#[cfg(feature = "developer-scheduler")]
 mod workflow;
 mod workspace;
 mod worktrees;
 use super::*;
 pub(super) use body::render_body;
+#[cfg(feature = "developer-scheduler")]
+use engine::scheduler::{Registration, Schedule};
 use engine::{
     domain::IssueKind,
-    scheduler::{Registration, Schedule},
     service::{Activity, CachedReport, Scope},
 };
 use ratatui::{

@@ -36,6 +36,7 @@ fn alias_retains_scope_supports_global_escape_and_replaces_selected_prefix() {
         Context::Branches,
         Context::Stash,
         Context::Settings,
+        #[cfg(feature = "developer-scheduler")]
         Context::Schedule,
         Context::Repositories,
     ] {
@@ -98,7 +99,7 @@ fn punctuation_inside_arguments_and_search_is_not_rewritten() {
 
 fn trigger_index(s: &Screen) -> usize {
     Configuration::General
-        .items(s.snapshot.registration, &s.config.ai)
+        .items(&s.snapshot, &s.config.ai)
         .iter()
         .position(|item| *item == crate::settings::Item::ChineseCommandTrigger)
         .unwrap()

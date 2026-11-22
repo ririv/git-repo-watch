@@ -26,9 +26,12 @@ pub enum ArgumentAction {
     StashPop,
     StashDrop,
     Scan,
+    #[cfg(feature = "developer-scheduler")]
     Interval,
     AutoFetchInterval,
+    #[cfg(feature = "developer-scheduler")]
     Anchor,
+    #[cfg(feature = "developer-scheduler")]
     Autopush,
     Concurrency,
     AiAgent,
@@ -42,6 +45,7 @@ impl ArgumentAction {
         use super::options::Kind;
         match self {
             Self::Option(kind) => Some(kind),
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Some(Kind::Autopush),
             Self::AiAgent => Some(Kind::AiAgent),
             _ => None,
@@ -62,9 +66,12 @@ impl ArgumentAction {
             Self::StashDrop => Action::StashDrop,
 
             Self::Scan => Action::Scan,
+            #[cfg(feature = "developer-scheduler")]
             Self::Interval => Action::Interval,
             Self::AutoFetchInterval => Action::AutoFetchInterval,
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => Action::Anchor,
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Action::Autopush,
             Self::Concurrency => Action::Concurrency,
             Self::AiAgent => Action::AiAgent,
@@ -88,10 +95,23 @@ impl ArgumentAction {
             Self::Editor => "[git|<editor-command>]",
             Self::Add => "<path>",
             Self::Scan => "<path> [--exclude <path>…]",
-            Self::Interval | Self::AutoFetchInterval => "<duration>",
+            Self::AutoFetchInterval => "<duration>",
+            #[cfg(feature = "developer-scheduler")]
+            Self::Interval => "<duration>",
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => "[<datetime>|auto]",
             Self::Concurrency => "<count>",
-            Self::Option(_) | Self::Autopush | Self::AiAgent => {
+            Self::Option(_) | Self::AiAgent => {
+                return ArgumentSyntax::Choices(
+                    self.options()
+                        .expect("fixed-value argument")
+                        .options()
+                        .map(|option| option.token.into())
+                        .collect(),
+                );
+            }
+            #[cfg(feature = "developer-scheduler")]
+            Self::Autopush => {
                 return ArgumentSyntax::Choices(
                     self.options()
                         .expect("fixed-value argument")
@@ -116,13 +136,20 @@ impl ArgumentAction {
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::WorktreeAdd => i18n::tr!(WorktreeAddUsage),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
-            Self::Interval | Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
+            Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
+            #[cfg(feature = "developer-scheduler")]
+            Self::Interval => i18n::tr!(DurationArgumentHint),
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => i18n::tr!(ScheduleAnchorHint),
             Self::Concurrency => i18n::tr!(CountArgumentHint),
             Self::AiModel => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::AiPrompt => i18n::tr!(TabCompleteCandidatesEnterRunEscClear),
             Self::RepositoryEnvironment(_) => i18n::tr!(GitEnvironmentArgumentHint),
-            Self::Option(_) | Self::Autopush | Self::AiAgent => {
+            Self::Option(_) | Self::AiAgent => {
+                i18n::tr!(OptionCompletionHint)
+            }
+            #[cfg(feature = "developer-scheduler")]
+            Self::Autopush => {
                 i18n::tr!(OptionCompletionHint)
             }
         }
@@ -181,10 +208,16 @@ impl ArgumentAction {
                 );
                 Ok(value.into())
             }
-            Self::Interval | Self::AutoFetchInterval => {
+            Self::AutoFetchInterval => {
                 engine::state::interval(value)?;
                 Ok(value.into())
             }
+            #[cfg(feature = "developer-scheduler")]
+            Self::Interval => {
+                engine::state::interval(value)?;
+                Ok(value.into())
+            }
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => {
                 let anchor = engine::scheduler::timing::parse_anchor(
                     value,
@@ -197,6 +230,7 @@ impl ArgumentAction {
                     }
                 })
             }
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => {
                 value.parse::<engine::domain::PushPolicy>()?;
                 Ok(value.into())
@@ -254,6 +288,7 @@ impl Action {
             Self::ComposeOrderMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::ComposeOrder))
             }
+            #[cfg(feature = "developer-scheduler")]
             Self::ScheduleEnabledMenu => Some(ArgumentAction::Option(
                 super::options::Kind::ScheduleEnabled,
             )),
@@ -278,9 +313,12 @@ impl Action {
             Self::StashDrop => Some(ArgumentAction::StashDrop),
 
             Self::Scan => Some(ArgumentAction::Scan),
+            #[cfg(feature = "developer-scheduler")]
             Self::Interval => Some(ArgumentAction::Interval),
             Self::AutoFetchInterval => Some(ArgumentAction::AutoFetchInterval),
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => Some(ArgumentAction::Anchor),
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Some(ArgumentAction::Autopush),
             Self::Concurrency => Some(ArgumentAction::Concurrency),
             Self::EditorSetting => Some(ArgumentAction::Editor),
@@ -360,9 +398,12 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConfigArgument {
     Add,
+    #[cfg(feature = "developer-scheduler")]
     Interval,
     AutoFetchInterval,
+    #[cfg(feature = "developer-scheduler")]
     Anchor,
+    #[cfg(feature = "developer-scheduler")]
     Autopush,
     Concurrency,
     AiModel,
@@ -379,9 +420,12 @@ impl ConfigArgument {
     fn argument(self) -> ArgumentAction {
         match self {
             Self::Add => ArgumentAction::Add,
+            #[cfg(feature = "developer-scheduler")]
             Self::Interval => ArgumentAction::Interval,
             Self::AutoFetchInterval => ArgumentAction::AutoFetchInterval,
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => ArgumentAction::Anchor,
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => ArgumentAction::Autopush,
             Self::Concurrency => ArgumentAction::Concurrency,
             Self::AiModel => ArgumentAction::AiModel,
@@ -394,9 +438,12 @@ impl ArgumentAction {
     pub fn configuration(self) -> Option<ConfigArgument> {
         match self {
             Self::Add => Some(ConfigArgument::Add),
+            #[cfg(feature = "developer-scheduler")]
             Self::Interval => Some(ConfigArgument::Interval),
             Self::AutoFetchInterval => Some(ConfigArgument::AutoFetchInterval),
+            #[cfg(feature = "developer-scheduler")]
             Self::Anchor => Some(ConfigArgument::Anchor),
+            #[cfg(feature = "developer-scheduler")]
             Self::Autopush => Some(ConfigArgument::Autopush),
             Self::Concurrency => Some(ConfigArgument::Concurrency),
             Self::AiModel => Some(ConfigArgument::AiModel),

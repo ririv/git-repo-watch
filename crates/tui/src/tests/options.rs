@@ -39,6 +39,7 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
                 "[auto|split|unified]",
             ),
             ("repo diff header", Kind::DiffHeader, 2, "[show|hide]"),
+            #[cfg(feature = "developer-scheduler")]
             ("schedule enabled", Kind::ScheduleEnabled, 2, "[true|false]"),
             ("repo diff context", Kind::DiffContext, 2, "[full|changes]"),
             ("search", Kind::Search, 2, "[filter|locate]"),
@@ -48,6 +49,7 @@ fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates()
                 2,
                 "[interactive|text]",
             ),
+            #[cfg(feature = "developer-scheduler")]
             (
                 "schedule autopush",
                 Kind::Autopush,
@@ -188,6 +190,7 @@ fn value_completion_preserves_plain_search_and_the_selected_repository_until_exe
     s.shutdown();
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_mouse_selection() {
     use command::ConfigArgument;
@@ -269,6 +272,7 @@ fn persisted_choices_complete_without_writing_and_keep_review_cancellation_and_m
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn consolidated_groups_keep_one_command_for_each_fixed_option_set() {
     for removed in [
@@ -296,6 +300,7 @@ fn consolidated_groups_keep_one_command_for_each_fixed_option_set() {
     );
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn schedule_options_show_registration_and_require_confirmation_before_running() {
     use engine::scheduler::{Control, Registration};

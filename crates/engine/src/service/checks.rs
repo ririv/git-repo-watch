@@ -3,17 +3,20 @@ use super::*;
 enum CheckInvocation {
     Manual,
     StartupFetch,
+    #[cfg(feature = "developer-scheduler")]
     Scheduled,
 }
 #[derive(Clone, Copy)]
 enum RunPlan<'a> {
-    Manual,
+    Manual(&'a crate::workflow::Plan),
+    #[cfg(feature = "developer-scheduler")]
     Workflow(&'a crate::workflow::Plan),
 }
 impl RunPlan<'_> {
     fn policy(self) -> PushPolicy {
         match self {
-            Self::Manual => PushPolicy::Disabled,
+            Self::Manual(_) => PushPolicy::Disabled,
+            #[cfg(feature = "developer-scheduler")]
             Self::Workflow(plan) => plan.push_policy(),
         }
     }
@@ -27,6 +30,7 @@ impl Service {
     pub fn fetch_on_startup(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::StartupFetch, cancel, emit, None)
     }
+    #[cfg(feature = "developer-scheduler")]
     /// Execute the configured scheduled workflow.
     pub fn run_scheduled(&self, cancel: &Cancel, emit: impl FnMut(Event)) -> Result<Report> {
         self.run_batch(CheckInvocation::Scheduled, cancel, emit, None)
@@ -49,6 +53,7 @@ impl Service {
         let _batch = self.store.batch_lock()?;
         self.execute_batch(invocation, cancel, emit, retry_of)
     }
+    #[cfg(feature = "developer-scheduler")]
     pub(super) fn run_due(
         &self,
         plan: &crate::scheduler::timing::Plan,
@@ -86,18 +91,24 @@ impl Service {
         retry_of: Option<String>,
     ) -> Result<Report> {
         let config = self.store.config()?;
+        let manual_steps = crate::workflow::Plan::fetch();
         let plan = match invocation {
-            CheckInvocation::Manual | CheckInvocation::StartupFetch => RunPlan::Manual,
+            CheckInvocation::Manual | CheckInvocation::StartupFetch => {
+                RunPlan::Manual(&manual_steps)
+            }
+            #[cfg(feature = "developer-scheduler")]
             CheckInvocation::Scheduled => RunPlan::Workflow(&config.scheduled_actions),
         };
         let source = match invocation {
             CheckInvocation::Manual => crate::tasks::Source::Interactive,
             CheckInvocation::StartupFetch => crate::tasks::Source::Startup,
+            #[cfg(feature = "developer-scheduler")]
             CheckInvocation::Scheduled => crate::tasks::Source::Scheduled,
         };
         let title = match invocation {
             CheckInvocation::Manual => i18n::tr!(FetchAllCommand).to_owned(),
             CheckInvocation::StartupFetch => i18n::tr!(StartupFetch).to_owned(),
+            #[cfg(feature = "developer-scheduler")]
             CheckInvocation::Scheduled => format!(
                 "{} · {}",
                 i18n::tr!(WorkflowScheduled),
@@ -114,6 +125,7 @@ impl Service {
                     CheckInvocation::Manual | CheckInvocation::StartupFetch => {
                         crate::tasks::Retry::FetchAll
                     }
+                    #[cfg(feature = "developer-scheduler")]
                     CheckInvocation::Scheduled => crate::tasks::Retry::Unavailable,
                 },
                 retry_of,
@@ -144,7 +156,10 @@ impl Service {
             self.store.save_report(&report)?;
             Ok(report)
         })();
-        let mut outcome = check_outcome(&result, cancel);
+        let outcome = check_outcome(&result, cancel);
+        #[cfg(feature = "developer-scheduler")]
+        let mut outcome = outcome;
+        #[cfg(feature = "developer-scheduler")]
         if result.is_err() && matches!(plan, RunPlan::Workflow(_)) {
             // 执行器取消或批次保存失败时，单仓库步骤已独立落盘，仍写入任务结果供追溯。
             let records = self.store.repository_reports()?;
@@ -158,7 +173,7 @@ impl Service {
                         .and_then(|execution| execution.workflow.as_ref())
                         == match plan {
                             RunPlan::Workflow(plan) => Some(plan),
-                            RunPlan::Manual => None,
+                            RunPlan::Manual(_) => None,
                         }
                 })
                 .map(|report| workflow_detail(report, FailureDetail::Include))
@@ -236,7 +251,12 @@ impl Service {
         let result = (|| {
             self.store.repository_reports()?;
             emit(Event::Checking(path.to_owned()));
-            let report = self.check_one(path, RunPlan::Manual, &run.reporter(), cancel)?;
+            let report = self.check_one(
+                path,
+                RunPlan::Manual(&crate::workflow::Plan::fetch()),
+                &run.reporter(),
+                cancel,
+            )?;
             emit(Event::Checked {
                 result: report.repositories[0].clone(),
                 finished_at: report.finished_at.clone(),
@@ -258,18 +278,28 @@ impl Service {
         let _repository = self.repository_lock(path, cancel)?;
         let started_at = state::now();
         let steps = match plan {
-            RunPlan::Manual => crate::workflow::Plan::fetch(),
+            RunPlan::Manual(plan) => plan.clone(),
+            #[cfg(feature = "developer-scheduler")]
             RunPlan::Workflow(plan) => plan.clone(),
         };
-        let (result, timing) = crate::workflow::execute(&self.git, path, &steps, cancel, |step| {
+        let progress = |step: crate::workflow::Step| {
             reporter.progress(format!("{}\n{}", path.display(), step.label()))
-        });
+        };
+        let (result, timing) = match plan {
+            RunPlan::Manual(_) => crate::workflow::fetch(&self.git, path, cancel, progress),
+            #[cfg(feature = "developer-scheduler")]
+            RunPlan::Workflow(steps) => {
+                crate::workflow::scheduled(&self.git, path, steps, cancel, progress)
+            }
+        };
+        #[cfg(feature = "developer-scheduler")]
         let refresh_cancel = Cancel::default();
         let save_cancel = match plan {
-            RunPlan::Manual => {
+            RunPlan::Manual(_) => {
                 cancel.check()?;
                 cancel
             }
+            #[cfg(feature = "developer-scheduler")]
             RunPlan::Workflow(_) => &refresh_cancel,
         };
         let mut report = single_report(result, timing, started_at, plan.policy());
@@ -390,7 +420,8 @@ impl Service {
             classification_updated_at: None,
             execution: Some(Execution {
                 workflow: match plan {
-                    RunPlan::Manual => Some(crate::workflow::Plan::fetch()),
+                    RunPlan::Manual(plan) => Some(plan.clone()),
+                    #[cfg(feature = "developer-scheduler")]
                     RunPlan::Workflow(plan) => Some(plan.clone()),
                 },
                 max_concurrency: config.max_concurrency,
@@ -520,6 +551,7 @@ fn check_outcome(result: &Result<Report>, cancel: &Cancel) -> crate::tasks::Outc
 }
 
 enum FailureDetail {
+    #[cfg(feature = "developer-scheduler")]
     Include,
     Summarized,
 }
@@ -544,15 +576,20 @@ fn workflow_detail(report: &Report, failure_detail: FailureDetail) -> String {
                         .with_timezone(&chrono::Local)
                         .format("%H:%M:%S")
                         .to_string();
-                    lines.push(match &record.outcome {
-                        StepOutcome::Succeeded { detail } => format!("✓ {at} {label} · {detail}"),
-                        StepOutcome::Skipped { reason } => {
+                    lines.push(match (&record.outcome, &failure_detail) {
+                        (StepOutcome::Succeeded { detail }, _) => {
+                            format!("✓ {at} {label} · {detail}")
+                        }
+                        (StepOutcome::Skipped { reason }, _) => {
                             format!("– {at} {label} · {}", reason.label())
                         }
-                        StepOutcome::Failed { error } => match failure_detail {
-                            FailureDetail::Include => format!("✗ {at} {label}\n  {error}"),
-                            FailureDetail::Summarized => format!("✗ {at} {label}"),
-                        },
+                        #[cfg(feature = "developer-scheduler")]
+                        (StepOutcome::Failed { error }, FailureDetail::Include) => {
+                            format!("✗ {at} {label}\n  {error}")
+                        }
+                        (StepOutcome::Failed { .. }, FailureDetail::Summarized) => {
+                            format!("✗ {at} {label}")
+                        }
                     });
                 }
                 None => lines.push(format!("– {label} · {}", i18n::tr!(WorkflowStopped))),

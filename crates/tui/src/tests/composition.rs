@@ -418,7 +418,7 @@ fn experimental_toggle_hides_the_whole_group_and_saved_pages_but_keeps_ai_messag
         key(&mut s, KeyCode::Esc);
         command(&mut s, "settings");
         let item = crate::settings::Item::ExperimentalFeatures;
-        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        let items = Configuration::General.items(&s.snapshot, &s.config.ai);
         s.setting_selected = items.iter().position(|entry| *entry == item).unwrap();
         assert!(render(&mut s, 140, 50).contains(i18n::tr!(ExperimentalFeatures)));
         s.activate_setting(item, &Cancel::default()).unwrap();

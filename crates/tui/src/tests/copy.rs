@@ -286,6 +286,7 @@ fn history_and_branch_copy_follow_the_selected_object_and_historical_file() {
     assert_eq!(copied(&mut s, &rx), name);
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn errors_have_their_own_context_and_copy_complete_details_without_git_or_config_actions() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {

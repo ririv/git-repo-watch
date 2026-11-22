@@ -131,6 +131,7 @@ fn small_windows_keep_repository_navigation_commands_and_selection_after_resize(
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn repository_views_and_confirmation_render_across_tiny_sizes_without_mutating_git() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {

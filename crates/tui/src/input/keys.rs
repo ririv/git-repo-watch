@@ -136,6 +136,7 @@ impl Screen {
         if self.history_actions_key(key) {
             return Ok(false);
         }
+        #[cfg(feature = "developer-scheduler")]
         if matches!(self.mode, Mode::Workflow(_)) {
             let Mode::Workflow(mut session) = self.take_mode() else {
                 unreachable!()
@@ -501,6 +502,7 @@ impl Screen {
                         | Confirmation::DiscardFile { origin, .. }
                         | Confirmation::Partial { origin, .. }
                         | Confirmation::Remove { origin, .. } => *origin,
+                        #[cfg(feature = "developer-scheduler")]
                         Confirmation::Schedule(_) => Mode::Browsing,
                     };
                     self.message.clear();
@@ -671,7 +673,9 @@ impl Screen {
                     scroll,
                 };
             }
-            Mode::Busy(_) | Mode::Workflow(_) => unreachable!(),
+            Mode::Busy(_) => unreachable!(),
+            #[cfg(feature = "developer-scheduler")]
+            Mode::Workflow(_) => unreachable!(),
         }
         Ok(false)
     }

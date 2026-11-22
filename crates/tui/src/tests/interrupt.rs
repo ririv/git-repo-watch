@@ -50,7 +50,13 @@ fn three_presses_clear_all_command_input_warn_then_exit_without_writes() {
 
 #[test]
 fn empty_input_warns_immediately_and_command_prefixes_are_cleared_first() {
-    for entry in [None, Some("settings"), Some("schedule"), Some("help")] {
+    for entry in [
+        None,
+        Some("settings"),
+        #[cfg(feature = "developer-scheduler")]
+        Some("schedule"),
+        Some("help"),
+    ] {
         for draft in [false, true] {
             let (_home, mut s) = fixture(vec![]);
             if let Some(entry) = entry {

@@ -13,7 +13,7 @@ pub(super) struct Entry {
     pub(super) interaction: Interaction,
 }
 pub(super) fn entries(screen: &Screen) -> [Entry; 7] {
-    let actions = Configuration::Schedule.actions(screen.snapshot.registration);
+    let actions = Configuration::Schedule.actions(&screen.snapshot);
     let button = |action, label| Interaction::Button {
         index: actions
             .iter()

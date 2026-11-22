@@ -12,7 +12,9 @@ fn management_settings_and_editors_follow_their_displayed_parents() {
         for name in [
             "repos manage",
             "settings",
+            #[cfg(feature = "developer-scheduler")]
             "schedule",
+            #[cfg(feature = "developer-scheduler")]
             "schedule actions",
             "settings ai prompt",
         ] {

@@ -13,7 +13,7 @@ mod workflows;
 impl Default for Config {
     fn default() -> Self {
         Self {
-            interval_seconds: 21600,
+            interval_seconds: default_schedule_interval(),
             schedule_anchor: Default::default(),
             repositories: vec![],
             repository_environment: Default::default(),
@@ -36,6 +36,7 @@ impl Default for Config {
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Config {
+    #[serde(default = "default_schedule_interval")]
     pub interval_seconds: u64,
     #[serde(
         default,
@@ -139,6 +140,9 @@ fn default_file_icons() -> bool {
 fn default_chinese_command_trigger() -> bool {
     true
 }
+fn default_schedule_interval() -> u64 {
+    21600
+}
 fn default_concurrency() -> usize {
     4
 }
@@ -184,8 +188,14 @@ impl Config {
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
+const TEMPLATE: &str = concat!(
+    include_str!("configuration/scheduler.toml"),
+    include_str!("../../../../config.example.toml"),
+);
+#[cfg(not(feature = "developer-scheduler"))]
 const TEMPLATE: &str = include_str!("../../../../config.example.toml");
-const FIELDS: [&str; 12] = [
+const FIELDS: &[&str] = &[
     "interval_seconds",
     "repositories",
     "scheduled_actions",
@@ -236,7 +246,18 @@ pub(super) fn encode(config: &Config, existing: Option<&str>) -> Result<String> 
     let after = serde_json::to_value(config)?;
     let mut desired = toml_edit::ser::to_document(config)?;
     desired["max_concurrency"] = toml_edit::value(config.max_concurrency as i64);
-    for key in FIELDS {
+    for &key in FIELDS {
+        #[cfg(not(feature = "developer-scheduler"))]
+        if !document.contains_key(key)
+            && match key {
+                "interval_seconds" => config.interval_seconds == default_schedule_interval(),
+                "schedule_anchor" => config.schedule_anchor.is_unset(),
+                "scheduled_actions" => config.scheduled_actions == crate::workflow::Plan::fetch(),
+                _ => false,
+            }
+        {
+            continue;
+        }
         // 旧配置缺少可选偏好时沿用默认值，不因无关配置更新而补写字段。
         if matches!(
             key,

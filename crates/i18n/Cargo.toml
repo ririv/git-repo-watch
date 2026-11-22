@@ -7,5 +7,8 @@ license.workspace = true
 publish = false
 description = "类型化中英文文案与系统语言检测"
 
+[features]
+developer-scheduler = []
+
 [dependencies]
 identity.workspace = true

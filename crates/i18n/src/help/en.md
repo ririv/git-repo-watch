@@ -1,9 +1,9 @@
 ## Quick navigation
-- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only and are not added to scheduled workflows.
+- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only.
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.
-- `/repos`, `/settings`, and `/schedule` open repositories, general settings, and the scheduled task; `Tab` does not switch these pages.
+- `/repos` and `/settings` open repositories and general settings; `Tab` does not switch these pages.
 - `F1` / `/help` opens this page; `/quit` exits immediately. `Ctrl+C` clears nonempty command/search input, including a command prefix. When input is already empty, it immediately shows an exit prompt; the next press quits. Other keys, paste, clicks or scrolling dismiss the prompt. Separate commit-message and prompt editors retain their contents.
 
 - Display → File icons controls type icons in the browser, worktree, and commit file lists. It is enabled by default and saved as `file_icons`. Nerd Font glyph support is required; disabling icons preserves tree indentation and browser name alignment.
@@ -87,8 +87,8 @@
 - Settings, overview, help, read-only details and diff content previews offer command input only. They do not search hidden lists or offer search-mode commands. Returning to a list restores its query; keyboard, clicks and wheel focus changes behave consistently. Search, status filters, sorting and file checkboxes remain independent.
 
 ## Context prefixes
-- `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings, schedule and help also restore their origin on return.
-- The view prefix is separate and supports segment selection: /repo diff for files and diffs, /repo log for history, /repo branch for branches, and /repos, /settings, /schedule for management pages. Home opens global / commands; overview uses /repo and stash uses /repo stash.
+- `/repo diff`, `/repo log`, `/repo branch` and `/repo stash` open full views. Back restores the previous focus and selection. Pressing `/` in a pane only opens its command context. Settings and help also restore their origin on return.
+- The view prefix is separate and supports segment selection: /repo diff for files and diffs, /repo log for history, /repo branch for branches, and /repos and /settings for management pages. Home opens global / commands; overview uses /repo and stash uses /repo stash.
 - Type only the operation suffix, e.g. stage, unstage, layout or refresh in a worktree diff. Name and bilingual description matching stay within the current group.
 - With an empty suffix, Backspace selects only the last prefix segment, such as `branch` in `/repo branch`. ← expands left by one segment; → shrinks by one, or restores editing when only the last segment remains. Typing or pasting plain text replaces only the selection: replacing `branch` with `log` produces `/repo log`. Pasting a command starting with `/` or `//` uses global scope. Candidates follow the retained parent, or show global commands when everything is selected. Use ↑↓ to select, Tab to complete, or click to run. Only selected segments use the original selection colors.
 - Another / with an empty command suffix switches to global commands too; typing //settings from search opens global settings directly.
@@ -180,7 +180,7 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 - Stage, unstage and discard refresh both lists and keep the current view and any new command draft.
 - Unstaging retains worktree contents. Git-ignored files are not listed.
 - `/repo commit` shows staged changes above a multiline message editor. `Enter` inserts a newline and `↑↓` moves the cursor. `Shift+Tab` switches between the editor and horizontal options; on the action bar, `←→` selects, `Enter` runs the selection and `↑` returns to editing. Selecting Commit executes it without another preview; `Ctrl+S` also commits, and `PgUp/PgDn` reviews staged contents. Git hooks and signing are preserved.
-- `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous. Scheduled workflows remain non-forced.
+- `/repo push` validates and performs ordinary pushes directly. If the remote contains commits absent locally, a separate confirmation (cancel selected by default) allows an exact `--force-with-lease` push. Without an upstream, select a remote and edit the target branch, then press Enter to publish and save tracking on success. Git’s `push.autoSetupRemote=true` publishes the same-name branch directly when its default destination is unambiguous.
 - After typing `/open`, press Enter or Tab to choose the system default terminal or file manager.
 
 ## Image previews
@@ -202,25 +202,17 @@ Press Enter on a stash to inspect its saved message and files. Wide windows show
 
 ## Fetch and configuration
 - Experimental features are enabled by default and remembered in settings. AI commit composition uses a distinct text color for its commands and page title; disabling experiments hides the whole composition group while keeping ordinary commit-message generation available.
-- `/settings auto-fetch [true|false]` enables periodic fetch in this TUI (off by default). `/settings auto-fetch-interval <duration>` sets its interval (3m by default, at least 60s). It waits while unfocused or busy and fetches once when due, without catch-up runs. Startup and manual fetches reset the deadline; background completion preserves input and navigation. System scheduling remains independent.
-- Startup reads local state by default. `/settings startup-fetch [true|false]` enables one background fetch on the next launch for managed repositories and the current session repository, using the same operation as manual fetch. It does not run scheduled pull or push steps.
+- `/settings auto-fetch [true|false]` enables periodic fetch in this TUI (off by default). `/settings auto-fetch-interval <duration>` sets its interval (3m by default, at least 60s). It waits while unfocused or busy and fetches once when due, without catch-up runs. Startup and manual fetches reset the deadline; background completion preserves input and navigation.
+- Startup reads local state by default. `/settings startup-fetch [true|false]` enables one background fetch on the next launch for managed repositories and the current session repository, using the same operation as manual fetch.
 - `/repo fetch` fetches the current repository and refreshes its status; `/repos fetch` fetches all managed repositories.
-- Local automatic refresh coalesces filesystem events for 250 ms, or up to 1 second during continuous changes. Terminal focus loss pauses automatic reads while changes accumulate; focus gain refreshes affected repositories. Manual operations, startup fetch and scheduled tasks continue running.
+- Local automatic refresh coalesces filesystem events for 250 ms, or up to 1 second during continuous changes. Terminal focus loss pauses automatic reads while changes accumulate; focus gain refreshes affected repositories. Manual operations and startup fetch continue running.
 - Checks run in the background. Browse, search and view files while they run. A spinner marks active checks; unfinished rows retain previous results.
 - `/cancel` cancels the selected repository task, or the batch check when no selected task exists. Independent repositories run concurrently; operations sharing Git storage serialize. Configuration writes use a short transaction.
 - `/repo` opens the selected repository; `/repos` returns to the list. `/repos manage` manages registrations; `/repos add <path>` adds one repository and `/repos remove` unregisters the selection.
 - `/repos scan <path> [--exclude <path>…]` scans and opens a selection review. Add selected registers checked repositories. Already added repositories are marked; unreadable entries show their error. Space/Insert toggles, Ctrl+A selects matching new repositories, Shift+Tab switches input/options, Enter activates and Esc returns.
 - One `--exclude` accepts multiple directories: `/repos scan ~/Proj --exclude backups archive "old projects"`. Relative exclusions resolve against the scan root, and each path supports Tab completion. Exclusions and unchecked entries affect only this scan.
 - `/settings concurrency <count>` sets bounded concurrency, from 1 to 32.
-- In a workflow editor, check a step to include it or uncheck it to remove it. `↑↓` selects steps and the Save/Cancel buttons; `Enter`/Space activates the selection. `←→` selects reordering controls in the separate Actions panel. Clicking a step also toggles it. Save applies the draft.
 - `/settings wrap [true|false]` saves text wrapping for file previews and diffs (off by default). Gutters stay fixed, split diffs remain aligned, and links keep their complete targets. When off, use horizontal scrolling. The same option is in Settings → Display.
-- `/schedule` shows status, interval, time basis, and workflow together with their associated buttons. Click a button to edit or enter enable/disable confirmation; use ↑↓ and Enter with the keyboard.
-- `/schedule actions` edits scheduled actions; `/schedule interval <duration>` accepts values such as 6h.
-- `/schedule anchor <datetime|auto>` sets a local time basis (HH:MM[:SS] or YYYY-MM-DD HH:MM[:SS]); auto regenerates it on enable.
-- The first enable persists an automatic basis when omitted. Restarts and re-enabling preserve it; the schedule page shows the basis and applied next trigger.
-- Durations support s / m / h / d / w (at least 60 seconds). Apply saved changes with `/schedule apply`.
-- `/schedule apply` applies configuration; `/schedule enabled [true|false]` selects whether scheduling is enabled. Omitting the value opens an option menu with the current state marked; execution requires confirmation.
-> The scheduled workflow defaults to fetch → inspect. Add and reorder pull or push explicitly. Inspect is last; push requires an earlier fetch or pull. Failure stops later steps for that repository; task details retain step outcomes and times. Manual checks still fetch and read local status only.
 
 ## Confirmation
 - `←→` selects an action; `Enter` confirms; `Esc` returns. Returning from commit or configuration confirmation retains the draft.

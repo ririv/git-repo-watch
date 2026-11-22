@@ -1,3 +1,5 @@
+#![cfg(feature = "developer-scheduler")]
+
 use engine::{
     cancel::Cancel,
     domain::{Publication, PushPolicy, RepositoryResult},

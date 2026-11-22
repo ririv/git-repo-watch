@@ -129,6 +129,7 @@ fn commit_and_stash_action_pages_ignore_space_while_text_pages_preserve_leading_
     }
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn workflow_space_toggles_the_step_but_cannot_execute_the_selected_footer_action() {
     let (_home, mut s) = fixture(vec![]);

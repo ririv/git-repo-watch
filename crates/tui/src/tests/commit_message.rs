@@ -121,7 +121,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         let (_home, mut s) = fixture(vec![]);
         command(&mut s, "settings");
         let depth = s.history.len();
-        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        let items = Configuration::General.items(&s.snapshot, &s.config.ai);
         assert!(items.contains(&crate::settings::Item::AiEnabled));
         for action in [Action::AiAgent, Action::AiModel, Action::AiPrompt] {
             assert!(items.contains(&crate::settings::Item::Command(action)));
@@ -194,7 +194,7 @@ fn settings_select_agent_and_save_model_and_prompt_in_their_group() {
         );
         assert!(s.config.ai.codex.model.is_empty());
         s.setting_selected = Configuration::General
-            .items(s.snapshot.registration, &s.config.ai)
+            .items(&s.snapshot, &s.config.ai)
             .len()
             - 1;
         assert!(render(&mut s, 120, 40).contains(i18n::tr!(AgentPrompt)));
@@ -213,7 +213,7 @@ fn disabled_ai_is_hidden_and_can_only_be_restored_from_general_settings() {
         wait(&mut s);
         assert!(!s.config.ai.enabled);
         assert_eq!(s.page, Page::Configuration(Configuration::General));
-        let items = Configuration::General.items(s.snapshot.registration, &s.config.ai);
+        let items = Configuration::General.items(&s.snapshot, &s.config.ai);
         assert!(items.contains(&crate::settings::Item::AiEnabled));
         for action in [
             Action::AiSettings,

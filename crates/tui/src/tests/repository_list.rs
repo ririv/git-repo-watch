@@ -291,6 +291,7 @@ fn list_menus_support_mouse_and_do_not_take_over_other_views() {
     assert_eq!(s.message, i18n::tr!(RepositoryListOnly));
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn repositories_without_remotes_remain_normal_after_scheduled_and_manual_fetch() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -395,6 +396,7 @@ fn home_uses_the_checked_out_branch_and_the_branch_view_keeps_other_branch_diffe
     s.shutdown();
 }
 
+#[cfg(feature = "developer-scheduler")]
 #[test]
 fn home_branch_is_in_selected_details_and_the_list_keeps_its_existing_columns() {
     let f = support::Fixture::create();

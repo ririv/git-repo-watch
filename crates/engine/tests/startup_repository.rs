@@ -82,9 +82,13 @@ fn session_repository_access_keeps_registration_and_batch_scope_unchanged() {
     assert!(scoped.files(&unrelated.repo, &cancel).is_err());
     assert!(plain.files(&temporary.repo, &cancel).is_err());
     assert_eq!(scoped.snapshot(&cancel).unwrap().repository_count, 1);
-    let report = scoped.run_scheduled(&cancel, |_| {}).unwrap();
-    assert_eq!(report.repositories.len(), 1);
-    assert_eq!(report.repositories[0].path(), registered.repo);
+    let assert_scope = |report: engine::domain::Report| {
+        assert_eq!(report.repositories.len(), 1);
+        assert_eq!(report.repositories[0].path(), registered.repo);
+    };
+    assert_scope(scoped.run(&cancel, |_| {}).unwrap());
+    #[cfg(feature = "developer-scheduler")]
+    assert_scope(scoped.run_scheduled(&cancel, |_| {}).unwrap());
     assert_eq!(fs::read(scoped.store.config_path()).unwrap(), config);
 }
 

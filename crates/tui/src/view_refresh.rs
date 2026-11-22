@@ -42,9 +42,9 @@ impl Target {
             Mode::Browsing => match screen.page {
                 Page::Repositories => Self::Report,
                 Page::Detail => Self::Workspace,
-                Page::Configuration(Configuration::General | Configuration::Schedule) => {
-                    Self::Configuration
-                }
+                #[cfg(feature = "developer-scheduler")]
+                Page::Configuration(Configuration::Schedule) => Self::Configuration,
+                Page::Configuration(Configuration::General) => Self::Configuration,
                 _ => return Err(i18n::tr!(RefreshUnavailable)),
             },
             _ => return Err(i18n::tr!(RefreshUnavailable)),

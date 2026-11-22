@@ -42,6 +42,7 @@ impl Screen {
                 };
             }
             Mode::PromptEditor(_) | Mode::PushTarget(_) => return Space::Insert,
+            #[cfg(feature = "developer-scheduler")]
             Mode::Workflow(session) => {
                 return match session.cursor {
                     crate::workflow::Cursor::Step { .. } => Space::Content,

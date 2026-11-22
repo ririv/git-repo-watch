@@ -103,6 +103,7 @@ impl Screen {
                 draft,
             } => self.choose_replay_parent(*candidate, selected, *origin, draft),
             Confirmation::Mutation { plan, origin, .. } => self.execute_mutation(*plan, *origin),
+            #[cfg(feature = "developer-scheduler")]
             Confirmation::Schedule(operation) => self.start(
                 match operation {
                     engine::scheduler::Control::Enable => i18n::tr!(EnableScheduledTask),
@@ -153,6 +154,7 @@ impl Screen {
                     Effect::Configuration,
                     move |s, c, _| {
                         use command::ConfigArgument as Parameter;
+                        #[cfg(feature = "developer-scheduler")]
                         let save = |edit| -> Result<String> {
                             s.configure(edit)?;
                             Ok(i18n::tr!(ConfigurationSavedApplyScheduleAfterChangingThe).into())
@@ -161,6 +163,7 @@ impl Screen {
                             Parameter::Add => {
                                 i18n::tf!(AddedRepositories, s.add(&[PathBuf::from(value)])?)
                             }
+                            #[cfg(feature = "developer-scheduler")]
                             Parameter::Interval => {
                                 save(ConfigEdit::Interval(state::interval(&value)?))?
                             }
@@ -170,15 +173,18 @@ impl Screen {
                                 )?))?;
                                 i18n::tr!(PreferenceSaved).into()
                             }
+                            #[cfg(feature = "developer-scheduler")]
                             Parameter::Anchor => {
                                 save(ConfigEdit::Anchor(engine::scheduler::timing::parse_anchor(
                                     &value,
                                     chrono::Local::now().date_naive(),
                                 )?))?
                             }
+                            #[cfg(feature = "developer-scheduler")]
                             Parameter::Autopush => save(ConfigEdit::Policy(value.parse()?))?,
                             Parameter::Concurrency => {
-                                save(ConfigEdit::Concurrency(value.parse()?))?
+                                s.configure(ConfigEdit::Concurrency(value.parse()?))?;
+                                i18n::tr!(PreferenceSaved).into()
                             }
                             Parameter::RepositoryEnvironment(field) => {
                                 let path = draft.path.expect("resolved repository target");

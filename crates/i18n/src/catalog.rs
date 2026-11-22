@@ -1,5 +1,25 @@
 //! Complete bilingual catalog; each message has both languages.
 use crate::{Language, language};
+
+#[cfg(feature = "developer-scheduler")]
+macro_rules! scheduler_cli_help {
+    (en) => {
+        "\nDeveloper feature: system scheduler\n  interval 6h                        Save interval\n  anchor DATETIME|auto               Set time basis\n  autopush disabled|fast_forward     Save automatic push policy\n  scheduled-actions STEPS...         Save scheduled workflow\n  scheduled-check                    Run the saved workflow\n  schedule enable|disable|apply      Control the system task\n  uninstall                          Remove the system task\n  install also enables the system task in this build.\n"
+    };
+    (zh) => {
+        "\n开发者功能 · 系统定时任务\n  interval 6h                        保存频率\n  anchor 日期时间|auto                设置时间基准\n  autopush disabled|fast_forward     保存自动推送策略\n  scheduled-actions 步骤...          保存定时流程\n  scheduled-check                    执行已保存的定时流程\n  schedule enable|disable|apply      管理系统任务\n  uninstall                          移除系统任务\n  此构建中的 install 还会启用系统任务。\n"
+    };
+}
+#[cfg(not(feature = "developer-scheduler"))]
+macro_rules! scheduler_cli_help {
+    (en) => {
+        ""
+    };
+    (zh) => {
+        ""
+    };
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Message {
     CommandHistory,
@@ -1045,6 +1065,7 @@ pub enum Message {
     ReportFiltersAreMutuallyExclusive,
     UnknownReportArgumentValue,
     InvalidReportTimestampValue,
+    CheckProcessRepositoriesAndConcurrency,
     SystemScheduleCheckProcessConfiguredIntervalEvery,
     Loaded,
     NotLoaded,
@@ -4252,7 +4273,9 @@ impl Message {
                     identity::command!(),
                     " [--home PATH] [COMMAND]\nWithout a command, opens the current Git repository, or the repository list outside Git. Use ",
                     identity::command!(),
-                    " status for status queries. Relative --home paths use the current working directory.\n\n  tui                              Open the current repository, or the repository list\n  repos                            Always open the repository list\n  status [--json]                   Show schedule, configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  scan PATH                        Scan repositories using Git ignore rules\n  import-tree PATH                 Scan and import repositories\n  interval 6h                      Save interval (s, m, h, d)\n  autopush disabled|fast_forward    Save automatic push policy\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-fetch true|false          Fetch remotes on startup (default false)\n  scheduled-actions STEPS...        Save scheduled action order\n  fetch [PATH]                     Fetch all, or one registered repository\n  scheduled-check                  Run the saved scheduled workflow\n  schedule enable|disable|apply    Enable, disable or apply configuration\n  migrate config|--from PATH        Convert legacy configuration or copy a compatible custom home\n  install                          Install command and schedule\n  uninstall                        Remove scheduled task\n\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
+                    " status for status queries. Relative --home paths use the current working directory.\n\n  tui                              Open the current repository, or the repository list\n  repos                            Always open the repository list\n  status [--json]                   Show configuration and last result\n  report [--json] [FILTER]          Read the complete report\n    --problems                     Only attention or failed repositories\n    --no-upstream                  Branches without remote upstream\n    --pushes                       Automatic push results\n  init                             Create configuration\n  paths                            Show configuration, database and log paths\n  config                           Show configuration JSON\n  list                             List repositories\n  add PATH...                      Add repository roots\n  remove PATH                      Unregister a repository\n  scan PATH                        Scan repositories using Git ignore rules\n  import-tree PATH                 Scan and import repositories\n  concurrency 4                    Set concurrency limit (1–32)\n  startup-fetch true|false          Fetch remotes on startup (default false)\n  fetch [PATH]                     Fetch all, or one registered repository\n  migrate config|--from PATH        Convert legacy configuration or copy a compatible custom home\n  install                          Install command\n",
+                    scheduler_cli_help!(en),
+                    "\nLanguage: follows system preferences; unsupported languages use English.\nSet APP_LANG=en or APP_LANG=zh to select a language explicitly.\n"
                 )
             }
             (Self::CliHelp, Language::Chinese) => {
@@ -4262,7 +4285,8 @@ impl Message {
                     identity::command!(),
                     " [--home 路径] [命令]\n不传命令时打开当前 Git 仓库；非仓库目录进入仓库列表。状态查询使用 ",
                     identity::command!(),
-                    " status。--home 的相对路径按启动时的当前目录解析。\n\n  tui                              打开当前仓库，非仓库目录进入仓库列表\n  repos                            直接打开仓库列表首页\n  status [--json]                   查看任务、配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  scan 路径                         按 Git 忽略规则扫描仓库\n  import-tree 路径                  扫描并导入列表\n  interval 6h                       保存频率（支持 s、m、h、d）\n  autopush disabled|fast_forward     保存自动推送策略\n  concurrency 4                     设置并发上限（1 至 32）\n  startup-fetch true|false           启动时获取远程（默认 false）\n  scheduled-actions STEPS...         保存定时步骤顺序\n  fetch [路径]                      获取全部或单个仓库的远程信息\n  scheduled-check                   执行已保存的定时流程\n  schedule enable|disable|apply     启停定时任务或应用配置\n  migrate config|--from 路径          转换旧配置，或复制兼容的自定义数据目录\n  install                           安装命令并应用调度\n  uninstall                         卸载定时任务\n"
+                    " status。--home 的相对路径按启动时的当前目录解析。\n\n  tui                              打开当前仓库，非仓库目录进入仓库列表\n  repos                            直接打开仓库列表首页\n  status [--json]                   查看配置和上次结果\n  report [--json] [筛选]             读取完整报告\n    --problems                      只看需关注或检查失败\n    --no-upstream                   单独查看无远程上游的分支\n    --pushes                        只看自动推送结果\n  init                              初始化配置\n  paths                             查看配置、数据库和日志位置\n  config                            查看配置 JSON\n  list                              查看仓库列表\n  add 路径...                       添加仓库根目录\n  remove 路径                       移除仓库注册项\n  scan 路径                         按 Git 忽略规则扫描仓库\n  import-tree 路径                  扫描并导入列表\n  concurrency 4                     设置并发上限（1 至 32）\n  startup-fetch true|false           启动时获取远程（默认 false）\n  fetch [路径]                      获取全部或单个仓库的远程信息\n  migrate config|--from 路径          转换旧配置，或复制兼容的自定义数据目录\n  install                           安装命令\n",
+                    scheduler_cli_help!(zh),
                 )
             }
             (Self::UnableToRegisterExitSignalE, Language::English) => {
@@ -4298,10 +4322,14 @@ impl Message {
             (Self::StatusOnlyAcceptsJson, Language::English) => "status only accepts --json",
             (Self::StatusOnlyAcceptsJson, Language::Chinese) => "status 只接受 --json",
             (Self::NoCompleteReportYetWaitForThe, Language::English) => {
-                "No complete report yet; wait for the scheduled run or explicitly run check"
+                concat!(
+                    "No complete report yet; run ",
+                    identity::command!(),
+                    " fetch"
+                )
             }
             (Self::NoCompleteReportYetWaitForThe, Language::Chinese) => {
-                "尚未生成完整报告；等待定时执行或显式运行 check"
+                concat!("尚未生成完整报告，请运行 ", identity::command!(), " fetch")
             }
             (Self::AddRequiresAtLeastOneRepositoryPath, Language::English) => {
                 "add requires at least one repository path"
@@ -4399,6 +4427,12 @@ impl Message {
                 "Invalid report timestamp: {value}"
             }
             (Self::InvalidReportTimestampValue, Language::Chinese) => "报告时间格式无效：{value}",
+            (Self::CheckProcessRepositoriesAndConcurrency, Language::English) => {
+                "Check process: {}\nRepositories: {}\nConcurrency: {}\n"
+            }
+            (Self::CheckProcessRepositoriesAndConcurrency, Language::Chinese) => {
+                "检查进程：{}\n仓库数量：{}\n检查并发：{}\n"
+            }
             (Self::SystemScheduleCheckProcessConfiguredIntervalEvery, Language::English) => {
                 "System schedule: {}\nCheck process: {}\nConfigured interval: {}\nRepositories: {}\nConcurrency: {}\nAutomatic push: {}\n"
             }
@@ -5732,7 +5766,19 @@ impl Message {
             (Self::NoRepositorySelected, Language::Chinese) => "未选择仓库",
             (Self::NoMatchingCommands, Language::English) => "No matching commands",
             (Self::NoMatchingCommands, Language::Chinese) => "没有匹配命令",
+            #[cfg(feature = "developer-scheduler")]
+            (Self::TuiHelp, Language::English) => concat!(
+                include_str!("help/en.md"),
+                include_str!("help/scheduler.en.md")
+            ),
+            #[cfg(not(feature = "developer-scheduler"))]
             (Self::TuiHelp, Language::English) => include_str!("help/en.md"),
+            #[cfg(feature = "developer-scheduler")]
+            (Self::TuiHelp, Language::Chinese) => concat!(
+                include_str!("help/zh.md"),
+                include_str!("help/scheduler.zh.md")
+            ),
+            #[cfg(not(feature = "developer-scheduler"))]
             (Self::TuiHelp, Language::Chinese) => include_str!("help/zh.md"),
             (Self::Repos, Language::English) => " {} repos",
             (Self::Repos, Language::Chinese) => " {}库",
@@ -5938,8 +5984,8 @@ impl Message {
                 "Configure interval, automatic push and system schedule"
             }
             (Self::ConfigureSchedule, Language::Chinese) => "配置执行间隔、自动推送和系统调度",
-            (Self::ScheduleSettings, Language::English) => "Scheduled task",
-            (Self::ScheduleSettings, Language::Chinese) => "定时任务",
+            (Self::ScheduleSettings, Language::English) => "Scheduled task (developer feature)",
+            (Self::ScheduleSettings, Language::Chinese) => "定时任务（开发者功能）",
             (Self::OverlappingFetchDestinations, Language::English) => {
                 "Overlapping fetch destinations: {} ({}) and {} ({})"
             }
@@ -6351,6 +6397,12 @@ macro_rules! tf {
         match $crate::language() {
             $crate::Language::English => format!("Invalid report timestamp: {value}" $(, $($args)*)?),
             $crate::Language::Chinese => format!("报告时间格式无效：{value}" $(, $($args)*)?),
+        }
+    };
+    (CheckProcessRepositoriesAndConcurrency $(, $($args:tt)*)?) => {
+        match $crate::language() {
+            $crate::Language::English => format!("Check process: {}\nRepositories: {}\nConcurrency: {}\n" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("检查进程：{}\n仓库数量：{}\n检查并发：{}\n" $(, $($args)*)?),
         }
     };
     (SystemScheduleCheckProcessConfiguredIntervalEvery $(, $($args:tt)*)?) => {

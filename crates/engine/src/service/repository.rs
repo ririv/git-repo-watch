@@ -356,6 +356,7 @@ impl Service {
             ))),
         }
     }
+    #[cfg(feature = "developer-scheduler")]
     pub fn install(&self, cancel: &Cancel) -> Result<()> {
         self.control_schedule(crate::scheduler::Control::Enable, cancel)
     }
