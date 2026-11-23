@@ -101,7 +101,7 @@ fn configuration_conversion_is_explicit_preserves_json_output_and_does_not_creat
     }
     let original = fs::read(store.config_path()).unwrap();
     let mut conflicting = value;
-    conflicting["interval_seconds"] = 43200.into();
+    conflicting["fetch_on_startup"] = true.into();
     let json = serde_json::to_vec(&conflicting).unwrap();
     fs::write(store.legacy_config_path(), &json).unwrap();
     let rejected = cli(&store, &["migrate", "config"]);

@@ -202,6 +202,7 @@ fn repository_namespaces_have_disjoint_members_and_short_searches_complete_canon
             "search",
             "focus",
             "zoom",
+            "select",
             "editor",
             "open",
             "copy",

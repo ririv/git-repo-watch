@@ -105,7 +105,6 @@ fn manual_and_startup_fetches_continue_while_local_observation_is_unfocused() {
         s.window_focus_changed(WindowFocus::Unfocused);
         f.advance();
         let remote = support::git(&f.remote, &["rev-parse", "main"]);
-        let gate = FetchGate::install(&f);
         if startup {
             s.config.fetch_on_startup = true;
             s.service.store.save_config(&s.config).unwrap();
@@ -113,10 +112,11 @@ fn manual_and_startup_fetches_continue_while_local_observation_is_unfocused() {
         } else {
             command(&mut s, "repo fetch");
         }
-        until(&mut s, |_| gate.started.exists());
-        gate.release();
-        until(&mut s, |s| {
-            s.check_task.is_none() && s.repository_tasks.is_empty()
+        let fetching = |s: &Screen| s.check_task.is_some() || !s.repository_tasks.is_empty();
+        assert!(fetching(&s), "startup={startup}; {}", s.message);
+        // 用实际的获取结果验证失焦行为，等待期限与 Git 子进程一致。
+        until_with_timeout(&mut s, engine::transport::Git::default().timeout, |s| {
+            !fetching(s)
         });
         assert_eq!(support::git(&f.repo, &["rev-parse", "origin/main"]), remote);
         assert_eq!(s.live.reading(), 0);

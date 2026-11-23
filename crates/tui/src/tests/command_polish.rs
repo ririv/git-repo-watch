@@ -53,12 +53,17 @@ fn scoped_common_commands_are_explicit_and_complete_to_global_without_losing_sel
     ] {
         assert!(names.contains(&expected));
     }
-    s.paste("copy");
+    s.paste("copy pa");
     let text = render(&mut s, 100, 32);
     let row = s.command_items[0].0;
-    assert!(text.lines().nth(row.y as usize).unwrap().contains("/copy"));
+    assert!(
+        text.lines()
+            .nth(row.y as usize)
+            .unwrap()
+            .contains("/copy path")
+    );
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "/copy");
+    assert_eq!(s.bar.text(), "/copy path");
     assert_eq!(s.bar.command_input().unwrap().context(), None);
     key(&mut s, KeyCode::Enter);
     assert_eq!(

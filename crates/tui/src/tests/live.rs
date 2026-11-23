@@ -15,6 +15,11 @@ fn tick(s: &mut Screen) {
 }
 #[track_caller]
 fn until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
+    until_with_timeout(s, Duration::from_secs(30), ready);
+}
+
+#[track_caller]
+fn until_with_timeout(s: &mut Screen, timeout: Duration, ready: impl Fn(&Screen) -> bool) {
     let callsite = std::panic::Location::caller();
     let start = Instant::now();
     loop {
@@ -23,8 +28,9 @@ fn until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
             return;
         }
         assert!(
-            start.elapsed() < Duration::from_secs(30),
-            "local observation timed out at {callsite}: {}; {}",
+            start.elapsed() < timeout,
+            "test condition timed out at {callsite}: {}; {}; {}",
+            s.message,
             s.live.error().unwrap_or_default(),
             s.live.diagnostics()
         );

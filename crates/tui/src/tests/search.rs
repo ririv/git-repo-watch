@@ -412,7 +412,12 @@ fn browser_and_graph_offer_only_supported_modes_while_static_pages_offer_none() 
         );
         key(&mut s, KeyCode::Esc);
     }
-    for entry in ["settings", "help", "schedule"] {
+    for entry in [
+        "settings",
+        "help",
+        #[cfg(feature = "developer-scheduler")]
+        "schedule",
+    ] {
         command(&mut s, entry);
         let page = s.page;
         assert_eq!(s.search_support(), Support::Unavailable);

@@ -396,14 +396,13 @@ fn views_without_recovery_options_do_not_toggle_or_show_a_mode_hint() {
     command(&mut s, "repo diff");
     wait(&mut s);
     s.paste("draft");
-    let input = s.bar.text();
-    for code in [KeyCode::Tab, KeyCode::BackTab] {
-        key(&mut s, code);
-        assert_eq!(s.bar.text(), input);
-        assert!(
-            matches!(&s.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Files)
-        );
-    }
+    key(&mut s, KeyCode::Tab);
+    assert_eq!(s.bar.text(), "draft.txt");
+    key(&mut s, KeyCode::BackTab);
+    assert_eq!(s.bar.text(), "draft.txt");
+    assert!(
+        matches!(&s.mode, Mode::Changes(session) if session.focus == crate::changes::Focus::Files)
+    );
     assert!(!render(&mut s, 140, 38).contains(i18n::tr!(ReplayControlsEntryHint)));
     assert_eq!(focused(&s), None);
     s.shutdown();

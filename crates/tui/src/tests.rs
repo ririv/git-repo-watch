@@ -746,6 +746,9 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
         assert!(text.contains("Filter repositories"));
         assert!(text.contains("Type to search"));
         assert!(text.contains("Filter: All · Sort: Priority"));
+        if width == 150 {
+            assert!(text.contains("Path: /example/alpha"), "{text}");
+        }
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         s.paste("//");
         let candidates = render(&mut s, width, height);
@@ -768,8 +771,12 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
     }
     key(&mut s, KeyCode::Enter);
     let detail = render(&mut s, 80, 24);
-    assert!(detail.contains("Path: /example/alpha"));
-    assert!(detail.contains(i18n::tr!(OverviewLoading)));
+    assert_eq!(
+        s.workspace.path(),
+        Some(std::path::Path::new("/example/alpha"))
+    );
+    assert!(detail.contains("Repositories › alpha"), "{detail}");
+    assert!(detail.contains(i18n::tr!(OverviewLoading)), "{detail}");
     assert!(
         !detail
             .chars()

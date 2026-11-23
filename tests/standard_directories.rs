@@ -53,8 +53,8 @@ fn standard_configuration_and_database_ignore_cwd_and_obsolete_location_files() 
     );
     let config = fs::read(store.config_path()).unwrap();
     assert_eq!(
-        json(cli(&home, &cwd, &["config"]))["interval_seconds"],
-        21600
+        json(cli(&home, &cwd, &["config"]))["fetch_on_startup"],
+        false
     );
     assert_eq!(cli(&home, &cwd, &["init"]).status.code(), Some(2));
     assert_eq!(fs::read(store.config_path()).unwrap(), config);
@@ -73,10 +73,14 @@ fn explicit_home_keeps_its_existing_layout_and_is_independent_of_default_storage
     let custom = Store::custom(home.join("独立 数据"));
     json(cli(home, home, &["--home", "~/独立 数据", "init"]));
     json(cli(home, home, &["--home", "~/独立 数据", "config"]));
-    let output = cli(home, home, &["--home", "~/独立 数据", "interval", "12h"]);
+    let output = cli(
+        home,
+        home,
+        &["--home", "~/独立 数据", "startup-fetch", "true"],
+    );
     assert!(output.status.success());
-    assert_eq!(custom.config().unwrap().interval_seconds, 43200);
-    assert_eq!(standard.config().unwrap().interval_seconds, 21600);
+    assert!(custom.config().unwrap().fetch_on_startup);
+    assert!(!standard.config().unwrap().fetch_on_startup);
     assert_eq!(
         cli(home, home, &["--home", "~/独立 数据", "fetch"])
             .status
@@ -141,6 +145,15 @@ fn explicit_import_transfers_a_custom_home_and_normal_commands_survive_source_re
     let temp = tempfile::tempdir().unwrap();
     let home = temp.path();
     json(cli(home, home, &["--home", "~/旧 数据", "init"]));
+    assert!(
+        cli(
+            home,
+            home,
+            &["--home", "~/旧 数据", "startup-fetch", "true"]
+        )
+        .status
+        .success()
+    );
     assert_eq!(
         cli(home, home, &["--home", "~/旧 数据", "fetch"])
             .status
@@ -160,8 +173,5 @@ fn explicit_import_transfers_a_custom_home_and_normal_commands_survive_source_re
     );
     fs::remove_dir_all(home.join("旧 数据")).unwrap();
     assert_eq!(json(cli(home, home, &["report", "--json"])), source_report);
-    assert_eq!(
-        json(cli(home, home, &["config"]))["interval_seconds"],
-        21600
-    );
+    assert_eq!(json(cli(home, home, &["config"]))["fetch_on_startup"], true);
 }

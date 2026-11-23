@@ -207,7 +207,7 @@ fn relative_home_initializes_a_new_profile_and_reuses_it_without_touching_other_
     let original = fs::read(f.store.config_path()).unwrap();
     let profile = f.repository.parent().unwrap().join("新建 数据");
     assert!(!profile.exists());
-    for args in [vec!["init"], vec!["interval", "12h"], vec!["config"]] {
+    for args in [vec!["init"], vec!["startup-fetch", "true"], vec!["config"]] {
         let output = f
             .command()
             .current_dir(&f.repository)
@@ -221,10 +221,7 @@ fn relative_home_initializes_a_new_profile_and_reuses_it_without_touching_other_
             String::from_utf8_lossy(&output.stderr)
         );
     }
-    assert_eq!(
-        Store::custom(profile).config().unwrap().interval_seconds,
-        43200
-    );
+    assert!(Store::custom(profile).config().unwrap().fetch_on_startup);
     assert_eq!(fs::read(f.store.config_path()).unwrap(), original);
     for args in [vec!["--home"], vec!["--home", "", "init"]] {
         let output = f

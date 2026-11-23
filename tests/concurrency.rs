@@ -1,40 +1,52 @@
 use engine::{
     domain::PushPolicy,
+    git_environment::{Environment, Launcher},
     state::{Config, Store},
+    transport::Git,
 };
 use std::{
-    fs,
-    os::unix::fs::PermissionsExt,
     path::PathBuf,
     process::{Child, Command, Stdio},
     thread,
     time::{Duration, Instant},
 };
-use test_support::{Fixture, git, write};
+use test_support::{Fixture, write};
 
 struct Gate {
     started: PathBuf,
     release: PathBuf,
 }
 impl Gate {
-    fn install(f: &Fixture) -> Self {
-        let wrapper = f.temp.path().join("gated-upload-pack");
-        write(
-            &wrapper,
-            "#!/bin/sh\ntouch \"$0.started\"\nfor i in $(seq 1 1000); do\n if [ -e \"$0.release\" ]; then exec /usr/bin/git-upload-pack \"$@\"; fi\n sleep 0.01\ndone\nexit 98\n",
-        );
-        fs::set_permissions(&wrapper, fs::Permissions::from_mode(0o700)).unwrap();
-        git(
-            &f.repo,
-            &[
-                "config",
-                "remote.origin.uploadpack",
-                wrapper.to_str().unwrap(),
-            ],
-        );
+    fn new(f: &Fixture) -> Self {
+        let root = f.repo.parent().unwrap();
         Self {
-            started: wrapper.with_file_name("gated-upload-pack.started"),
-            release: wrapper.with_file_name("gated-upload-pack.release"),
+            started: root.join("fetch.started"),
+            release: root.join("fetch.release"),
+        }
+    }
+    fn environment(&self) -> Environment {
+        Environment {
+            launcher: Some(Launcher {
+                program: "/bin/sh".into(),
+                args: vec![
+                    "-c".into(),
+                    r#"
+started=$1
+release=$2
+shift 2
+if [ "$2" = fetch ]; then
+    : > "$started" || exit 1
+    while [ ! -e "$release" ]; do sleep 0.01; done
+fi
+exec "$@"
+"#
+                    .into(),
+                    "fetch-gate".into(),
+                    self.started.to_str().unwrap().into(),
+                    self.release.to_str().unwrap().into(),
+                ],
+            }),
+            ..Environment::default()
         }
     }
     fn open(&self) {
@@ -49,7 +61,7 @@ impl Drop for Gate {
 struct Process(Child);
 impl Process {
     fn wait(&mut self) {
-        let deadline = Instant::now() + Duration::from_secs(10);
+        let deadline = Instant::now() + Git::default().timeout;
         loop {
             if let Some(status) = self.0.try_wait().unwrap() {
                 assert!(status.success(), "check process failed: {status}");
@@ -70,15 +82,19 @@ impl Drop for Process {
 fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_processes() {
     let first = Fixture::create();
     let second = Fixture::create();
-    let first_gate = Gate::install(&first);
-    let second_gate = Gate::install(&second);
+    let first_gate = Gate::new(&first);
+    let second_gate = Gate::new(&second);
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().to_owned());
     store
         .save_config(&Config {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
-            repository_environment: Default::default(),
+            repository_environment: [
+                (first.repo.clone(), first_gate.environment()),
+                (second.repo.clone(), second_gate.environment()),
+            ]
+            .into(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
@@ -112,11 +128,21 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
     };
     let mut first_process = spawn(&first.repo);
     let mut second_process = spawn(&second.repo);
-    let deadline = Instant::now() + Duration::from_secs(8);
+    let deadline = Instant::now() + Git::default().timeout;
     while !first_gate.started.exists() || !second_gate.started.exists() {
+        for (name, process) in [
+            ("first", &mut first_process),
+            ("second", &mut second_process),
+        ] {
+            if let Some(status) = process.0.try_wait().unwrap() {
+                panic!("{name} check exited before both fetches started: {status}");
+            }
+        }
         assert!(
             Instant::now() < deadline,
-            "independent checks did not overlap"
+            "independent checks did not overlap: first={}, second={}",
+            first_gate.started.exists(),
+            second_gate.started.exists(),
         );
         thread::sleep(Duration::from_millis(5));
     }
@@ -125,11 +151,15 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
         .env("HOME", home.path())
         .arg("--home")
         .arg(home.path())
-        .args(["interval", "12h"])
+        .args(["startup-fetch", "true"])
         .output()
         .unwrap();
-    assert!(configured.status.success());
-    assert_eq!(store.config().unwrap().interval_seconds, 43200);
+    assert!(
+        configured.status.success(),
+        "{}",
+        String::from_utf8_lossy(&configured.stderr)
+    );
+    assert!(store.config().unwrap().fetch_on_startup);
     assert!(first_process.0.try_wait().unwrap().is_none());
     assert!(second_process.0.try_wait().unwrap().is_none());
     first_gate.open();
