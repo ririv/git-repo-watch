@@ -738,31 +738,14 @@ fn a_changed_index_rejects_direct_commit_and_returns_an_editable_draft() {
 #[test]
 #[cfg(unix)]
 fn submitting_locks_the_snapshot_and_ignored_editing_keys_do_not_block_completion() {
-    use std::os::unix::fs::PermissionsExt;
-    struct Release(PathBuf);
-    impl Drop for Release {
-        fn drop(&mut self) {
-            let _ = std::fs::write(&self.0, "release");
-        }
-    }
     let (f, _home, mut s) = setup();
-    let hook = f.repo.join(".git/hooks/pre-commit");
-    support::write(
-        &hook,
-        "#!/bin/sh\ntouch .git/commit-started\nwhile [ ! -f .git/commit-release ]; do sleep 0.01; done\n",
-    );
-    std::fs::set_permissions(&hook, std::fs::Permissions::from_mode(0o755)).unwrap();
-    let release = Release(f.repo.join(".git/commit-release"));
+    let gate = gate_git(&mut s, &f, GitOperation::Commit);
     command(&mut s, "repo commit");
     wait_generation(&mut s);
     s.paste("feat: confirmed snapshot\n\n正文");
     key(&mut s, KeyCode::BackTab);
     key(&mut s, KeyCode::Enter);
-    let start = Instant::now();
-    while !f.repo.join(".git/commit-started").exists() {
-        assert!(start.elapsed() < Duration::from_secs(8));
-        thread::sleep(Duration::from_millis(3));
-    }
+    poll_background_until(&mut s, |_| gate.started.exists());
     s.paste("forbidden edit");
     key(&mut s, KeyCode::Char('x'));
     key(&mut s, KeyCode::BackTab);
@@ -777,7 +760,7 @@ fn submitting_locks_the_snapshot_and_ignored_editing_keys_do_not_block_completio
     let text = render(&mut s, 100, 28);
     assert!(text.contains(i18n::tr!(CommitSubmitting)));
     assert!(!text.contains(i18n::tr!(CommitRegenerateAction)));
-    drop(release);
+    gate.release();
     wait_generation(&mut s);
     assert!(matches!(s.mode, Mode::Browsing));
     assert_eq!(

@@ -133,7 +133,7 @@ fn check_progress_and_cancellation_share_the_last_row_without_moving_input() {
         let (_home, mut s) = fixture(vec![f.repo.clone()]);
         render(&mut s, 100, 32);
         let input = s.input_area;
-        let gate = FetchGate::install(&f);
+        let gate = gate_git(&mut s, &f, GitOperation::Fetch);
         s.start_check(crate::checks::CheckTarget::All);
         poll_background_until(&mut s, |_| gate.started.exists());
         let task = s.check_task.as_ref().unwrap();

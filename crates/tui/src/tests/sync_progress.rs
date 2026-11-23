@@ -6,7 +6,7 @@ fn slow_sync_fetch_publishes_real_progress_without_moving_input_and_records_stag
     let f = support::Fixture::create();
     f.advance();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    let gate = FetchGate::install(&f);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
     render(&mut s, 100, 30);
     let input = s.input_area;

@@ -45,7 +45,7 @@ fn enabled_startup_fetch_is_background_work_and_never_runs_scheduled_pull_or_pus
     s.config.fetch_on_startup = true;
     s.config.scheduled_actions = "pull push inspect".parse().unwrap();
     s.service.store.save_config(&s.config).unwrap();
-    let gate = FetchGate::install(&f);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     s.fetch_on_startup();
     poll_background_until(&mut s, |_| gate.started.exists());
     assert!(matches!(s.mode, Mode::Browsing));

@@ -117,10 +117,14 @@ fn template_and_initial_configuration_have_all_explicit_defaults_and_private_per
     store.initialize().unwrap();
     assert_eq!(store.config().unwrap(), Config::default());
     let text = fs::read_to_string(store.config_path()).unwrap();
-    assert_eq!(
-        text.contains("# 定时检查间隔"),
-        cfg!(feature = "developer-scheduler")
-    );
+    let document: toml_edit::DocumentMut = text.parse().unwrap();
+    for key in ["interval_seconds", "scheduled_actions"] {
+        assert_eq!(
+            document.contains_key(key),
+            cfg!(feature = "developer-scheduler"),
+            "{key}"
+        );
+    }
     assert!(text.contains("max_concurrency = 4"));
     assert!(text.contains("fetch_on_startup = false"));
     assert!(!text.contains("check_on_startup") && !text.contains("startup_actions"));

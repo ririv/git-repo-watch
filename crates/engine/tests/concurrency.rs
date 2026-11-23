@@ -1,9 +1,10 @@
 use engine::{
     cancel::Cancel,
     domain::{IssueKind, PushPolicy, RepositoryResult},
+    git_environment::{Edit, Launcher},
     local::{self, files::IndexAction},
     scheduler::Manager,
-    service::{Event, Service},
+    service::{ConfigEdit, Event, Service},
     state::{Config, Store},
 };
 use std::{
@@ -14,7 +15,7 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use test_support::{Fixture, git, write};
+use test_support::{Fixture, GitGate, GitOperation, git, write};
 
 fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Service) {
     let home = tempfile::tempdir().unwrap();
@@ -44,42 +45,6 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
     let service = Service::new(store, manager);
     (home, service)
 }
-struct Gate {
-    started: PathBuf,
-    release: PathBuf,
-}
-impl Gate {
-    fn hook(fixture: &Fixture) -> Self {
-        let hook = fixture.repo.join(".git/hooks/pre-commit");
-        let started = fixture.temp.path().join("commit.started");
-        let release = fixture.temp.path().join("commit.release");
-        write(
-            &hook,
-            &format!(
-                "#!/bin/sh\ntouch '{}'\nwhile [ ! -f '{}' ]; do sleep 0.01; done\n",
-                started.display(),
-                release.display()
-            ),
-        );
-        fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
-        Self { started, release }
-    }
-    fn open(&self) {
-        write(&self.release, "release");
-    }
-    fn wait(&self) {
-        let deadline = Instant::now() + Duration::from_secs(8);
-        while !self.started.exists() {
-            assert!(Instant::now() < deadline, "Git hook did not start");
-            thread::sleep(Duration::from_millis(5));
-        }
-    }
-}
-impl Drop for Gate {
-    fn drop(&mut self) {
-        self.open();
-    }
-}
 fn has_issue(result: &RepositoryResult, kind: IssueKind) -> bool {
     matches!(result, RepositoryResult::Attention { issues, .. } if issues.iter().any(|issue| issue.kind == kind))
 }
@@ -94,11 +59,29 @@ fn slow_commit_does_not_lock_another_repository_or_lose_its_saved_result() {
     let plan = service
         .prepare_commit(&first.repo, &Cancel::default())
         .unwrap();
-    let gate = Gate::hook(&first);
+    let gate = GitGate::new(&first, GitOperation::Commit);
+    let (program, args) = gate.launcher();
+    service
+        .configure(ConfigEdit::RepositoryEnvironment {
+            path: first.repo.clone(),
+            edit: Edit::Launcher(Some(Launcher { program, args })),
+        })
+        .unwrap();
     let worker_service = service.clone();
     let worker =
         thread::spawn(move || worker_service.commit(&plan, "first commit", &Cancel::default()));
-    gate.wait();
+    let deadline = Instant::now() + Duration::from_secs(8);
+    while !gate.started.exists() {
+        assert!(
+            !worker.is_finished(),
+            "Git commit finished before reaching the gate"
+        );
+        assert!(
+            Instant::now() < deadline,
+            "Git commit did not reach the gate"
+        );
+        thread::sleep(Duration::from_millis(5));
+    }
     write(second.repo.join("second"), "second");
     let files = service.files(&second.repo, &Cancel::default()).unwrap();
     let selected = files.changes.clone();
@@ -117,7 +100,7 @@ fn slow_commit_does_not_lock_another_repository_or_lose_its_saved_result() {
         IssueKind::Dirty
     ));
     let second_revision = reports[&second.repo].repository_revisions[&second.repo];
-    gate.open();
+    gate.release();
     worker.join().unwrap().unwrap();
     let reports = service.store.repository_reports().unwrap();
     assert_eq!(reports.len(), 2);

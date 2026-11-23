@@ -135,7 +135,7 @@ fn manual_and_startup_fetches_reset_the_automatic_deadline() {
 fn enabling_automatic_fetch_during_a_manual_fetch_keeps_its_completion_deadline() {
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
-    let gate = FetchGate::install(&f);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     enable(&mut s);

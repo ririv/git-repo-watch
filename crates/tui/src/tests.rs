@@ -106,7 +106,7 @@ use engine::{
 };
 use ratatui::backend::TestBackend;
 use std::{collections::BTreeSet, time::Instant};
-use test_support as support;
+use test_support::{self as support, GitGate, GitOperation};
 fn screen(service: Service) -> Screen {
     let config = service.store.config().unwrap();
     let view_preferences = config.view;
@@ -1167,41 +1167,18 @@ fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary(
     assert!(highlighted_repository(&mut s, 90, 24).contains("repo001"));
 }
 
-struct FetchGate {
-    started: PathBuf,
-    release: PathBuf,
+fn gate_git(s: &mut Screen, fixture: &support::Fixture, operation: GitOperation) -> GitGate {
+    let gate = GitGate::new(fixture, operation);
+    let (program, args) = gate.launcher();
+    s.config
+        .repository_environment
+        .entry(fixture.repo.clone())
+        .or_default()
+        .launcher = Some(engine::git_environment::Launcher { program, args });
+    s.service.store.save_config(&s.config).unwrap();
+    gate
 }
-impl FetchGate {
-    fn install(fixture: &support::Fixture) -> Self {
-        use std::os::unix::fs::PermissionsExt;
-        let wrapper = fixture.temp.path().join("delayed-upload-pack");
-        support::write(
-            &wrapper,
-            "#!/bin/sh\ntouch \"$0.started\"\nfor i in $(seq 1 1000); do\n if [ -e \"$0.release\" ]; then exec /usr/bin/git-upload-pack \"$@\"; fi\n sleep 0.01\ndone\nexit 98\n",
-        );
-        std::fs::set_permissions(&wrapper, std::fs::Permissions::from_mode(0o700)).unwrap();
-        support::git(
-            &fixture.repo,
-            &[
-                "config",
-                "remote.origin.uploadpack",
-                wrapper.to_str().unwrap(),
-            ],
-        );
-        Self {
-            started: wrapper.with_file_name("delayed-upload-pack.started"),
-            release: wrapper.with_file_name("delayed-upload-pack.release"),
-        }
-    }
-    fn release(&self) {
-        std::fs::write(&self.release, b"release").unwrap();
-    }
-}
-impl Drop for FetchGate {
-    fn drop(&mut self) {
-        let _ = std::fs::write(&self.release, b"release");
-    }
-}
+
 fn poll_background_until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
     let start = Instant::now();
     while !ready(s) {
@@ -1232,7 +1209,7 @@ fn background_batch_keeps_old_results_navigates_animates_updates_and_cancels() {
     let batch = serde_json::to_vec(&s.service.store.report().unwrap()).unwrap();
     std::fs::remove_file(first.repo.join("untracked")).unwrap();
     std::fs::remove_file(second.repo.join("untracked")).unwrap();
-    let gate = FetchGate::install(&second);
+    let gate = gate_git(&mut s, &second, GitOperation::Fetch);
     command(&mut s, "repos fetch");
     assert!(matches!(s.mode, Mode::Browsing));
     assert!(s.check_task.is_some());
@@ -1299,7 +1276,7 @@ fn background_completion_preserves_the_current_detail_page_and_search() {
     let first = support::Fixture::create();
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
-    let gate = FetchGate::install(&second);
+    let gate = gate_git(&mut s, &second, GitOperation::Fetch);
     command(&mut s, "repos fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     for c in "repo".chars() {
@@ -1365,7 +1342,7 @@ fn checks_started_from_files_leave_the_panel_interactive_and_serialize_writes() 
     open_files(&mut s);
     wait(&mut s);
     assert!(matches!(s.mode, Mode::Files(_)));
-    let gate = FetchGate::install(&f);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     command(&mut s, "repo fetch");
     assert!(matches!(s.mode, Mode::Files(_)));
     poll_background_until(&mut s, |_| gate.started.exists());
@@ -1391,7 +1368,7 @@ fn manual_check_ignores_scheduled_push_policy_and_cancels_without_a_push_warning
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     s.config.scheduled_actions = engine::workflow::Plan::from_policy(PushPolicy::FastForward);
     s.service.store.save_config(&s.config).unwrap();
-    let gate = FetchGate::install(&f);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");

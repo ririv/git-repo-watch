@@ -10,6 +10,66 @@ pub struct Fixture {
     pub repo: PathBuf,
     pub remote: PathBuf,
 }
+#[derive(Clone, Copy)]
+pub enum GitOperation {
+    Fetch,
+    Commit,
+}
+
+/// Hold an actual Git operation before execution until the test releases it.
+pub struct GitGate {
+    operation: GitOperation,
+    pub started: PathBuf,
+    release: PathBuf,
+}
+impl GitGate {
+    pub fn new(fixture: &Fixture, operation: GitOperation) -> Self {
+        let root = fixture.repo.parent().unwrap();
+        Self {
+            operation,
+            started: root.join("git.started"),
+            release: root.join("git.release"),
+        }
+    }
+
+    pub fn launcher(&self) -> (PathBuf, Vec<String>) {
+        let operation = match self.operation {
+            GitOperation::Fetch => "fetch",
+            GitOperation::Commit => "commit",
+        };
+        (
+            "/bin/sh".into(),
+            vec![
+                "-c".into(),
+                r#"
+operation=$1
+started=$2
+release=$3
+shift 3
+if [ "$2" = "$operation" ]; then
+    : > "$started" || exit 1
+    while [ ! -e "$release" ]; do sleep 0.01; done
+fi
+exec "$@"
+"#
+                .into(),
+                "git-gate".into(),
+                operation.into(),
+                self.started.to_str().unwrap().into(),
+                self.release.to_str().unwrap().into(),
+            ],
+        )
+    }
+
+    pub fn release(&self) {
+        fs::write(&self.release, b"release").unwrap();
+    }
+}
+impl Drop for GitGate {
+    fn drop(&mut self) {
+        let _ = fs::write(&self.release, b"release");
+    }
+}
 pub fn git(path: &Path, args: &[&str]) -> String {
     let out = Command::new("/usr/bin/git")
         .arg("-C")

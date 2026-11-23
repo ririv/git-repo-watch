@@ -71,7 +71,7 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
     let first = support::Fixture::create();
     let second = support::Fixture::create();
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
-    let gate = FetchGate::install(&second);
+    let gate = gate_git(&mut s, &second, GitOperation::Fetch);
     command(&mut s, "repos fetch");
     poll_background_until(&mut s, |s| {
         gate.started.exists()
@@ -127,9 +127,9 @@ fn late_batch_completion_cannot_replace_a_newer_repository_operation_even_if_its
 fn two_single_repository_checks_overlap_and_same_repository_commands_do_not_start_duplicates() {
     let first = support::Fixture::create();
     let second = support::Fixture::create();
-    let gate_a = FetchGate::install(&first);
-    let gate_b = FetchGate::install(&second);
     let (_home, mut s) = fixture(vec![first.repo.clone(), second.repo.clone()]);
+    let gate_a = gate_git(&mut s, &first, GitOperation::Fetch);
+    let gate_b = gate_git(&mut s, &second, GitOperation::Fetch);
     s.focus(Some(first.repo.clone()));
     command(&mut s, "repo fetch");
     s.focus(Some(second.repo.clone()));
@@ -153,8 +153,8 @@ fn two_single_repository_checks_overlap_and_same_repository_commands_do_not_star
 fn cancelled_repository_task_does_not_take_over_the_current_view() {
     let _language = i18n::using(i18n::Language::English);
     let f = support::Fixture::create();
-    let gate = FetchGate::install(&f);
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    let gate = gate_git(&mut s, &f, GitOperation::Fetch);
     command(&mut s, "repo fetch");
     poll_background_until(&mut s, |_| gate.started.exists());
     command(&mut s, "cancel");

@@ -10,54 +10,8 @@ use std::{
     thread,
     time::{Duration, Instant},
 };
-use test_support::{Fixture, write};
+use test_support::{Fixture, GitGate, GitOperation};
 
-struct Gate {
-    started: PathBuf,
-    release: PathBuf,
-}
-impl Gate {
-    fn new(f: &Fixture) -> Self {
-        let root = f.repo.parent().unwrap();
-        Self {
-            started: root.join("fetch.started"),
-            release: root.join("fetch.release"),
-        }
-    }
-    fn environment(&self) -> Environment {
-        Environment {
-            launcher: Some(Launcher {
-                program: "/bin/sh".into(),
-                args: vec![
-                    "-c".into(),
-                    r#"
-started=$1
-release=$2
-shift 2
-if [ "$2" = fetch ]; then
-    : > "$started" || exit 1
-    while [ ! -e "$release" ]; do sleep 0.01; done
-fi
-exec "$@"
-"#
-                    .into(),
-                    "fetch-gate".into(),
-                    self.started.to_str().unwrap().into(),
-                    self.release.to_str().unwrap().into(),
-                ],
-            }),
-            ..Environment::default()
-        }
-    }
-    fn open(&self) {
-        write(&self.release, "release");
-    }
-}
-impl Drop for Gate {
-    fn drop(&mut self) {
-        self.open();
-    }
-}
 struct Process(Child);
 impl Process {
     fn wait(&mut self) {
@@ -82,8 +36,15 @@ impl Drop for Process {
 fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_processes() {
     let first = Fixture::create();
     let second = Fixture::create();
-    let first_gate = Gate::new(&first);
-    let second_gate = Gate::new(&second);
+    let first_gate = GitGate::new(&first, GitOperation::Fetch);
+    let second_gate = GitGate::new(&second, GitOperation::Fetch);
+    let environment = |gate: &GitGate| {
+        let (program, args) = gate.launcher();
+        Environment {
+            launcher: Some(Launcher { program, args }),
+            ..Environment::default()
+        }
+    };
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().to_owned());
     store
@@ -91,8 +52,8 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repository_environment: [
-                (first.repo.clone(), first_gate.environment()),
-                (second.repo.clone(), second_gate.environment()),
+                (first.repo.clone(), environment(&first_gate)),
+                (second.repo.clone(), environment(&second_gate)),
             ]
             .into(),
             repositories: vec![first.repo.clone(), second.repo.clone()],
@@ -162,8 +123,8 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
     assert!(store.config().unwrap().fetch_on_startup);
     assert!(first_process.0.try_wait().unwrap().is_none());
     assert!(second_process.0.try_wait().unwrap().is_none());
-    first_gate.open();
-    second_gate.open();
+    first_gate.release();
+    second_gate.release();
     first_process.wait();
     second_process.wait();
     let reports = store.repository_reports().unwrap();
