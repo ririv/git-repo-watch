@@ -10,6 +10,7 @@ pub mod overview;
 pub mod remotes;
 pub mod review;
 pub mod stash;
+pub mod submodules;
 pub mod worktrees;
 use anyhow::{Context, Result, ensure};
 use git2::{Repository, RepositoryOpenFlags, RepositoryState};

@@ -11,6 +11,7 @@ impl Screen {
     ) -> Result<bool> {
         match action {
             Action::WorktreeAdd
+            | Action::SubmoduleAdd
             | Action::WorktreeOpen
             | Action::WorktreeRemove
             | Action::OpenEditor
@@ -159,8 +160,12 @@ impl Screen {
             Action::SortMenu => self.list_menu(repository_list::Menu::Sort),
             Action::Filter(filter) => self.filter_repositories(filter),
             Action::Sort(order) => self.sort_repositories(order),
-            Action::Worktrees => self.open_view(
-                crate::navigation::View::Worktrees,
+            Action::Worktrees | Action::Submodules => self.open_view(
+                if action == Action::Submodules {
+                    crate::navigation::View::Submodules
+                } else {
+                    crate::navigation::View::Worktrees
+                },
                 path.expect("resolved repository target"),
             ),
             Action::Branches => {

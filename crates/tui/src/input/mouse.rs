@@ -572,6 +572,7 @@ impl Screen {
                 | Mode::Stashes(_)
                 | Mode::Branches(_)
                 | Mode::Worktrees(_)
+                | Mode::Submodules(_)
                 | Mode::Files(_)
                 | Mode::Changes(_)
                 | Mode::History(_)

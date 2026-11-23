@@ -38,6 +38,7 @@ pub(super) fn repository(mode: &Mode) -> Option<&Path> {
         Mode::Browser(session) => Some(&session.root),
         Mode::Branches(view) => Some(&view.session().snapshot.path),
         Mode::Worktrees(session) => Some(&session.snapshot.path),
+        Mode::Submodules(snapshot) => Some(&snapshot.path),
         Mode::Stashes(view) => Some(&view.session().snapshot.path),
         Mode::Busy(pending) => repository(&pending.origin),
         Mode::Confirm {
@@ -79,7 +80,7 @@ fn entries(page: Page, mode: &Mode, path: Option<&Path>) -> Vec<(String, Level, 
                 View::Branches => Level::Branches,
                 View::Stashes => Level::Stashes,
                 View::Diff if matches!(mode, Mode::Changes(_)) => Level::ChangesParent,
-                View::Diff | View::Files | View::Worktrees => Level::PageRoot,
+                View::Diff | View::Files | View::Worktrees | View::Submodules => Level::PageRoot,
             },
         ),
         #[cfg(feature = "developer-scheduler")]

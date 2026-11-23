@@ -36,6 +36,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Reset(plan) => plan.mode().label(),
         Plan::Worktree(plan) if plan.removing() => i18n::tr!(WorktreeRemove),
         Plan::Worktree(_) => i18n::tr!(WorktreeAdd),
+        Plan::AddSubmodule(_) => i18n::tr!(SubmoduleAdd),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save(_)) => i18n::tr!(StashSaveCommand),
@@ -60,6 +61,14 @@ pub(crate) fn review(plan: &Plan) -> String {
             p.oid()
         ),
         Plan::Replay(plan) => crate::replay::review(plan),
+        Plan::AddSubmodule(plan) => format!(
+            "{}: {}\n{}: {}\n\n{}",
+            i18n::tr!(SubmoduleSource),
+            crate::view::safe(plan.source()),
+            i18n::tr!(MutationTarget),
+            crate::view::safe(&plan.directory().to_string_lossy()),
+            i18n::tr!(SubmoduleAddReview)
+        ),
         Plan::Worktree(plan) => {
             let mut detail = format!(
                 "{}: {}",

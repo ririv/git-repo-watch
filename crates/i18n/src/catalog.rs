@@ -463,6 +463,21 @@ pub enum Message {
     WorktreesTitle,
     WorktreesCommand,
     WorktreeAdd,
+    SubmodulesTitle,
+    SubmodulesCommand,
+    SubmoduleAdd,
+    SubmoduleAddUsage,
+    SubmoduleRelativePath,
+    SubmoduleDirectoryBlocked,
+    SubmoduleDestinationTracked,
+    SubmoduleDestinationOccupied,
+    SubmoduleManifestModified,
+    SubmoduleSource,
+    SubmoduleAddReview,
+    SubmoduleUninitialized,
+    SubmoduleUnavailable,
+    NoSubmodules,
+    TaskSubmoduleAdded,
     WorktreeOpen,
     WorktreeRemove,
     WorktreeMain,
@@ -1492,6 +1507,58 @@ impl Message {
             (Self::WorktreesCommand, Language::English) => "Browse the repository’s Git worktrees",
             (Self::WorktreeAdd, Language::Chinese) => "创建工作树",
             (Self::WorktreeAdd, Language::English) => "Create a worktree",
+            (Self::SubmodulesTitle, Language::Chinese) => "Git 子模块",
+            (Self::SubmodulesTitle, Language::English) => "Git submodules",
+            (Self::SubmodulesCommand, Language::Chinese) => "查看仓库的子模块树",
+            (Self::SubmodulesCommand, Language::English) => {
+                "Browse the repository’s submodule tree"
+            }
+            (Self::SubmoduleAdd, Language::Chinese) => "添加 Git 子模块",
+            (Self::SubmoduleAdd, Language::English) => "Add a Git submodule",
+            (Self::SubmoduleAddUsage, Language::Chinese) => {
+                "请输入仓库地址和仓库内的相对路径，含空格的参数用引号包住"
+            }
+            (Self::SubmoduleAddUsage, Language::English) => {
+                "Enter a repository URL and a relative path. Quote arguments containing spaces"
+            }
+            (Self::SubmoduleRelativePath, Language::Chinese) => "请输入仓库内的相对路径",
+            (Self::SubmoduleRelativePath, Language::English) => {
+                "Enter a relative path inside the repository"
+            }
+            (Self::SubmoduleDirectoryBlocked, Language::Chinese) => "子模块路径经过文件或符号链接",
+            (Self::SubmoduleDirectoryBlocked, Language::English) => {
+                "The submodule path passes through a file or symbolic link"
+            }
+            (Self::SubmoduleDestinationTracked, Language::Chinese) => "子模块目标已被跟踪",
+            (Self::SubmoduleDestinationTracked, Language::English) => {
+                "The submodule destination is already tracked"
+            }
+            (Self::SubmoduleDestinationOccupied, Language::Chinese) => "子模块目标目录已有其它内容",
+            (Self::SubmoduleDestinationOccupied, Language::English) => {
+                "The submodule destination contains other files"
+            }
+            (Self::SubmoduleManifestModified, Language::Chinese) => {
+                "请先暂存或处理 .gitmodules 的工作区改动"
+            }
+            (Self::SubmoduleManifestModified, Language::English) => {
+                "Stage or resolve worktree changes to .gitmodules first"
+            }
+            (Self::SubmoduleSource, Language::Chinese) => "仓库地址",
+            (Self::SubmoduleSource, Language::English) => "Repository URL",
+            (Self::SubmoduleAddReview, Language::Chinese) => {
+                "Git 会把仓库地址写入 .gitmodules，并暂存该文件和子模块引用。"
+            }
+            (Self::SubmoduleAddReview, Language::English) => {
+                "Git writes the repository URL to .gitmodules and stages both the file and the submodule reference."
+            }
+            (Self::SubmoduleUninitialized, Language::Chinese) => "未初始化",
+            (Self::SubmoduleUninitialized, Language::English) => "Uninitialized",
+            (Self::SubmoduleUnavailable, Language::Chinese) => "无法读取",
+            (Self::SubmoduleUnavailable, Language::English) => "Unavailable",
+            (Self::NoSubmodules, Language::Chinese) => "没有 Git 子模块",
+            (Self::NoSubmodules, Language::English) => "No Git submodules",
+            (Self::TaskSubmoduleAdded, Language::Chinese) => "已添加子模块",
+            (Self::TaskSubmoduleAdded, Language::English) => "Added submodule",
             (Self::WorktreeOpen, Language::Chinese) => "打开选中的工作树",
             (Self::WorktreeOpen, Language::English) => "Open the selected worktree",
             (Self::WorktreeRemove, Language::Chinese) => "移除选中的工作树",

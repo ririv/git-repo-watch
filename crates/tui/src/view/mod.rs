@@ -40,6 +40,7 @@ mod settings;
 mod shell;
 pub(crate) mod stash_save;
 mod stashes;
+mod submodules;
 mod synchronization;
 mod tasks;
 mod text_editor;

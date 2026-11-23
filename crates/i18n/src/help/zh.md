@@ -39,6 +39,7 @@
 - 进入仓库后，同时显示概览、分支、工作区文件和提交历史图。
 - `/repo branch` 始终打开完整分支视图；输入名称搜索，`/repo branch filter [all|local|remote]` 筛选全部／本地／远程。
 - `/repo worktree` 查看 Git 工作树。选中后按 Enter 打开。用 `/repo worktree add [--new] <branch> <path>` 创建，用 `/repo worktree remove` 预览并移除选中的干净工作树。
+- `/repo submodule` 展示嵌套子模块并标记未初始化的节点。用 `/repo submodule add <url> <path>` 预览并添加，路径相对仓库根目录。Git 会暂存 `.gitmodules` 和子模块引用。
 - 分支中 `Enter` 查看引用、提交和上游详情；`*` 标记当前分支，领先／落后基于本地引用，不执行 fetch 或分支写入。
 - `/focus` 进入全局聚焦模式，仓库组合界面、diff、文件浏览器共用。方向键按布局切换面板，到边缘停留；Enter／Esc 结束。聚焦模式暂停输入搜索，方向键只切换面板，输入栏明确显示模式；按 `/` 打开全局命令。已有上下文前缀时用 `//focus`、`//zoom` 调用全局命令。结束后恢复直接输入搜索，保留各面板的选择和位置。点击或在面板内滚动也可聚焦。
 - `/zoom` 切换当前面板全屏与组合布局。

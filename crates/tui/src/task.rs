@@ -197,7 +197,8 @@ impl Screen {
                     self.message = crate::message::Message::information(notice.into());
                 } else {
                     let choice = match plan.as_ref() {
-                        engine::operations::mutation::Plan::Reset(_) => {
+                        engine::operations::mutation::Plan::Reset(_)
+                        | engine::operations::mutation::Plan::AddSubmodule(_) => {
                             crate::confirmation::Choice::Return
                         }
                         engine::operations::mutation::Plan::Worktree(plan) if plan.removing() => {

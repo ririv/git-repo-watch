@@ -52,6 +52,10 @@ impl Service {
         self.validate_repository(path, cancel)?;
         local::branches::catalog::read(path, cancel)
     }
+    pub fn submodules(&self, path: &Path, cancel: &Cancel) -> Result<local::submodules::Snapshot> {
+        self.validate_repository(path, cancel)?;
+        local::submodules::read(path, cancel)
+    }
     pub fn worktrees(&self, root: &Path, cancel: &Cancel) -> Result<local::worktrees::Snapshot> {
         self.validate_repository(root, cancel)?;
         local::worktrees::read(root, cancel)

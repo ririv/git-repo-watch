@@ -21,6 +21,7 @@ pub enum ArgumentAction {
     Add,
     BranchCreate,
     WorktreeAdd,
+    SubmoduleAdd,
     BranchSwitch,
     StashApply,
     StashPop,
@@ -60,6 +61,7 @@ impl ArgumentAction {
             Self::Add => Action::Add,
             Self::BranchCreate => Action::BranchCreate,
             Self::WorktreeAdd => Action::WorktreeAdd,
+            Self::SubmoduleAdd => Action::SubmoduleAdd,
             Self::BranchSwitch => Action::BranchSwitch,
             Self::StashApply => Action::StashApply,
             Self::StashPop => Action::StashPop,
@@ -125,6 +127,7 @@ impl ArgumentAction {
             Self::RepositoryEnvironment(field) => field.syntax(),
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::WorktreeAdd => "[--new] <branch> <path>",
+            Self::SubmoduleAdd => "<url> <path>",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
         ArgumentSyntax::Input(open)
@@ -135,6 +138,7 @@ impl ArgumentAction {
             Self::Add | Self::Scan => i18n::tr!(PathArgumentHint),
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::WorktreeAdd => i18n::tr!(WorktreeAddUsage),
+            Self::SubmoduleAdd => i18n::tr!(SubmoduleAddUsage),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
             #[cfg(feature = "developer-scheduler")]
@@ -195,6 +199,10 @@ impl ArgumentAction {
             }
             Self::WorktreeAdd => {
                 worktree_add(value, user_home)?;
+                Ok(value.into())
+            }
+            Self::SubmoduleAdd => {
+                submodule_add(value)?;
                 Ok(value.into())
             }
             Self::BranchCreate | Self::BranchSwitch => {
@@ -303,6 +311,7 @@ impl Action {
             Self::Add => Some(ArgumentAction::Add),
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
             Self::WorktreeAdd => Some(ArgumentAction::WorktreeAdd),
+            Self::SubmoduleAdd => Some(ArgumentAction::SubmoduleAdd),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
             Self::StashPreviewMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::StashPreview))
@@ -484,4 +493,16 @@ pub(super) fn worktree_add(
         name: name.into(),
         directory,
     })
+}
+
+pub(super) fn submodule_add(raw: &str) -> Result<engine::operations::submodule::Add> {
+    use super::scan::{Quote, tokens};
+    let [source, path] = tokens(raw)
+        .try_into()
+        .map_err(|_| anyhow::anyhow!(i18n::tr!(SubmoduleAddUsage)))?;
+    ensure!(
+        source.state == Quote::Bare && path.state == Quote::Bare,
+        i18n::tr!(SubmoduleAddUsage)
+    );
+    engine::operations::submodule::Add::new(source.value, std::path::Path::new(&path.value))
 }

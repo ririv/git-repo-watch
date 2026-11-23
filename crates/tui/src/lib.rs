@@ -133,6 +133,7 @@ enum Mode {
     Stashes(Box<stashes::View>),
     Branches(Box<branches::View>),
     Worktrees(worktrees::Session),
+    Submodules(engine::local::submodules::Snapshot),
     Changes(Box<changes::Session>),
     CommitMessage {
         plan: CommitPlan,

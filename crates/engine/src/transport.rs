@@ -106,6 +106,19 @@ impl Git {
             &environment,
         )
     }
+    pub(crate) fn add_submodule(
+        &self,
+        root: &Path,
+        source: &str,
+        path: &Path,
+        cancel: &Cancel,
+    ) -> Result<()> {
+        let mut args = strings(&["submodule", "add", "--", source]);
+        args.push(path.as_os_str().to_owned());
+        self.run(root, args, cancel)?;
+        Ok(())
+    }
+
     pub(crate) fn add_worktree(
         &self,
         root: &Path,

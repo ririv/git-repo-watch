@@ -28,6 +28,8 @@ impl Command {
             Action::Branches => Summary::Branches,
             Action::Worktrees => Summary::Worktrees,
             Action::WorktreeAdd => Summary::WorktreeAdd,
+            Action::Submodules => Summary::Submodules,
+            Action::SubmoduleAdd => Summary::SubmoduleAdd,
             Action::WorktreeOpen => Summary::WorktreeOpen,
             Action::WorktreeRemove => Summary::WorktreeRemove,
             Action::BranchFilterMenu | Action::BranchFilter(_) => Summary::BranchFilter,

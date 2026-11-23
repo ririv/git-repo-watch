@@ -80,6 +80,7 @@ impl Screen {
             | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Worktrees(_)
+            | Mode::Submodules(_)
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_) => self.bar_paste(text),
@@ -238,6 +239,7 @@ impl Screen {
                     | Mode::Changes(_)
                     | Mode::Branches(_)
                     | Mode::Worktrees(_)
+                    | Mode::Submodules(_)
                     | Mode::Stashes(_)
                     | Mode::Composition(_)
             )
@@ -316,6 +318,13 @@ impl Screen {
             Mode::Stashes(view) => self.stash_key(view, key),
             Mode::Branches(view) => self.branch_key(view, key),
             Mode::Worktrees(session) => return self.worktree_key(session, key, root),
+            Mode::Submodules(_) => {
+                self.mode = mode;
+                match key.code {
+                    KeyCode::Esc | KeyCode::Left => self.return_to_view(),
+                    _ => scroll_key(&mut self.scroll, key),
+                }
+            }
             Mode::History(mut view) => {
                 match view.as_mut() {
                     history::View::Graph(session)

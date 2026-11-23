@@ -1,5 +1,5 @@
 //! Small reviewed operations compose native local mutations and Git transport.
-use super::{pull, sync};
+use super::{pull, submodule, sync};
 use crate::{
     cancel::Cancel,
     local::{branches::edit, stash, worktrees},
@@ -24,6 +24,7 @@ pub enum Request {
     Sync,
     Stash(stash::Request),
     Worktree(worktrees::Request),
+    AddSubmodule(submodule::Add),
 }
 #[derive(Debug, Clone)]
 pub enum Plan {
@@ -34,6 +35,7 @@ pub enum Plan {
     Sync(sync::Plan),
     Stash(stash::Plan),
     Worktree(worktrees::Plan),
+    AddSubmodule(submodule::Plan),
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -69,6 +71,9 @@ pub enum Action {
         name: String,
     },
     AddWorktree {
+        directory: std::path::PathBuf,
+    },
+    AddSubmodule {
         directory: std::path::PathBuf,
     },
     RemoveWorktree {
@@ -131,6 +136,9 @@ pub enum Change {
     AddedWorktree {
         directory: std::path::PathBuf,
     },
+    AddedSubmodule {
+        directory: std::path::PathBuf,
+    },
     RemovedWorktree {
         directory: std::path::PathBuf,
     },
@@ -170,6 +178,7 @@ impl Plan {
             Self::Sync(p) => p.path(),
             Self::Stash(p) => p.path(),
             Self::Worktree(p) => p.repository(),
+            Self::AddSubmodule(p) => p.repository(),
         }
     }
     pub fn current(&self) -> bool {
@@ -217,6 +226,9 @@ impl Plan {
                     control: c.control,
                     commit: p.commit().to_string(),
                 },
+            },
+            Self::AddSubmodule(plan) => Action::AddSubmodule {
+                directory: plan.directory().into(),
             },
             Self::Worktree(plan) => {
                 let directory = plan.directory().to_owned();
@@ -314,6 +326,12 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
                     kind: p.kind(),
                     control: c.control,
                 },
+            })
+        }
+        Plan::AddSubmodule(plan) => {
+            submodule::execute(git, plan, cancel)?;
+            Ok(Change::AddedSubmodule {
+                directory: plan.directory().into(),
             })
         }
         Plan::Worktree(plan) => {

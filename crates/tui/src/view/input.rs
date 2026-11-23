@@ -469,6 +469,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             crate::browser::Focus::Preview => i18n::tr!(BrowserPreviewHint),
         },
         Mode::Worktrees(_) => i18n::tr!(WorktreeListHint),
+        Mode::Submodules(_) => i18n::tr!(PgdnScrollEscBackCommands),
         Mode::Branches(view) => match view.as_ref() {
             crate::branches::View::List(_) => i18n::tr!(BranchHint),
             crate::branches::View::Detail { .. } => i18n::tr!(OverviewInputHint),
@@ -708,6 +709,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Worktrees(_)
+            | Mode::Submodules(_)
             | Mode::Files(_)
             | Mode::Changes(_)
             | Mode::History(_) => {

@@ -229,18 +229,29 @@ impl Resolved<'_> {
 }
 
 impl crate::Screen {
-    pub(crate) fn prepare_worktree_add(
+    pub(crate) fn prepare_addition(
         &mut self,
+        argument: crate::command::ArgumentAction,
         value: &str,
-        draft: crate::bar::CommandDraft,
+        mut draft: crate::bar::CommandDraft,
     ) -> anyhow::Result<()> {
-        self.prepare_command(Action::WorktreeAdd, draft.path.as_deref(), &draft.selection)?;
-        let request =
-            crate::command::argument::worktree_add(value, self.service.scheduler.user_home())?;
-        self.prepare_mutation(
-            engine::operations::mutation::Request::Worktree(request),
-            draft,
-        );
+        use crate::command::{ArgumentAction, argument as input};
+        use engine::operations::mutation::Request as Mutation;
+        let execution =
+            self.prepare_command(argument.action(), draft.path.as_deref(), &draft.selection)?;
+        let Request::Local { path: Some(path) } = execution.request else {
+            unreachable!("an addition targets a repository");
+        };
+        draft.path = Some(path);
+        let request = match argument {
+            ArgumentAction::WorktreeAdd => Mutation::Worktree(input::worktree_add(
+                value,
+                self.service.scheduler.user_home(),
+            )?),
+            ArgumentAction::SubmoduleAdd => Mutation::AddSubmodule(input::submodule_add(value)?),
+            _ => unreachable!("an addition requires a typed request"),
+        };
+        self.prepare_mutation(request, draft);
         Ok(())
     }
 }

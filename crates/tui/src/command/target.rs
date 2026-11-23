@@ -107,6 +107,8 @@ impl Action {
             | Branches
             | Worktrees
             | WorktreeAdd
+            | Submodules
+            | SubmoduleAdd
             | BranchCreate
             | BranchSwitch
             | Fetch
@@ -235,6 +237,7 @@ impl Screen {
             | Mode::Stashes(_)
             | Mode::Branches(_)
             | Mode::Worktrees(_)
+            | Mode::Submodules(_)
             | Mode::History(_)
             | Mode::Changes(_)
             | Mode::Files(_) => self.scope_path(),

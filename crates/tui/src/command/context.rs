@@ -14,6 +14,7 @@ pub(crate) enum Context {
     History,
     Branches,
     Worktrees,
+    Submodules,
     Stash,
     Repository,
     RepositoryEnv,
@@ -32,6 +33,7 @@ impl Context {
             | Self::History
             | Self::Branches
             | Self::Worktrees
+            | Self::Submodules
             | Self::Stash
             | Self::Files
             | Self::Composition
@@ -49,6 +51,7 @@ impl Context {
             Self::History => "repo log",
             Self::Branches => "repo branch",
             Self::Worktrees => "repo worktree",
+            Self::Submodules => "repo submodule",
             Self::Stash => "repo stash",
             Self::Repository => "repo",
             Self::RepositoryEnv => "repo env",
@@ -215,6 +218,7 @@ impl Screen {
             }),
             Mode::Branches(_) => Some(Context::Branches),
             Mode::Worktrees(_) => Some(Context::Worktrees),
+            Mode::Submodules(_) => Some(Context::Submodules),
             Mode::Stashes(view) => Some(
                 if matches!(view.as_ref(), crate::stashes::View::Diff { .. }) {
                     Context::Diff(DiffContext::History)

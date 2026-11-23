@@ -553,6 +553,7 @@ impl Screen {
                     | Mode::CommitMessage { scroll, .. }
                     | Mode::PushConfirm { scroll, .. }
                     | Mode::Error { scroll, .. } => *scroll = offset,
+                    Mode::Submodules(_) => self.scroll = offset,
                     Mode::Browsing | Mode::RepositoryEnvironment(_)
                         if matches!(self.page, Page::Help | Page::Configuration(_)) =>
                     {

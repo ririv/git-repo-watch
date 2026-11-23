@@ -300,6 +300,7 @@ impl Screen {
                     | Mode::Stashes(_)
                     | Mode::Branches(_)
                     | Mode::Worktrees(_)
+                    | Mode::Submodules(_)
                     | Mode::Files(_)
                     | Mode::Changes(_)
                     | Mode::History(_)
@@ -563,7 +564,13 @@ impl Screen {
                             *submitted = Some(input.text());
                         }
                         match parsed {
-                            Ok(value) if argument == command::ArgumentAction::WorktreeAdd => {
+                            Ok(value)
+                                if matches!(
+                                    argument,
+                                    command::ArgumentAction::WorktreeAdd
+                                        | command::ArgumentAction::SubmoduleAdd,
+                                ) =>
+                            {
                                 let draft = CommandDraft {
                                     input: input.clone(),
                                     path: path.clone(),
@@ -571,7 +578,7 @@ impl Screen {
                                     repository: repository.clone(),
                                     return_to: ReturnTo::Command,
                                 };
-                                if let Err(error) = self.prepare_worktree_add(&value, draft) {
+                                if let Err(error) = self.prepare_addition(argument, &value, draft) {
                                     self.message =
                                         crate::message::Message::error(format!("{error:#}"));
                                 }

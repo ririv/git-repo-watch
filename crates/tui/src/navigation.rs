@@ -12,6 +12,7 @@ pub(crate) enum View {
     History,
     Branches,
     Worktrees,
+    Submodules,
     Stashes,
     Files,
 }
@@ -22,6 +23,7 @@ impl View {
             Self::History => i18n::tr!(HistoryTitle),
             Self::Branches => i18n::tr!(BranchTitle),
             Self::Worktrees => i18n::tr!(WorktreesTitle),
+            Self::Submodules => i18n::tr!(SubmodulesTitle),
             Self::Stashes => i18n::tr!(StashTitle),
             Self::Files => i18n::tr!(BrowserTitle),
         }
@@ -33,6 +35,7 @@ pub(crate) enum Content {
     History(history::Session),
     Branches(branches::Session),
     Worktrees(crate::worktrees::Session),
+    Submodules(engine::local::submodules::Snapshot),
     Stashes(stashes::Session),
     Browser(Box<crate::browser::Session>),
 }
@@ -43,6 +46,7 @@ impl Content {
             Self::History(_) => View::History,
             Self::Branches(_) => View::Branches,
             Self::Worktrees(_) => View::Worktrees,
+            Self::Submodules(_) => View::Submodules,
             Self::Stashes(_) => View::Stashes,
             Self::Browser(_) => View::Files,
         }
@@ -56,6 +60,7 @@ impl Content {
             ))),
             Self::History(session) => Mode::History(Box::new(history::View::Graph(session))),
             Self::Worktrees(session) => Mode::Worktrees(session),
+            Self::Submodules(snapshot) => Mode::Submodules(snapshot),
             Self::Branches(session) => Mode::Branches(Box::new(branches::View::List(session))),
             Self::Stashes(session) => Mode::Stashes(Box::new(stashes::View::List(session))),
             Self::Browser(session) => Mode::Browser(session),
@@ -220,7 +225,9 @@ impl Screen {
             let at_root = match (&self.mode, view) {
                 (Mode::Changes(_), View::Diff) => true,
                 (Mode::Browser(_), View::Files) => true,
-                (Mode::Worktrees(_), View::Worktrees) => true,
+                (Mode::Worktrees(_), View::Worktrees) | (Mode::Submodules(_), View::Submodules) => {
+                    true
+                }
                 (Mode::History(current), View::History) => {
                     matches!(current.as_ref(), history::View::Graph(_))
                 }
@@ -293,7 +300,7 @@ impl Screen {
                     }
                     _ => None,
                 },
-                View::Stashes | View::Files | View::Worktrees => None,
+                View::Stashes | View::Files | View::Worktrees | View::Submodules => None,
             }
         });
         if let Some(content) = cached {
@@ -317,6 +324,7 @@ impl Screen {
                     View::Branches => {
                         Content::Branches(branches::Session::new(service.branches(&path, &cancel)?))
                     }
+                    View::Submodules => Content::Submodules(service.submodules(&path, &cancel)?),
                     View::Worktrees => Content::Worktrees(crate::worktrees::Session::new(
                         service.worktrees(&path, &cancel)?,
                     )),

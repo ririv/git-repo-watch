@@ -52,6 +52,8 @@ pub enum Action {
     WorktreeAdd,
     WorktreeOpen,
     WorktreeRemove,
+    Submodules,
+    SubmoduleAdd,
     BranchCreate,
     BranchSwitch,
     Fetch,
@@ -236,6 +238,16 @@ pub const COMMANDS: &[Command] = &[
         name: "repo worktree remove",
         action: WorktreeRemove,
         description: i18n::Message::WorktreeRemove,
+    },
+    Command {
+        name: "repo submodule",
+        action: Submodules,
+        description: i18n::Message::SubmodulesCommand,
+    },
+    Command {
+        name: "repo submodule add",
+        action: SubmoduleAdd,
+        description: i18n::Message::SubmoduleAdd,
     },
     Command {
         name: "repo log",

@@ -704,6 +704,12 @@ GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格�
 - `/repo worktree add <branch> <path>` 为尚未检出的本地分支创建工作树。使用 `/repo worktree add --new <branch> <path>` 可从当前提交创建新分支。路径须为尚不存在的绝对路径，含空格时可加引号。创建候选会显示已占用分支的工作树位置，也可直接选择从当前提交新建分支。
 - 在列表选中工作树，输入 `/repo worktree remove` 预览并确认移除。主工作树、当前工作树、已锁定的工作树，以及含改动、未跟踪或忽略文件的工作树受保护。移除保留本地分支。
 
+### Git 子模块
+
+`/repo submodule` 展示当前仓库的子模块树。已初始化的子模块会展开其下级关系，未初始化的节点保留在所属父级并标记状态。
+
+`/repo submodule add <url> <path>` 在当前仓库添加子模块。路径相对仓库根目录，含空格的地址或路径用引号包住。确认后由系统 Git 将地址写入 `.gitmodules`，暂存该文件和子模块引用。可在工作区「已暂存」检查改动，再按正常流程提交。
+
 ## 仓库列表上下文
 
 首页按 `/` 显示全局命令。`/repo` 打开选中仓库的概览，其下统一提供 `diff`、`log`、`branch`、`stash` 等视图入口，以及 `fetch`、`pull`、`push`、`commit` 等仓库操作。`/repos` 管理仓库集合，筛选、排序、刷新报告分别使用 `/repos filter`、`/repos sort`、`/refresh`，获取全部远程信息使用 `/repos fetch`。`/repos` 始终返回仓库列表，保留本次会话的搜索、筛选、排序和仍可见的选中项；`/repos manage` 保留注册与排除配置页。管理页不显示列表筛选、排序候选。

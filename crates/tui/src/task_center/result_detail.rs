@@ -51,6 +51,9 @@ pub(super) fn mutation(change: &Change) -> String {
         Change::AddedWorktree { directory } => {
             item(i18n::tr!(TaskWorktreeCreated), &directory.to_string_lossy())
         }
+        Change::AddedSubmodule { directory } => {
+            item(i18n::tr!(TaskSubmoduleAdded), &directory.to_string_lossy())
+        }
         Change::RemovedWorktree { directory } => {
             item(i18n::tr!(TaskWorktreeRemoved), &directory.to_string_lossy())
         }

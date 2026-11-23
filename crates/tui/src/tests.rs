@@ -79,6 +79,7 @@ mod startup;
 mod startup_fetch;
 mod stash_preview;
 mod stash_save;
+mod submodules;
 mod sync_progress;
 mod task_center;
 mod task_feedback;
