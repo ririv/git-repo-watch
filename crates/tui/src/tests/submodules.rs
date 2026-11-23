@@ -92,7 +92,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
                 &tree.entries[..],
                 [entry] if entry.path == Path::new(path) && matches!(
                     &entry.state,
-                    State::Initialized { children } if matches!(
+                    State::Initialized { children, .. } if matches!(
                         &children[..],
                         [child] if child.path == Path::new("deps/内层") && matches!(child.state, State::Uninitialized)
                     )
@@ -103,8 +103,18 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
         screen.message
     );
     let tree = render(&mut screen, 160, 26);
-    assert!(tree.contains("└─ modules/外层 库"));
-    assert!(tree.contains("   └─ deps/内层"));
+    let source_oid = support::git(&source, &["rev-parse", "HEAD"]);
+    let nested_oid = support::git(&child.repo, &["rev-parse", "HEAD"]);
+    assert!(tree.contains(&format!(
+        "└─ modules/外层 库 · {} {}",
+        i18n::tr!(SubmoduleStaged),
+        &source_oid[..12]
+    )));
+    assert!(tree.contains(&format!(
+        "   └─ deps/内层 · {} {}",
+        i18n::tr!(SubmoduleRecorded),
+        &nested_oid[..12]
+    )));
     assert!(tree.contains(i18n::tr!(SubmoduleUninitialized)));
 
     support::git(
@@ -225,7 +235,9 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
     screen.open_repository(repo.clone());
     command(&mut screen, "repo submodule");
     wait(&mut screen);
-    assert!(render(&mut screen, 160, 26).contains(i18n::tr!(SubmoduleUninitialized)));
+    let uninitialized = render(&mut screen, 160, 26);
+    assert!(uninitialized.contains(&format!("{} {}", i18n::tr!(SubmoduleRecorded), &old[..12])));
+    assert!(uninitialized.contains(i18n::tr!(SubmoduleUninitialized)));
 
     command(&mut screen, "repo submodule init");
     wait(&mut screen);
@@ -252,6 +264,16 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
     let indexed = format!("160000,{target},{path}");
     support::git(&repo, &["update-index", "--cacheinfo", &indexed]);
     let staged = support::git(&repo, &["ls-files", "--stage"]);
+    command(&mut screen, "refresh");
+    wait(&mut screen);
+    let tree = render(&mut screen, 180, 26);
+    assert!(tree.contains(&format!("{} {}", i18n::tr!(SubmoduleRecorded), &old[..12])));
+    assert!(tree.contains(&format!("{} {}", i18n::tr!(SubmoduleStaged), &target[..12])));
+    assert!(tree.contains(&format!(
+        "{} {}",
+        i18n::tr!(SubmoduleCheckedOut),
+        &old[..12]
+    )));
     let update = format!("repo submodule update \"{path}\"");
     command(&mut screen, &update);
     wait(&mut screen);

@@ -2,7 +2,7 @@
 use super::open;
 use crate::{cancel::Cancel, platform::files::is_link};
 use anyhow::{Result, ensure};
-use git2::Repository;
+use git2::{ErrorCode, Oid, Repository};
 use std::{
     fs,
     io::ErrorKind,
@@ -17,11 +17,40 @@ pub struct Snapshot {
 #[derive(Debug, Clone)]
 pub struct Entry {
     pub path: PathBuf,
+    pub link: Link,
     pub state: State,
 }
+#[derive(Debug, Clone, Copy)]
+pub enum Link {
+    Unrecorded,
+    Recorded(Oid),
+    Staged { recorded: Option<Oid>, indexed: Oid },
+    StagedRemoval(Oid),
+}
+impl Link {
+    fn read(recorded: Option<Oid>, indexed: Option<Oid>) -> Self {
+        match (recorded, indexed) {
+            (Some(recorded), Some(indexed)) if recorded == indexed => Self::Recorded(recorded),
+            (recorded, Some(indexed)) => Self::Staged { recorded, indexed },
+            (Some(recorded), None) => Self::StagedRemoval(recorded),
+            (None, None) => Self::Unrecorded,
+        }
+    }
+
+    pub fn indexed(self) -> Option<Oid> {
+        match self {
+            Self::Recorded(oid) | Self::Staged { indexed: oid, .. } => Some(oid),
+            Self::Unrecorded | Self::StagedRemoval(_) => None,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub enum State {
-    Initialized { children: Vec<Entry> },
+    Initialized {
+        current: Option<Oid>,
+        children: Vec<Entry>,
+    },
     Uninitialized,
     Unavailable(String),
 }
@@ -47,7 +76,8 @@ fn entries(repo: &Repository, root: &Path, cancel: &Cancel) -> Result<Vec<Entry>
                 State::Unavailable(format!("{error:#}"))
             }
         };
-        entries.push(Entry { path, state });
+        let link = Link::read(submodule.head_id(), submodule.index_id());
+        entries.push(Entry { path, link, state });
     }
     entries.sort_by(|left, right| left.path.cmp(&right.path));
     Ok(entries)
@@ -61,7 +91,13 @@ fn child(root: &Path, path: &Path, cancel: &Cancel) -> Result<State> {
         Err(error) => Err(error.into()),
         Ok(_) => {
             let repo = open(&directory)?;
+            let current = match repo.head() {
+                Ok(reference) => Some(reference.peel_to_commit()?.id()),
+                Err(error) if error.code() == ErrorCode::UnbornBranch => None,
+                Err(error) => return Err(error.into()),
+            };
             Ok(State::Initialized {
+                current,
                 children: entries(&repo, &directory, cancel)?,
             })
         }
