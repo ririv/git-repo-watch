@@ -108,6 +108,13 @@ impl State {
             Self::Active(controller) => controller.pending.len(),
         }
     }
+    #[cfg(test)]
+    pub fn watch_settled(&self, path: &Path) -> bool {
+        matches!(self, Self::Active(controller)
+            if controller.monitor.watch_settled(path)
+                && !controller.pending.contains_key(path)
+                && !controller.readers.contains_key(path))
+    }
     pub fn result(&self, path: &Path) -> Option<&RepositoryResult> {
         match self {
             Self::Disabled => None,
@@ -225,6 +232,9 @@ impl Screen {
             changed = true;
         }
         for (path, change) in updates.changes {
+            if !paths.contains(&path) {
+                continue;
+            }
             controller
                 .pending
                 .entry(path)

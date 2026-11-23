@@ -41,6 +41,16 @@ fn observed(s: &Screen, path: &std::path::Path) -> bool {
     s.live.result(path).is_some()
 }
 
+#[track_caller]
+fn await_native_watch(s: &mut Screen, paths: &[&std::path::Path]) {
+    // 文件事件用例在原生订阅和首次补读完成后再修改仓库。
+    until_with_timeout(s, Duration::from_secs(90), |s| {
+        paths
+            .iter()
+            .all(|path| observed(s, path) && s.live.watch_settled(path))
+    });
+}
+
 #[test]
 fn startup_observes_local_state_without_fetching_or_running_retired_steps() {
     use std::os::unix::fs::PermissionsExt;
@@ -111,7 +121,7 @@ fn external_edits_staging_and_commits_refresh_without_navigation_or_remote_check
     overview::wait_overview(&mut s);
     s.switch_repository_section(workspace::Section::Worktree);
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &f.repo));
+    await_native_watch(&mut s, &[&f.repo]);
     let report = s.service.store.report().unwrap();
     let config = std::fs::read(s.service.store.config_path()).unwrap();
     let refs = support::git(&f.repo, &["show-ref"]);
@@ -186,7 +196,7 @@ fn native_refresh_updates_other_repositories_and_keeps_remote_failure_and_timest
         },
     );
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &a.repo) && observed(s, &b.repo));
+    await_native_watch(&mut s, &[&a.repo, &b.repo]);
     s.focus(Some(a.repo.clone()));
     s.paste("/help");
     support::write(b.repo.join("file"), "after");
@@ -286,9 +296,8 @@ fn unavailable_repository_replaces_cached_status_and_recovers_after_rename() {
 
     std::fs::remove_dir(&f.repo).unwrap();
     std::fs::rename(&moved, &f.repo).unwrap();
-    until(&mut s, |s| {
-        observed(s, &f.repo) && s.repository_status(&f.repo) == Status::Normal
-    });
+    await_native_watch(&mut s, &[&f.repo]);
+    assert_eq!(s.repository_status(&f.repo), Status::Normal);
     assert!(s.rows().is_empty());
 
     std::fs::rename(&f.repo, &moved).unwrap();
@@ -315,7 +324,7 @@ fn linked_worktree_reference_changes_update_branch_and_keep_repository_panel_sel
     wait_workspace(&mut s);
     overview::wait_overview(&mut s);
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &linked));
+    await_native_watch(&mut s, &[&linked]);
     support::git(&f.repo, &["branch", "new-external-branch"]);
     until(
         &mut s,
@@ -355,7 +364,7 @@ fn external_commit_updates_graph_while_open_commit_preview_remains_an_immutable_
         _ => panic!("history"),
     };
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &f.repo));
+    await_native_watch(&mut s, &[&f.repo]);
     f.commit("file.ts", "export const new = 2;\n");
     until(
         &mut s,
@@ -388,7 +397,7 @@ fn file_browser_keeps_preview_search_and_reading_position_across_external_save()
     browser::select(&mut s, "file.ts");
     browser::ready(&mut s);
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &f.repo));
+    await_native_watch(&mut s, &[&f.repo]);
     browser::ready(&mut s);
     browser::session(&mut s)
         .panes
@@ -417,7 +426,7 @@ fn remote_config_changes_refresh_the_visible_repository_details() {
     let f = support::Fixture::create();
     let (_home, mut s) = fixture(vec![f.repo.clone()]);
     s.live = live::State::start();
-    until(&mut s, |s| observed(s, &f.repo));
+    await_native_watch(&mut s, &[&f.repo]);
     until(&mut s, |s| {
         matches!(
             s.remote_info.content,

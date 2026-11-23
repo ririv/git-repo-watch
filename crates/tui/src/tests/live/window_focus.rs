@@ -26,9 +26,7 @@ fn unfocused_changes_are_coalesced_and_resume_without_replacing_selection_or_inp
     support::git(&b.repo, &["push", "origin", "main"]);
     let (_home, mut s) = fixture(vec![a.repo.clone(), b.repo.clone()]);
     s.live = live::State::start();
-    until(&mut s, |s| {
-        observed(s, &a.repo) && observed(s, &b.repo) && s.live.reading() == 0
-    });
+    await_native_watch(&mut s, &[&a.repo, &b.repo]);
     s.focus(Some(a.repo.clone()));
     s.paste("/help");
     let input = s.bar.text();
