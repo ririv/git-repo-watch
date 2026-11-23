@@ -24,5 +24,5 @@ RUSTONIG_DYNAMIC_LIBONIG=0
 export RUSTONIG_SYSTEM_LIBONIG RUSTONIG_DYNAMIC_LIBONIG
 cargo build --release --locked --package app --no-default-features
 mkdir -p dist
-cp target/release/app "dist/$APP_COMMAND"
+cp "target/release/$APP_COMMAND" "dist/$APP_COMMAND"
 cp THIRD_PARTY_NOTICES.md dist/THIRD_PARTY_NOTICES.md

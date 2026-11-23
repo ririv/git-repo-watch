@@ -4,24 +4,24 @@
 
 ```sh
 cargo build --locked --package app --features developer-scheduler --target-dir target/developer-scheduler
-./target/developer-scheduler/debug/app --help
+./target/developer-scheduler/debug/rvgit --help
 ```
 
-开发构建可用 `schedule enable`、`schedule disable` 和 `schedule apply` 管理系统任务。安装或启用前应核对配置目录和仓库列表。Windows 的开发构建入口为相同目录下的 `app.exe`。发布版的设置开关只控制实验性功能，系统定时任务由构建特性决定。
+开发构建可用 `schedule enable`、`schedule disable` 和 `schedule apply` 管理系统任务。安装或启用前应核对配置目录和仓库列表。Windows 的开发构建入口为相同目录下的 `rvgit.exe`。发布版的设置开关只控制实验性功能，系统定时任务由构建特性决定。
 
-升级已有系统任务的安装时，用旧版或开发构建执行 `schedule disable`，然后更新发布版。停用保留任务定义、配置和报告。需要删除系统任务定义时，在构建开发版后运行 `./uninstall.sh`。
+升级已有系统任务的安装时，用旧版或开发构建执行 `schedule disable`，然后更新发布版。停用保留任务定义、配置和报告。需要删除系统任务定义时，在构建开发版后运行 `./uninstall.sh`。从旧命令 `gw` 切换到新版开发构建时，先用注册任务时的旧版执行 `gw uninstall` 移除旧任务定义，再用新版启用任务。任务定义的归属校验包含可执行文件路径。
 
 ## 任务配置与管理
 
 macOS 的系统任务日志保存在 `~/Library/Logs/gw/`；显式 `--home` 时保存在相应目录的 `var/`。Linux 的系统任务输出保存在用户 journal。
 
-- `interval_seconds`：检查间隔，内部保存为秒，范围为 60 至 2147483647 秒。命令支持 `s`、`m`、`h`、`d`、`w`（秒、分、小时、天、周），以及 `90秒`、`30分钟`、`6小时` 等中文写法；界面使用 `6h`、`1d`、`1w` 等紧凑值。修改后运行 `gw schedule apply` 应用系统调度。
+- `interval_seconds`：检查间隔，内部保存为秒，范围为 60 至 2147483647 秒。命令支持 `s`、`m`、`h`、`d`、`w`（秒、分、小时、天、周），以及 `90秒`、`30分钟`、`6小时` 等中文写法；界面使用 `6h`、`1d`、`1w` 等紧凑值。修改后运行 `rvgit schedule apply` 应用系统调度。
 
 - `schedule_anchor`：可选的时间基准表，包含 `source`（`automatic` 或 `explicit`）和 `at`（本地日期时间，例如 `2026-10-23T00:00:00`）。缺省时首次启用会自动生成并保存；修改间隔、重启、重复安装、停用后再启用都会沿用已有基准。
 
 `/schedule` 为独立任务管理页，展示启用状态、检查进程、已保存间隔、自动推送策略以及调度配置是否已应用。上下键选择修改间隔、修改推送策略、应用配置和启用／停用任务，Enter 打开，Ctrl+R 刷新状态，Esc 返回。间隔保存后可能与系统任务仍在使用的间隔不同，页面会明确显示待应用；推送策略由定时进程每轮读取，下次执行即生效。应用配置保留任务当前的启停状态，不立即检查。
 
-启用任务会安装或更新本机命令和系统任务，首轮仍等待配置间隔。停用仅停止后续调度，保留任务定义、配置、报告和命令；macOS 同时保存 launchd 的禁用覆盖项，避免下次登录后自动恢复；Linux 使用 `systemctl --user disable --now` 停用 timer。TUI 使用 `/schedule enabled [true|false]`，不填参数时打开选项菜单，标记当前状态，确认后执行。原生 CLI 也提供 `gw schedule enable`、`gw schedule disable`、`gw schedule apply`，它们与 TUI 使用相同的服务入口、归属校验和进程锁。调度配置使用独立的配置锁；保存新配置不等待正在执行的 Git 操作，已开始的检查继续使用启动时的配置快照。
+启用任务会安装或更新本机命令和系统任务，首轮仍等待配置间隔。停用仅停止后续调度，保留任务定义、配置、报告和命令；macOS 同时保存 launchd 的禁用覆盖项，避免下次登录后自动恢复；Linux 使用 `systemctl --user disable --now` 停用 timer。TUI 使用 `/schedule enabled [true|false]`，不填参数时打开选项菜单，标记当前状态，确认后执行。原生 CLI 也提供 `rvgit schedule enable`、`rvgit schedule disable`、`rvgit schedule apply`，它们与 TUI 使用相同的服务入口、归属校验和进程锁。调度配置使用独立的配置锁；保存新配置不等待正在执行的 Git 操作，已开始的检查继续使用启动时的配置快照。
 
 ## 定时执行流程
 
@@ -44,7 +44,7 @@ scheduled_actions = ["fetch", "inspect"]
 # scheduled_actions = ["fetch", "pull", "push", "inspect"]
 ```
 
-CLI 可执行 `gw scheduled-actions fetch pull push inspect` 保存流程。`gw status` 与 `gw status --json` 显示实际的定时流程。旧 `push_policy` 明确转换为定时流程：disabled 对应 fetch → inspect，fast_forward 对应 fetch → push → inspect；读取不改文件，下次保存时转写新字段并保留注释。旧字段与 `scheduled_actions` 同时存在时报错。原 `/schedule autopush` 与 CLI `autopush` 保留为定时流程中 push 步骤的快捷设置。
+CLI 可执行 `rvgit scheduled-actions fetch pull push inspect` 保存流程。`rvgit status` 与 `rvgit status --json` 显示实际的定时流程。旧 `push_policy` 明确转换为定时流程：disabled 对应 fetch → inspect，fast_forward 对应 fetch → push → inspect；读取不改文件，下次保存时转写新字段并保留注释。旧字段与 `scheduled_actions` 同时存在时报错。原 `/schedule autopush` 与 CLI `autopush` 保留为定时流程中 push 步骤的快捷设置。
 
 ## 定时触发时间
 
@@ -58,7 +58,7 @@ SQLite 保存已领取的计划和触发刻度，同一时刻即使由多个进�
 
 ## 自动推送保证
 
-手动 `gw fetch [路径]`、`/repo fetch` 和 `/repos fetch` 始终只执行 fetch 与本地检查。
+手动 `rvgit fetch [路径]`、`/repo fetch` 和 `/repos fetch` 始终只执行 fetch 与本地检查。
 
 `fast_forward` 只处理已配置远程上游、领先且不落后的本地分支。自动推送不会创建提交，也不会添加文件或发布无上游的实验分支。
 
@@ -67,6 +67,6 @@ SQLite 保存已领取的计划和触发刻度，同一时刻即使由多个进�
 - 核对本地及服务器引用仍等于预览快照，并确认祖先关系。
 - 固定提交 ID 和目标引用，显式禁用强推、镜像、标签跟随和递归子模块推送。
 - 保留 pre-push 钩子；推送后再次查询服务器，确认目标提交已生效。
-- 自动推送失败时发送“GW 自动推送失败”系统通知；通知失败也记入报告。
+- 自动推送失败时发送“Rivet Git 自动推送失败”系统通知；通知失败也记入报告。
 
 本地提交在核验后变化时不会被意外包含在本轮推送中；远程并发变化由普通推送规则拒绝非快进更新。工作区存在普通改动时，已提交的安全快照仍可发布，工作区问题继续单独统计。

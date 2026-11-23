@@ -75,7 +75,7 @@ def generate(directory: Path, case: Case) -> Path:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="生成可丢弃的 GW Git 演练仓库")
+    parser = argparse.ArgumentParser(description="生成可丢弃的 Rivet Git 演练仓库")
     parser.add_argument("--case", type=Case, choices=list(Case), default=Case.WORKSPACE,
                         help="场景，默认 workspace")
     parser.add_argument("--directory", type=Path, help="新目录；默认 work/playground/<场景>")
@@ -91,7 +91,7 @@ def main():
     home = shlex.quote(str(directory / "home"))
     print(f"场景：{args.case.value}\n目录：{directory}\n")
     print(f"cd {repo}\ngw --home {home}")
-    print(f"\n从独立仓库列表启动：gw --home {home} repos")
+    print(f"\n从独立仓库列表启动：rvgit --home {home} repos")
     if args.case == Case.SUBMODULE:
         print("\n演练配置已登记父仓库和子模块；可分别查看引用变化与内部文件改动。")
 

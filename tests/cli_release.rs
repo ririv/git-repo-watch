@@ -6,7 +6,7 @@ use std::{fs, process::Command};
 fn release_exposes_manual_checks_and_preserves_existing_schedule_configuration() {
     let home = tempfile::tempdir().unwrap();
     let run = |args: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_app"))
+        Command::new(env!("CARGO_BIN_EXE_rvgit"))
             .args(["--home", home.path().to_str().unwrap()])
             .args(args)
             .env("APP_LANG", "en")
@@ -15,6 +15,7 @@ fn release_exposes_manual_checks_and_preserves_existing_schedule_configuration()
     };
     let help = run(&["--help"]);
     let help = String::from_utf8(help.stdout).unwrap();
+    assert!(help.starts_with("rvgit: Git repository"));
     assert!(help.contains("fetch [PATH]"));
     assert!(!help.contains("schedule"));
 

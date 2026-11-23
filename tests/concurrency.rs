@@ -97,7 +97,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
         .unwrap();
     let spawn = |repo: &PathBuf| {
         Process(
-            Command::new(env!("CARGO_BIN_EXE_app"))
+            Command::new(env!("CARGO_BIN_EXE_rvgit"))
                 .env("APP_LANG", "en")
                 .env("HOME", home.path())
                 .arg("--home")
@@ -120,7 +120,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
         );
         thread::sleep(Duration::from_millis(5));
     }
-    let configured = Command::new(env!("CARGO_BIN_EXE_app"))
+    let configured = Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "en")
         .env("HOME", home.path())
         .arg("--home")

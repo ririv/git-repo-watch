@@ -1,6 +1,6 @@
-# gw
+# Rivet Git
 
-面向 macOS、Linux 和 Windows 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `gw` 进入 TUI；`gw status` 查询已有结果。系统定时任务目前是[开发者功能](docs/developer-scheduler.md)。
+面向 macOS、Linux 和 Windows 的多仓库 Git 状态检查、受控推送和终端管理工具。直接运行 `rvgit` 进入 TUI；`rvgit status` 查询已有结果。系统定时任务目前是[开发者功能](docs/developer-scheduler.md)。
 
 项目使用 Rust。本地仓库能力通过 libgit2 实现；fetch、commit、push、快进合并及服务器引用查询固定使用系统 Git，保留网络认证、凭据助手、钩子与提交签名行为。两类后端按职责组合，不在失败时自动换用另一种实现。
 
@@ -10,21 +10,21 @@
 
 ```sh
 ./build.sh
-./gw          # 首次打开时按界面提示初始化并添加仓库
+./rvgit   # 首次打开时按界面提示初始化并添加仓库
 ./install.sh  # 安装命令
 ```
 
 macOS 安装位置：
 
-- `~/.local/bin/gw`：原生可执行文件。
+- `~/.local/bin/rvgit`：原生可执行文件。
 - `~/Library/Application Support/gw/config.toml`：用户配置。
 - `~/Library/Application Support/gw/state.sqlite3`：仓库状态、报告和操作记录。
 
-升级前先退出旧版 `gw`。已启用系统任务的旧版安装先用旧版命令执行 `gw schedule disable`。安装脚本转换旧配置并校验 TOML，随后核验产品标识并原子替换可执行文件。将 `~/.local/bin` 加入 PATH 后运行 `gw`。项目内的 `./gw` 同样使用用户目录。
+Rivet Git 沿用旧版 `gw` 的数据目录，已有配置、仓库列表和操作历史可直接读取。升级前先退出旧版 `gw`。已启用系统任务的旧版安装先用旧版命令执行 `gw schedule disable`。安装脚本转换旧配置并校验 TOML，随后核验产品标识并原子替换可执行文件。将 `~/.local/bin` 加入 PATH 后运行 `rvgit`。项目内的 `./rvgit` 同样使用用户目录。
 
 ```sh
-./build.sh          # 构建到 dist/gw，不安装或检查
-./gw status        # 项目内查询已有结果
+./build.sh          # 构建到 dist/rvgit，不安装或检查
+./rvgit status  # 项目内查询已有结果
 ```
 
 Linux 安装使用同一个 `./install.sh`。Debian/Ubuntu 构建依赖可执行：
@@ -35,7 +35,7 @@ sudo apt-get install build-essential pkg-config git openssh-client libnotify-bin
 
 Linux 安装位置：
 
-- `~/.local/bin/gw`：原生可执行文件。
+- `~/.local/bin/rvgit`：原生可执行文件。
 - `$XDG_CONFIG_HOME/gw/config.toml`：用户配置，未设置时使用 `~/.config/gw/config.toml`。
 - `$XDG_STATE_HOME/gw/state.sqlite3`：状态与历史，未设置时使用 `~/.local/state/gw/state.sqlite3`。
 
@@ -45,10 +45,10 @@ Windows 使用 MSVC C++ 构建工具和 Git for Windows，`git.exe` 需在 PATH 
 
 ```powershell
 cargo build --release --locked
-.\target\release\app.exe
+.\target\release\rvgit.exe
 ```
 
-首次打开时按提示初始化配置并添加仓库，也可运行 `.\target\release\app.exe init` 只创建配置。运行 `.\target\release\app.exe install` 安装命令，随后将 `%LOCALAPPDATA%\gw\bin` 加入 PATH。配置位于 `%APPDATA%\gw\config.toml`，SQLite 状态位于 `%LOCALAPPDATA%\gw`。
+首次打开时按提示初始化配置并添加仓库，也可运行 `.\target\release\rvgit.exe init` 只创建配置。运行 `.\target\release\rvgit.exe install` 安装命令，随后将 `%LOCALAPPDATA%\gw\bin` 加入 PATH。配置位于 `%APPDATA%\gw\config.toml`，SQLite 状态位于 `%LOCALAPPDATA%\gw`。
 
 构建脚本对 Rust 和 C 依赖执行源码路径裁剪。用户配置、数据库、日志、`var/`、`target/` 和 `dist/` 不进入版本控制。
 
@@ -59,18 +59,18 @@ cargo build --release --locked
 优先级为 `APP_LANG` → 非空 `LC_ALL` → 非空 `LC_MESSAGES` → macOS 首选语言 → `LANG` → 英文。终端的 `LANG` 不会覆盖 macOS 明确的系统首选语言；`LC_ALL` 和 `LC_MESSAGES` 视为用户显式指定的消息语言。
 
 ```sh
-APP_LANG=en gw          # 本次以英文打开 TUI
-APP_LANG=zh gw          # 本次以中文打开 TUI
-APP_LANG=en gw status   # 本次以英文查询
+APP_LANG=en rvgit         # 本次以英文打开 TUI
+APP_LANG=zh rvgit         # 本次以中文打开 TUI
+APP_LANG=en rvgit status  # 本次以英文查询
 ```
 
-`APP_LANG` 只接受 `en` 或 `zh`，其他值明确报错。未设置时自动检测；切换系统语言后重新运行 `gw` 生效。语言选择不修改现有配置格式、JSON 字段名、枚举值或报告数据。路径、分支名、用户提交说明、Git 原始错误与历史报告中保存的原始说明保留原文。
+`APP_LANG` 只接受 `en` 或 `zh`，其他值明确报错。未设置时自动检测；切换系统语言后重新运行 `rvgit` 生效。语言选择不修改现有配置格式、JSON 字段名、枚举值或报告数据。路径、分支名、用户提交说明、Git 原始错误与历史报告中保存的原始说明保留原文。
 
 文案通过 `i18n::Message` 标识集中维护，两种语言都必须显式提供；格式化消息在编译期检查参数。异步任务显式继承当前语言，界面不会因线程切换而混用语言。
 
 ## 配置
 
-默认配置保存在上方系统用户目录中的 `config.toml`。首次运行 `gw` 时，选择初始化并添加当前仓库、在输入栏选择仓库目录，或仅初始化。初始化后仍可在首页通过 `/repos add` 添加仓库。`gw init` 显式创建带中文说明的 TOML 配置、空仓库列表和默认设置；已有文件时拒绝覆盖，普通查询不会创建配置。程序修改设置时保留注释、未变更字段的原有写法和保留路径的数组内容；配置语法、未知字段或类型错误会直接报错，不重建文件。`gw config` 继续输出 JSON，机器输出与文件格式各自独立。`gw paths` 显示本次命令实际使用的配置、数据库与日志路径。配置示例：
+默认配置保存在上方系统用户目录中的 `config.toml`。首次运行 `rvgit` 时，选择初始化并添加当前仓库、在输入栏选择仓库目录，或仅初始化。初始化后仍可在首页通过 `/repos add` 添加仓库。`rvgit init` 显式创建带中文说明的 TOML 配置、空仓库列表和默认设置；已有文件时拒绝覆盖，普通查询不会创建配置。程序修改设置时保留注释、未变更字段的原有写法和保留路径的数组内容；配置语法、未知字段或类型错误会直接报错，不重建文件。`rvgit config` 继续输出 JSON，机器输出与文件格式各自独立。`rvgit paths` 显示本次命令实际使用的配置、数据库与日志路径。配置示例：
 
 ```toml
 repositories = [
@@ -86,14 +86,14 @@ TUI 运行时通过 macOS FSEvents、Linux inotify 或 Windows 原生文件变�
 
 - `repositories`：仓库根目录列表，包括通过 `.git` 文件关联的工作区与子模块。
 - `editor`：默认 `"git"`，通过当前仓库的 `git var GIT_EDITOR` 解析编辑器，沿用 `GIT_EDITOR → core.editor → VISUAL → EDITOR → Git 编译期默认值`。也可保存检测到的编辑器标识（如 `"code"`、`"cursor"`、`"nvim"`）或带参数的命令（如 `"code --reuse-window"`）。通过 `/settings editor` 选择，候选在后台检测 PATH 和 macOS 常用应用目录；不会修改 shell 或 Git 配置。
-- `fetch_on_startup`：启动时后台获取远程信息，默认 `false`；通过 `/settings startup-fetch [true|false]` 或 `gw startup-fetch true|false` 保存，下次启动生效。
+- `fetch_on_startup`：启动时后台获取远程信息，默认 `false`；通过 `/settings startup-fetch [true|false]` 或 `rvgit startup-fetch true|false` 保存，下次启动生效。
 - `max_concurrency`：并发检查上限，1 至 32。旧配置缺少该字段时保持兼容，默认 4。
 
 ```sh
-gw add /absolute/path/to/repository
-gw remove /absolute/path/to/repository
-gw concurrency 4
-gw install
+rvgit add /absolute/path/to/repository
+rvgit remove /absolute/path/to/repository
+rvgit concurrency 4
+rvgit install
 ```
 
 配置命令只保存设置。
@@ -104,7 +104,7 @@ gw install
 
 本地自动刷新使用原生文件监听，连续事件合并等待 250 毫秒；持续变化时最多合并 1 秒。终端上报失焦后暂停自动读取，继续记录变化，并取消尚未完成的自动读取；重新聚焦后只合并刷新待更新仓库。手动操作和启动获取继续执行。焦点状态只用于当前终端会话，不保存到配置。
 
-界面内自动 fetch 默认关闭。通过 `/settings auto-fetch [true|false]` 切换，或在设置的“后台操作”组中选择；`/settings auto-fetch-interval <duration>` 设置间隔，默认 `3m`，支持秒、分、小时、天、周（至少 60 秒）。启用后在窗口聚焦、仓库空闲时安排首次获取，覆盖已管理仓库及当前临时会话仓库。每个仓库从上一次获取完成后重新计算间隔，启动和手动 fetch 也会重置这个间隔；失焦期间不补跑错过的次数，重新聚焦后只处理到期获取。已开始的获取会正常收尾，关闭 gw 时取消本界面任务。后台获取只刷新远程引用与本地状态，沿用并发上限和仓库锁；结果保存在任务记录中，不改变当前输入、选择和页面。
+界面内自动 fetch 默认关闭。通过 `/settings auto-fetch [true|false]` 切换，或在设置的“后台操作”组中选择；`/settings auto-fetch-interval <duration>` 设置间隔，默认 `3m`，支持秒、分、小时、天、周（至少 60 秒）。启用后在窗口聚焦、仓库空闲时安排首次获取，覆盖已管理仓库及当前临时会话仓库。每个仓库从上一次获取完成后重新计算间隔，启动和手动 fetch 也会重置这个间隔；失焦期间不补跑错过的次数，重新聚焦后只处理到期获取。已开始的获取会正常收尾，关闭 rvgit 时取消本界面任务。后台获取只刷新远程引用与本地状态，沿用并发上限和仓库锁；结果保存在任务记录中，不改变当前输入、选择和页面。
 
 ```toml
 [auto_fetch]
@@ -150,7 +150,7 @@ interval_seconds = 180
 
 顶部使用实际进入路径的面包屑，首页显示“仓库 / Repositories”。打开完整子视图或提交、分支等详情时增加一级，返回时恢复来源的选择与搜索；聚焦仓库面板增加一级，切换面板替换这一层，放大与恢复布局不增加层级；退出面板回到仓库根层，再返回首页。可以点击前面的面包屑返回；正在编辑命令或确认操作时不会因点击导航而丢弃草稿。窄窗口折叠较早的路径，保留当前位置。直接从首页打开仓库子视图时，入口标签包含仓库名，不添加未进入的概览页。
 
-直接运行 `gw`，或显式运行 `gw tui`：在 Git 仓库根目录、子目录或 worktree 中启动时直接进入该仓库详情，非仓库目录进入仓库列表。`gw repos` 始终打开仓库列表首页；界面内仍可用 `/repos` 返回列表。未登记仓库仅授权当前会话操作，不自动写入仓库列表。界面随终端尺寸调整，不设最小行列数；重定向输入输出时明确报错。矮窗口收起顶部统计和底部提示，进一步缩小时将输入栏压成单行；窄窗口优先显示仓库名称，仓库组合面板只展示当前聚焦的面板，仍可切换面板、输入命令和返回。扩大窗口后恢复完整布局和原有选择。进入界面先显示已有结果，再由实时监听读取本地状态；退出时取消本界面发起的任务并恢复终端。
+直接运行 `rvgit`，或显式运行 `rvgit tui`：在 Git 仓库根目录、子目录或 worktree 中启动时直接进入该仓库详情，非仓库目录进入仓库列表。`rvgit repos` 始终打开仓库列表首页；界面内仍可用 `/repos` 返回列表。未登记仓库仅授权当前会话操作，不自动写入仓库列表。界面随终端尺寸调整，不设最小行列数；重定向输入输出时明确报错。矮窗口收起顶部统计和底部提示，进一步缩小时将输入栏压成单行；窄窗口优先显示仓库名称，仓库组合面板只展示当前聚焦的面板，仍可切换面板、输入命令和返回。扩大窗口后恢复完整布局和原有选择。进入界面先显示已有结果，再由实时监听读取本地状态；退出时取消本界面发起的任务并恢复终端。
 
 仓库列表每项固定一行，展示工作区和同步状态；同步列显示当前检出分支相对其上游的 ↑领先提交数、↓落后提交数，不叠加其它分支。宽屏右侧详情在同步信息上方显示当前分支，分支名与同步数取自同一份状态快照；没有远程或上游时仍显示分支名，尚无提交时显示 HEAD 指向的分支名，游离时显示“游离 HEAD”，没有快照数据时显示 ?。窄屏可进入仓库概览查看当前分支。各分支的同步情况在仓库详情与分支面板中查看。无上游分支保留在详情与筛选中，不单独占用列表列。默认按失败、需关注、未检查、正常排序；通过 `/repos filter` 筛选、`/repos sort` 排序。`problems` 筛选包含需关注与失败，`failed` 只包含失败。完整失败原因可在详情中滚动查看。
 
@@ -395,7 +395,7 @@ model = ""
 
 `/cancel` 请求取消并等待 Git 子进程收尾，期间仍可浏览；关闭 TUI 会取消并回收它启动的检查任务。已有整轮报告在检查成功结束前不会被覆盖，取消产生的错误也不会替换未完成仓库的旧状态。手动检查只执行 fetch 和本地快照比较，不自动推送；单仓库检查只处理目标注册仓库。检查与仓库写操作只在同一 Git 存储上互斥，等待仓库锁也可取消；不同仓库的检查与写操作可以同时进行。配置使用短时文件锁，报告使用 SQLite 短事务；两者均不覆盖 Git 子进程的执行时间。
 
-单仓库结果保存在所选用户状态目录中的 `state.sqlite3`，每个仓库独立更新当前记录并保留历史，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号；仓库状态、版本号和暂存／提交／推送的操作记录一起提交或回滚，TUI 按版本合并。没有版本号的旧报告在迁移时先比较原始完成时间，再赋予初始版本。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `gw report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
+单仓库结果保存在所选用户状态目录中的 `state.sqlite3`，每个仓库独立更新当前记录并保留历史，重开 TUI 后仍会显示。新结果在短事务中分配每仓库递增版本号；仓库状态、版本号和暂存／提交／推送的操作记录一起提交或回滚，TUI 按版本合并。没有版本号的旧报告在迁移时先比较原始完成时间，再赋予初始版本。整轮报告同时记录各仓库的实际完成时间和版本，因此晚完成的整轮报告不会覆盖中途完成的提交或推送状态；全局检查时间和 `rvgit report` 始终表示最近一次完整批次。取消整轮检查后，已完成的逐仓库结果已独立持久化，重启后仍可读取，未完成部分继续使用历史结果。
 
 ## 检查与并发
 
@@ -418,23 +418,23 @@ Git 命令默认超时 120 秒，SSH 禁止交互提示并限制连接等待。l
 
 ### 仓库级 Git 执行环境
 
-打开仓库后输入 `/repo env`，在配置页选中一项并按 `Enter` 编辑。保存后，`gw` 为这个工作树启动的 Git 及其 hooks 会使用同一份配置。配置保存在用户 TOML 中，多个仓库并行执行时各用自己的配置。
+打开仓库后输入 `/repo env`，在配置页选中一项并按 `Enter` 编辑。保存后，`rvgit` 为这个工作树启动的 Git 及其 hooks 会使用同一份配置。配置保存在用户 TOML 中，多个仓库并行执行时各用自己的配置。
 
 - `/repo env path .venv/bin` 将仓库根目录下的 `.venv/bin` 放在 `PATH` 前面。可以一次输入多个目录，含空格的路径加引号。此命令保存完整目录列表，使用 `--clear` 清空。重新打开 `/repo env` 可查看实际生效的前置目录和顺序。
 - `/repo env set 'NAME=some value'` 设置一个变量，`/repo env unset NAME` 移除它。`PATH` 通过前置目录设置，`GIT_` 变量由程序管理。
-- `/repo env launcher ./tools/git-env` 设置 Git 启动命令。`gw` 将 `/usr/bin/git` 和原始 Git 参数作为独立参数追加。程序名从该仓库的 `PATH` 查找，也可输入绝对路径或用 `./` 指定仓库内的相对路径。使用 `--clear` 恢复直接启动 Git。
+- `/repo env launcher ./tools/git-env` 设置 Git 启动命令。`rvgit` 将 `/usr/bin/git` 和原始 Git 参数作为独立参数追加。程序名从该仓库的 `PATH` 查找，也可输入绝对路径或用 `./` 指定仓库内的相对路径。使用 `--clear` 恢复直接启动 Git。
 
 ## 扫描模块
 
-`gw scan` 与 `gw import-tree` 使用独立扫描模块，不执行检查和推送。本次 `--exclude` 指定的目录不会进入；不沿目录符号链接递归。
+`rvgit scan` 与 `rvgit import-tree` 使用独立扫描模块，不执行检查和推送。本次 `--exclude` 指定的目录不会进入；不沿目录符号链接递归。
 
 未进入仓库前按目录寻找 `.git`。进入仓库后，由 libgit2 判断 `.gitignore`、`.git/info/exclude` 和全局排除规则，在进入被忽略目录前停止遍历。已跟踪路径和子模块 Git link 保留可达性；已跟踪目录下额外出现的忽略仓库不会因此暴露。
 
 支持嵌套仓库、空嵌套仓库、子模块和关联工作区，进入嵌套仓库后使用其自身规则。扫描普通子目录时继承所属仓库规则；显式以仓库根目录为起点时使用该仓库自身规则。无效 `.git` 文件单独报告，损坏关联工作区记录为失败并停止向内盲目遍历。
 
 ```sh
-gw scan ~/Proj --exclude backups archive "归档 项目"
-gw import-tree ~/Proj --exclude backups archive "归档 项目"
+rvgit scan ~/Proj --exclude backups archive "归档 项目"
+rvgit import-tree ~/Proj --exclude backups archive "归档 项目"
 ```
 
 排除目录由一个 `--exclude` 后的多个路径组成；相对路径以扫描起点为基准，也支持绝对路径和 `~/…`。路径必须指向扫描范围内的目录。TUI 的每个路径都支持 Tab 补全，编辑其中一个参数时保留其他参数。扫描本身不保存排除规则或扫描报告；CLI 的 `scan` 输出结果，`import-tree` 添加读取成功的仓库。
@@ -442,19 +442,19 @@ gw import-tree ~/Proj --exclude backups archive "归档 项目"
 ## 查询与数据
 
 ```sh
-gw status
-gw status --json
-gw report --problems
-gw report --no-upstream
-gw report --pushes
-gw report --json
-gw fetch
-gw fetch /absolute/path/to/repository  # 只获取指定仓库的远程信息
+rvgit status
+rvgit status --json
+rvgit report --problems
+rvgit report --no-upstream
+rvgit report --pushes
+rvgit report --json
+rvgit fetch
+rvgit fetch /absolute/path/to/repository  # 只获取指定仓库的远程信息
 ```
 
-`status` 和 `report` 只读取已有配置和结果。`gw fetch [路径]` 获取远程信息并刷新本地状态。退出码：0 成功且检查正常，1 存在需关注结果、扫描失败项或暂无报告，2 参数或执行错误，130 取消。
+`status` 和 `report` 只读取已有配置和结果。`rvgit fetch [路径]` 获取远程信息并刷新本地状态。退出码：0 成功且检查正常，1 存在需关注结果、扫描失败项或暂无报告，2 参数或执行错误，130 取消。
 
-默认使用系统用户目录。可通过 `gw --home 路径 ...` 显式选择独立数据集，支持绝对路径和相对路径；相对路径按启动时的当前目录解析，例如在演练仓库中执行 `gw --home ../home`。路径解析后使用绝对路径，数据目录无需预先存在，保持 `config.toml` 与 `var/state.sqlite3` 布局；`./gw`、安装和卸载脚本同样接受 `--home`。没有 `--home` 时只使用平台标准目录，不搜索当前项目、不读取旧定位文件。任意目录运行、移动源码或清理构建目录均不影响已安装命令的数据定位。
+默认使用系统用户目录。可通过 `rvgit --home 路径 ...` 显式选择独立数据集，支持绝对路径和相对路径；相对路径按启动时的当前目录解析，例如在演练仓库中执行 `rvgit --home ../home`。路径解析后使用绝对路径，数据目录无需预先存在，保持 `config.toml` 与 `var/state.sqlite3` 布局；`./rvgit`、安装和卸载脚本同样接受 `--home`。没有 `--home` 时只使用平台标准目录，不搜索当前项目、不读取旧定位文件。任意目录运行、移动源码或清理构建目录均不影响已安装命令的数据定位。
 
 所选状态目录内的文件：
 
@@ -469,24 +469,24 @@ gw fetch /absolute/path/to/repository  # 只获取指定仓库的远程信息
 旧 `config.json` 通过显式命令转换，正常查询不会回读 JSON：
 
 ```sh
-gw migrate config
+rvgit migrate config
 # --home 选择的配置也使用相同规则：
-gw --home /absolute/path/to/profile migrate config
+rvgit --home /absolute/path/to/profile migrate config
 ```
 
 转换会完整解析并校验旧配置，写入并校验 `config.toml` 后删除旧 JSON，不额外留下备份。两种配置同时存在且语义一致时可继续完成中断的删除步骤。发现冲突、语法错误或源文件变化时，转换会报错并保留原文件。安装脚本会先显式转换配置，已有系统任务按上文的升级步骤先停用。
 
-SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并行，多个写入者通过短事务串行分配版本；每次存储调用独立连接数据库。单仓库更新不读改写其他仓库的记录，也不覆盖完整批次。历史按仓库和版本查询；整轮报告、扫描与操作记录追加保存，目前不自动清理。`gw report --json` 保留 v3 JSON 输出格式，存储格式与公开输出各自演进。
+SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并行，多个写入者通过短事务串行分配版本；每次存储调用独立连接数据库。单仓库更新不读改写其他仓库的记录，也不覆盖完整批次。历史按仓库和版本查询；整轮报告、扫描与操作记录追加保存，目前不自动清理。`rvgit report --json` 保留 v3 JSON 输出格式，存储格式与公开输出各自演进。
 
 新状态库直接按当前结构初始化。现有状态库按应用标识和结构版本校验，发布前的旧数据库和旧状态 JSON 需要手动转换。数据库初始化锁和事务保留给后续版本使用。
 
 从旧的源码数据目录导入标准用户目录时，先退出使用旧数据的全部进程并停掉旧任务，再运行：
 
 ```sh
-./gw migrate --from /absolute/path/to/old/home
+./rvgit migrate --from /absolute/path/to/old/home
 ```
 
-该命令校验旧配置与数据库，拒绝覆盖已存在的目标配置或数据库；使用 SQLite 备份接口复制包含 WAL 已提交数据的一致快照，并保留所有表、历史和版本号。源目录出现活动批次或仓库写操作时立即报忙。配置最后落盘，普通错误会移除本次创建的数据库；中断后若目标已存在，重新执行会明确报错，不会覆盖它。源文件保留用于核验，确认后可清理；迁移不会执行 Git、fetch 或 push。迁移后可用 `gw paths` 和 `gw status` 核对数据位置和状态。
+该命令校验旧配置与数据库，拒绝覆盖已存在的目标配置或数据库；使用 SQLite 备份接口复制包含 WAL 已提交数据的一致快照，并保留所有表、历史和版本号。源目录出现活动批次或仓库写操作时立即报忙。配置最后落盘，普通错误会移除本次创建的数据库；中断后若目标已存在，重新执行会明确报错，不会覆盖它。源文件保留用于核验，确认后可清理；迁移不会执行 Git、fetch 或 push。迁移后可用 `rvgit paths` 和 `rvgit status` 核对数据位置和状态。
 
 配置、数据库、归档与日志含本机私有路径，均不进入版本控制。配置仍原子写入；配置和数据库权限为 0600，运行目录与归档目录为 0700。备份活动数据库应使用 SQLite 备份工具，或停掉全部进程后同时保留数据库与仍存在的 WAL 文件，不能只复制活动中的主文件。结果缺失与损坏分开处理，损坏数据明确报错。
 
@@ -626,7 +626,7 @@ SQLite 使用 WAL、外键和 `synchronous=FULL`。读取可以与写事务并�
 
 以后修改 `APP_COMMAND` 后重新构建、安装即可更换公开命令，无需改 Cargo 包名、依赖引用、帮助文案或安装脚本。数据目录和调度标签单独定义，避免仅修改命令名就丢失已有数据或调度。修改这些持久标识时需显式安排迁移；安装器不猜测旧路径。
 
-项目内统一入口为 `./run.sh`，当前 `./gw` 仅作为兼容启动脚本转发到它。语言覆盖固定使用不含产品前缀的 `APP_LANG`，不随命令更名而改变。
+项目内统一入口为 `./run.sh`，`./rvgit` 调用该脚本启动构建产物。语言覆盖固定使用不含产品前缀的 `APP_LANG`，不随命令更名而改变。
 
 ## 开发与验证
 
@@ -641,7 +641,7 @@ cargo clippy --workspace --locked --all-targets -- -D warnings
 
 测试使用临时本地仓库和 bare 远程，不访问真实仓库、不访问网络、不发送系统通知、不安装用户系统任务。覆盖 Git 忽略规则、子模块、关联工作区、索引、diff、提交钩子、受控推送、并发上限、真实 fetch 重叠、取消与子进程收尾、旧数据兼容和 TUI 操作。
 
-持久的手动演练仓库使用 `python3 examples/playground/create.py` 创建，默认位于忽略目录 `work/playground/workspace/`，带本地 bare 远程和独立的 GW 配置。支持工作区混合变更、同步、分叉、拣选／撤销冲突及差异元信息等场景；`--case diff-metadata` 在同一仓库中提供文件头元信息和末尾换行样例；`--case submodule` 创建含真实子模块的演练，专用配置同时登记父仓库与子模块。组织方式、启动命令与上传约定见 [Git 演练仓库](examples/playground/README.md)。
+持久的手动演练仓库使用 `python3 examples/playground/create.py` 创建，默认位于忽略目录 `work/playground/workspace/`，带本地 bare 远程和独立的 Rivet Git 配置。支持工作区混合变更、同步、分叉、拣选／撤销冲突及差异元信息等场景；`--case diff-metadata` 在同一仓库中提供文件头元信息和末尾换行样例；`--case submodule` 创建含真实子模块的演练，专用配置同时登记父仓库与子模块。组织方式、启动命令与上传约定见 [Git 演练仓库](examples/playground/README.md)。
 
 GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格式检查、Clippy、全部测试和发布构建。同时验证带定时任务的开发构建。Ubuntu 的开发构建另验证真实 systemd 用户任务的安装、重复安装、延迟首轮、临时仓库检查和卸载。桌面窗口和通知显示仍需相应桌面会话手动验证。工作流在 push、pull request 或手动触发时执行，见 `.github/workflows/ci.yml`。
 
@@ -657,7 +657,7 @@ GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格�
 | --- | ---: |
 | 优化前 | 26.0 秒 |
 | 优化后 | 0.25 秒 |
-| 安装后的 `gw` 复测 | 0.21 秒 |
+| 安装后的 `rvgit` 复测 | 0.21 秒 |
 
 当轮 TUI 回归测试 729 项通过，1 项跳过。
 
@@ -673,7 +673,7 @@ GitHub Actions 在 `macos-latest` 和 `ubuntu-24.04` 原生 runner 上执行格�
 
 新增的滚轮顺序回归通过。完整 TUI 回归首次并行运行有 9 个后台相关用例失败，串行复跑全部通过。
 
-上述用例验证了 `gw` 收到终端滚轮事件后的行为。Ghostty 的原生触控板手势仍待实测。手动验证时，在工作区文件列表快速向下滚，趁惯性尚未结束立刻向上，再连续交替滚动，观察列表能否及时反向以及差异预览是否跟上。
+上述用例验证了 `rvgit` 收到终端滚轮事件后的行为。Ghostty 的原生触控板手势仍待实测。手动验证时，在工作区文件列表快速向下滚，趁惯性尚未结束立刻向上，再连续交替滚动，观察列表能否及时反向以及差异预览是否跟上。
 
 ## 许可证
 

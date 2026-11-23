@@ -1,4 +1,5 @@
-const PANE = "gw";
+const COMMAND = "rvgit";
+const TITLE = "Rivet Git";
 const VIEWS = [
   ["overview", "概览", "1"],
   ["changes", "改动", "2"],
@@ -11,15 +12,15 @@ export function register(on) {
   let cached;
 
   on("session.start", async ($, event, next) => {
-    await $.command.register({ name: "gw", description: "查看当前 Git 仓库" });
+    await $.command.register({ name: COMMAND, description: "查看当前 Git 仓库" });
     return next(event);
   });
 
-  on("command.run", { command: "gw" }, async ($) => {
+  on("command.run", { command: COMMAND }, async ($) => {
     cached = undefined;
     await $.ui.open({
-      id: PANE,
-      title: "gw",
+      id: COMMAND,
+      title: TITLE,
       focus: true,
       closeOnEscape: true,
       backgroundColor: "transparent",
@@ -30,18 +31,18 @@ export function register(on) {
   });
 
   on("ui.render", { component: "Pane" }, async ($, event, next) => {
-    if (event.requestId !== PANE) return next(event);
+    if (event.requestId !== COMMAND) return next(event);
     const { Box, Text, Button, Raster } = $.ui.resolve(event);
     const message = (text) => Text({ children: [text] });
-    if (event.surface !== "terminal") return message("gw 面板需要 Claude Code 终端版");
+    if (event.surface !== "terminal") return message(`${TITLE} 面板需要 Claude Code 终端版`);
 
     const columns = Math.min(160, event.props.bodyColumns);
-    if (columns < 28) return message("请加宽终端以显示 gw 面板");
+    if (columns < 28) return message(`请加宽终端以显示 ${TITLE} 面板`);
     const rows = Math.max(10, Math.min(48, event.props.scroll.bodyRows - 2));
-    const binary = await $.env.get("GW_CLAUDE_PANEL");
-    if (!binary) return message("请将 GW_CLAUDE_PANEL 设为 gw-claude-panel 的绝对路径");
+    const binary = await $.env.get("RIVET_GIT_CLAUDE_PANEL");
+    if (!binary) return message("请将 RIVET_GIT_CLAUDE_PANEL 设为 rvgit-claude-panel 的绝对路径");
 
-    const home = await $.env.get("GW_CLAUDE_HOME");
+    const home = await $.env.get("RIVET_GIT_CLAUDE_HOME");
     const cwd = await $.session.cwd();
     const profile = home ? ["--home", home] : [];
     const request = [binary, ...profile, view, String(columns), String(rows), String(position)];
@@ -57,7 +58,7 @@ export function register(on) {
       if (result.isStdoutTruncated) throw new Error("画面数据被截断");
       frame = JSON.parse(result.stdout);
     } catch (error) {
-      return message(`无法读取 gw 面板：${error.message}`);
+      return message(`无法读取 ${TITLE} 面板：${error.message}`);
     }
 
     const redraw = () => $.ui.invalidate("ui.render");

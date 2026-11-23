@@ -25,17 +25,34 @@ fn main() {
             fields.iter().any(|(field, _, _)| *field == key),
             "unknown identity field: {key}"
         );
-        assert!(
-            !value.is_empty()
-                && value
-                    .bytes()
-                    .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c)),
-            "identity values must be shell-safe ASCII identifiers"
-        );
-        assert!(
-            value != "." && value != "..",
-            "identity value must not be a directory traversal component"
-        );
+        let value = if key == "APP_DISPLAY_NAME" {
+            let name = value
+                .strip_prefix('\'')
+                .and_then(|value| value.strip_suffix('\''))
+                .expect("APP_DISPLAY_NAME must be single-quoted");
+            assert!(
+                !name.is_empty()
+                    && name == name.trim()
+                    && name
+                        .bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || b" ._-".contains(&c)),
+                "APP_DISPLAY_NAME must be a nonempty shell-safe ASCII name"
+            );
+            name
+        } else {
+            assert!(
+                !value.is_empty()
+                    && value
+                        .bytes()
+                        .all(|c| c.is_ascii_alphanumeric() || b"._-".contains(&c)),
+                "identity values must be shell-safe ASCII identifiers"
+            );
+            assert!(
+                value != "." && value != "..",
+                "identity value must not be a directory traversal component"
+            );
+            value
+        };
         assert!(
             values.insert(key, value).is_none(),
             "duplicate identity field: {key}"

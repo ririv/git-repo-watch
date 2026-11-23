@@ -36,7 +36,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
     (temp, store)
 }
 fn cli(store: &Store, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_app"))
+    Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "zh")
         .arg("--home")
         .arg(store.config_dir())
@@ -151,7 +151,7 @@ fn malformed_and_missing_reports_are_distinct() {
 #[test]
 fn help_is_available_without_installation() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let out = Command::new(env!("CARGO_BIN_EXE_app"))
+    let out = Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "zh")
         .arg("--help")
         .output()
@@ -259,7 +259,7 @@ fn language_overrides_localize_text_and_preserve_machine_output() {
         ),
     ] {
         let run = |args: &[&str]| {
-            Command::new(env!("CARGO_BIN_EXE_app"))
+            Command::new(env!("CARGO_BIN_EXE_rvgit"))
                 .env("APP_LANG", language)
                 .env("LC_ALL", if language == "en" { "zh_CN.UTF-8" } else { "C" })
                 .arg("--home")
@@ -299,7 +299,7 @@ fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rej
         ),
         ("C", concat!(identity::command!(), ": Git repository")),
     ] {
-        let output = Command::new(env!("CARGO_BIN_EXE_app"))
+        let output = Command::new(env!("CARGO_BIN_EXE_rvgit"))
             .env_remove("APP_LANG")
             .env("LC_ALL", locale)
             .arg("--help")
@@ -308,7 +308,7 @@ fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rej
         assert!(output.status.success());
         assert!(String::from_utf8_lossy(&output.stdout).starts_with(expected));
     }
-    let output = Command::new(env!("CARGO_BIN_EXE_app"))
+    let output = Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "fr")
         .arg("--help")
         .output()

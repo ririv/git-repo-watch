@@ -4409,10 +4409,14 @@ impl Message {
             (Self::HomeRequiresAPath, Language::English) => "--home requires a path",
             (Self::HomeRequiresAPath, Language::Chinese) => "--home 缺少路径",
             (Self::SetupTitle, Language::Chinese) => "首次设置",
-            (Self::SetupTitle, Language::English) => "Set up gw",
+            (Self::SetupTitle, Language::English) => concat!("Set up ", identity::display_name!()),
             (Self::SetupIntro, Language::Chinese) => "选择如何初始化，可稍后添加仓库。",
             (Self::SetupIntro, Language::English) => {
-                "Choose how to set up gw. You can add repositories later."
+                concat!(
+                    "Choose how to set up ",
+                    identity::display_name!(),
+                    ". You can add repositories later."
+                )
             }
             (Self::SetupAddCurrent, Language::Chinese) => "初始化并添加当前仓库",
             (Self::SetupAddCurrent, Language::English) => {
@@ -4427,10 +4431,18 @@ impl Message {
             (Self::SetupKeys, Language::Chinese) => "↑↓选择 · Enter 确认 · Esc 退出",
             (Self::SetupKeys, Language::English) => "↑↓ Select · Enter Confirm · Esc Exit",
             (Self::ConfigurationMissingSelectedHome, Language::Chinese) => {
-                "所选配置目录尚未初始化，请运行 gw --home <目录> init"
+                concat!(
+                    "所选配置目录尚未初始化，请运行 ",
+                    identity::command!(),
+                    " --home <目录> init"
+                )
             }
             (Self::ConfigurationMissingSelectedHome, Language::English) => {
-                "The selected profile is uninitialized. Run gw --home <directory> init."
+                concat!(
+                    "The selected profile is uninitialized. Run ",
+                    identity::command!(),
+                    " --home <directory> init."
+                )
             }
             (Self::WorktreeNewBranchChoice, Language::Chinese) => "从当前提交新建分支",
             (Self::WorktreeNewBranchChoice, Language::English) => {

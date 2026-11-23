@@ -76,7 +76,7 @@ pub fn run(plan: &Plan) -> Result<()> {
         }
         if libc::WIFSTOPPED(status) {
             foreground(fd, previous)?;
-            // 将终端编辑器的暂停传回原 shell 管理的 gw 作业；fg 后继续编辑器。
+            // 将终端编辑器的暂停传回原 shell 管理的 Rivet Git 作业；fg 后继续编辑器。
             unsafe {
                 libc::kill(-previous, libc::SIGTSTP);
             }

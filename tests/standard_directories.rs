@@ -6,7 +6,7 @@ use std::{
 };
 
 fn cli(home: &Path, cwd: &Path, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_app"))
+    Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("HOME", home)
         .env("APP_LANG", "en")
         .env_remove("XDG_CONFIG_HOME")
@@ -98,7 +98,7 @@ fn linux_xdg_overrides_are_explicit_and_relative_values_fail_without_writes() {
     let config = home.join("配置 空格");
     let state = home.join("状态 空格");
     let run = |value: &Path, args: &[&str]| {
-        Command::new(env!("CARGO_BIN_EXE_app"))
+        Command::new(env!("CARGO_BIN_EXE_rvgit"))
             .env("HOME", home)
             .env("APP_LANG", "en")
             .env("XDG_CONFIG_HOME", value)

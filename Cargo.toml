@@ -52,7 +52,11 @@ edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
-description = "多仓库 Git 管理工具的 CLI 和程序入口"
+description = "Rivet Git 的 CLI 和程序入口"
+
+[[bin]]
+name = "rvgit"
+path = "src/main.rs"
 
 [features]
 developer-scheduler = ["engine/developer-scheduler", "tui/developer-scheduler", "i18n/developer-scheduler"]

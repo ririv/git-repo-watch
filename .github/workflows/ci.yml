@@ -51,7 +51,7 @@ jobs:
           export XDG_RUNTIME_DIR="/run/user/$(id -u)"
           export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
           cargo build --locked --package app --features developer-scheduler
-          ./scripts/ci/linux-scheduler.sh "$PWD/target/debug/app"
+          ./scripts/ci/linux-scheduler.sh "$PWD/target/debug/rvgit"
   windows:
     name: Windows
     runs-on: windows-latest
@@ -63,9 +63,9 @@ jobs:
       - name: 检查 Windows 发布版和开发版的编译边界
         shell: pwsh
         run: |
-          $helpText = ./target/release/app.exe --help | Out-String
+          $helpText = ./target/release/rvgit.exe --help | Out-String
           if ($helpText -match 'scheduled-check|schedule enable') { throw '发布版包含定时任务命令。' }
           cargo build --locked --package app --features developer-scheduler
       - name: 验证 Windows 仓库检查和定时任务
         shell: pwsh
-        run: ./scripts/ci/windows-backend.ps1 -gw "$PWD/target/debug/app.exe"
+        run: ./scripts/ci/windows-backend.ps1 -Executable "$PWD/target/debug/rvgit.exe"

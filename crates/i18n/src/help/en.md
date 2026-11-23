@@ -1,5 +1,5 @@
 ## Quick navigation
-- Run `gw` / `gw tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `gw repos` always starts at the list. Unregistered repositories stay session-only.
+- Run `rvgit` / `rvgit tui` from a Git root, subdirectory or worktree to open its repository details; other directories open the repository list. `rvgit repos` always starts at the list. Unregistered repositories stay session-only.
 - `↑↓` selects an item; `PgUp` / `PgDn` scrolls a page.
 - With empty input, `Enter` opens the selected item; `Esc` goes back.
 - With text, `←→` moves the cursor; `Esc` clears input first.

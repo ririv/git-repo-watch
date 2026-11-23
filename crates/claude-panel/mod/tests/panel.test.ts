@@ -1,13 +1,13 @@
 import { expect, mock, test } from "claude-code/testing";
 
-test("打开 gw 面板并切换改动项", async ($, on) => {
+test("打开 Rivet Git 面板并切换改动项", async ($, on) => {
   mock.env(on, {
-    GW_CLAUDE_PANEL: "/tools/gw-claude-panel",
-    GW_CLAUDE_HOME: "/profiles/demo",
+    RIVET_GIT_CLAUDE_PANEL: "/tools/rvgit-claude-panel",
+    RIVET_GIT_CLAUDE_HOME: "/profiles/demo",
   });
   on("session.cwd", () => ({ value: "/work" }));
   on("ui.open", ($, event) => {
-    expect(event.id).toBe("gw");
+    expect(event.id).toBe("rvgit");
     expect(event.focus).toBe(true);
     expect(event.backgroundColor).toBe("transparent");
     return { value: { isPlaced: true } };
@@ -15,7 +15,7 @@ test("打开 gw 面板并切换改动项", async ($, on) => {
   let renderedView = "";
   on("process.run", ($, event) => {
     expect(event.init.cwd).toBe("/work");
-    expect(event.argv.slice(0, 3)).toEqual(["/tools/gw-claude-panel", "--home", "/profiles/demo"]);
+    expect(event.argv.slice(0, 3)).toEqual(["/tools/rvgit-claude-panel", "--home", "/profiles/demo"]);
     const [, , , view, width, , position] = event.argv;
     renderedView = view;
     const index = Number(position);
@@ -35,15 +35,15 @@ test("打开 gw 面板并切换改动项", async ($, on) => {
     };
   });
 
-  await $.command.run({ command: "gw", args: "" });
+  await $.command.run({ command: "rvgit", args: "" });
   const ui = await $.ui.mount({
-    plugin: "gw-panel",
+    plugin: "rvgit-panel",
     component: "Pane",
-    requestId: "gw",
+    requestId: "rvgit",
     surface: "terminal",
     viewport: { columns: 160, rows: 40 },
     props: {
-      title: "gw",
+      title: "Rivet Git",
       isFocused: true,
       placement: "inline",
       bodyColumns: 80,

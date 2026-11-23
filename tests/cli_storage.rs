@@ -34,7 +34,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
     (home, store)
 }
 fn cli(store: &Store, args: &[&str]) -> Output {
-    Command::new(env!("CARGO_BIN_EXE_app"))
+    Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "en")
         .env("HOME", store.config_dir())
         .arg("--home")

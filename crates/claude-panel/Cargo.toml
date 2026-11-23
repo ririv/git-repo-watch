@@ -1,11 +1,11 @@
 [package]
-name = "gw-claude-panel"
+name = "rvgit-claude-panel"
 version.workspace = true
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 publish = false
-description = "Claude Code 终端面板的 gw 字符格适配器"
+description = "Claude Code 终端面板的 Rivet Git 字符格适配器"
 
 [dependencies]
 anyhow.workspace = true

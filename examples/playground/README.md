@@ -1,6 +1,6 @@
 # Git 演练仓库
 
-用于手动体验 GW、复现问题和录制演示。生成器只需要 Python 3.9+ 与 PATH 中的 Git，使用标准库，无额外 Python 依赖。正式使用 GW 仍无需 Python。
+用于手动体验 Rivet Git、复现问题和录制演示。生成器只需要 Python 3.9+ 与 PATH 中的 Git，使用标准库，无额外 Python 依赖。正式使用 Rivet Git 仍无需 Python。
 
 ## 创建并打开
 
@@ -15,19 +15,19 @@ python3 examples/playground/create.py
 ```sh
 PLAYGROUND_ROOT="$PWD/work/playground/workspace"
 cd "$PLAYGROUND_ROOT/repo"
-gw --home "$PLAYGROUND_ROOT/home"
+rvgit --home "$PLAYGROUND_ROOT/home"
 ```
 
 从独立仓库列表进入：
 
 ```sh
-gw --home "$PLAYGROUND_ROOT/home" repos
+rvgit --home "$PLAYGROUND_ROOT/home" repos
 ```
 
 如需在列表中查看保存的检查结果，可手动检查这个示例：
 
 ```sh
-gw --home "$PLAYGROUND_ROOT/home" check "$PLAYGROUND_ROOT/repo"
+rvgit --home "$PLAYGROUND_ROOT/home" check "$PLAYGROUND_ROOT/repo"
 ```
 
 工作区有变更或分支有待同步提交时，检查返回码为 `1`，表示需关注。
@@ -40,12 +40,12 @@ gw --home "$PLAYGROUND_ROOT/home" check "$PLAYGROUND_ROOT/repo"
 | `work/playground/<场景>/repo/` | 真正用于操作的 Git 仓库 |
 | `work/playground/<场景>/remote.git/` | 本地 bare 远程，接收示例仓库的推送 |
 | `work/playground/<场景>/peer/` | 第二个工作副本，用于制造远程更新 |
-| `work/playground/<场景>/home/` | 独立的 GW 配置与运行数据 |
+| `work/playground/<场景>/home/` | 独立的 Rivet Git 配置与运行数据 |
 | `work/playground/<场景>/manifest.json` | 场景、初始 HEAD、标签提交 ID 与工作区状态 |
 | `work/playground/submodule/submodule-remote.git/` | 子模块的本地 bare 远程 |
 | `work/playground/submodule/submodule-peer/` | 子模块的第二个工作副本 |
 
-`work/` 已在项目忽略规则中。生成脚本隔离调用者的 Git 环境和系统／全局配置，采用固定示例身份与提交时间，并关闭签名与 hooks。生成的仓库只允许本地 file 协议。独立 GW 配置关闭 AI，定时流程仅含本地状态读取；定时任务保持未安装。
+`work/` 已在项目忽略规则中。生成脚本隔离调用者的 Git 环境和系统／全局配置，采用固定示例身份与提交时间，并关闭签名与 hooks。生成的仓库只允许本地 file 协议。独立 Rivet Git 配置关闭 AI，定时流程仅含本地状态读取；定时任务保持未安装。
 
 ## 场景
 
@@ -92,7 +92,7 @@ python3 examples/playground/create.py --case stash-preview
 python3 examples/playground/create.py --case cherry-pick-conflict
 ```
 
-沿用同一个演练仓库，不需要另外创建或登记仓库。目录已存在时指定新的 `--directory`，生成器不会覆盖已有演练。按生成器打印的命令启动 `gw`，执行 `/repo diff`。
+沿用同一个演练仓库，不需要另外创建或登记仓库。目录已存在时指定新的 `--directory`，生成器不会覆盖已有演练。按生成器打印的命令启动 `rvgit`，执行 `/repo diff`。
 
 - `src/config.ts` 有一个问候文案冲突。
 - `src/合并演练.ts` 有三个分开的冲突块，分别修改标题、主题和重试次数。`localOnly` 与 `incomingOnly` 是两侧各自修改、由 Git 自动合并的内容，应在采用或重置后继续保留。
@@ -120,7 +120,7 @@ python3 examples/playground/create.py --case stash-preview
 - `stash/二进制.dat`：显示二进制提示。
 - `docs/旧名称.md → docs/新名称.md` 和 `docs/待删除.md`：查看重命名与删除。
 
-查看前后可以执行 `git status --short` 与 `git stash list`，结果应相同。该场景使用独立的 GW 配置，不启用定时任务。
+查看前后可以执行 `git status --short` 与 `git stash list`，结果应相同。该场景使用独立的 Rivet Git 配置，不启用定时任务。
 
 ## 文件头元信息演练
 
@@ -154,7 +154,7 @@ python3 examples/playground/create.py --case stash-preview
 
 `submodule` 场景在父仓库中登记 `modules/演练 库/`，使用真实 `.gitmodules`、gitlink 和 `.git` 文件。子模块的本地远程与第二个工作副本同样留在该场景目录；`.gitmodules` 使用相对远程地址，因此同一场景在不同输出目录中生成相同提交历史。
 
-演练专用的 GW 配置同时登记父仓库和子模块。从仓库列表分别进入：父仓库用于观察子模块引用变化，子模块用于查看内部文件和执行暂存、提交、推送。初始状态下，父仓库与远程同步，子模块有一个尚未推送的本地提交；`src/library.ts` 同时存在已暂存与继续编辑的内容，`docs/未跟踪 说明.md` 尚未跟踪。
+演练专用的 Rivet Git 配置同时登记父仓库和子模块。从仓库列表分别进入：父仓库用于观察子模块引用变化，子模块用于查看内部文件和执行暂存、提交、推送。初始状态下，父仓库与远程同步，子模块有一个尚未推送的本地提交；`src/library.ts` 同时存在已暂存与继续编辑的内容，`docs/未跟踪 说明.md` 尚未跟踪。
 
 父仓库的 `example/submodule` 标签标记登记子模块的提交；子模块中的 `example/submodule-base` 标记父仓库引用的版本，`example/submodule-local` 标记新增的本地提交。父仓库的第二个工作副本已初始化到干净基准，便于对比。`manifest.json` 另存子模块路径、当前提交、父仓库记录的提交及初始工作区状态。
 

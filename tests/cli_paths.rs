@@ -59,7 +59,7 @@ impl Fixture {
         }
     }
     fn command(&self) -> Command {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_app"));
+        let mut command = Command::new(env!("CARGO_BIN_EXE_rvgit"));
         command.env("APP_LANG", "en").env("HOME", &self.user_home);
         command
     }
