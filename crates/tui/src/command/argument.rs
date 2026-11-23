@@ -22,6 +22,7 @@ pub enum ArgumentAction {
     BranchCreate,
     WorktreeAdd,
     SubmoduleAdd,
+    SubmoduleCheckout(engine::operations::submodule::checkout::Mode),
     BranchSwitch,
     StashApply,
     StashPop,
@@ -55,6 +56,9 @@ impl ArgumentAction {
     pub fn is_path(self) -> bool {
         matches!(self, Self::Add | Self::Scan | Self::WorktreeAdd)
     }
+    pub fn allows_empty(self) -> bool {
+        matches!(self, Self::SubmoduleCheckout(_))
+    }
     pub fn action(self) -> Action {
         match self {
             Self::Editor => Action::EditorSetting,
@@ -62,6 +66,7 @@ impl ArgumentAction {
             Self::BranchCreate => Action::BranchCreate,
             Self::WorktreeAdd => Action::WorktreeAdd,
             Self::SubmoduleAdd => Action::SubmoduleAdd,
+            Self::SubmoduleCheckout(mode) => Action::SubmoduleCheckout(mode),
             Self::BranchSwitch => Action::BranchSwitch,
             Self::StashApply => Action::StashApply,
             Self::StashPop => Action::StashPop,
@@ -128,6 +133,7 @@ impl ArgumentAction {
             Self::BranchCreate | Self::BranchSwitch => "<name>",
             Self::WorktreeAdd => "[--new] <branch> <path>",
             Self::SubmoduleAdd => "<url> <path>",
+            Self::SubmoduleCheckout(_) => "[<path>]",
             Self::StashApply | Self::StashPop | Self::StashDrop => "<stash-id>",
         };
         ArgumentSyntax::Input(open)
@@ -139,6 +145,7 @@ impl ArgumentAction {
             Self::BranchCreate | Self::BranchSwitch => i18n::tr!(BranchNameHint),
             Self::WorktreeAdd => i18n::tr!(WorktreeAddUsage),
             Self::SubmoduleAdd => i18n::tr!(SubmoduleAddUsage),
+            Self::SubmoduleCheckout(_) => i18n::tr!(SubmoduleCheckoutUsage),
             Self::StashApply | Self::StashPop | Self::StashDrop => i18n::tr!(StashIdHint),
             Self::AutoFetchInterval => i18n::tr!(DurationArgumentHint),
             #[cfg(feature = "developer-scheduler")]
@@ -161,7 +168,7 @@ impl ArgumentAction {
     pub fn parse(self, value: &str, user_home: &std::path::Path) -> Result<String> {
         let value = value.trim();
         ensure!(
-            !value.is_empty(),
+            !value.is_empty() || self.allows_empty(),
             i18n::tf!(MissingCommandArgument, self.placeholder())
         );
         match self {
@@ -203,6 +210,10 @@ impl ArgumentAction {
             }
             Self::SubmoduleAdd => {
                 submodule_add(value)?;
+                Ok(value.into())
+            }
+            Self::SubmoduleCheckout(mode) => {
+                submodule_checkout(mode, value)?;
                 Ok(value.into())
             }
             Self::BranchCreate | Self::BranchSwitch => {
@@ -312,6 +323,7 @@ impl Action {
             Self::BranchCreate => Some(ArgumentAction::BranchCreate),
             Self::WorktreeAdd => Some(ArgumentAction::WorktreeAdd),
             Self::SubmoduleAdd => Some(ArgumentAction::SubmoduleAdd),
+            Self::SubmoduleCheckout(mode) => Some(ArgumentAction::SubmoduleCheckout(mode)),
             Self::BranchSwitch => Some(ArgumentAction::BranchSwitch),
             Self::StashPreviewMenu => {
                 Some(ArgumentAction::Option(super::options::Kind::StashPreview))
@@ -365,7 +377,11 @@ pub fn argument_input(input: &str) -> Option<(ArgumentAction, &str)> {
         .find(|command| command.name.eq_ignore_ascii_case(input.trim()))
         && (input.trim_start().len() == exact.name.len() || exact.action.argument().is_none())
     {
-        return None;
+        return exact
+            .action
+            .argument()
+            .filter(|argument| argument.allows_empty())
+            .map(|argument| (argument, ""));
     }
     let canonical = COMMANDS
         .iter()
@@ -505,4 +521,18 @@ pub(super) fn submodule_add(raw: &str) -> Result<engine::operations::submodule::
         i18n::tr!(SubmoduleAddUsage)
     );
     engine::operations::submodule::Add::new(source.value, std::path::Path::new(&path.value))
+}
+
+pub(super) fn submodule_checkout(
+    mode: engine::operations::submodule::checkout::Mode,
+    raw: &str,
+) -> Result<engine::operations::submodule::checkout::Request> {
+    use super::scan::{Quote, tokens};
+    let tokens = tokens(raw);
+    let path = match tokens.as_slice() {
+        [] => None,
+        [path] if path.state == Quote::Bare => Some(std::path::Path::new(&path.value)),
+        _ => anyhow::bail!(i18n::tr!(SubmoduleCheckoutUsage)),
+    };
+    engine::operations::submodule::checkout::Request::new(mode, path)
 }

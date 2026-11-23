@@ -41,6 +41,8 @@ pub enum CommandSummary {
     WorktreeAdd,
     Submodules,
     SubmoduleAdd,
+    SubmoduleInitialize,
+    SubmoduleUpdate,
     WorktreeOpen,
     WorktreeRemove,
     BranchCreate,
@@ -258,6 +260,14 @@ impl CommandSummary {
             (Self::Submodules, Language::English) => "Show the submodule tree",
             (Self::SubmoduleAdd, Language::Chinese) => "添加 Git 子模块",
             (Self::SubmoduleAdd, Language::English) => "Add a Git submodule",
+            (Self::SubmoduleInitialize, Language::Chinese) => "初始化子模块并检出指定版本",
+            (Self::SubmoduleInitialize, Language::English) => {
+                "Initialize submodules and check out pinned commits"
+            }
+            (Self::SubmoduleUpdate, Language::Chinese) => "将已初始化的子模块更新到指定版本",
+            (Self::SubmoduleUpdate, Language::English) => {
+                "Update initialized submodules to pinned commits"
+            }
             (Self::WorktreeOpen, Language::Chinese) => "打开选中工作树",
             (Self::WorktreeOpen, Language::English) => "Open the selected worktree",
             (Self::WorktreeRemove, Language::Chinese) => "预览并移除选中工作树",

@@ -12,6 +12,7 @@ impl Screen {
         match action {
             Action::WorktreeAdd
             | Action::SubmoduleAdd
+            | Action::SubmoduleCheckout(_)
             | Action::WorktreeOpen
             | Action::WorktreeRemove
             | Action::OpenEditor

@@ -51,6 +51,21 @@ pub(super) fn mutation(change: &Change) -> String {
         Change::AddedWorktree { directory } => {
             item(i18n::tr!(TaskWorktreeCreated), &directory.to_string_lossy())
         }
+        Change::CheckedOutSubmodules { mode, directories } => {
+            let label = match mode {
+                engine::operations::submodule::checkout::Mode::Initialize => {
+                    i18n::tr!(TaskSubmodulesInitialized)
+                }
+                engine::operations::submodule::checkout::Mode::Update => {
+                    i18n::tr!(TaskSubmodulesUpdated)
+                }
+            };
+            let paths = directories
+                .iter()
+                .map(|path| safe(&path.to_string_lossy()))
+                .collect::<Vec<_>>();
+            format!("{label}\n{}", paths.join("\n"))
+        }
         Change::AddedSubmodule { directory } => {
             item(i18n::tr!(TaskSubmoduleAdded), &directory.to_string_lossy())
         }

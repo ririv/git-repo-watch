@@ -54,6 +54,7 @@ pub enum Action {
     WorktreeRemove,
     Submodules,
     SubmoduleAdd,
+    SubmoduleCheckout(engine::operations::submodule::checkout::Mode),
     BranchCreate,
     BranchSwitch,
     Fetch,
@@ -248,6 +249,16 @@ pub const COMMANDS: &[Command] = &[
         name: "repo submodule add",
         action: SubmoduleAdd,
         description: i18n::Message::SubmoduleAdd,
+    },
+    Command {
+        name: "repo submodule init",
+        action: SubmoduleCheckout(engine::operations::submodule::checkout::Mode::Initialize),
+        description: i18n::Message::SubmoduleInitialize,
+    },
+    Command {
+        name: "repo submodule update",
+        action: SubmoduleCheckout(engine::operations::submodule::checkout::Mode::Update),
+        description: i18n::Message::SubmoduleUpdate,
     },
     Command {
         name: "repo log",

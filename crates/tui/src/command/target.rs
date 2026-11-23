@@ -109,6 +109,7 @@ impl Action {
             | WorktreeAdd
             | Submodules
             | SubmoduleAdd
+            | SubmoduleCheckout(_)
             | BranchCreate
             | BranchSwitch
             | Fetch

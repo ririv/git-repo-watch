@@ -25,6 +25,7 @@ pub enum Request {
     Stash(stash::Request),
     Worktree(worktrees::Request),
     AddSubmodule(submodule::Add),
+    CheckoutSubmodules(submodule::checkout::Request),
 }
 #[derive(Debug, Clone)]
 pub enum Plan {
@@ -36,6 +37,7 @@ pub enum Plan {
     Stash(stash::Plan),
     Worktree(worktrees::Plan),
     AddSubmodule(submodule::Plan),
+    CheckoutSubmodules(submodule::checkout::Plan),
 }
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
@@ -75,6 +77,10 @@ pub enum Action {
     },
     AddSubmodule {
         directory: std::path::PathBuf,
+    },
+    CheckoutSubmodules {
+        mode: submodule::checkout::Mode,
+        directories: Vec<std::path::PathBuf>,
     },
     RemoveWorktree {
         directory: std::path::PathBuf,
@@ -139,6 +145,10 @@ pub enum Change {
     AddedSubmodule {
         directory: std::path::PathBuf,
     },
+    CheckedOutSubmodules {
+        mode: submodule::checkout::Mode,
+        directories: Vec<std::path::PathBuf>,
+    },
     RemovedWorktree {
         directory: std::path::PathBuf,
     },
@@ -179,6 +189,7 @@ impl Plan {
             Self::Stash(p) => p.path(),
             Self::Worktree(p) => p.repository(),
             Self::AddSubmodule(p) => p.repository(),
+            Self::CheckoutSubmodules(p) => p.repository(),
         }
     }
     pub fn current(&self) -> bool {
@@ -226,6 +237,14 @@ impl Plan {
                     control: c.control,
                     commit: p.commit().to_string(),
                 },
+            },
+            Self::CheckoutSubmodules(plan) => Action::CheckoutSubmodules {
+                mode: plan.mode(),
+                directories: plan
+                    .targets()
+                    .iter()
+                    .map(|target| target.path.clone())
+                    .collect(),
             },
             Self::AddSubmodule(plan) => Action::AddSubmodule {
                 directory: plan.directory().into(),
@@ -326,6 +345,17 @@ pub fn execute(git: &Git, plan: &Plan, cancel: &Cancel) -> Result<Change> {
                     kind: p.kind(),
                     control: c.control,
                 },
+            })
+        }
+        Plan::CheckoutSubmodules(plan) => {
+            submodule::checkout::execute(git, plan, cancel)?;
+            Ok(Change::CheckedOutSubmodules {
+                mode: plan.mode(),
+                directories: plan
+                    .targets()
+                    .iter()
+                    .map(|target| target.path.clone())
+                    .collect(),
             })
         }
         Plan::AddSubmodule(plan) => {

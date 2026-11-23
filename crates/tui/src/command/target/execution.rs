@@ -229,7 +229,7 @@ impl Resolved<'_> {
 }
 
 impl crate::Screen {
-    pub(crate) fn prepare_addition(
+    pub(crate) fn prepare_repository_argument(
         &mut self,
         argument: crate::command::ArgumentAction,
         value: &str,
@@ -240,7 +240,7 @@ impl crate::Screen {
         let execution =
             self.prepare_command(argument.action(), draft.path.as_deref(), &draft.selection)?;
         let Request::Local { path: Some(path) } = execution.request else {
-            unreachable!("an addition targets a repository");
+            unreachable!("a repository argument targets a repository");
         };
         draft.path = Some(path);
         let request = match argument {
@@ -249,7 +249,10 @@ impl crate::Screen {
                 self.service.scheduler.user_home(),
             )?),
             ArgumentAction::SubmoduleAdd => Mutation::AddSubmodule(input::submodule_add(value)?),
-            _ => unreachable!("an addition requires a typed request"),
+            ArgumentAction::SubmoduleCheckout(mode) => {
+                Mutation::CheckoutSubmodules(input::submodule_checkout(mode, value)?)
+            }
+            _ => unreachable!("expected a reviewed repository argument"),
         };
         self.prepare_mutation(request, draft);
         Ok(())

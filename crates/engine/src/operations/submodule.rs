@@ -1,4 +1,5 @@
-//! Review and add a Git submodule using the repository's system Git environment.
+//! Reviewed Git submodule operations.
+pub mod checkout;
 use crate::{
     cancel::Cancel,
     local::{guard::Position, idle, open, submodules},

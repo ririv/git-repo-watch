@@ -143,7 +143,7 @@ impl Screen {
                         }
                         ArgumentAction::AiPrompt if raw.trim().is_empty() => Intent::Open,
                         ArgumentAction::Editor | ArgumentAction::AiAgent => Intent::FillValue,
-                        _ if raw.trim().is_empty() => Intent::Required,
+                        _ if raw.trim().is_empty() && !argument.allows_empty() => Intent::Required,
                         _ => Intent::Review,
                     }
                 } else {

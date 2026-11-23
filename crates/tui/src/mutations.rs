@@ -37,6 +37,7 @@ pub(crate) fn title(plan: &Plan) -> &'static str {
         Plan::Worktree(plan) if plan.removing() => i18n::tr!(WorktreeRemove),
         Plan::Worktree(_) => i18n::tr!(WorktreeAdd),
         Plan::AddSubmodule(_) => i18n::tr!(SubmoduleAdd),
+        Plan::CheckoutSubmodules(plan) => plan.mode().title(),
         Plan::Pull(_) => i18n::tr!(PullCommand),
         Plan::Sync(_) => i18n::tr!(SyncCommand),
         Plan::Stash(stash::Plan::Save(_)) => i18n::tr!(StashSaveCommand),
@@ -61,6 +62,22 @@ pub(crate) fn review(plan: &Plan) -> String {
             p.oid()
         ),
         Plan::Replay(plan) => crate::replay::review(plan),
+        Plan::CheckoutSubmodules(plan) => {
+            let mut detail = i18n::tr!(SubmoduleCheckoutReview).to_owned();
+            for target in plan.targets() {
+                let path = crate::view::safe(&target.path.to_string_lossy());
+                let pinned = target.pinned.to_string();
+                let revisions = match target.current() {
+                    Some(current) if current != target.pinned => {
+                        format!("{:.12} → {pinned:.12}", current.to_string())
+                    }
+                    Some(_) => format!("{pinned:.12}"),
+                    None => format!("{} → {pinned:.12}", i18n::tr!(SubmoduleUninitialized)),
+                };
+                detail.push_str(&format!("\n{path} · {revisions}"));
+            }
+            detail
+        }
         Plan::AddSubmodule(plan) => format!(
             "{}: {}\n{}: {}\n\n{}",
             i18n::tr!(SubmoduleSource),

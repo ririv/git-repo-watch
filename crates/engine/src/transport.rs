@@ -119,6 +119,34 @@ impl Git {
         Ok(())
     }
 
+    pub(crate) fn checkout_submodules(
+        &self,
+        root: &Path,
+        mode: crate::operations::submodule::checkout::Mode,
+        targets: &[crate::operations::submodule::checkout::Target],
+        cancel: &Cancel,
+    ) -> Result<()> {
+        use crate::operations::submodule::checkout::Mode;
+        let mut args = strings(&[
+            "--literal-pathspecs",
+            "submodule",
+            "update",
+            "--checkout",
+            "--recursive",
+        ]);
+        if mode == Mode::Initialize {
+            args.push("--init".into());
+        }
+        args.push("--".into());
+        args.extend(
+            targets
+                .iter()
+                .map(|target| target.path.as_os_str().to_owned()),
+        );
+        self.run(root, args, cancel)?;
+        Ok(())
+    }
+
     pub(crate) fn add_worktree(
         &self,
         root: &Path,

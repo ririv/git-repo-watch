@@ -30,6 +30,12 @@ impl Command {
             Action::WorktreeAdd => Summary::WorktreeAdd,
             Action::Submodules => Summary::Submodules,
             Action::SubmoduleAdd => Summary::SubmoduleAdd,
+            Action::SubmoduleCheckout(
+                engine::operations::submodule::checkout::Mode::Initialize,
+            ) => Summary::SubmoduleInitialize,
+            Action::SubmoduleCheckout(engine::operations::submodule::checkout::Mode::Update) => {
+                Summary::SubmoduleUpdate
+            }
             Action::WorktreeOpen => Summary::WorktreeOpen,
             Action::WorktreeRemove => Summary::WorktreeRemove,
             Action::BranchFilterMenu | Action::BranchFilter(_) => Summary::BranchFilter,

@@ -466,6 +466,16 @@ pub enum Message {
     SubmodulesTitle,
     SubmodulesCommand,
     SubmoduleAdd,
+    SubmoduleInitialize,
+    SubmoduleUpdate,
+    SubmoduleCheckoutUsage,
+    SubmoduleCheckoutReview,
+    SubmoduleCheckoutDirty,
+    SubmoduleCheckoutMismatch,
+    SubmoduleNoInitialized,
+    SubmodulePathNotAvailable,
+    TaskSubmodulesInitialized,
+    TaskSubmodulesUpdated,
     SubmoduleAddUsage,
     SubmoduleRelativePath,
     SubmoduleDirectoryBlocked,
@@ -1515,6 +1525,46 @@ impl Message {
             }
             (Self::SubmoduleAdd, Language::Chinese) => "添加 Git 子模块",
             (Self::SubmoduleAdd, Language::English) => "Add a Git submodule",
+            (Self::SubmoduleInitialize, Language::Chinese) => "初始化子模块",
+            (Self::SubmoduleInitialize, Language::English) => "Initialize submodules",
+            (Self::SubmoduleUpdate, Language::Chinese) => "更新子模块到指定版本",
+            (Self::SubmoduleUpdate, Language::English) => "Update submodules to pinned commits",
+            (Self::SubmoduleCheckoutUsage, Language::Chinese) => {
+                "可填一个子模块路径，留空处理所有符合条件的子模块"
+            }
+            (Self::SubmoduleCheckoutUsage, Language::English) => {
+                "Enter one submodule path or leave it blank to process all eligible submodules"
+            }
+            (Self::SubmoduleCheckoutReview, Language::Chinese) => {
+                "按父仓库索引记录检出提交，并处理嵌套子模块。切换到新的提交时，子模块的 HEAD 会游离。"
+            }
+            (Self::SubmoduleCheckoutReview, Language::English) => {
+                "Check out the commits recorded in the parent index, including nested submodules. Moving to a different commit detaches the submodule HEAD."
+            }
+            (Self::SubmoduleCheckoutDirty, Language::Chinese) => {
+                "子模块有未提交的改动，请先处理再更新"
+            }
+            (Self::SubmoduleCheckoutDirty, Language::English) => {
+                "Resolve the submodule’s uncommitted changes before updating"
+            }
+            (Self::SubmoduleCheckoutMismatch, Language::Chinese) => {
+                "子模块未检出到父仓库记录的提交"
+            }
+            (Self::SubmoduleCheckoutMismatch, Language::English) => {
+                "The submodule did not check out the commit recorded by its parent"
+            }
+            (Self::SubmoduleNoInitialized, Language::Chinese) => "没有已初始化的子模块",
+            (Self::SubmoduleNoInitialized, Language::English) => "No initialized submodules",
+            (Self::SubmodulePathNotAvailable, Language::Chinese) => "该路径没有符合条件的子模块",
+            (Self::SubmodulePathNotAvailable, Language::English) => {
+                "No eligible submodule at that path"
+            }
+            (Self::TaskSubmodulesInitialized, Language::Chinese) => "已初始化子模块",
+            (Self::TaskSubmodulesInitialized, Language::English) => "Initialized submodules",
+            (Self::TaskSubmodulesUpdated, Language::Chinese) => "已更新子模块到指定版本",
+            (Self::TaskSubmodulesUpdated, Language::English) => {
+                "Updated submodules to pinned commits"
+            }
             (Self::SubmoduleAddUsage, Language::Chinese) => {
                 "请输入仓库地址和仓库内的相对路径，含空格的参数用引号包住"
             }

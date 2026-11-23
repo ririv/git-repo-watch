@@ -198,7 +198,8 @@ impl Screen {
                 } else {
                     let choice = match plan.as_ref() {
                         engine::operations::mutation::Plan::Reset(_)
-                        | engine::operations::mutation::Plan::AddSubmodule(_) => {
+                        | engine::operations::mutation::Plan::AddSubmodule(_)
+                        | engine::operations::mutation::Plan::CheckoutSubmodules(_) => {
                             crate::confirmation::Choice::Return
                         }
                         engine::operations::mutation::Plan::Worktree(plan) if plan.removing() => {

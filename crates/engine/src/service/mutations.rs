@@ -80,6 +80,9 @@ impl Service {
             Request::Branch { action, name } => Ok(Plan::Branch(local::branches::edit::prepare(
                 path, &name, action, cancel,
             )?)),
+            Request::CheckoutSubmodules(request) => Ok(Plan::CheckoutSubmodules(
+                operations::submodule::checkout::prepare(path, request, cancel)?,
+            )),
             Request::AddSubmodule(add) => Ok(Plan::AddSubmodule(operations::submodule::prepare(
                 path, add, cancel,
             )?)),

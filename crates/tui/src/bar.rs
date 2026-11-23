@@ -568,7 +568,8 @@ impl Screen {
                                 if matches!(
                                     argument,
                                     command::ArgumentAction::WorktreeAdd
-                                        | command::ArgumentAction::SubmoduleAdd,
+                                        | command::ArgumentAction::SubmoduleAdd
+                                        | command::ArgumentAction::SubmoduleCheckout(_),
                                 ) =>
                             {
                                 let draft = CommandDraft {
@@ -578,7 +579,9 @@ impl Screen {
                                     repository: repository.clone(),
                                     return_to: ReturnTo::Command,
                                 };
-                                if let Err(error) = self.prepare_addition(argument, &value, draft) {
+                                if let Err(error) =
+                                    self.prepare_repository_argument(argument, &value, draft)
+                                {
                                     self.message =
                                         crate::message::Message::error(format!("{error:#}"));
                                 }
