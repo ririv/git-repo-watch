@@ -148,7 +148,7 @@ impl std::fmt::Display for Busy {
 impl std::error::Error for Busy {}
 #[derive(Debug)]
 pub struct Lock {
-    _file: File,
+    file: File,
 }
 impl Lock {
     pub fn wait(path: &Path, cancel: &Cancel) -> Result<Self> {
@@ -171,10 +171,16 @@ impl Lock {
         #[cfg(windows)]
         files::private_path(path, 0o600)?;
         match file.try_lock() {
-            Ok(()) => Ok(Self { _file: file }),
+            Ok(()) => Ok(Self { file }),
             Err(TryLockError::WouldBlock) => Err(Busy.into()),
             Err(TryLockError::Error(error)) => Err(error.into()),
         }
+    }
+}
+impl Drop for Lock {
+    fn drop(&mut self) {
+        // 子进程可能在 exec 前继承描述符，需要在关闭前主动释放锁。
+        let _ = self.file.unlock();
     }
 }
 
@@ -212,4 +218,21 @@ pub fn interval(value: &str) -> Result<u64> {
 }
 pub fn now() -> String {
     chrono::Utc::now().to_rfc3339()
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::Store;
+
+    #[test]
+    fn dropping_batch_lock_releases_it_while_a_duplicate_descriptor_is_open() {
+        let temp = tempfile::tempdir().unwrap();
+        let store = Store::custom(temp.path().to_owned());
+        let lock = store.batch_lock().unwrap();
+        let inherited_descriptor = lock.file.try_clone().unwrap();
+        assert!(store.running().unwrap());
+        drop(lock);
+        assert!(!store.running().unwrap());
+        drop(inherited_descriptor);
+    }
 }
