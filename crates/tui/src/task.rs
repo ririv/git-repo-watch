@@ -212,6 +212,7 @@ impl Screen {
                             plan,
                             origin: Box::new(origin),
                             draft,
+                            scroll: 0,
                         },
                         choice,
                     };

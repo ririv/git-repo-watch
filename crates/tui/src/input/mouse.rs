@@ -580,7 +580,9 @@ impl Screen {
         ) && !matches!(
             self.mode,
             Mode::Confirm {
-                operation: Confirmation::ReplayParents { .. } | Confirmation::DiscardFile { .. },
+                operation: Confirmation::ReplayParents { .. }
+                    | Confirmation::DiscardFile { .. }
+                    | Confirmation::Mutation { .. },
                 ..
             }
         ) {

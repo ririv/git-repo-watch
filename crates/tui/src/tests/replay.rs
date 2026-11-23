@@ -160,6 +160,36 @@ fn hard_reset_is_discoverable_and_cancel_leaves_local_edits_intact() {
     let review = render(&mut s, 140, 42);
     assert!(review.contains(i18n::tr!(ResetDiscardChanges)), "{review}");
     assert!(review.contains("未暂存 · tracked.txt"), "{review}");
+
+    let narrow = render(&mut s, 78, 15);
+    assert!(!narrow.contains("tracked.txt"), "{narrow}");
+    assert!(narrow.contains("PgUp/PgDn"), "{narrow}");
+    key(&mut s, KeyCode::PageDown);
+    let scrolled = render(&mut s, 78, 15);
+    assert!(scrolled.contains("未暂存 · tracked.txt"), "{scrolled}");
+    assert!(
+        s.pointer
+            .grab(ratatui::layout::Position::new(
+                s.body_area.unwrap().right() - 1,
+                s.body_area.unwrap().bottom() - 2,
+            ))
+            .is_some()
+    );
+    key(&mut s, KeyCode::Home);
+    assert!(!render(&mut s, 78, 15).contains("tracked.txt"));
+    let body = s.body_area.unwrap();
+    let wheel = crossterm::event::MouseEvent {
+        kind: crossterm::event::MouseEventKind::ScrollDown,
+        column: body.x + 2,
+        row: body.y + 2,
+        modifiers: KeyModifiers::NONE,
+    };
+    for _ in 0..4 {
+        assert!(s.mouse(wheel, &Cancel::default()).unwrap());
+        render(&mut s, 78, 15);
+    }
+    assert!(render(&mut s, 78, 15).contains("未暂存 · tracked.txt"));
+    assert!(render(&mut s, 140, 42).contains(i18n::tr!(ResetDiscardChanges)));
     key(&mut s, KeyCode::Enter);
     assert!(s.bar.text().ends_with("--mode hard"));
     assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);

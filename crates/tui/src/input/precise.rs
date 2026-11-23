@@ -547,7 +547,9 @@ impl Screen {
                     },
                     Mode::Composition(session) => session.scroll = offset,
                     Mode::Confirm {
-                        operation: crate::Confirmation::DiscardFile { scroll, .. },
+                        operation:
+                            crate::Confirmation::DiscardFile { scroll, .. }
+                            | crate::Confirmation::Mutation { scroll, .. },
                         ..
                     }
                     | Mode::CommitMessage { scroll, .. }

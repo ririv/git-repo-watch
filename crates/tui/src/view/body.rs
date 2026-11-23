@@ -214,7 +214,17 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                     super::replay::parents(frame, area, candidate, *selected, &mut screen.pointer);
                     return;
                 }
-                Confirmation::Mutation { plan, .. } => multiline(&crate::mutations::review(plan)),
+                Confirmation::Mutation { plan, scroll, .. } => {
+                    text_view(
+                        frame,
+                        area,
+                        &multiline(&crate::mutations::review(plan)),
+                        scroll,
+                        i18n::tr!(ConfirmOperation),
+                        &mut screen.pointer,
+                    );
+                    return;
+                }
                 Confirmation::Configure {
                     command,
                     value,

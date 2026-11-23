@@ -861,7 +861,10 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         _ => i18n::tr!(ActionCancel),
                     },
                 },
-                if matches!(operation, Confirmation::DiscardFile { .. }) {
+                if matches!(
+                    operation,
+                    Confirmation::DiscardFile { .. } | Confirmation::Mutation { .. }
+                ) {
                     i18n::tr!(ConfirmReviewHint)
                 } else {
                     i18n::tr!(ConfirmSelectHint)

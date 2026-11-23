@@ -41,7 +41,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
         .nth(1)
         .expect("submodule panel body");
     assert_eq!(first_row.trim_matches(['│', ' ']), i18n::tr!(NoSubmodules));
-    let path = "modules/外层 库";
+    let path = "modules/共享的外层组件/源码与常用资源/外层 库";
     command(
         &mut screen,
         &format!("repo submodule add \"{}\" \"{path}\"", source.display()),
@@ -106,7 +106,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
     let source_oid = support::git(&source, &["rev-parse", "HEAD"]);
     let nested_oid = support::git(&child.repo, &["rev-parse", "HEAD"]);
     assert!(tree.contains(&format!(
-        "└─ modules/外层 库 · {} {}",
+        "└─ {path} · {} {}",
         i18n::tr!(SubmoduleStaged),
         &source_oid[..12]
     )));
@@ -116,6 +116,17 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
         &nested_oid[..12]
     )));
     assert!(tree.contains(i18n::tr!(SubmoduleUninitialized)));
+    let narrow = render(&mut screen, 60, 22);
+    assert!(narrow.contains(path), "{narrow}");
+    assert!(
+        narrow.lines().any(|line| line.contains(&format!(
+            "   · {} {}",
+            i18n::tr!(SubmoduleStaged),
+            &source_oid[..12]
+        ))),
+        "{narrow}"
+    );
+    assert!(narrow.contains(&nested_oid[..12]), "{narrow}");
 
     support::git(
         &parent.repo.join(path),

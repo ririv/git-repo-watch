@@ -192,6 +192,7 @@ enum Confirmation {
         plan: Box<engine::operations::mutation::Plan>,
         origin: Box<Mode>,
         draft: bar::CommandDraft,
+        scroll: usize,
     },
     #[cfg(feature = "developer-scheduler")]
     Schedule(engine::scheduler::Control),

@@ -9,8 +9,8 @@ pub(super) fn render(
     scroll: &mut usize,
     hits: &mut crate::pointer::Map,
 ) {
-    let panel = block(i18n::tr!(SubmodulesTitle));
-    let inner = panel.inner(area);
+    let title = i18n::tr!(SubmodulesTitle);
+    let width = block(title).inner(area).width as usize;
     let mut lines = Vec::new();
     if snapshot.entries.is_empty() {
         lines.push(Line::styled(
@@ -22,53 +22,45 @@ pub(super) fn render(
             safe(&name(&snapshot.path)),
             Style::default().fg(ACCENT),
         ));
-        append(&mut lines, &snapshot.entries, "");
+        append(&mut lines, &snapshot.entries, "", width);
     }
-    let max_scroll = lines.len().saturating_sub(inner.height as usize);
-    *scroll = (*scroll).min(max_scroll);
-    frame.render_widget(panel, area);
-    let visible = lines
-        .iter()
-        .skip(*scroll)
-        .take(inner.height as usize)
-        .cloned()
-        .collect::<Vec<_>>();
-    frame.render_widget(Paragraph::new(visible), inner);
-    crate::scrollbar::vertical(frame, area, inner, lines.len(), *scroll);
-    hits.vertical(
+    review::styled_text_view(
+        frame,
         area,
-        inner,
-        max_scroll,
-        *scroll,
+        Text::from(lines),
+        scroll,
+        title,
+        hits,
         crate::pointer::ScrollTarget::Text,
     );
 }
 
-fn append(lines: &mut Vec<Line<'static>>, entries: &[Entry], prefix: &str) {
+fn append(lines: &mut Vec<Line<'static>>, entries: &[Entry], prefix: &str, width: usize) {
     for (index, entry) in entries.iter().enumerate() {
         let last = index + 1 == entries.len();
         let connector = if last { "└─ " } else { "├─ " };
-        let mut row = vec![
+        let mut row = Line::from(vec![
             Span::styled(format!("{prefix}{connector}"), Style::default().fg(MUTED)),
             Span::raw(safe(&entry.path.to_string_lossy())),
-        ];
+        ]);
+        let mut details = Vec::new();
         match entry.link {
-            Link::Unrecorded => row.push(Span::styled(
+            Link::Unrecorded => details.push(Span::styled(
                 format!(" · {}", i18n::tr!(SubmoduleUnrecorded)),
                 Style::default().fg(MUTED),
             )),
             Link::Recorded(oid) => {
-                row.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
+                details.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
             }
             Link::Staged { recorded, indexed } => {
                 if let Some(oid) = recorded {
-                    row.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
+                    details.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
                 }
-                row.push(commit(i18n::tr!(SubmoduleStaged), indexed, GOOD));
+                details.push(commit(i18n::tr!(SubmoduleStaged), indexed, GOOD));
             }
             Link::StagedRemoval(oid) => {
-                row.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
-                row.push(Span::styled(
+                details.push(commit(i18n::tr!(SubmoduleRecorded), oid, ACCENT));
+                details.push(Span::styled(
                     format!(" · {}", i18n::tr!(SubmoduleStagedRemoval)),
                     Style::default().fg(WARN),
                 ));
@@ -78,27 +70,39 @@ fn append(lines: &mut Vec<Line<'static>>, entries: &[Entry], prefix: &str) {
             State::Initialized {
                 current: Some(oid), ..
             } if Some(*oid) != entry.link.indexed() => {
-                row.push(commit(i18n::tr!(SubmoduleCheckedOut), *oid, WARN));
+                details.push(commit(i18n::tr!(SubmoduleCheckedOut), *oid, WARN));
             }
-            State::Initialized { current: None, .. } => row.push(Span::styled(
+            State::Initialized { current: None, .. } => details.push(Span::styled(
                 format!(" · {}", i18n::tr!(OverviewUnborn)),
                 Style::default().fg(MUTED),
             )),
             State::Initialized { .. } => {}
             State::Uninitialized if matches!(entry.link, Link::StagedRemoval(_)) => {}
-            State::Uninitialized => row.push(Span::styled(
+            State::Uninitialized => details.push(Span::styled(
                 format!(" · {}", i18n::tr!(SubmoduleUninitialized)),
                 Style::default().fg(WARN),
             )),
-            State::Unavailable(error) => row.push(Span::styled(
+            State::Unavailable(error) => details.push(Span::styled(
                 format!(" · {} · {}", i18n::tr!(SubmoduleUnavailable), safe(error)),
                 Style::default().fg(BAD),
             )),
         }
-        lines.push(Line::from(row));
+        let continuation = if last { "   " } else { "│  " };
+        let indent = format!("{prefix}{continuation}");
+        if row.width() + details.iter().map(Span::width).sum::<usize>() <= width {
+            row.spans.extend(details);
+            lines.push(row);
+        } else {
+            lines.push(row);
+            lines.extend(details.into_iter().map(|detail| {
+                Line::from(vec![
+                    Span::styled(indent.clone(), Style::default().fg(MUTED)),
+                    detail,
+                ])
+            }));
+        }
         if let State::Initialized { children, .. } = &entry.state {
-            let continuation = if last { "   " } else { "│  " };
-            append(lines, children, &format!("{prefix}{continuation}"));
+            append(lines, children, &indent, width);
         }
     }
 }

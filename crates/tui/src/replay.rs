@@ -106,6 +106,7 @@ impl Screen {
                 plan: Box::new(mutation::Plan::Replay(plan)),
                 origin: Box::new(origin),
                 draft,
+                scroll: 0,
             },
             replay::Preparation::Parents(candidate) => Confirmation::ReplayParents {
                 candidate: Box::new(candidate),
