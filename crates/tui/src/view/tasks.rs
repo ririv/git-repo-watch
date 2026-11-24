@@ -32,7 +32,7 @@ fn scope(record: &Record) -> String {
         TaskScope::Repository { path } => name(path),
     }
 }
-pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
+pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) -> input::Surface {
     frame.render_widget(Clear, area);
     screen.tasks.rows.clear();
     let input_height = match area.height {
@@ -87,7 +87,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
     if !parts[2].is_empty() {
         screen.input_area = Some(parts[2]);
     }
-    input::render_task_input(frame, screen, parts[2], parts[3], hint);
+    let surface = input::render_task_input(frame, screen, parts[2], parts[3], hint);
     let notice = screen
         .exit_sequence
         .notice()
@@ -128,7 +128,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
         Session::Detail { id, scroll } => {
             let Some(record) = screen.tasks.records.iter().find(|record| record.id == *id) else {
-                return;
+                return surface;
             };
             let rendered = detail::render(frame, record, body, Some(scroll));
             screen.tasks.maximum = rendered.maximum;
@@ -139,4 +139,5 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         }
     }
     commands::render(frame, screen, body);
+    surface
 }

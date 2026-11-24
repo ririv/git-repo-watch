@@ -1,16 +1,4 @@
 use super::*;
-pub(super) fn commit_review(plan: &CommitPlan) -> String {
-    let mut text = i18n::tf!(
-        RepositoryBranchScopeStagedContentsOnlyStaged,
-        safe(&plan.path.to_string_lossy()),
-        safe(plan.branch())
-    );
-    for file in &plan.files {
-        text.push_str(&format!("• {}\n", safe(&file.display().to_string())))
-    }
-    text.push_str(&format!("\n{}", plan.stat));
-    text
-}
 pub(super) fn text_view(
     frame: &mut Frame,
     area: Rect,

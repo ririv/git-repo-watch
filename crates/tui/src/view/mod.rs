@@ -67,7 +67,7 @@ use ratatui::{
     },
 };
 use repository::repositories;
-use review::{commit_review, text_view};
+use review::text_view;
 use settings::settings;
 use shell::header;
 pub(crate) const ACCENT: Color = Color::LightBlue;
@@ -191,13 +191,14 @@ fn inactive_selection(frame: &mut Frame, area: Rect) {
 }
 pub(super) fn render(frame: &mut Frame, screen: &mut Screen) {
     screen.tasks.visible_unread_failure = None;
-    render_content(frame, screen);
+    let surface = render_content(frame, screen);
+    screen.input_surface.update(frame, surface);
     if screen.history_preview.area.is_none() {
         screen.history_preview.hide();
     }
     screen.background.apply(frame.buffer_mut());
 }
-fn render_content(frame: &mut Frame, screen: &mut Screen) {
+fn render_content(frame: &mut Frame, screen: &mut Screen) -> input::Surface {
     if screen.focus_mode == crate::focus::State::Selecting
         && (!screen.pane_navigation_available() || screen.tasks.session.open())
     {
@@ -243,11 +244,10 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) {
     screen.breadcrumb_items.clear();
     let area = frame.area();
     if area.is_empty() {
-        return;
+        return input::Surface::Plain;
     }
     if screen.tasks.session.open() {
-        tasks::render(frame, screen, area);
-        return;
+        return tasks::render(frame, screen, area);
     }
     screen.normalize_input_page();
     let mut header = if area.height >= 6 {
@@ -271,12 +271,13 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) {
     frame.render_widget(Paragraph::new(header), layout[0]);
     let body = layout[1];
     screen.body_area = Some(body);
-    footer.render(frame, screen, layout[2]);
+    let surface = footer.render(frame, screen, layout[2]);
     if !body.is_empty() {
         render_body(frame, screen, body);
     }
     commands::render(frame, screen, body);
     history::menu::render(frame, screen, body);
+    surface
 }
 fn truncate(text: &str, width: usize) -> String {
     if width == 0 {

@@ -1,9 +1,8 @@
 //! Bottom actions share clipping, styling and pointer geometry.
 use super::*;
-use crate::pointer::Hit;
 use unicode_width::UnicodeWidthStr;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::view) enum State {
     Available,
     Selected,
@@ -23,21 +22,14 @@ impl State {
         matches!(self, Self::Selected | Self::SelectedDisabled)
     }
 }
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(in crate::view) enum Target {
     Button(crate::pointer::Action),
+    KeyboardOnly,
     #[cfg(feature = "developer-scheduler")]
     Choice(crate::pointer::Target, usize),
 }
-impl Target {
-    pub fn hit(self) -> Hit {
-        match self {
-            Self::Button(action) => Hit::Button(action),
-            #[cfg(feature = "developer-scheduler")]
-            Self::Choice(target, index) => Hit::Item(target, index),
-        }
-    }
-}
+#[derive(Debug, PartialEq, Eq)]
 pub(in crate::view) struct Item {
     pub label: &'static str,
     pub state: State,
@@ -46,8 +38,8 @@ pub(in crate::view) struct Item {
 pub(in crate::view) fn management(
     session: &crate::management::Session,
     selected: crate::management::Action,
-) -> Vec<Item> {
-    session
+) -> Row {
+    let items = session
         .actions()
         .iter()
         .copied()
@@ -59,11 +51,12 @@ pub(in crate::view) fn management(
             ),
             target: Target::Button(crate::pointer::Action::Management(action)),
         })
-        .collect()
+        .collect();
+    Row::new(items, Spacing::Flush)
 }
 #[cfg(feature = "developer-scheduler")]
-pub(in crate::view) fn workflow(session: &crate::workflow::Session) -> Vec<Item> {
-    session
+pub(in crate::view) fn workflow(session: &crate::workflow::Session) -> Row {
+    let items = session
         .page_actions()
         .iter()
         .copied()
@@ -78,50 +71,117 @@ pub(in crate::view) fn workflow(session: &crate::workflow::Session) -> Vec<Item>
                     .expect("declared workflow action"),
             ),
         })
-        .collect()
+        .collect();
+    Row::new(items, Spacing::Flush)
 }
-pub(in crate::view) fn render(
-    frame: &mut Frame,
-    area: Rect,
-    items: &[Item],
-    hits: &mut crate::pointer::Map,
-) {
-    let selected = items
-        .iter()
-        .position(|item| item.state.selected())
-        .unwrap_or(0);
-    let widths = items
-        .iter()
-        .map(|item| item.label.width().saturating_add(2))
-        .collect::<Vec<_>>();
-    let mut first = 0;
-    while first < selected
-        && widths[first..=selected].iter().sum::<usize>() + 2 * (selected - first)
-            > usize::from(area.width)
-    {
-        first += 1;
+#[derive(Debug, PartialEq, Eq)]
+pub(in crate::view) enum Spacing {
+    Flush,
+    Indented,
+    Confirmation,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct Row {
+    items: Vec<Item>,
+    spacing: Spacing,
+}
+
+impl Row {
+    pub(in crate::view) fn new(items: Vec<Item>, spacing: Spacing) -> Self {
+        Self { items, spacing }
     }
-    let mut x = area.x;
-    for (index, item) in items.iter().enumerate().skip(first) {
-        let width = widths[index].min(usize::from(area.right().saturating_sub(x))) as u16;
-        let cell = Rect::new(x, area.y, width, area.height.min(1));
-        let style = match item.state {
-            State::Available => Style::default().fg(Color::Gray),
-            State::Selected => Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold(),
-            State::Disabled => Style::default().fg(MUTED),
-            State::SelectedDisabled => Style::default().fg(MUTED).bg(INPUT_ACCENT).bold(),
+
+    pub(in crate::view) fn cells(&self, area: Rect) -> Vec<(Rect, &Item)> {
+        let (inset, gap) = match self.spacing {
+            Spacing::Flush => (0, 2),
+            Spacing::Indented => (u16::from(area.width > 1), 2),
+            Spacing::Confirmation => (u16::from(area.width > 1), 3),
         };
-        frame.render_widget(
-            Paragraph::new(format!(" {} ", item.label)).style(style),
-            cell,
-        );
-        if matches!(item.state, State::Available | State::Selected) {
-            match item.target {
-                Target::Button(action) => hits.button(cell, action),
-                #[cfg(feature = "developer-scheduler")]
-                Target::Choice(target, index) => hits.item(cell, target, index),
+        let selected = self
+            .items
+            .iter()
+            .position(|item| item.state.selected())
+            .unwrap_or(0);
+        let widths = self
+            .items
+            .iter()
+            .map(|item| item.label.width().saturating_add(2))
+            .collect::<Vec<_>>();
+        let mut first = 0;
+        while first < selected
+            && widths[first..=selected].iter().sum::<usize>()
+                + usize::from(gap) * (selected - first)
+                > usize::from(area.width.saturating_sub(inset))
+        {
+            first += 1;
+        }
+        let mut x = area.x.saturating_add(inset);
+        self.items
+            .iter()
+            .enumerate()
+            .map(|(index, item)| {
+                let height = area.height.min(1);
+                if index < first {
+                    return (Rect::new(area.x, area.y, 0, height), item);
+                }
+                let width = widths[index].min(usize::from(area.right().saturating_sub(x))) as u16;
+                let cell = Rect::new(x, area.y, width, height);
+                x = x
+                    .saturating_add(width)
+                    .saturating_add(gap)
+                    .min(area.right());
+                (cell, item)
+            })
+            .collect()
+    }
+
+    pub(in crate::view) fn render(
+        self,
+        frame: &mut Frame,
+        area: Rect,
+        hits: &mut crate::pointer::Map,
+    ) -> Surface {
+        let area = Rect::new(area.x, area.y, area.width, area.height.min(1));
+        for (cell, item) in self.cells(area) {
+            let style = match item.state {
+                State::Available => Style::default().fg(Color::Gray).bg(Color::Reset),
+                State::Selected => Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold(),
+                State::Disabled => Style::default().fg(MUTED),
+                State::SelectedDisabled => Style::default().fg(MUTED).bg(INPUT_ACCENT).bold(),
+            };
+            frame.render_widget(
+                Paragraph::new(format!(" {} ", item.label)).style(style),
+                cell,
+            );
+            if matches!(item.state, State::Available | State::Selected) {
+                match item.target {
+                    Target::Button(action) => hits.button(cell, action),
+                    #[cfg(feature = "developer-scheduler")]
+                    Target::Choice(target, index) => hits.item(cell, target, index),
+                    Target::KeyboardOnly => {}
+                }
             }
         }
-        x = x.saturating_add(width).saturating_add(2).min(area.right());
+        Surface::Actions { area, row: self }
     }
+}
+
+pub(super) fn confirmation(
+    choice: confirmation::Choice,
+    execute: &'static str,
+    back: &'static str,
+) -> Row {
+    let items = [
+        (confirmation::Choice::Execute, execute),
+        (confirmation::Choice::Return, back),
+    ]
+    .into_iter()
+    .map(|(action, label)| Item {
+        label,
+        state: State::new(true, action == choice),
+        target: Target::KeyboardOnly,
+    })
+    .collect();
+    Row::new(items, Spacing::Confirmation)
 }

@@ -185,6 +185,48 @@ fn all_and_tracked_ignore_checks_and_blank_message_uses_git_default() {
 }
 
 #[test]
+fn stash_actions_repaint_the_gap_on_selection_and_input_page_changes() {
+    use ratatui::{backend::Backend, style::Color};
+
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    f.commit("file", "before");
+    support::write(f.repo.join("file"), "after");
+    let (_home, mut screen) = fixture(vec![f.repo.clone()]);
+    command(&mut screen, "repo stash save tracked");
+    wait(&mut screen);
+
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|frame| view::render(frame, &mut screen))
+        .unwrap();
+    let inner = view::input::content_area(screen.input_area.unwrap());
+    let gap = (view::stash_save::actions(inner)[0].0.right(), inner.y);
+    for next in [KeyCode::Right, KeyCode::BackTab] {
+        let cell = &terminal.backend().buffer()[gap];
+        assert_eq!(cell.symbol(), " ");
+        assert_eq!(cell.bg, Color::Reset);
+        // 模拟终端缓存里残留的按钮色块。
+        let mut stale = cell.clone();
+        stale.set_bg(Color::Rgb(180, 145, 220));
+        terminal
+            .backend_mut()
+            .draw(std::iter::once((gap.0, gap.1, &stale)))
+            .unwrap();
+        key(&mut screen, next);
+        terminal
+            .draw(|frame| view::render(frame, &mut screen))
+            .unwrap();
+        assert_eq!(
+            terminal.backend().buffer()[gap].bg,
+            Color::Reset,
+            "{next:?}"
+        );
+    }
+    screen.shutdown();
+}
+
+#[test]
 fn stash_review_pointer_and_tab_choose_actions_and_double_click_matches_enter() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     let f = support::Fixture::create();

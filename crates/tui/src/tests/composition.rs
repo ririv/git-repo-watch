@@ -132,6 +132,38 @@ fn escaping_generation_cancels_its_worker_and_restores_the_previous_plan() {
     s.shutdown();
 }
 #[test]
+fn leaving_the_confirmation_row_repaints_its_gap_under_the_compact_footer() {
+    use ratatui::buffer::CellDiffOption;
+    use unicode_width::UnicodeWidthStr;
+
+    let (_f, _home, mut screen) = setup();
+    let Mode::Composition(session) = &mut screen.mode else {
+        panic!("expected composition");
+    };
+    session.state = State::Confirm(crate::confirmation::Choice::Return);
+
+    let mut terminal = Terminal::new(TestBackend::new(100, 30)).unwrap();
+    terminal
+        .draw(|frame| view::render(frame, &mut screen))
+        .unwrap();
+    let inner = view::input::content_area(screen.input_area.unwrap());
+    let gap = (inner.x + i18n::tr!(ComposeNext).width() as u16 + 3, inner.y);
+    assert_eq!(terminal.backend().buffer()[gap].symbol(), " ");
+
+    key(&mut screen, KeyCode::Enter);
+    command(&mut screen, "repo compose message");
+    let completed = terminal
+        .draw(|frame| view::render(frame, &mut screen))
+        .unwrap();
+    assert!(screen.input_area.is_none());
+    assert_eq!(
+        completed.buffer[gap].diff_option,
+        CellDiffOption::AlwaysUpdate
+    );
+    screen.shutdown();
+}
+
+#[test]
 fn composition_has_its_own_context_and_editable_messages_without_changing_repository_contents() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);

@@ -1,50 +1,105 @@
 //! Staged changes above a message document, with horizontal actions in the footer.
 use super::*;
 use crate::commit_form::Draft;
+use engine::local::review::{CommitFile, FileDiff, LineCounts};
+
 pub(crate) fn areas(area: Rect) -> (Rect, Rect) {
     let parts =
         Layout::vertical([Constraint::Percentage(60), Constraint::Percentage(40)]).split(area);
     (parts[1], parts[0])
 }
+pub(super) fn action_row(draft: &Draft, ai: bool) -> input::actions::Row {
+    use input::actions::{Item, Row, Spacing, State, Target};
+
+    let selected = draft.selected();
+    let items = draft
+        .actions(ai)
+        .iter()
+        .copied()
+        .map(|action| Item {
+            label: action.label(),
+            state: State::new(true, selected == Some(action)),
+            target: Target::Button(crate::pointer::Action::CommitFooter(action)),
+        })
+        .collect();
+    Row::new(items, Spacing::Indented)
+}
+
+#[cfg(test)]
 pub(crate) fn options(
     area: Rect,
     draft: &Draft,
     ai: bool,
 ) -> Vec<(Rect, crate::commit_form::Action)> {
-    let actions = draft.actions(ai);
-    let widths = actions
-        .iter()
-        .map(|action| unicode_width::UnicodeWidthStr::width(action.label()) as u16 + 2)
-        .collect::<Vec<_>>();
-    let padding = u16::from(area.width > 1);
-    let mut start = 0;
-    if let Some(selected) = draft
-        .selected()
-        .and_then(|selected| actions.iter().position(|action| *action == selected))
-    {
-        // 窄窗口仅平移操作项，始终让当前选择可见，不额外增加一行。
-        while start < selected
-            && widths[start..=selected].iter().sum::<u16>() + 2 * (selected - start) as u16
-                > area.width.saturating_sub(padding)
-        {
-            start += 1;
-        }
-    }
-    let mut x = area.x.saturating_add(padding).min(area.right());
-    actions
-        .iter()
-        .enumerate()
-        .map(|(index, &action)| {
-            if index < start {
-                return (Rect::new(area.x, area.y, 0, area.height.min(1)), action);
-            }
-            let width = widths[index].min(area.right().saturating_sub(x));
-            let button = Rect::new(x, area.y, width, area.height.min(1));
-            x = x.saturating_add(width + 2).min(area.right());
-            (button, action)
-        })
+    action_row(draft, ai)
+        .cells(area)
+        .into_iter()
+        .zip(draft.actions(ai).iter().copied())
+        .map(|((area, _), action)| (area, action))
         .collect()
 }
+
+fn line_count_spans(LineCounts { added, removed }: LineCounts) -> [Span<'static>; 3] {
+    [
+        Span::styled(
+            format!("+{added}"),
+            Style::default().fg(if added == 0 { MUTED } else { GOOD }),
+        ),
+        Span::raw(" "),
+        Span::styled(
+            format!("-{removed}"),
+            Style::default().fg(if removed == 0 { MUTED } else { BAD }),
+        ),
+    ]
+}
+
+fn file_rows(file: &CommitFile, width: usize) -> Vec<Line<'static>> {
+    let name = Line::raw(format!("• {}", safe(&file.location.display())));
+    let statistic = match file.diff {
+        FileDiff::Text(counts) => Line::from(line_count_spans(counts).to_vec()),
+        FileDiff::Binary => {
+            Line::styled(i18n::tr!(CommitPreviewBinary), Style::default().fg(MUTED))
+        }
+    };
+    let stats_width = statistic.width();
+    let path_width = width.saturating_sub(stats_width + 2);
+    if path_width < 4 {
+        return vec![name, statistic.right_aligned()];
+    }
+    let mut rows = if name.width() <= path_width {
+        vec![name]
+    } else {
+        crate::links::Line::from(name)
+            .wrap_pinned(path_width, 2)
+            .into_iter()
+            .map(|row| row.text)
+            .collect()
+    };
+    let first = &mut rows[0];
+    first
+        .spans
+        .push(Span::raw(" ".repeat(width - first.width() - stats_width)));
+    first.spans.extend(statistic.spans);
+    rows
+}
+
+fn commit_review(plan: &CommitPlan, width: usize) -> Text<'static> {
+    let mut text = Text::from(i18n::tf!(
+        RepositoryBranchScopeStagedContentsOnlyStaged,
+        safe(&plan.path.to_string_lossy()),
+        safe(plan.branch())
+    ));
+    text.lines
+        .extend(plan.files.iter().flat_map(|file| file_rows(file, width)));
+    let mut summary = Line::raw(format!(
+        "{} · ",
+        i18n::tf!(CommitPreviewFileCount, plan.files.len())
+    ));
+    summary.spans.extend(line_count_spans(plan.totals));
+    text.lines.extend([Line::default(), summary]);
+    text
+}
+
 pub(super) fn render(
     frame: &mut Frame,
     area: Rect,
@@ -55,13 +110,14 @@ pub(super) fn render(
     plain: bool,
 ) {
     let (message, review) = areas(area);
-    text_view(
+    review::styled_text_view(
         frame,
         review,
-        &commit_review(plan),
+        commit_review(plan, usize::from(review.width.saturating_sub(2))),
         scroll,
         i18n::tr!(CommitPreview),
         hits,
+        crate::pointer::ScrollTarget::Text,
     );
     let focused = draft.focused() && plain;
     let title = if draft.submitting() {

@@ -190,14 +190,9 @@ impl Screen {
             let point = Position::new(event.column, event.row);
             if click
                 && precise
-                && let Some(input) = self.input_area
-                && let Some((_, action)) = crate::view::commit::options(
-                    crate::view::input::content_area(input),
-                    editor,
-                    self.config.ai.enabled,
-                )
-                .into_iter()
-                .find(|(area, _)| area.contains(point))
+                && let Some(crate::pointer::Hit::Button(crate::pointer::Action::CommitFooter(
+                    action,
+                ))) = self.pointer.hit(point)
             {
                 editor.select(action);
                 let execute = self.clicks.press(

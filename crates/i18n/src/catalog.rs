@@ -1235,7 +1235,7 @@ pub enum Message {
     LocalBranchChangedDuringValidationPushCancelled,
     PushCommandReturnedButTheRemoteCommit,
     NoStagedChangesUseStageToSelect,
-    FilesInsertionsDeletions,
+    CommitPreviewFileCount,
     BranchOrHeadChangedReviewTheCommit,
     StagedContentsChangedReviewTheCommitAgain,
     BranchReferenceIsNotUtf8,
@@ -1368,6 +1368,7 @@ pub enum Message {
     NoChangesInThisArea,
     FileDiff,
     CommitPreview,
+    CommitPreviewBinary,
     CommitMessage,
     ConfirmCommit,
     RepositoryBranchRemoteUpstreamUrlPendingCommits,
@@ -5192,12 +5193,8 @@ impl Message {
             (Self::NoStagedChangesUseStageToSelect, Language::Chinese) => {
                 "没有已暂存的改动；请通过 stage 选择提交内容"
             }
-            (Self::FilesInsertionsDeletions, Language::English) => {
-                "{} files, {} insertions, {} deletions"
-            }
-            (Self::FilesInsertionsDeletions, Language::Chinese) => {
-                "{} 个文件，新增 {} 行，删除 {} 行"
-            }
+            (Self::CommitPreviewFileCount, Language::English) => "{} files",
+            (Self::CommitPreviewFileCount, Language::Chinese) => "{} 个文件",
             (Self::BranchOrHeadChangedReviewTheCommit, Language::English) => {
                 "Branch or HEAD changed; review the commit again"
             }
@@ -5905,6 +5902,8 @@ impl Message {
             (Self::FileDiff, Language::Chinese) => "文件差异",
             (Self::CommitPreview, Language::English) => "Commit preview",
             (Self::CommitPreview, Language::Chinese) => "提交预览",
+            (Self::CommitPreviewBinary, Language::English) => "Binary",
+            (Self::CommitPreviewBinary, Language::Chinese) => "二进制",
             (Self::CommitMessage, Language::English) => "Commit message: {}\n\n{}",
             (Self::CommitMessage, Language::Chinese) => "提交说明：{}\n\n{}",
             (Self::ConfirmCommit, Language::English) => "Confirm commit",
@@ -6888,10 +6887,10 @@ macro_rules! tf {
             $crate::Language::Chinese => format!("当前分支领先 {ahead}、落后 {behind} 个提交；请先手动处理远程更新" $(, $($args)*)?),
         }
     };
-    (FilesInsertionsDeletions $(, $($args:tt)*)?) => {
+    (CommitPreviewFileCount $(, $($args:tt)*)?) => {
         match $crate::language() {
-            $crate::Language::English => format!("{} files, {} insertions, {} deletions" $(, $($args)*)?),
-            $crate::Language::Chinese => format!("{} 个文件，新增 {} 行，删除 {} 行" $(, $($args)*)?),
+            $crate::Language::English => format!("{} files" $(, $($args)*)?),
+            $crate::Language::Chinese => format!("{} 个文件" $(, $($args)*)?),
         }
     };
     (ConfiguredPathIsNotTheRepositoryRoot $(, $($args:tt)*)?) => {

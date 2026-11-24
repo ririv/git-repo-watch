@@ -27,6 +27,7 @@ impl Screen {
             self.dismiss_input_actions();
         }
         match action {
+            Action::CommitFooter(_) | Action::StashFooter(_) => return false,
             Action::ConflictControl(action) => self.perform_conflict_control(action),
             Action::ConflictBlock { index, focus } => {
                 let Mode::Changes(session) = &mut self.mode else {

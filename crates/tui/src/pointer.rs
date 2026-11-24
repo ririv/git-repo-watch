@@ -49,6 +49,8 @@ pub(crate) enum ScrollTarget {
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
+    CommitFooter(crate::commit_form::Action),
+    StashFooter(crate::confirmation::Choice),
     ConflictControl(crate::conflict::controls::Action),
     ConflictBlock {
         index: usize,

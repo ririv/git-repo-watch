@@ -184,11 +184,8 @@ impl Screen {
         let point = Position::new(event.column, event.row);
         if event.kind == MouseEventKind::Down(MouseButton::Left) && self.config.mouse.precise_click
         {
-            if let Some(input) = self.input_area
-                && let Some((_, choice)) =
-                    crate::view::stash_save::actions(crate::view::input::content_area(input))
-                        .into_iter()
-                        .find(|(area, _)| area.contains(point))
+            if let Some(crate::pointer::Hit::Button(crate::pointer::Action::StashFooter(choice))) =
+                self.pointer.hit(point)
             {
                 session.focus = Focus::Actions(choice);
                 let execute = self.clicks.press(

@@ -604,6 +604,106 @@ fn commit_review_stays_above_the_message_and_actions_follow_the_editor_at_every_
 }
 
 #[test]
+fn commit_review_pairs_staged_file_counts_with_their_paths() {
+    let _language = i18n::using(i18n::Language::Chinese);
+    let f = support::Fixture::create();
+    f.commit("tracked.txt", "stay\nremove\n");
+    f.commit("old.txt", "same\n");
+    f.commit("typechange.txt", "old\nregular\nfile\n");
+    support::write(f.repo.join("tracked.txt"), "stay\n");
+    support::git(&f.repo, &["mv", "old.txt", "new.txt"]);
+    let long_path = "目录/very-long-commit-review-file-name-for-narrow-terminals/末尾.txt";
+    let long_file = f.repo.join(long_path);
+    std::fs::create_dir_all(long_file.parent().unwrap()).unwrap();
+    support::write(long_file, "one\ntwo\n");
+    std::fs::write(f.repo.join("binary.dat"), [0, 1, 2]).unwrap();
+    support::git(
+        &f.repo,
+        &["add", "--", "tracked.txt", long_path, "binary.dat"],
+    );
+    support::write(f.repo.join("tracked.txt"), "stay\nunstaged\n");
+    support::write(f.repo.join("untracked.txt"), "untracked\n");
+    let target = support::git(&f.repo, &["hash-object", "-w", "untracked.txt"]);
+    support::git(
+        &f.repo,
+        &[
+            "update-index",
+            "--cacheinfo",
+            &format!("120000,{target},typechange.txt"),
+        ],
+    );
+    let (_home, mut screen) = fixture(vec![f.repo.clone()]);
+    command(&mut screen, "repo commit");
+    wait_generation(&mut screen);
+
+    for width in [60, 120] {
+        let text = render(&mut screen, width, 32);
+        for (path, stats) in [
+            ("• 目录/", "+2 -0"),
+            ("• tracked.txt", "+0 -1"),
+            ("• old.txt → new.txt", "+0 -0"),
+            ("• typechange.txt", "+1 -3"),
+            ("• binary.dat", i18n::tr!(CommitPreviewBinary)),
+        ] {
+            assert!(
+                text.lines()
+                    .any(|row| row.contains(path) && row.ends_with(&format!("{stats}│"))),
+                "{path} {stats}\n{text}"
+            );
+        }
+        assert!(text.contains("末尾.txt"), "{text}");
+        assert!(text.contains("5 个文件 · +3 -4"), "{text}");
+        assert!(!text.contains("untracked.txt"), "{text}");
+    }
+    screen.shutdown();
+}
+
+#[test]
+fn commit_actions_repaint_the_gap_when_selection_or_page_changes() {
+    use ratatui::{backend::Backend, style::Color};
+
+    for language in [i18n::Language::Chinese, i18n::Language::English] {
+        let _language = i18n::using(language);
+        let (_fixture, _home, mut screen) = setup();
+        command(&mut screen, "repo commit");
+        wait_generation(&mut screen);
+        let mut terminal = Terminal::new(TestBackend::new(115, 45)).unwrap();
+        terminal
+            .draw(|frame| view::render(frame, &mut screen))
+            .unwrap();
+        let inner = view::input::content_area(screen.input_area.unwrap());
+        let Mode::CommitMessage { editor, .. } = &screen.mode else {
+            panic!("expected commit preview");
+        };
+        let options = view::commit::options(inner, editor, screen.config.ai.enabled);
+        let gap = (options[0].0.right(), inner.y);
+
+        for next in [KeyCode::Right, KeyCode::Left, KeyCode::BackTab] {
+            let blank = &terminal.backend().buffer()[gap];
+            assert_eq!(blank.symbol(), " ");
+            assert_eq!(blank.bg, Color::Reset);
+            // 模拟终端在两个按钮间留下的背景，应用的帧缓存中该处仍是空格。
+            let mut stale = blank.clone();
+            stale.set_bg(Color::Rgb(180, 145, 220));
+            terminal
+                .backend_mut()
+                .draw(std::iter::once((gap.0, gap.1, &stale)))
+                .unwrap();
+            key(&mut screen, next);
+            terminal
+                .draw(|frame| view::render(frame, &mut screen))
+                .unwrap();
+            assert_eq!(
+                terminal.backend().buffer()[gap].bg,
+                Color::Reset,
+                "{language:?} {next:?}"
+            );
+        }
+        screen.shutdown();
+    }
+}
+
+#[test]
 fn horizontal_actions_support_keyboard_navigation_and_hide_generation_when_ai_is_disabled() {
     use crate::commit_form::{Action, EditAction};
     let (f, _home, mut s) = setup();

@@ -3,25 +3,34 @@ use super::*;
 use crate::confirmation::Choice;
 use crate::stash_save::Session;
 
+pub(super) fn action_row(focus: crate::stash_save::Focus) -> input::actions::Row {
+    use crate::stash_save::Focus;
+    use input::actions::{Item, Row, Spacing, State, Target};
+
+    let items = [
+        (Choice::Execute, i18n::tr!(ActionSave)),
+        (Choice::Return, i18n::tr!(ActionCancel)),
+    ]
+    .into_iter()
+    .map(|(choice, label)| Item {
+        label,
+        state: State::new(true, focus == Focus::Actions(choice)),
+        target: Target::Button(crate::pointer::Action::StashFooter(choice)),
+    })
+    .collect();
+    Row::new(items, Spacing::Indented)
+}
+
+#[cfg(test)]
 pub(crate) fn actions(area: Rect) -> Vec<(Rect, Choice)> {
-    let padding = u16::from(area.width > 1);
-    let mut x = area.x.saturating_add(padding);
-    [Choice::Execute, Choice::Return]
+    action_row(crate::stash_save::Focus::Actions(Choice::Execute))
+        .cells(area)
         .into_iter()
-        .map(|choice| {
-            let label = if choice == Choice::Execute {
-                i18n::tr!(ActionSave)
-            } else {
-                i18n::tr!(ActionCancel)
-            };
-            let width = (unicode_width::UnicodeWidthStr::width(label) as u16 + 2)
-                .min(area.right().saturating_sub(x));
-            let rect = Rect::new(x.min(area.right()), area.y, width, area.height.min(1));
-            x = x.saturating_add(width + 2).min(area.right());
-            (rect, choice)
-        })
+        .zip([Choice::Execute, Choice::Return])
+        .map(|((area, _), choice)| (area, choice))
         .collect()
 }
+
 pub(crate) fn message_area(area: Rect) -> Rect {
     let height = area.height.min(3);
     Rect::new(

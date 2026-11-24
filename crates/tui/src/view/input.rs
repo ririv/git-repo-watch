@@ -156,7 +156,7 @@ impl Footer {
             Self::Compact { preview, .. } => 1 + preview.height(),
         }
     }
-    pub fn render(&self, frame: &mut Frame, screen: &mut Screen, area: Rect) {
+    pub fn render(&self, frame: &mut Frame, screen: &mut Screen, area: Rect) -> Surface {
         match self {
             Self::InputBar {
                 editor,
@@ -170,12 +170,13 @@ impl Footer {
                 ])
                 .split(area);
                 screen.input_area = Some(parts[0]);
-                render(frame, screen, parts[0], parts[1]);
+                let surface = render(frame, screen, parts[0], parts[1]);
                 preview.render(frame, screen, parts[2]);
+                surface
             }
             Self::Compact { hint, preview } => {
                 if area.is_empty() {
-                    return;
+                    return Surface::Plain;
                 }
                 render_hint(frame, Rect::new(area.x, area.y, area.width, 1), hint);
                 preview.render(
@@ -188,6 +189,7 @@ impl Footer {
                         area.height.saturating_sub(1),
                     ),
                 );
+                Surface::Plain
             }
         }
     }
@@ -333,7 +335,7 @@ pub(super) fn render_task_input(
     area: Rect,
     hint_area: Rect,
     view_hint: &str,
-) {
+) -> Surface {
     let bar = screen.active_bar();
     let search = &screen.tasks.search.text;
     let command = bar.command_input();
@@ -388,7 +390,7 @@ pub(super) fn render_task_input(
         }
         _ => render_hint(frame, hint_area, hint),
     }
-    screen.input_surface.update(frame, surface);
+    surface
 }
 
 fn paint_editor(frame: &mut Frame, inner: Rect, spans: Vec<Span<'static>>, cursor: Option<u16>) {
@@ -403,38 +405,19 @@ fn paint_editor(frame: &mut Frame, inner: Rect, spans: Vec<Span<'static>>, curso
     }
 }
 
+#[cfg(test)]
 pub(crate) fn content_area(area: Rect) -> Rect {
     editor_block(area).inner(area)
 }
 
 enum Content<'a> {
-    Actions {
-        items: Vec<actions::Item>,
-    },
+    Actions(actions::Row),
     CommandEntry,
     Editable {
         editor: &'a Editor,
         placeholder: &'static str,
     },
     Locked(String),
-    StashActions {
-        session: &'a crate::stash_save::Session,
-    },
-    CommitActions {
-        draft: &'a crate::commit_form::Draft,
-    },
-    Conflict {
-        selected: crate::conflict::controls::Action,
-    },
-    Recovery {
-        selected: engine::operations::replay::Control,
-        enabled: [bool; 3],
-    },
-    Choices {
-        choice: confirmation::Choice,
-        execute: &'static str,
-        back: &'static str,
-    },
 }
 
 fn browsing_hint(screen: &Screen) -> &'static str {
@@ -582,7 +565,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
     }
 }
 
-pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_area: Rect) {
+fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_area: Rect) -> Surface {
     let (mode, bar, support, search_title) = match retained(screen) {
         Some((mode, input)) => (mode, &input.bar, input.support, input.search_title.clone()),
         None => (
@@ -606,9 +589,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             } else {
                 i18n::tr!(WorkflowFinishTitle)
             },
-            Content::Actions {
-                items: actions::workflow(session),
-            },
+            Content::Actions(actions::workflow(session)),
             if session.page() == crate::input_pages::Pair::Content {
                 i18n::tr!(WorkflowEditorHint)
             } else {
@@ -639,9 +620,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     {
         (
             i18n::tr!(ScanActionsTitle),
-            Content::Actions {
-                items: actions::management(session, selected),
-            },
+            Content::Actions(actions::management(session, selected)),
             i18n::tr!(ScanActionsHint),
         )
     } else if let Some(footer) = workflow_footer {
@@ -649,7 +628,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else if let Some(selected) = screen.focused_conflict_control() {
         (
             i18n::tr!(ConflictControlsTitle),
-            Content::Conflict { selected },
+            Content::Actions(conflict::row(screen, selected)),
             i18n::tr!(ConflictControlsHint),
         )
     } else if let Some(selected) = screen.focused_replay_control() {
@@ -658,11 +637,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             .expect("focused recovery operation");
         (
             i18n::tr!(ReplayControlsTitle),
-            Content::Recovery {
-                selected,
-                enabled: crate::replay::controls::ACTIONS
-                    .map(|control| crate::replay::controls::enabled(operation, control)),
-            },
+            Content::Actions(super::replay::controls::row(operation, selected)),
             i18n::tr!(ReplayControlsHint),
         )
     } else if let Mode::Composition(session) = mode
@@ -671,11 +646,11 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         match &session.state {
             crate::composition::State::Confirm(choice) => (
                 i18n::tr!(ConfirmOperationAlt),
-                Content::Choices {
-                    choice: *choice,
-                    execute: i18n::tr!(ComposeNext),
-                    back: i18n::tr!(ActionReturnEdit),
-                },
+                Content::Actions(actions::confirmation(
+                    *choice,
+                    i18n::tr!(ComposeNext),
+                    i18n::tr!(ActionReturnEdit),
+                )),
                 i18n::tr!(ConfirmSelectHint),
             ),
             crate::composition::State::Moving { target, .. } => (
@@ -800,12 +775,12 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             }
             Mode::StashSave(session) => (
                 i18n::tr!(ConfirmOperationAlt),
-                Content::StashActions { session },
+                Content::Actions(super::stash_save::action_row(session.focus)),
                 i18n::tr!(StashSaveHint),
             ),
             Mode::CommitMessage { editor, .. } => (
                 i18n::tr!(ConfirmOperationAlt),
-                Content::CommitActions { draft: editor },
+                Content::Actions(super::commit::action_row(editor, screen.config.ai.enabled)),
                 browsing_hint(screen),
             ),
             Mode::Confirm {
@@ -827,9 +802,9 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             ),
             Mode::Confirm { operation, choice } => (
                 i18n::tr!(ConfirmOperationAlt),
-                Content::Choices {
-                    choice: *choice,
-                    execute: match operation {
+                Content::Actions(actions::confirmation(
+                    *choice,
+                    match operation {
                         Confirmation::ConflictReset { .. } => i18n::tr!(ConflictResetCommand),
                         Confirmation::DiscardFile { .. } => i18n::tr!(DiscardFile),
                         Confirmation::Partial { .. } => i18n::tr!(PartialDiscard),
@@ -849,7 +824,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                             _ => i18n::tr!(ActionSave),
                         },
                     },
-                    back: match operation {
+                    match operation {
                         Confirmation::Mutation { draft, .. }
                             if matches!(draft.return_to, crate::bar::ReturnTo::View) =>
                         {
@@ -860,7 +835,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                         }
                         _ => i18n::tr!(ActionCancel),
                     },
-                },
+                )),
                 if matches!(
                     operation,
                     Confirmation::DiscardFile { .. } | Confirmation::Mutation { .. }
@@ -884,15 +859,15 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             ),
             Mode::PushConfirm { choice, plan, .. } => (
                 i18n::tr!(ConfirmPushAlt),
-                Content::Choices {
-                    choice: *choice,
-                    execute: if plan.force_behind().is_some() {
+                Content::Actions(actions::confirmation(
+                    *choice,
+                    if plan.force_behind().is_some() {
                         i18n::tr!(PushForceTitle)
                     } else {
                         i18n::tr!(ActionPush)
                     },
-                    back: i18n::tr!(ActionCancel),
-                },
+                    i18n::tr!(ActionCancel),
+                )),
                 i18n::tr!(ConfirmReviewHint),
             ),
             Mode::Error { .. } if bar.command_input().is_some() => (
@@ -934,7 +909,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         hint.to_owned()
     };
-    let show_cursor = !matches!(&content, Content::Actions { .. })
+    let show_cursor = !matches!(&content, Content::Actions(_))
         && task_hint.is_none()
         && screen.focused_replay_control().is_none()
         && screen.focused_conflict_control().is_none();
@@ -945,7 +920,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     } else {
         None
     };
-    let title = if matches!(content, Content::Conflict { .. })
+    let title = if screen.focused_conflict_control().is_some()
         && let Mode::Changes(session) = mode
         && screen
             .body_area
@@ -973,14 +948,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
         && !matches!(mode, Mode::CommitMessage { editor, .. } if editor.focused())
         && matches!(
             content,
-            Content::CommandEntry
-                | Content::Editable { .. }
-                | Content::Choices { .. }
-                | Content::Recovery { .. }
-                | Content::Actions { .. }
-                | Content::Conflict { .. }
-                | Content::CommitActions { .. }
-                | Content::StashActions { .. }
+            Content::CommandEntry | Content::Editable { .. } | Content::Actions(_)
         );
     let input_style = INPUT_STYLE;
     let accent = if active {
@@ -1061,18 +1029,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
     frame.render_widget(block, area);
     let mut surface = Surface::Plain;
     match content {
-        Content::Actions { items } => {
-            let selected = items.iter().find(|item| {
-                matches!(
-                    item.state,
-                    actions::State::Selected | actions::State::SelectedDisabled
-                )
-            });
-            surface = Surface::Actions {
-                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
-                selected: selected.map(|item| (item.target.hit(), item.label)),
-            };
-            actions::render(frame, inner, &items, &mut screen.pointer);
+        Content::Actions(row) => {
+            surface = row.render(frame, inner, &mut screen.pointer);
         }
         Content::CommandEntry => {
             let width = inner.width.saturating_sub(2) as usize;
@@ -1108,87 +1066,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
                 },
             );
         }
-        Content::Conflict { selected } => {
-            surface = Surface::Conflict {
-                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
-                selected,
-            };
-            conflict::render(frame, screen, inner, selected);
-        }
-        Content::Recovery { selected, enabled } => {
-            surface = Surface::Recovery {
-                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
-                selected,
-            };
-            super::replay::controls::render(frame, inner, selected, enabled, &mut screen.pointer);
-        }
-        Content::StashActions { session } => {
-            for (area, choice) in super::stash_save::actions(inner) {
-                let label = if choice == confirmation::Choice::Execute {
-                    i18n::tr!(ActionSave)
-                } else {
-                    i18n::tr!(ActionCancel)
-                };
-                frame.render_widget(
-                    Paragraph::new(Span::styled(
-                        format!(" {label} "),
-                        if session.focus == crate::stash_save::Focus::Actions(choice) {
-                            Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
-                        } else {
-                            Style::default().fg(Color::Gray)
-                        },
-                    )),
-                    area,
-                );
-            }
-        }
-        Content::CommitActions { draft } => {
-            for (area, action) in super::commit::options(inner, draft, screen.config.ai.enabled) {
-                frame.render_widget(
-                    Paragraph::new(Span::styled(
-                        format!(" {} ", action.label()),
-                        if draft.selected() == Some(action) {
-                            Style::default().fg(Color::Black).bg(INPUT_ACCENT).bold()
-                        } else {
-                            Style::default().fg(Color::Gray)
-                        },
-                    )),
-                    area,
-                );
-            }
-        }
-        Content::Choices {
-            choice,
-            execute,
-            back,
-        } => {
-            surface = Surface::Confirmation {
-                area: Rect::new(inner.x, inner.y, inner.width, inner.height.min(1)),
-                choice,
-            };
-            let button = |label: &str, focused: bool| {
-                Span::styled(
-                    format!(" {label} "),
-                    if focused {
-                        Style::default()
-                            .fg(Color::Black)
-                            .bg(INPUT_ACCENT)
-                            .add_modifier(Modifier::BOLD)
-                    } else {
-                        Style::default().fg(Color::Gray).bg(Color::Reset)
-                    },
-                )
-            };
-            frame.render_widget(
-                Paragraph::new(Line::from(vec![
-                    Span::raw(" "),
-                    button(execute, choice == confirmation::Choice::Execute),
-                    Span::raw("   "),
-                    button(back, choice == confirmation::Choice::Return),
-                ])),
-                inner,
-            );
-        }
         Content::Locked(text) => frame.render_widget(
             Paragraph::new(truncate(&text, inner.width as usize)).style(Style::default().fg(MUTED)),
             inner,
@@ -1199,8 +1076,8 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_ar
             .pointer
             .button(hit, crate::pointer::Action::RepositoryFilterField);
     }
-    screen.input_surface.update(frame, surface);
     render_hint(frame, hint_area, &hint);
+    surface
 }
 fn render_hint(frame: &mut Frame, area: Rect, hint: &str) {
     let hint_area = footer_text_area(area);

@@ -1,5 +1,5 @@
 //! Invalidate colored input surfaces together with their blank boundaries.
-use crate::confirmation::Choice;
+use super::actions::Row;
 use ratatui::{Frame, buffer::CellDiffOption, layout::Rect};
 
 /// Track the colored surface that was rendered in the previous frame.
@@ -9,31 +9,15 @@ pub(crate) enum Surface {
     Plain,
     Actions {
         area: Rect,
-        selected: Option<(crate::pointer::Hit, &'static str)>,
+        row: Row,
     },
     Prefix(Rect),
-    Conflict {
-        area: Rect,
-        selected: crate::conflict::controls::Action,
-    },
-    Recovery {
-        area: Rect,
-        selected: engine::operations::replay::Control,
-    },
-    Confirmation {
-        area: Rect,
-        choice: Choice,
-    },
 }
 impl Surface {
     fn area(&self) -> Option<Rect> {
         match *self {
             Self::Plain => None,
-            Self::Actions { area, .. }
-            | Self::Conflict { area, .. }
-            | Self::Prefix(area)
-            | Self::Recovery { area, .. }
-            | Self::Confirmation { area, .. } => Some(area),
+            Self::Actions { area, .. } | Self::Prefix(area) => Some(area),
         }
     }
     pub fn update(&mut self, frame: &mut Frame, next: Self) {
