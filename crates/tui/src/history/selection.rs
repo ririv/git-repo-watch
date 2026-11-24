@@ -1,13 +1,12 @@
 //! Commit marks exist only inside an explicitly entered selection mode.
+use crate::list_selection::Mode;
 use anyhow::{Result, ensure};
 use engine::local::history::Oid;
 use std::collections::BTreeSet;
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub(crate) enum Selection {
-    #[default]
-    Browsing,
-    Selecting(BTreeSet<Oid>),
+    List(Mode<BTreeSet<Oid>>),
     Actions(Box<super::menu::Menu>),
     Range {
         anchor: usize,
@@ -17,46 +16,54 @@ pub(crate) enum Selection {
     },
 }
 
+impl Default for Selection {
+    fn default() -> Self {
+        Self::List(Mode::default())
+    }
+}
+
 impl Selection {
     pub fn active(&self) -> bool {
-        !matches!(self, Self::Browsing)
+        match self {
+            Self::List(mode) => mode.active(),
+            Self::Actions(_) | Self::Range { .. } => true,
+        }
     }
     pub fn count(&self) -> usize {
         match self {
-            Self::Browsing => 0,
-            Self::Selecting(marked) => marked.len(),
+            Self::List(mode) => mode.marks().map_or(0, BTreeSet::len),
             Self::Actions(menu) => menu.count(),
             Self::Range { base, range, .. } => base.union(range).count(),
         }
     }
     pub fn contains(&self, oid: &Oid) -> bool {
         match self {
-            Self::Browsing => false,
-            Self::Selecting(marked) => marked.contains(oid),
+            Self::List(mode) => mode.marks().is_some_and(|marked| marked.contains(oid)),
             Self::Actions(menu) => menu.contains(oid),
             Self::Range { base, range, .. } => base.contains(oid) || range.contains(oid),
         }
     }
     pub fn begin(&mut self) -> &mut BTreeSet<Oid> {
         *self = match std::mem::take(self) {
-            Self::Browsing => Self::Selecting(BTreeSet::new()),
-            Self::Actions(menu) => Self::Selecting(menu.commits().into_iter().collect()),
+            Self::Actions(menu) => {
+                Self::List(Mode::Selecting(menu.commits().into_iter().collect()))
+            }
             Self::Range {
                 mut base, range, ..
             } => {
                 base.extend(range);
-                Self::Selecting(base)
+                Self::List(Mode::Selecting(base))
             }
             selecting => selecting,
         };
         match self {
-            Self::Selecting(marked) => marked,
-            Self::Browsing | Self::Range { .. } | Self::Actions(_) => unreachable!(),
+            Self::List(mode) => mode.begin(),
+            Self::Range { .. } | Self::Actions(_) => unreachable!(),
         }
     }
     pub fn retain(&mut self, mut keep: impl FnMut(&Oid) -> bool) {
         self.settle();
-        if let Self::Selecting(marked) = self {
+        if let Self::List(Mode::Selecting(marked)) = self {
             marked.retain(|oid| keep(oid));
         }
     }
@@ -67,8 +74,8 @@ impl Selection {
     }
     pub fn extend(&mut self, from: usize, tip: usize, oid: impl Fn(usize) -> Oid) -> Result<()> {
         let (anchor, base) = match self {
-            Self::Browsing | Self::Actions(_) => return Ok(()),
-            Self::Selecting(marked) => (from, marked.clone()),
+            Self::List(Mode::Browsing) | Self::Actions(_) => return Ok(()),
+            Self::List(Mode::Selecting(marked)) => (from, marked.clone()),
             Self::Range {
                 anchor, tip, base, ..
             } if *tip == from => (*anchor, base.clone()),
@@ -94,7 +101,7 @@ impl Selection {
         Ok(())
     }
     pub fn finish(&mut self) {
-        *self = Self::Browsing;
+        *self = Self::default();
     }
     pub fn open_actions(&mut self, commits: Vec<Oid>, replay_allowed: bool) -> bool {
         let Some(menu) = super::menu::Menu::new(commits, replay_allowed) else {

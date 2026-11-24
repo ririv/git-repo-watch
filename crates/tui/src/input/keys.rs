@@ -525,6 +525,7 @@ impl Screen {
             },
             Mode::Files(mut session) => {
                 match key.code {
+                    KeyCode::Esc if session.selected.active() => session.selected.finish(),
                     KeyCode::Esc | KeyCode::Left => {
                         self.message.clear();
                         if self.page == Page::Detail {

@@ -161,6 +161,51 @@ fn selection_children_require_a_history_graph_and_cannot_modify_repository_files
 }
 
 #[test]
+fn worktree_checkboxes_follow_the_same_browse_and_select_lifecycle_as_history() {
+    let f = support::Fixture::create();
+    support::write(f.repo.join("a.txt"), "one");
+    support::write(f.repo.join("b.txt"), "two");
+
+    for in_changes in [false, true] {
+        let (_home, mut screen) = fixture(vec![f.repo.clone()]);
+        if in_changes {
+            command(&mut screen, "repo diff unstaged");
+            wait(&mut screen);
+        } else {
+            open_files(&mut screen);
+        }
+        let browse = render(&mut screen, 120, 30);
+        assert!(
+            browse.contains("a.txt") && !browse.contains("[ ]"),
+            "{browse}"
+        );
+
+        command(&mut screen, "select");
+        let selected = render(&mut screen, 120, 30);
+        assert!(
+            selected.contains("[✓]")
+                && selected.contains("[ ]")
+                && selected.contains(i18n::tr!(WorktreeSelectionHint)),
+            "{selected}"
+        );
+
+        command(&mut screen, "select");
+        let empty = render(&mut screen, 120, 30);
+        assert!(empty.contains("[ ]") && !empty.contains("[✓]"), "{empty}");
+        assert!(screen.worktree_file_list().unwrap().selected.active());
+
+        command(&mut screen, "select all");
+        assert_eq!(screen.worktree_file_list().unwrap().selected.len(), 2);
+        key(&mut screen, KeyCode::Esc);
+        let files = screen.worktree_file_list().unwrap();
+        assert!(!files.selected.active());
+        assert!(files.selected.is_empty());
+        assert!(!render(&mut screen, 120, 30).contains("[ ]"));
+        screen.shutdown();
+    }
+}
+
+#[test]
 fn worktree_select_uses_visible_files_in_the_focused_group_and_leaves_the_index_untouched() {
     let f = support::Fixture::create();
     for name in ["keep-a.txt", "keep-b.txt", "other.txt", "staged.txt"] {

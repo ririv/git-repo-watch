@@ -254,7 +254,7 @@ fn empty_file_groups_hide_after_filtering_staging_unstaging_and_refresh() {
                 let area = s.body_area.unwrap();
                 assert_eq!(
                     s.pointer.hit(Position::new(area.x + 1, area.y + 2)),
-                    Some(Hit::FileCheckbox(0))
+                    Some(Hit::Item(Target::Files, 0))
                 );
                 assert_eq!(
                     s.pointer.hit(Position::new(area.x + 5, area.y + 2)),

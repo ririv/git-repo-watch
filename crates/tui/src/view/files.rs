@@ -33,14 +33,19 @@ pub(super) fn render(
         );
         return;
     }
-    let pinned = usize::from((super::checkbox::WIDTH + 1).min(inner.width));
+    let selecting = session.selected.active();
+    let pinned = if selecting {
+        usize::from((super::checkbox::WIDTH + 1).min(inner.width))
+    } else {
+        0
+    };
     let path_width = usize::from(inner.width).saturating_sub(pinned + 2);
     let widest = list.widest(options.icons, |row| {
         label_width(session, row, options.icons)
     });
     session
         .horizontal
-        .constrain(widest.saturating_sub(pinned + path_width));
+        .constrain(widest.saturating_sub(path_width));
 
     let selected = list.position(&session.cursor);
     let mut offset = session
@@ -104,8 +109,10 @@ pub(super) fn render(
         };
         let line = Rect::new(inner.x, inner.y + visible as u16, inner.width, 1);
         hits.item(line, crate::pointer::Target::Files, *index);
-        // 复选框单独命中，分组标题不参与选择或勾选。
-        hits.file_checkbox(Rect::new(line.x, line.y, 3, 1).intersection(line), *index);
+        if selecting {
+            let checkbox = Rect::new(line.x, line.y, super::checkbox::WIDTH, 1);
+            hits.file_checkbox(checkbox.intersection(line), *index);
+        }
     }
 }
 
@@ -114,7 +121,7 @@ fn label_width(session: &FileSession, row: &Row, icons: crate::file_icons::Displ
     let Row::Entry { entry, .. } = row else {
         return 0;
     };
-    let width = match entry {
+    match entry {
         File::Directory {
             prefix,
             label,
@@ -142,8 +149,7 @@ fn label_width(session: &FileSession, row: &Row, icons: crate::file_icons::Displ
                     .map(Span::width)
                     .sum::<usize>()
         }
-    };
-    usize::from(super::checkbox::WIDTH) + 1 + width
+    }
 }
 fn directory_icon(
     icons: crate::file_icons::Display,
@@ -166,8 +172,11 @@ fn label(
     } else {
         Emphasis::Other
     };
-    let mut spans = super::checkbox::spans(session.check_state(entry, group));
-    spans.push(Span::raw(" "));
+    let mut spans = Vec::new();
+    if session.selected.active() {
+        spans.extend(super::checkbox::spans(session.check_state(entry, group)));
+        spans.push(Span::raw(" "));
+    }
     let (path, marker) = match entry {
         crate::files::tree::Row::Directory {
             prefix,

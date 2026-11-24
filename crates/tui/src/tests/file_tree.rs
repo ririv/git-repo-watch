@@ -59,6 +59,16 @@ pub(super) fn checkbox_point(s: &Screen, index: usize) -> Position {
     })).expect("visible checkbox")
 }
 
+pub(super) fn file_item_point(s: &Screen, index: usize) -> Position {
+    (0..40)
+        .find_map(|y| {
+            let point = Position::new(5, y);
+            (s.pointer.hit(point) == Some(Hit::Item(crate::pointer::Target::Files, index)))
+                .then_some(point)
+        })
+        .expect("visible file list item")
+}
+
 #[test]
 fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_partial_checks() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
@@ -69,8 +79,8 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         wait(&mut s);
         render(&mut s, 160, 40);
         let id = directory_id(&s, Group::Unstaged);
-        let checkbox = checkbox_point(&s, id);
-        click(&mut s, Position::new(checkbox.x + 5, checkbox.y));
+        let directory = file_item_point(&s, id);
+        click(&mut s, directory);
         let files = s.mode.file_session().unwrap();
         assert!(files.current().is_none());
         assert!(files.selected.is_empty());
@@ -125,6 +135,7 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         assert_eq!(refreshed.selection(), current.selection());
         key(&mut s, KeyCode::Insert);
         render(&mut s, 160, 40);
+        let checkbox = checkbox_point(&s, directory_id(&s, Group::Unstaged));
         click(&mut s, checkbox);
         assert_eq!(s.mode.file_session().unwrap().selected.len(), 2);
         click(&mut s, checkbox);
@@ -132,6 +143,7 @@ fn directory_keyboard_and_pointer_selection_keeps_groups_separate_and_shows_part
         render(&mut s, 160, 40);
         command(&mut s, "repo diff staged");
         wait(&mut s);
+        command(&mut s, "select clear");
         render(&mut s, 160, 40);
         let staged = checkbox_point(&s, directory_id(&s, Group::Staged));
         click(&mut s, staged);
@@ -168,8 +180,8 @@ fn filtered_directory_operations_only_stage_visible_files_and_flat_layout_preser
     wait(&mut s);
     s.paste("b.ts");
     render(&mut s, 160, 40);
-    let point = checkbox_point(&s, directory_id(&s, Group::Unstaged));
-    click(&mut s, Position::new(point.x + 5, point.y));
+    let directory = file_item_point(&s, directory_id(&s, Group::Unstaged));
+    click(&mut s, directory);
     let files = s.mode.file_session().unwrap();
     assert!(files.selected.is_empty());
     assert_eq!(files.selection().len(), 1);
@@ -230,6 +242,7 @@ fn file_modes_preserve_selection_preview_and_group_identity_in_both_languages() 
         command(&mut s, "repo diff");
         wait(&mut s);
         assert_eq!(s.file_layout, Layout::Tree);
+        command(&mut s, "select clear");
         let text = render(&mut s, 160, 40);
         assert!(text.contains("src/") && text.contains("中文 目录/"));
         // 目录与文件各有命中行；同一路径在暂存与未暂存区的文件身份仍然独立。

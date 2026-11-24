@@ -4,7 +4,7 @@ mod folding;
 pub(crate) mod list;
 pub(crate) use folding::Expansion;
 pub(super) mod tree;
-use crate::{Change, Files};
+use crate::{Change, Files, list_selection::Mode};
 pub(crate) use cursor::{CheckState, Cursor, Group, MarkEdit};
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
@@ -28,33 +28,59 @@ impl Layout {
 }
 use std::{collections::BTreeSet, sync::Arc};
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct GroupMarks {
+    group: Group,
+    indices: BTreeSet<usize>,
+}
+
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(super) struct Marks(Option<(Group, BTreeSet<usize>)>);
+pub(super) struct Marks(Mode<Option<GroupMarks>>);
 
 impl Marks {
+    pub fn active(&self) -> bool {
+        self.0.active()
+    }
+
+    fn group_marks(&self) -> Option<&GroupMarks> {
+        self.0.marks().and_then(Option::as_ref)
+    }
+
     fn indices(&self, group: Group) -> Option<&BTreeSet<usize>> {
+        self.group_marks()
+            .filter(|marks| marks.group == group)
+            .map(|marks| &marks.indices)
+    }
+
+    fn take(&mut self, group: Group) -> BTreeSet<usize> {
         self.0
-            .as_ref()
-            .filter(|(active, _)| *active == group)
-            .map(|(_, indices)| indices)
+            .begin()
+            .take()
+            .filter(|marks| marks.group == group)
+            .map(|marks| marks.indices)
+            .unwrap_or_default()
     }
 
     fn replace(&mut self, group: Group, indices: BTreeSet<usize>) {
-        self.0 = (!indices.is_empty()).then_some((group, indices));
+        *self.0.begin() = (!indices.is_empty()).then_some(GroupMarks { group, indices });
     }
 
     pub fn clear(&mut self) {
-        self.0 = None;
+        *self.0.begin() = None;
+    }
+
+    pub fn finish(&mut self) {
+        self.0.finish();
     }
 
     #[cfg(test)]
     pub fn len(&self) -> usize {
-        self.0.as_ref().map_or(0, |(_, indices)| indices.len())
+        self.group_marks().map_or(0, |marks| marks.indices.len())
     }
 
     #[cfg(test)]
     pub fn is_empty(&self) -> bool {
-        self.0.is_none()
+        self.group_marks().is_none()
     }
 }
 
@@ -127,7 +153,10 @@ impl FileSession {
         if next.rows().is_empty() {
             next.cursor = Cursor::Empty;
         }
-        if let Some((group, indices)) = &self.selected.0 {
+        if self.selected.active() {
+            next.selected.clear();
+        }
+        if let Some(GroupMarks { group, indices }) = self.selected.group_marks() {
             let selected = indices
                 .iter()
                 .map(|index| &self.snapshot.changes[*index])
@@ -194,11 +223,10 @@ impl FileSession {
         if let Some(group) = scope
             && self
                 .selected
-                .0
-                .as_ref()
-                .is_some_and(|(marked, _)| *marked != group)
+                .group_marks()
+                .is_some_and(|marks| marks.group != group)
         {
-            self.selected = Marks::default();
+            self.selected.clear();
         }
         let rows = self.rows();
         self.cursor = if rows.is_empty() {
@@ -299,10 +327,9 @@ impl FileSession {
     }
     pub fn all_marked_changes(&self) -> impl Iterator<Item = &Change> {
         self.selected
-            .0
-            .as_ref()
+            .group_marks()
             .into_iter()
-            .flat_map(|(_, indices)| indices)
+            .flat_map(|marks| &marks.indices)
             .map(|index| &self.snapshot.changes[*index])
     }
 

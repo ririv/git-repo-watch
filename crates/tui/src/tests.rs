@@ -439,7 +439,7 @@ fn file_selection_commit_and_push_through_command_bar() {
         wait(&mut s);
         assert!(matches!(&s.mode, Mode::Changes(_)));
         assert!(render(&mut s, 100, 28).contains("+│one"));
-        key(&mut s, KeyCode::Esc);
+        key(&mut s, KeyCode::Left);
         key(&mut s, KeyCode::Char('/'));
         key(&mut s, KeyCode::Esc);
         assert!(matches!(&s.mode,Mode::Files(session)if session.selected.len()==1));

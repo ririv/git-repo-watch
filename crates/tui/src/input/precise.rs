@@ -237,7 +237,7 @@ impl Screen {
                     Mode::Changes(session) => &mut session.files,
                     _ => return false,
                 };
-                if !files.select_row(index, self.file_layout) {
+                if !files.selected.active() || !files.select_row(index, self.file_layout) {
                     return false;
                 }
                 files.toggle_current();

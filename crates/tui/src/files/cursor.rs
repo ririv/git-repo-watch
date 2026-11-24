@@ -221,13 +221,7 @@ impl FileSession {
         if indices.is_empty() {
             return;
         }
-        let mut marked = self
-            .selected
-            .0
-            .take()
-            .filter(|(active, _)| *active == group)
-            .map(|(_, indices)| indices)
-            .unwrap_or_default();
+        let mut marked = self.selected.take(group);
         if toggle && indices.is_subset(&marked) {
             marked.retain(|index| !indices.contains(index));
         } else {

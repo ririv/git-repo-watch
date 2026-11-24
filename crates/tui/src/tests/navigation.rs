@@ -176,6 +176,11 @@ fn view_commands_open_full_views_and_return_to_the_focused_pane() {
             wait(&mut s);
             assert_eq!(s.history.len(), depth);
             key(&mut s, KeyCode::Esc);
+            if view == View::Diff {
+                assert_eq!(s.page, Page::View(View::Diff));
+                assert!(!s.mode.file_session().unwrap().selected.active());
+                key(&mut s, KeyCode::Esc);
+            }
             assert_eq!(s.page, Page::Detail);
             assert_eq!(Section::of(&s.mode), Section::Worktree);
             let restored = s.mode.file_session().unwrap();

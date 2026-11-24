@@ -30,6 +30,7 @@ pub enum Message {
     ReadCommandHistoryFailed,
     SaveCommandHistoryFailed,
     WorktreeHorizontalHint,
+    WorktreeSelectionHint,
     ConflictControlsTitle,
     ConflictControlsHint,
     ConflictChoiceLeft,
@@ -1712,6 +1713,12 @@ impl Message {
             }
             (Self::WorktreeHorizontalHint, Language::English) => {
                 "↑↓ select · ←→ scroll · Enter diff · Esc back · Space check"
+            }
+            (Self::WorktreeSelectionHint, Language::Chinese) => {
+                "Esc 退出选择 · ↑↓ 移动 · Space/Ins 勾选 · Ctrl+A 全选"
+            }
+            (Self::WorktreeSelectionHint, Language::English) => {
+                "Esc exit selection · ↑↓ move · Space/Ins mark · Ctrl+A select all"
             }
             (Self::ConflictControlsTitle, Language::Chinese) => "冲突处理",
             (Self::ConflictControlsTitle, Language::English) => "Resolve conflicts",

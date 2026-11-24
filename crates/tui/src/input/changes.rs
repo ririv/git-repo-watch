@@ -9,7 +9,13 @@ use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
 impl Screen {
     pub(crate) fn changes_key(&mut self, mut session: Box<crate::changes::Session>, key: KeyEvent) {
         let empty = self.bar.editor().text.is_empty();
-        if empty && matches!(key.code, KeyCode::Esc | KeyCode::Left) {
+        if empty
+            && key.code == KeyCode::Esc
+            && session.focus == Focus::Files
+            && session.files.selected.active()
+        {
+            session.files.selected.finish();
+        } else if empty && matches!(key.code, KeyCode::Esc | KeyCode::Left) {
             if session.arrangement == Arrangement::Maximized {
                 session.arrangement = Arrangement::Tiled;
             } else if session.focus == Focus::Preview {

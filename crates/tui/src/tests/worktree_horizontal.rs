@@ -64,6 +64,7 @@ fn worktree_paths_scroll_in_both_layouts_and_repository_panes_without_moving_sel
             assert_eq!(s.mode.file_session().unwrap().cursor, before);
             assert_eq!(s.mode.file_session().unwrap().horizontal.offset(), 4);
             key(&mut s, KeyCode::Insert);
+            assert!(has_track(&mut s, 120, 32));
             for _ in 0..80 {
                 key(&mut s, KeyCode::Right);
             }

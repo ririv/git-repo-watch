@@ -694,9 +694,15 @@ fn file_checkboxes_toggle_filtered_staged_and_unstaged_rows_without_entering_or_
     ] {
         command(&mut s, view);
         wait(&mut s);
+        let points = || (0..32).flat_map(|y| (0..width).map(move |x| Position::new(x, y)));
         render(&mut s, width, 32);
-        let point = (0..32)
-            .flat_map(|y| (0..width).map(move |x| Position::new(x, y)))
+        assert!(!points().any(|point| matches!(
+            s.pointer.hit(point),
+            Some(crate::pointer::Hit::FileCheckbox(_))
+        )));
+        command(&mut s, "select clear");
+        render(&mut s, width, 32);
+        let point = points()
             .find(|point| {
                 matches!(
                     s.pointer.hit(*point),

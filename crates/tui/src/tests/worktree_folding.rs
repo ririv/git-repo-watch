@@ -1,7 +1,6 @@
-use super::file_tree::{checkbox_point, click, directory_fixture, directory_id};
+use super::file_tree::{checkbox_point, click, directory_fixture, directory_id, file_item_point};
 use super::*;
 use crate::files::{Cursor, Group, Layout};
-use ratatui::layout::Position;
 
 fn files_mut(s: &mut Screen) -> &mut FileSession {
     match &mut s.mode {
@@ -117,8 +116,7 @@ fn worktree_directory_click_folds_once_per_pair_and_checkbox_only_marks() {
     command(&mut s, "repo diff");
     wait(&mut s);
     render(&mut s, 160, 40);
-    let point = checkbox_point(&s, directory_id(&s, Group::Unstaged));
-    let name = Position::new(point.x + 5, point.y);
+    let name = file_item_point(&s, directory_id(&s, Group::Unstaged));
     for state in [Collapsed, Collapsed, Expanded, Expanded] {
         click(&mut s, name);
         assert_eq!(
@@ -128,6 +126,9 @@ fn worktree_directory_click_folds_once_per_pair_and_checkbox_only_marks() {
         assert!(s.mode.file_session().unwrap().selected.is_empty());
         render(&mut s, 160, 40);
     }
+    command(&mut s, "select clear");
+    render(&mut s, 160, 40);
+    let point = checkbox_point(&s, directory_id(&s, Group::Unstaged));
     for count in [2, 0] {
         click(&mut s, point);
         assert_eq!(s.mode.file_session().unwrap().selected.len(), count);

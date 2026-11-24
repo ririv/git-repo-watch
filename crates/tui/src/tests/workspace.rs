@@ -246,6 +246,8 @@ fn repository_sections_reuse_file_diff_and_history_views_and_preserve_their_sess
         wait(&mut s);
         assert!(matches!(s.mode, Mode::Changes(_)));
         assert!(render(&mut s, 120, 30).contains("export const pending"));
+        key(&mut s, KeyCode::Left);
+        assert!(matches!(s.mode, Mode::Files(_)));
         focus(&mut s, crate::workspace::Section::History);
         assert!(matches!(s.mode, Mode::History(_)));
         key(&mut s, KeyCode::Down);

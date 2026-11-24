@@ -427,10 +427,20 @@ fn browsing_hint(screen: &Screen) -> &'static str {
     if screen.focused_replay_control().is_some() {
         return i18n::tr!(ReplayControlsHint);
     }
-    if matches!(input_mode(screen), Mode::Files(files) if files.horizontal.overflowing())
-        || matches!(input_mode(screen), Mode::Changes(session) if session.focus == crate::changes::Focus::Files && session.files.horizontal.overflowing())
-    {
-        return i18n::tr!(WorktreeHorizontalHint);
+    let files = match input_mode(screen) {
+        Mode::Files(files) => Some(files),
+        Mode::Changes(session) if session.focus == crate::changes::Focus::Files => {
+            Some(&session.files)
+        }
+        _ => None,
+    };
+    if let Some(files) = files {
+        if files.selected.active() {
+            return i18n::tr!(WorktreeSelectionHint);
+        }
+        if files.horizontal.overflowing() {
+            return i18n::tr!(WorktreeHorizontalHint);
+        }
     }
     match input_mode(screen) {
         Mode::Browsing | Mode::RepositoryEnvironment(_) => match screen.page {
