@@ -1,5 +1,7 @@
 use engine::state::Store;
-use std::{fs, os::unix::fs::PermissionsExt};
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 #[test]
 fn command_history_is_private_bounded_deduplicated_and_isolated_per_profile() {
@@ -28,7 +30,9 @@ fn command_history_is_private_bounded_deduplicated_and_isolated_per_profile() {
             .unwrap()
             .is_empty()
     );
+    #[cfg(unix)]
     let path = store.state_dir().join("command-history.json");
+    #[cfg(unix)]
     assert_eq!(
         fs::metadata(path).unwrap().permissions().mode() & 0o777,
         0o600

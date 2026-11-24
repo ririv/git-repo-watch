@@ -1,3 +1,4 @@
+#![cfg(unix)]
 use engine::{
     cancel::Cancel,
     domain::Publication,
@@ -6,7 +7,9 @@ use engine::{
     service::{ConfigEdit, Service},
     state::{Config, Store},
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::Path};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::Path};
 use test_support::{Fixture, write};
 
 fn executable(path: &Path, body: &str) {
@@ -50,7 +53,7 @@ fn manual_and_scheduled_pushes_apply_only_their_worktree_git_environment() {
         .unwrap();
     let service = Service::new(
         store,
-        Manager::for_user(home.path().to_owned(), unsafe { libc::getuid() }).unwrap(),
+        Manager::for_current_user_in(home.path().to_owned()).unwrap(),
     );
     let configure = |edit| {
         service

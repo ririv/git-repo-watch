@@ -50,5 +50,5 @@ pub(crate) fn generate_json(
     Ok(serde_json::from_str(&text)?)
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests;

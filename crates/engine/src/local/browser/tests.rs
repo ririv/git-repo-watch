@@ -65,6 +65,7 @@ fn statuses_preserve_index_worktree_changes_deletions_and_detached_head() {
     ));
 }
 
+#[cfg(unix)]
 #[test]
 fn previews_and_search_do_not_follow_symlinks_or_include_ignored_files() {
     use std::os::unix::fs::symlink;

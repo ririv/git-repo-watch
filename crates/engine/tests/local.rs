@@ -9,11 +9,9 @@ use engine::{
     operations::{commit, push},
     transport::Git,
 };
-use std::{
-    fs,
-    os::unix::fs::{PermissionsExt, symlink},
-    path::Path,
-};
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
+use std::{fs, path::Path};
 use test_support::*;
 fn change(snapshot: &Files, name: &str, area: Area) -> Change {
     snapshot
@@ -73,7 +71,15 @@ fn literal_selected_files_and_initial_unstage() {
     let temp = tempfile::tempdir().unwrap();
     let path = fs::canonicalize(temp.path()).unwrap().join("initial");
     init(&path);
-    for name in ["file[1]", "file1", ":(glob)*", "-option", "换行\n名字"] {
+    let names = [
+        "file[1]",
+        "-option",
+        #[cfg(unix)]
+        ":(glob)*",
+        #[cfg(unix)]
+        "换行\n名字",
+    ];
+    for name in names.into_iter().chain(["file1"]) {
         write(path.join(name), name);
     }
     write(path.join(".gitignore"), "secret\n");
@@ -84,7 +90,7 @@ fn literal_selected_files_and_initial_unstage() {
             .iter()
             .any(|c| c.location.name() == Path::new("secret"))
     );
-    for name in ["file[1]", ":(glob)*", "-option", "换行\n名字"] {
+    for name in names {
         let c = change(&s, name, Area::Untracked);
         assert!(files::diff(&s, &c).unwrap().contains("new file"));
         s = files::edit(&s, IndexAction::Stage, &[c]).unwrap();
@@ -126,6 +132,7 @@ fn rename_and_stale_index_review() {
         .contains("暂存区已变化")
     );
 }
+#[cfg(unix)]
 #[test]
 fn untracked_symlink_does_not_read_target() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -160,8 +167,8 @@ fn commit_preserves_unselected_changes_and_hooks() {
     git(&f.repo, &["add", "hook-test"]);
     let plan = review::prepare(&f.repo).unwrap();
     let hook = f.repo.join(".git/hooks/pre-commit");
-    write(&hook, "#!/bin/sh\nexit 1\n");
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\nexit 1\n");
+
     let before = git(&f.repo, &["rev-parse", "HEAD"]);
     assert!(commit::execute(&Git::default(), &plan, "拒绝", &Cancel::default()).is_err());
     assert_eq!(before, git(&f.repo, &["rev-parse", "HEAD"]));
@@ -178,11 +185,11 @@ fn commit_requires_fresh_snapshot_and_reports_hook_changes() {
     assert!(commit::execute(&Git::default(), &plan, "stale", &Cancel::default()).is_err());
     let plan = review::prepare(&f.repo).unwrap();
     let hook = f.repo.join(".git/hooks/pre-commit");
-    write(
+    test_support::write_git_hook(
         &hook,
         "#!/bin/sh\nprintf hook > hook-file\ngit add hook-file\n",
     );
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+
     let result =
         commit::execute(&Git::default(), &plan, "hook modifies", &Cancel::default()).unwrap();
     assert_eq!(result.review, commit::Review::Changed);
@@ -276,7 +283,7 @@ fn submodule_worktree_changes_override_ignore_configuration() {
             "protocol.file.allow=always",
             "submodule",
             "add",
-            sub.remote.to_str().unwrap(),
+            &test_support::shell_path(&sub.remote),
             "sub",
         ],
     );
@@ -357,8 +364,8 @@ fn changed_push_url_and_server_rejection_preserve_remote() {
     assert_eq!(before, git(&f.remote, &["rev-parse", "main"]));
     git(&f.repo, &["config", "--unset", "remote.origin.pushurl"]);
     let hook = f.remote.join("hooks/pre-receive");
-    write(&hook, "#!/bin/sh\nprintf rejected >&2\nexit 1\n");
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\nprintf rejected >&2\nexit 1\n");
+
     assert!(matches!(
         push::execute(&Git::default(), &plan, &Cancel::default()),
         Publication::Failed {
@@ -374,7 +381,7 @@ fn url_rewrites_compare_effective_fetch_and_push_destinations() {
     let _language = i18n::using(i18n::Language::Chinese);
     let f = Fixture::create();
     f.commit("ahead", "ahead");
-    let real = f.remote.to_str().unwrap();
+    let real = test_support::shell_path(&f.remote);
     git(&f.repo, &["remote", "set-url", "origin", "alias:remote"]);
     git(
         &f.repo,
@@ -387,7 +394,7 @@ fn url_rewrites_compare_effective_fetch_and_push_destinations() {
             "config",
             &format!(
                 "url.{}.pushInsteadOf",
-                f.temp.path().join("other.git").display()
+                test_support::shell_path(&f.temp.path().join("other.git"))
             ),
             "alias:",
         ],

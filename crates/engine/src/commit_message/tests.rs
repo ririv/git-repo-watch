@@ -1,17 +1,21 @@
 use super::*;
+#[cfg(unix)]
 use crate::ai::{
     Agent,
     text::{runner, wire},
 };
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 use std::{
-    fs,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     thread,
     time::{Duration, Instant},
 };
 use test_support as support;
 
+#[cfg(unix)]
 fn generate_program(
     plan: &CommitPlan,
     config: &Config,
@@ -29,6 +33,7 @@ fn generate_program(
         )
     })
 }
+#[cfg(unix)]
 fn executable(directory: &Path, script: &str) -> PathBuf {
     let path = directory.join("mock agent 中文");
     fs::write(
@@ -41,6 +46,7 @@ fn executable(directory: &Path, script: &str) -> PathBuf {
     fs::set_permissions(&path, fs::Permissions::from_mode(0o700)).unwrap();
     path
 }
+#[cfg(unix)]
 fn mock_agent(directory: &Path, message: &str, pause: &str) -> PathBuf {
     use serde_json::json;
     let split = message
@@ -111,6 +117,7 @@ fn staged(f: &support::Fixture) -> CommitPlan {
     support::git(&f.repo, &["add", "--", "中文 staged.txt"]);
     local::review::prepare(&f.repo).unwrap()
 }
+#[cfg(unix)]
 fn await_file(path: &Path) {
     let start = Instant::now();
     while !path.exists() {
@@ -118,6 +125,7 @@ fn await_file(path: &Path) {
         thread::sleep(Duration::from_millis(5));
     }
 }
+#[cfg(unix)]
 #[test]
 fn both_adapters_send_only_staged_context_and_keep_repository_untouched() {
     let f = support::Fixture::create();
@@ -186,6 +194,7 @@ fn context_handles_first_commit_and_binary_metadata() {
     let text = context::read(&plan, &Cancel::default()).unwrap();
     assert!(text.contains("binary.dat") && text.contains("Binary files"));
 }
+#[cfg(unix)]
 #[test]
 fn stale_staging_is_rejected_after_agent_completes() {
     let f = support::Fixture::create();
@@ -206,6 +215,7 @@ fn stale_staging_is_rejected_after_agent_completes() {
     let error = handle.join().unwrap().unwrap_err().to_string();
     assert_eq!(error, i18n::tr!(StagedContentsChangedReviewTheCommitAgain));
 }
+#[cfg(unix)]
 #[test]
 fn generation_reports_cli_failures_and_invalid_results_without_guessing() {
     let f = support::Fixture::create();
@@ -224,6 +234,7 @@ fn generation_reports_cli_failures_and_invalid_results_without_guessing() {
     let program = Path::new("/definitely-missing-agent");
     assert!(generate_program(&plan, &config, program, &Cancel::default()).is_err());
 }
+#[cfg(unix)]
 #[test]
 fn cancellation_timeout_and_output_limits_terminate_background_processes() {
     use crate::process::conversation::{self, Completion};
@@ -327,6 +338,7 @@ fn disabled_ai_rejects_generation_before_invoking_an_agent() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn selected_prompt_is_used_whole_and_restoring_default_restores_builtin_rules() {
     let f = support::Fixture::create();
@@ -357,6 +369,7 @@ fn selected_prompt_is_used_whole_and_restoring_default_restores_builtin_rules() 
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn both_adapters_preserve_multiline_messages_beyond_the_old_subject_limit() {
     for agent in [Agent::Codex, Agent::Claude] {
@@ -386,6 +399,7 @@ fn both_adapters_preserve_multiline_messages_beyond_the_old_subject_limit() {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn multiline_generation_rejects_empty_control_fenced_and_oversized_output_without_truncation() {
     let f = support::Fixture::create();
@@ -413,6 +427,7 @@ fn multiline_generation_rejects_empty_control_fenced_and_oversized_output_withou
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn real_deltas_arrive_before_completion_and_cancel_reaps_the_stream() {
     for agent in [Agent::Codex, Agent::Claude] {

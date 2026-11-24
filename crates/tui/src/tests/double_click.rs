@@ -58,7 +58,7 @@ fn double_click_opens_repository_once_and_single_click_only_selects() {
 #[test]
 fn blank_scrollbar_keyboard_and_disabled_clicks_do_not_activate_rows() {
     let paths = (0..30)
-        .map(|i| PathBuf::from(format!("/example/repo-{i:02}")))
+        .map(|i| PathBuf::from(format!("{}/repo-{i:02}", fixture_path!("/example"))))
         .collect();
     let (_home, mut s) = fixture(paths);
     let (x, y) = item_position(&mut s, crate::pointer::Target::Repositories, 0);
@@ -152,12 +152,13 @@ fn settings_double_click_toggles_once_and_schedule_double_click_stops_at_confirm
     wait(&mut s);
     assert!(!s.config.mouse.scroll);
     command(&mut s, "schedule");
+    s.snapshot.registration = Registration::Loaded;
     let index = Configuration::Schedule
         .actions(&s.snapshot)
         .iter()
         .position(|action| *action == Action::DisableSchedule)
         .unwrap();
-    let (x, y) = item_position(&mut s, crate::pointer::Target::Settings, index);
+    let (x, y) = item_position(&mut s, crate::pointer::Target::ScheduleButton, index);
     click(&mut s, x, y);
     click(&mut s, x, y);
     assert!(matches!(

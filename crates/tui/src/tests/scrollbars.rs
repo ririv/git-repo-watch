@@ -4,7 +4,7 @@ use super::*;
 fn repository_scrollbar_only_appears_when_rows_overflow_after_resize() {
     let (_home, mut s) = fixture(
         (0..26)
-            .map(|i| PathBuf::from(format!("/example/repo{i:02}")))
+            .map(|i| PathBuf::from(format!("{}/repo{i:02}", fixture_path!("/example"))))
             .collect(),
     );
     for height in [40, 18, 40] {

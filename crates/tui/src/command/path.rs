@@ -78,6 +78,16 @@ struct PathInput {
     trailing: String,
     format: Format,
 }
+fn filesystem_root(user_home: &Path) -> Result<&str> {
+    user_home
+        .ancestors()
+        .last()
+        .filter(|root| root.is_absolute())
+        .context(i18n::tr!(EnterAnAbsolutePath))?
+        .to_str()
+        .context(i18n::tr!(UneditableDirectoryName))
+}
+
 impl PathInput {
     fn at(editor: &Editor, user_home: &Path) -> Result<Option<Self>> {
         let Some((argument, raw)) =
@@ -121,7 +131,8 @@ impl PathInput {
         let position = (editor.cursor - content_start).min(content.len());
         // 空参数明确从文件系统根目录开始，不猜测某个仓库或进程目录。
         let (content, position) = if content.is_empty() {
-            ("/", 1)
+            let root = filesystem_root(user_home)?;
+            (root, root.len())
         } else if content == "~" && position == 1 {
             ("~/", 2)
         } else {
@@ -187,14 +198,15 @@ impl PathInput {
             (position..position, String::new(), 0, None)
         };
         let root = if index == 0 {
-            PathBuf::from("/")
+            PathBuf::from(filesystem_root(home)?)
         } else {
             let root = engine::paths::expand_home(&tokens[0].value, home)?;
             ensure!(root.is_absolute(), i18n::tr!(EnterAnAbsolutePath));
             root
         };
         let (content, position) = if content.is_empty() && index == 0 {
-            ("/".to_owned(), 1)
+            let root = filesystem_root(home)?;
+            (root.to_owned(), root.len())
         } else if content == "~" && position == 1 {
             ("~/".to_owned(), 2)
         } else {
@@ -234,7 +246,7 @@ impl PathInput {
         let mut value = format!("{}{name}", self.parent);
         let mut position = value.len();
         if directory {
-            if !self.suffix.starts_with('/') {
+            if !self.suffix.starts_with(std::path::is_separator) {
                 value.push('/');
             }
             position += 1;

@@ -15,7 +15,7 @@ fn service(f: &Fixture) -> (tempfile::TempDir, Service) {
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().into());
     store.initialize().unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let service = Service::new(store, manager);
     service.add(std::slice::from_ref(&f.repo)).unwrap();
     (home, service)

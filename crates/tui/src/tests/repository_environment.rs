@@ -21,7 +21,11 @@ fn repository_environment_page_edits_the_captured_worktree_and_keeps_variable_va
     key(&mut s, KeyCode::Enter);
     wait(&mut s);
     assert!(matches!(&s.mode, Mode::RepositoryEnvironment(path) if path == &first.repo));
-    assert!(render(&mut s, 90, 25).contains(".venv/bin"));
+    assert!(
+        render(&mut s, 90, 25)
+            .replace('\\', "/")
+            .contains(".venv/bin")
+    );
     s.focus(Some(second.repo.clone()));
     command(&mut s, "repo env set 'GW_TEST_VALUE=fixture value'");
     key(&mut s, KeyCode::Enter);
@@ -47,7 +51,10 @@ fn reopening_repository_environment_displays_persisted_absolute_path_directories
     s.service
         .configure(ConfigEdit::RepositoryEnvironment {
             path: f.repo.clone(),
-            edit: Edit::Path(vec![".venv/bin".into(), "/example/shared-tools".into()]),
+            edit: Edit::Path(vec![
+                ".venv/bin".into(),
+                fixture_path!("/example/shared-tools").into(),
+            ]),
         })
         .unwrap();
     assert!(s.config.repository_environment.is_empty());
@@ -56,13 +63,16 @@ fn reopening_repository_environment_displays_persisted_absolute_path_directories
     let relative = f.repo.join(".venv/bin");
     assert!(
         page.find(relative.to_str().unwrap()).unwrap()
-            < page.find("/example/shared-tools").unwrap(),
+            < page.find(fixture_path!("/example/shared-tools")).unwrap(),
         "{page}"
     );
     key(&mut s, KeyCode::Enter);
     assert_eq!(
         s.bar.text(),
-        "/repo env path .venv/bin /example/shared-tools"
+        format!(
+            "/repo env path .venv/bin {}",
+            fixture_path!("/example/shared-tools")
+        )
     );
     s.shutdown();
 }

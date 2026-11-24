@@ -38,9 +38,9 @@ fn assert_matches_survive_row_selection(s: &mut Screen) {
 fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let a = PathBuf::from("/example/中文 A");
-        let b = PathBuf::from("/example/other");
-        let c = PathBuf::from("/example/中文 B");
+        let a = PathBuf::from(fixture_path!("/example/中文 A"));
+        let b = PathBuf::from(fixture_path!("/example/other"));
+        let c = PathBuf::from(fixture_path!("/example/中文 B"));
         let (_home, mut s) = fixture(vec![a.clone(), b.clone(), c.clone()]);
         assert_eq!(s.search_support(), Support::Both(SearchMode::Filter));
         s.paste("中文");
@@ -88,8 +88,8 @@ fn repositories_default_to_filter_and_locate_cycles_matches_without_hiding_rows(
 
 #[test]
 fn clearing_repository_filter_restores_the_command_target() {
-    let other = PathBuf::from("/example/alpha");
-    let selected = PathBuf::from("/example/target");
+    let other = PathBuf::from(fixture_path!("/example/alpha"));
+    let selected = PathBuf::from(fixture_path!("/example/target"));
     let (_home, mut s) = fixture(vec![other.clone(), selected.clone()]);
     s.order = Order::Path;
     key(&mut s, KeyCode::Down);
@@ -120,7 +120,7 @@ fn repository_filter_scope_switches_from_the_title_and_retains_the_query() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
     use ratatui::layout::Position;
 
-    let root = PathBuf::from("/example/infinity");
+    let root = PathBuf::from(fixture_path!("/example/infinity"));
     let child = root.join("agent-backend");
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
@@ -174,8 +174,8 @@ fn repository_filter_scope_switches_from_the_title_and_retains_the_query() {
 #[test]
 fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let first = PathBuf::from("/example/01/工具 Beta");
-    let selected = PathBuf::from("/example/02/Beta");
+    let first = PathBuf::from(fixture_path!("/example/01/工具 Beta"));
+    let selected = PathBuf::from(fixture_path!("/example/02/Beta"));
     let (_home, mut s) = fixture(vec![first, selected.clone()]);
     s.order = Order::Path;
     key(&mut s, KeyCode::Tab);
@@ -205,7 +205,7 @@ fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
     key(&mut s, KeyCode::Char('/'));
     assert!(s.bar.command_input().is_some());
     key(&mut s, KeyCode::Esc);
-    assert_eq!(s.bar.text(), "/example/02/Beta");
+    assert_eq!(s.bar.text(), fixture_path!("/example/02/Beta"));
 
     key(&mut s, KeyCode::Esc);
     s.paste("nothing matches");
@@ -222,7 +222,10 @@ fn filter_tab_completes_the_selected_repository_and_keeps_its_selection() {
 #[test]
 fn search_menu_marks_current_mode_and_keeps_status_filters_and_order() {
     let _language = i18n::using(i18n::Language::English);
-    let (_home, mut s) = fixture(vec!["/example/beta".into(), "/example/alpha".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/beta").into(),
+        fixture_path!("/example/alpha").into(),
+    ]);
     s.sort_repositories(Order::Name);
     s.filter_repositories(Filter::Unchecked);
     s.paste("alpha");
@@ -436,7 +439,7 @@ fn browser_and_graph_offer_only_supported_modes_while_static_pages_offer_none() 
 
 #[test]
 fn empty_filter_can_switch_to_locate_and_zero_row_lists_remain_navigable() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     s.paste("absent");
     assert!(s.rows().is_empty());
     change_mode(&mut s, "locate");
@@ -459,7 +462,7 @@ fn empty_filter_can_switch_to_locate_and_zero_row_lists_remain_navigable() {
 fn wheel_scrolls_rows_while_keyboard_arrows_locate_matches() {
     use crossterm::event::{MouseEvent, MouseEventKind};
     let paths = ["a-match", "b", "c", "d", "e-match", "f"]
-        .map(|name| PathBuf::from(format!("/example/{name}")))
+        .map(|name| PathBuf::from(format!("{}/{name}", fixture_path!("/example"))))
         .to_vec();
     let (_home, mut s) = fixture(paths);
     change_mode(&mut s, "locate");

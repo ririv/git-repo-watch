@@ -25,7 +25,7 @@ fn checks_and_repository_readers_preserve_uncommitted_submodule_migration() {
             "protocol.file.allow=always",
             "submodule",
             "add",
-            source.remote.to_str().unwrap(),
+            &test_support::shell_path(&source.remote),
             "recipes",
         ],
     );
@@ -97,7 +97,7 @@ fn checks_and_repository_readers_preserve_uncommitted_submodule_migration() {
             ..Config::default()
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let service = Service::new(store, manager);
     let cancel = Cancel::default();
     let assert_scope = |report: engine::domain::Report| {

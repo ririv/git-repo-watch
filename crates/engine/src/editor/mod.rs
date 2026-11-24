@@ -157,11 +157,12 @@ pub fn detect(
     for known in Known::ALL {
         cancel.check()?;
         if let Some(installation) = installation(*known, environment, cancel)? {
+            #[cfg(target_os = "macos")]
             let path = match installation {
-                Installation::Program(path) => path,
-                #[cfg(target_os = "macos")]
-                Installation::Application(path) => path,
+                Installation::Program(path) | Installation::Application(path) => path,
             };
+            #[cfg(not(target_os = "macos"))]
+            let Installation::Program(path) = installation;
             result.push(Detected {
                 preference: Preference::Known(*known),
                 label: known.spec().label.into(),

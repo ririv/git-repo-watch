@@ -111,7 +111,10 @@ systemctl --user start "$APP_SERVICE_LABEL.service"
 "$BINARY" schedule disable
 "$BINARY" interval 12h
 "$BINARY" schedule apply
-[ "$(systemctl --user is-enabled "$APP_SERVICE_LABEL.timer" || true)" = disabled ]
+if systemctl --user is-active --quiet "$APP_SERVICE_LABEL.timer"; then exit 1; fi
+"$BINARY" status --json > "$FIXTURE/disabled-status.json"
+grep -Eq '"registration"[[:space:]]*:[[:space:]]*"not_loaded"' "$FIXTURE/disabled-status.json"
+[ -f "$UNIT.timer" ]
 "$BINARY" schedule enable
 "$BINARY" uninstall
 [ ! -e "$UNIT.service" ]

@@ -336,7 +336,7 @@ fn unit_mouse_hits_and_global_focus_mode_select_the_existing_plan_panels() {
 }
 #[test]
 fn disabled_ai_hides_every_composition_entry() {
-    let (_home, mut s) = fixture(vec![PathBuf::from("/example/repository")]);
+    let (_home, mut s) = fixture(vec![PathBuf::from(fixture_path!("/example/repository"))]);
     s.config.ai.enabled = false;
     s.paste("/repo compose");
     assert!(s.search_commands().unwrap().is_empty());

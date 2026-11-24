@@ -1,4 +1,5 @@
 use super::*;
+#[cfg(unix)]
 #[test]
 fn local_references_keep_spaces_unicode_and_shell_metacharacters_literal() {
     let base = Path::new("/example/repository");
@@ -49,20 +50,32 @@ fn malformed_or_nonlocal_references_are_rejected_and_missing_paths_report_the_ta
     assert!(error.contains(path.to_str().unwrap()));
 }
 
+#[cfg(unix)]
 #[test]
 fn platform_handoff_preserves_arguments_and_reports_a_later_helper_failure() {
-    use std::os::unix::fs::PermissionsExt;
     let tmp = tempfile::tempdir().unwrap();
-    let program = tmp.path().join("opener");
-    std::fs::write(&program, "#!/bin/sh\nprintf '%s' \"$1\" >&2\nexit 7\n").unwrap();
-    std::fs::set_permissions(&program, std::fs::Permissions::from_mode(0o700)).unwrap();
     let target = Target::path(tmp.path().join("space 中文 $(echo nope)")).unwrap();
-    let mut pending = launch_using(&program, &target).unwrap();
+    let mut pending = launch_command(
+        Path::new("/bin/sh"),
+        &[
+            "-c".into(),
+            r#"printf 'received <%s>' "$1" >&2; exit 7"#.into(),
+            "opener".into(),
+            target.argument(),
+        ],
+        None,
+        target.label(),
+    )
+    .unwrap();
     let started = std::time::Instant::now();
     loop {
         match pending.poll() {
             Err(error) => {
-                assert!(error.to_string().contains(&target.label()));
+                assert!(
+                    error
+                        .to_string()
+                        .contains(&format!("received <{}> (exit status: 7)", target.label()))
+                );
                 break;
             }
             Ok(None) => {}

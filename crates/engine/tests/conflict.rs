@@ -6,16 +6,16 @@ use engine::{
         patch::{Source, SourceOmission},
     },
 };
-use std::{fs, path::Path, process::Command};
+use std::{fs, path::Path};
 use test_support::{Fixture, git, write};
 
 fn failed_git(path: &Path, args: &[&str]) {
-    let output = Command::new("/usr/bin/git")
+    let output = test_support::git_command()
         .arg("-C")
         .arg(path)
         .args(args)
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .output()
         .unwrap();
     assert_eq!(
@@ -161,6 +161,7 @@ fn oversized_and_nonregular_index_versions_remain_distinct_from_missing_files() 
     ));
 }
 
+#[cfg(unix)]
 #[test]
 fn working_result_is_independent_of_patch_presence_and_keeps_non_text_states_explicit() {
     let (f, name) = conflict(Some(b"base\n"), Some(b"current\n"), b"incoming\n");

@@ -51,6 +51,7 @@ fn await_native_watch(s: &mut Screen, paths: &[&std::path::Path]) {
     });
 }
 
+#[cfg(unix)]
 #[test]
 fn startup_observes_local_state_without_fetching_or_running_retired_steps() {
     use std::os::unix::fs::PermissionsExt;
@@ -317,7 +318,13 @@ fn linked_worktree_reference_changes_update_branch_and_keep_repository_panel_sel
         .join("linked worktree");
     support::git(
         &f.repo,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     let (_home, mut s) = fixture(vec![linked.clone()]);
     key(&mut s, KeyCode::Enter);

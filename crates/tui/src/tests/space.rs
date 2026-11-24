@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn empty_search_ignores_spaces_but_text_and_command_prefixes_keep_them() {
-    let (_home, mut s) = fixture(vec!["/example/a".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/a").into()]);
     let selected = s.selected_path();
     for _ in 0..3 {
         key(&mut s, KeyCode::Char(' '));

@@ -273,8 +273,8 @@ fn changing_command_namespace_keeps_the_original_repository_scope() {
 #[test]
 fn repository_commands_show_the_captured_target_from_the_same_resolution_as_execution() {
     let _language = i18n::using(i18n::Language::English);
-    let alpha = PathBuf::from("/example/alpha");
-    let beta = PathBuf::from("/example/beta");
+    let alpha = PathBuf::from(fixture_path!("/example/alpha"));
+    let beta = PathBuf::from(fixture_path!("/example/beta"));
     let (_home, mut s) = fixture(vec![alpha.clone(), beta.clone()]);
     s.focus(Some(alpha.clone()));
     s.config
@@ -312,7 +312,7 @@ fn repository_commands_show_the_captured_target_from_the_same_resolution_as_exec
 fn repository_home_scopes_list_and_management_commands_and_reopens_after_global_escape() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         let mut config = s.service.store.config().unwrap();
         key(&mut s, KeyCode::Char('/'));
         assert_eq!(context(&s), None);

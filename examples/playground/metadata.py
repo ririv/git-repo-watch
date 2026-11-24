@@ -1,11 +1,14 @@
 """Build real file-header changes in both the index and tagged history."""
+import os
+
 from seed import Seed
 from newlines import write_before, write_after
 
 
 def prepare(seed: Seed):
     repo = seed.repo
-    repo.run("config", "core.filemode", "true")
+    repo.run("config", "core.filemode", "false" if os.name == "nt" else "true")
+    repo.run("config", "core.symlinks", "true")
     repo.run("config", "diff.renames", "copies")
     repo.write("元信息/01-普通修改.ts", "export const message = 'before';\n")
     repo.write("元信息/02-可执行权限.sh", "#!/bin/sh\nprintf 'metadata demo\\n'\n")
@@ -23,7 +26,8 @@ def prepare(seed: Seed):
     repo.run("push", "origin", "main")
 
     repo.write("元信息/01-普通修改.ts", "export const message = 'after';\n")
-    (repo.path / "元信息/02-可执行权限.sh").chmod(0o755)
+    if os.name != "nt":
+        (repo.path / "元信息/02-可执行权限.sh").chmod(0o755)
     (repo.path / "元信息/03-文件类型.txt").unlink()
     (repo.path / "元信息/03-文件类型.txt").symlink_to("01-普通修改.ts")
     (repo.path / "元信息/04-待删除.md").unlink()
@@ -34,7 +38,9 @@ def prepare(seed: Seed):
     repo.write("元信息/07-新增文件.md", "# 新增演练\n\n查看新增文件的类型和权限。\n")
     (repo.path / "元信息/08-二进制.dat").write_bytes(b"\x00after\x00metadata\n")
     write_after(repo)
-    repo.commit("元信息演练：权限、类型、重命名、复制及二进制变更")
+    repo.run("add", "--all")
+    repo.run("update-index", "--chmod=+x", "--", "元信息/02-可执行权限.sh")
+    repo.run("commit", "-m", "元信息演练：权限、类型、重命名、复制及二进制变更", date=repo.clock.next())
     repo.run("tag", "example/metadata-changes")
     repo.run("tag", "example/newline-changes")
     repo.run("push", "origin", "--tags")

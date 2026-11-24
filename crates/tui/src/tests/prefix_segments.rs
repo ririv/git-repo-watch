@@ -342,7 +342,7 @@ fn partial_highlight_has_distinct_spans_and_survives_narrow_layouts() {
 #[test]
 fn leaf_replacement_keeps_the_repository_captured_before_selection_changes() {
     let f = support::Fixture::create();
-    let (_home, mut s) = fixture(vec![f.repo.clone(), "/example/other".into()]);
+    let (_home, mut s) = fixture(vec![f.repo.clone(), fixture_path!("/example/other").into()]);
     s.focus(Some(f.repo.clone()));
     branches(&mut s);
     let (tx, rx) = mpsc::channel();
@@ -354,7 +354,7 @@ fn leaf_replacement_keeps_the_repository_captured_before_selection_changes() {
         Mode::Branches(view) => view.session().selected().unwrap().name.clone(),
         _ => panic!("branch"),
     };
-    s.focus(Some("/example/other".into()));
+    s.focus(Some(fixture_path!("/example/other").into()));
     type_text(&mut s, "/copy");
     assert_eq!(s.bar.text(), "/copy");
     assert!(
@@ -362,7 +362,10 @@ fn leaf_replacement_keeps_the_repository_captured_before_selection_changes() {
     );
     key(&mut s, KeyCode::Enter);
     assert_eq!(rx.recv_timeout(Duration::from_secs(5)).unwrap(), expected);
-    assert_eq!(s.selected_path(), Some("/example/other".into()));
+    assert_eq!(
+        s.selected_path(),
+        Some(fixture_path!("/example/other").into())
+    );
     assert!(matches!(s.mode, Mode::Branches(_)));
     assert!(s.repository_tasks.is_empty() && s.check_task.is_none());
     s.shutdown();

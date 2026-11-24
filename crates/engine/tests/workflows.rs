@@ -1,5 +1,7 @@
 #![cfg(feature = "developer-scheduler")]
 
+#[cfg(unix)]
+use engine::tasks::Source;
 use engine::{
     cancel::Cancel,
     domain::{Publication, PushPolicy, RepositoryResult},
@@ -8,10 +10,12 @@ use engine::{
     scheduler::Manager,
     service::{ConfigEdit, Service},
     state::{Config, Store},
-    tasks::{Outcome, Source, State},
+    tasks::{Outcome, State},
     workflow::{Plan, Step, StepOutcome},
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::PathBuf};
 use test_support::*;
 
 fn service(paths: Vec<PathBuf>, scheduled: Plan) -> (tempfile::TempDir, Service) {
@@ -24,7 +28,7 @@ fn service(paths: Vec<PathBuf>, scheduled: Plan) -> (tempfile::TempDir, Service)
             ..Config::default()
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().to_owned(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().to_owned()).unwrap();
     (home, Service::new(store, manager))
 }
 fn plan(text: &str) -> Plan {
@@ -156,7 +160,12 @@ fn skipped_fetch_is_successful_and_adding_a_remote_restores_fetching() {
     ));
     git(
         &f.repo,
-        &["remote", "add", "origin", f.remote.to_str().unwrap()],
+        &[
+            "remote",
+            "add",
+            "origin",
+            &test_support::shell_path(&f.remote),
+        ],
     );
     f.advance();
     assert!(
@@ -229,6 +238,7 @@ fn scheduled_plan_roundtrips_and_preserves_legacy_policy() {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn local_scheduled_workflow_reads_dirty_files_without_contacting_remote_or_changing_the_index() {
     let f = Fixture::create();
@@ -355,13 +365,13 @@ fn scheduled_push_failure_records_the_hook_error_once() {
     f.commit("ahead", "ahead");
     let hook = f.repo.join(".git/hooks/pre-push");
     let message = "test-pre-push-rejection";
-    write(
+    test_support::write_git_hook(
         &hook,
         &format!(
             "#!/bin/sh\nprintf 'attempt\\n' >> .git/push-attempts\nprintf '{message}\\n' >&2\nexit 1\n"
         ),
     );
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+
     let (_home, service) = service(vec![f.repo.clone()], plan("fetch push inspect"));
     let report = service.run_scheduled(&Cancel::default(), |_| {}).unwrap();
     assert!(matches!(
@@ -472,6 +482,7 @@ fn explicit_configuration_migration_preserves_behavior_and_rejects_ambiguous_fie
     assert!(store.report().unwrap().is_none());
 }
 
+#[cfg(unix)]
 #[test]
 fn fetch_then_pull_reuses_the_remote_refresh() {
     let f = Fixture::create();
@@ -505,6 +516,7 @@ fn fetch_then_pull_reuses_the_remote_refresh() {
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn cancellation_after_pull_retains_the_completed_write_and_the_step_history() {
     let f = Fixture::create();

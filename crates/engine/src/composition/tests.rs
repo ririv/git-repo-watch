@@ -143,14 +143,13 @@ fn stale_contents_and_an_external_index_lock_never_rewrite_the_index() {
 }
 #[test]
 fn commit_hook_failure_preserves_index_and_worktree_and_does_not_advance_head() {
-    use std::os::unix::fs::PermissionsExt;
     let f = changes();
     let plan = separate(capture(&f.repo, &Cancel::default()).unwrap());
     let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     let hook = f.repo.join(".git/hooks/pre-commit");
-    support::write(&hook, "#!/bin/sh\nexit 1\n");
-    std::fs::set_permissions(hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\nexit 1\n");
+
     assert!(execute(&Git::default(), plan, &Cancel::default()).is_err());
     assert_eq!(support::git(&f.repo, &["rev-parse", "HEAD"]), head);
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
@@ -250,18 +249,20 @@ fn binary_files_and_renames_are_indivisible_units() {
 }
 #[test]
 fn hooks_that_add_committed_content_stop_the_plan_and_reconcile_the_index() {
-    use std::os::unix::fs::PermissionsExt;
     let f = changes();
     let plan = separate(capture(&f.repo, &Cancel::default()).unwrap());
     let before = support::git(&f.repo, &["rev-parse", "HEAD"]);
     let hook = f.repo.join(".git/hooks/pre-commit");
-    support::write(
+    test_support::write_git_hook(
         &hook,
         "#!/bin/sh\nprintf 'hook content\\n' > hook.txt\ngit add -- hook.txt\n",
     );
-    std::fs::set_permissions(hook, std::fs::Permissions::from_mode(0o755)).unwrap();
+
     let error = execute(&Git::default(), plan, &Cancel::default()).unwrap_err();
-    assert!(format!("{error:#}").contains(i18n::tr!(ComposeHookChanged)));
+    assert!(
+        format!("{error:#}").contains(i18n::tr!(ComposeHookChanged)),
+        "{error:#}"
+    );
     assert_ne!(support::git(&f.repo, &["rev-parse", "HEAD"]), before);
     assert!(support::git(&f.repo, &["diff", "--cached"]).is_empty());
     assert_eq!(
@@ -271,6 +272,7 @@ fn hooks_that_add_committed_content_stop_the_plan_and_reconcile_the_index() {
     assert!(support::git(&f.repo, &["diff"]).contains("second topic"));
 }
 
+#[cfg(unix)]
 #[test]
 fn cancelling_a_commit_hook_releases_the_index_lock_and_retains_pending_changes() {
     use std::{
@@ -300,6 +302,7 @@ fn cancelling_a_commit_hook_releases_the_index_lock_and_retains_pending_changes(
     assert!(support::git(&f.repo, &["diff"]).contains("second topic"));
 }
 
+#[cfg(unix)]
 #[test]
 fn unrelated_index_flags_and_permissions_survive_partial_commits() {
     use std::os::unix::fs::PermissionsExt;

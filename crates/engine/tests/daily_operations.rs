@@ -10,7 +10,9 @@ use engine::{
     service::Service,
     state::{Config, Store},
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::PathBuf};
 use test_support::{Fixture, git, write};
 fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
     let home = tempfile::tempdir().unwrap();
@@ -36,7 +38,7 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
             ai: Default::default(),
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     (home, Service::new(store, manager))
 }
 fn branch(action: edit::Action, name: &str) -> Request {
@@ -58,11 +60,11 @@ fn branches_create_without_switching_and_safe_switch_runs_the_post_checkout_hook
     run(&s, &f, branch(edit::Action::Create, "feature/中文"));
     assert_eq!(git(&f.repo, &["branch", "--show-current"]), "main");
     let hook = f.repo.join(".git/hooks/post-checkout");
-    write(
+    test_support::write_git_hook(
         &hook,
         "#!/bin/sh\nprintf '%s\\n' \"$1\" \"$2\" \"$3\" > .hook-result\n",
     );
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o700)).unwrap();
+
     run(&s, &f, branch(edit::Action::Switch, "feature/中文"));
     assert_eq!(git(&f.repo, &["branch", "--show-current"]), "feature/中文");
     assert_eq!(
@@ -105,7 +107,12 @@ fn branch_review_protects_dirty_files_changed_targets_and_other_worktrees() {
     let linked = f.temp.path().join("linked");
     git(
         &f.repo,
-        &["worktree", "add", linked.to_str().unwrap(), "other"],
+        &[
+            "worktree",
+            "add",
+            &test_support::shell_path(&linked),
+            "other",
+        ],
     );
     assert!(
         s.prepare_mutation(
@@ -368,8 +375,8 @@ fn safe_switch_preserves_untracked_collisions_and_records_hook_failure_after_che
     );
     fs::remove_file(f.repo.join("collision")).unwrap();
     let hook = f.repo.join(".git/hooks/post-checkout");
-    write(&hook, "#!/bin/sh\necho hook-failed >&2\nexit 1\n");
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\necho hook-failed >&2\nexit 1\n");
+
     let plan = s
         .prepare_mutation(
             &f.repo,
@@ -423,6 +430,11 @@ fn local_upstream_fast_forward_requires_no_remote_and_never_implicitly_sets_trac
 #[test]
 fn selected_stash_contains_only_reviewed_paths_and_preserves_unselected_staging() {
     let f = Fixture::create();
+    let new_file = if cfg!(windows) {
+        "new 中文.txt.bak"
+    } else {
+        "new \n中文.txt"
+    };
     for (path, text) in [
         ("chosen.txt", "base\n"),
         ("other.txt", "other base\n"),
@@ -442,7 +454,7 @@ fn selected_stash_contains_only_reviewed_paths_and_preserves_unselected_staging(
     git(&f.repo, &["mv", "--", "old 中文.txt", "new 中文.txt"]);
     write(f.repo.join("a[1] 中文.txt"), "selected literal\n");
     write(f.repo.join("a1 中文.txt"), "unselected pattern match\n");
-    write(f.repo.join("new \n中文.txt"), "chosen untracked\n");
+    write(f.repo.join(new_file), "chosen untracked\n");
     write(f.repo.join("untracked-other.txt"), "unselected untracked\n");
     write(f.repo.join("ignored.txt"), "ignored content\n");
     let before_bytes = fs::read(f.repo.join(".git/index")).unwrap();
@@ -453,7 +465,7 @@ fn selected_stash_contains_only_reviewed_paths_and_preserves_unselected_staging(
         "old 中文.txt",
         "new 中文.txt",
         "a[1] 中文.txt",
-        "new \n中文.txt",
+        new_file,
     ];
     let selected = stash::SelectedFiles::new(names.into_iter().map(PathBuf::from)).unwrap();
     let plan = s
@@ -478,7 +490,7 @@ fn selected_stash_contains_only_reviewed_paths_and_preserves_unselected_staging(
     );
     assert!(f.repo.join("old 中文.txt").exists());
     assert!(!f.repo.join("new 中文.txt").exists());
-    assert!(!f.repo.join("new \n中文.txt").exists());
+    assert!(!f.repo.join(new_file).exists());
     for (path, text) in [
         ("other.txt", "other staged\n"),
         ("unchosen-new.txt", "unselected staged new\n"),
@@ -537,7 +549,7 @@ fn selected_stash_contains_only_reviewed_paths_and_preserves_unselected_staging(
         "chosen staged and unstaged\n"
     );
     assert!(f.repo.join("new 中文.txt").exists());
-    assert!(f.repo.join("new \n中文.txt").exists());
+    assert!(f.repo.join(new_file).exists());
     assert_eq!(git(&f.repo, &["write-tree"]), selected_tree);
     assert_eq!(git(&f.repo, &["rev-parse", "HEAD"]), before_head);
     assert!(!f.repo.join(".git/index.lock").exists());
@@ -619,6 +631,7 @@ fn selected_stash_revalidates_review_and_respects_external_index_locks_and_cance
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn selected_stash_supports_untracked_only_and_preserves_deletions_symlinks_and_executable_modes() {
     use std::os::unix::fs::symlink;
@@ -693,7 +706,13 @@ fn selected_stash_in_a_linked_worktree_keeps_the_main_worktree_and_its_index_unc
     let linked = f.temp.path().join("linked 中文");
     git(
         &f.repo,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     write(f.repo.join("file"), "main staged\n");
     git(&f.repo, &["add", "--", "file"]);

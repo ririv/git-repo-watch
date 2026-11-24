@@ -1,10 +1,13 @@
+#![cfg(unix)]
 use engine::{
     cancel::Cancel,
     check,
     domain::{IssueKind, Publication, PushPolicy, RepositoryResult},
     transport::Git,
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::PathBuf};
 use test_support::*;
 
 fn inspect(f: &Fixture, policy: PushPolicy) -> RepositoryResult {
@@ -251,7 +254,12 @@ fn overlapping_prune_scopes_fail_before_fetching_or_deleting_refs() {
     let log = upload_log(&f);
     git(
         &f.repo,
-        &["remote", "add", "other", f.remote.to_str().unwrap()],
+        &[
+            "remote",
+            "add",
+            "other",
+            &test_support::shell_path(&f.remote),
+        ],
     );
     git(
         &f.repo,
@@ -310,7 +318,12 @@ fn each_remote_is_fetched_once_and_unmapped_upstreams_are_not_experimental() {
     let log = upload_log(&f);
     git(
         &f.repo,
-        &["remote", "add", "other", f.remote.to_str().unwrap()],
+        &[
+            "remote",
+            "add",
+            "other",
+            &test_support::shell_path(&f.remote),
+        ],
     );
     let wrapper = f.temp.path().join("upload-pack");
     git(

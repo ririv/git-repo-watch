@@ -1,9 +1,10 @@
 use super::super::ArgumentAction;
 use super::*;
 use tempfile::TempDir;
+use test_support::fixture_path;
 
 fn complete(editor: &mut Editor) -> Result<Menu> {
-    super::complete(editor, Path::new("/example/user-home"))
+    super::complete(editor, Path::new(fixture_path!("/example/user-home")))
 }
 
 fn directories(names: &[&str]) -> TempDir {
@@ -19,13 +20,16 @@ fn editor(temp: &TempDir, argument: &str) -> Editor {
 fn parsed(editor: &Editor) -> String {
     let (_, value) = super::super::argument_input(editor.text.strip_prefix('/').unwrap()).unwrap();
     ArgumentAction::Add
-        .parse(value, Path::new("/example/user-home"))
+        .parse(value, Path::new(fixture_path!("/example/user-home")))
         .unwrap()
 }
 
 #[test]
 fn unique_directory_completes_literal_spaces_unicode_and_shell_metacharacters() {
+    #[cfg(unix)]
     let name = "中文 仓库 [x] $(literal) '单双引号\" ";
+    #[cfg(windows)]
+    let name = "中文 仓库 [x] $(literal) '单引号";
     let temp = directories(&[name]);
     fs::write(temp.path().join("中文 文件"), "ignored").unwrap();
     let mut input = editor(&temp, "中文");
@@ -158,23 +162,23 @@ fn errors_preserve_the_editor_and_non_path_arguments_do_not_touch_the_filesystem
 fn empty_path_starts_at_root_but_relative_paths_are_rejected() {
     let input = PathInput::at(
         &Editor::new("/repos add ".into()),
-        Path::new("/example/user-home"),
+        Path::new(fixture_path!("/example/user-home")),
     )
     .unwrap()
     .unwrap();
-    assert_eq!(input.parent, "/");
+    assert_eq!(input.parent, fixture_path!("/"));
     assert!(input.prefix.is_empty());
     assert!(
         PathInput::at(
             &Editor::new("/repos add relative".into()),
-            Path::new("/example/user-home")
+            Path::new(fixture_path!("/example/user-home"))
         )
         .is_err()
     );
     let mut editor = Editor::new("/repos add /".into());
     editor.cursor -= 1;
     assert!(
-        PathInput::at(&editor, Path::new("/example/user-home"))
+        PathInput::at(&editor, Path::new(fixture_path!("/example/user-home")))
             .unwrap()
             .is_none()
     );
@@ -195,6 +199,7 @@ fn directory_symlinks_complete_but_files_and_broken_links_do_not() {
     assert!(complete(&mut editor(&temp, "bro")).is_err());
 }
 
+#[cfg(unix)]
 #[test]
 fn control_characters_in_directory_names_are_reported_without_changing_input() {
     let temp = directories(&["line\nbreak"]);
@@ -344,7 +349,8 @@ fn scan_completion_updates_only_the_active_relative_exclusion_and_preserves_othe
     complete(&mut input).unwrap();
     assert!(input.text.ends_with("--exclude backup/ \"中文 归档/\""));
     let (_, raw) = super::super::argument_input(input.text.strip_prefix('/').unwrap()).unwrap();
-    let request = super::super::scan::request(raw, Path::new("/example/user-home")).unwrap();
+    let request =
+        super::super::scan::request(raw, Path::new(fixture_path!("/example/user-home"))).unwrap();
     assert_eq!(
         request.excluded,
         [PathBuf::from("backup/"), PathBuf::from("中文 归档/")]
@@ -374,12 +380,13 @@ fn scan_flag_and_home_completion_support_multiple_paths_without_expanding_shell_
     .unwrap();
     assert_eq!(request.root, temp.path().join("Proj"));
     assert_eq!(request.excluded[1], temp.path().join("中文 仓库"));
+    let literal = fixture_path!("/tmp/$(literal)");
     let request = super::super::scan::request(
-        "'/tmp/$(literal)' --exclude '$HOME' \"中文 目录\"",
+        &format!("'{literal}' --exclude '$HOME' \"中文 目录\""),
         temp.path(),
     )
     .unwrap();
-    assert_eq!(request.root, Path::new("/tmp/$(literal)"));
+    assert_eq!(request.root, Path::new(literal));
     assert_eq!(request.excluded[0], Path::new("$HOME"));
     for input in [
         "/tmp --exclude",

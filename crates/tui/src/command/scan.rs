@@ -7,7 +7,9 @@ pub(super) enum Quote {
     Bare,
     Single,
     Double,
+    #[cfg(unix)]
     EscapeBare,
+    #[cfg(unix)]
     EscapeDouble,
 }
 #[derive(Debug)]
@@ -30,10 +32,12 @@ pub(super) fn tokens(input: &str) -> Vec<Token> {
         });
         token.range.end = index + ch.len_utf8();
         match (token.state, ch) {
+            #[cfg(unix)]
             (Quote::EscapeBare, _) => {
                 token.value.push(ch);
                 token.state = Quote::Bare;
             }
+            #[cfg(unix)]
             (Quote::EscapeDouble, _) => {
                 token.value.push(ch);
                 token.state = Quote::Double;
@@ -45,7 +49,9 @@ pub(super) fn tokens(input: &str) -> Vec<Token> {
             (Quote::Bare, '\'') => token.state = Quote::Single,
             (Quote::Bare, '"') => token.state = Quote::Double,
             (Quote::Single, '\'') | (Quote::Double, '"') => token.state = Quote::Bare,
+            #[cfg(unix)]
             (Quote::Bare, '\\') => token.state = Quote::EscapeBare,
+            #[cfg(unix)]
             (Quote::Double, '\\') => token.state = Quote::EscapeDouble,
             _ => token.value.push(ch),
         }
@@ -79,11 +85,14 @@ pub(super) fn encode(value: &str, position: usize, quote: Option<char>) -> (Stri
     if quote.is_none()
         && !value
             .chars()
-            .any(|ch| ch.is_whitespace() || matches!(ch, '\'' | '"' | '\\'))
+            .any(|ch| ch.is_whitespace() || matches!(ch, '\'' | '"') || (cfg!(unix) && ch == '\\'))
     {
         return (value.into(), position);
     }
+    #[cfg(unix)]
     let escape = |text: &str| text.replace('\\', "\\\\").replace('"', "\\\"");
+    #[cfg(windows)]
+    let escape = str::to_owned;
     (
         format!("\"{}\"", escape(value)),
         1 + escape(&value[..position]).len(),

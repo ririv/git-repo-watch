@@ -1,8 +1,10 @@
 #![cfg(feature = "developer-scheduler")]
 
+#[cfg(unix)]
+use engine::scheduler::{BINARY_MARKER, task_marker};
 use engine::{
     cancel::Cancel,
-    scheduler::{BINARY_MARKER, Control, Manager, task_marker},
+    scheduler::{Control, Manager},
     service::Service,
     state::{Config, Store},
 };
@@ -14,16 +16,18 @@ fn fixture() -> (tempfile::TempDir, Service) {
     fs::create_dir(&home).unwrap();
     let service = Service::new(
         Store::custom(home),
-        Manager::for_user(temp.path().join("user"), unsafe { libc::getuid() }).unwrap(),
+        Manager::for_current_user_in(temp.path().join("user")).unwrap(),
     );
     service.store.save_config(&Config::default()).unwrap();
     (temp, service)
 }
+#[cfg(unix)]
 fn binary(service: &Service, contents: &[u8]) {
     let path = service.scheduler.binary();
     fs::create_dir_all(path.parent().unwrap()).unwrap();
     fs::write(path, contents).unwrap();
 }
+#[cfg(unix)]
 #[test]
 fn schedule_controls_reject_another_installation_before_native_commands_or_file_changes() {
     let _language = i18n::using(i18n::Language::English);
@@ -50,6 +54,7 @@ fn schedule_controls_reject_another_installation_before_native_commands_or_file_
     );
     assert!(service.store.report().unwrap().is_none());
 }
+#[cfg(unix)]
 #[test]
 fn controls_validate_binary_ownership_and_require_an_existing_definition_for_apply_or_disable() {
     let _language = i18n::using(i18n::Language::English);
@@ -70,6 +75,7 @@ fn controls_validate_binary_ownership_and_require_an_existing_definition_for_app
             "{error:#}"
         );
     }
+    #[cfg(unix)]
     assert!(!service.scheduler.definition().exists());
 }
 #[test]
@@ -89,5 +95,6 @@ fn controls_share_the_configuration_lock_and_cancel_without_changes() {
     for operation in [Control::Apply, Control::Disable, Control::Enable] {
         assert!(service.control_schedule(operation, &cancel).is_err());
     }
+    #[cfg(unix)]
     assert!(!service.scheduler.definition().exists());
 }

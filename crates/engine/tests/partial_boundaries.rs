@@ -5,11 +5,9 @@ use engine::{
         partial::{self, Action, LineId, Snapshot},
     },
 };
-use std::{
-    fs,
-    os::unix::fs::{PermissionsExt, symlink},
-    path::Path,
-};
+#[cfg(unix)]
+use std::os::unix::fs::{PermissionsExt, symlink};
+use std::{fs, path::Path};
 use test_support::*;
 
 fn snapshot(path: &Path, name: &str, area: Area) -> Snapshot {
@@ -76,6 +74,7 @@ fn an_unborn_repository_can_partially_stage_and_fully_unstage_its_first_file() {
         "one\ntwo\n"
     );
 }
+#[cfg(unix)]
 #[test]
 fn discard_restores_deleted_parent_directories_and_preserves_restrictive_permissions() {
     let f = Fixture::create();
@@ -116,6 +115,7 @@ fn discard_restores_deleted_parent_directories_and_preserves_restrictive_permiss
         0o600
     );
 }
+#[cfg(unix)]
 #[test]
 fn a_replaced_parent_symlink_and_cancelled_plan_never_write_outside_the_repository() {
     let f = Fixture::create();

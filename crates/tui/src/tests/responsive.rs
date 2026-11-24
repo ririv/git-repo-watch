@@ -94,7 +94,7 @@ fn small_windows_keep_repository_navigation_commands_and_selection_after_resize(
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(
             (0..10)
-                .map(|i| PathBuf::from(format!("/example/repo{i:02}")))
+                .map(|i| PathBuf::from(format!("{}/repo{i:02}", fixture_path!("/example"))))
                 .collect(),
         );
         for (width, height) in [
@@ -125,7 +125,10 @@ fn small_windows_keep_repository_navigation_commands_and_selection_after_resize(
             draw(&mut s, width, height);
             key(&mut s, KeyCode::Esc);
             assert_eq!(s.page, Page::Repositories);
-            assert_eq!(s.selected_path(), Some("/example/repo09".into()));
+            assert_eq!(
+                s.selected_path(),
+                Some(fixture_path!("/example/repo09").into())
+            );
         }
         s.shutdown();
     }

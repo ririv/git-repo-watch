@@ -6,7 +6,6 @@ use engine::{
 };
 use std::{
     fs,
-    path::PathBuf,
     process::{Command, Output},
 };
 fn fixture() -> (tempfile::TempDir, Store) {
@@ -17,7 +16,7 @@ fn fixture() -> (tempfile::TempDir, Store) {
             interval_seconds: 21600,
             schedule_anchor: Default::default(),
             repository_environment: Default::default(),
-            repositories: vec![PathBuf::from("/path/to/unavailable/repository")],
+            repositories: vec![temp.path().join("unavailable/repository")],
             scheduled_actions: engine::workflow::Plan::from_policy(PushPolicy::Disabled),
             max_concurrency: 4,
             fetch_on_startup: false,
@@ -191,7 +190,7 @@ fn plist_escapes_paths_preserves_schedule_and_disables_run_at_load() {
 fn installation_refuses_unowned_binary_before_mutation() {
     let _language = i18n::using(i18n::Language::Chinese);
     let temp = tempfile::tempdir().unwrap();
-    let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(temp.path().to_owned()).unwrap();
     fs::create_dir_all(manager.binary().parent().unwrap()).unwrap();
     fs::write(manager.binary(), b"unowned binary").unwrap();
     assert!(
@@ -321,7 +320,7 @@ fn terminal_locale_is_used_without_explicit_language_and_invalid_override_is_rej
 fn explicit_single_check_creates_a_repository_report_without_creating_a_batch() {
     let (_temp, store) = fixture();
     let repo = store.config_dir().join("repository");
-    let output = Command::new("/usr/bin/git")
+    let output = test_support::git_command()
         .args(["init", "-b", "main"])
         .arg(&repo)
         .output()

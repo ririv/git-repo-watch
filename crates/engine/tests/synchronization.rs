@@ -72,7 +72,12 @@ fn the_current_checkout_is_specific_to_each_worktree_and_other_branches_do_not_c
     git(&f.repo, &["checkout", "main"]);
     git(
         &f.repo,
-        &["worktree", "add", worktree.to_str().unwrap(), "feature"],
+        &[
+            "worktree",
+            "add",
+            &test_support::shell_path(&worktree),
+            "feature",
+        ],
     );
     let (main, _) = check::local_repository(&f.repo, &Cancel::default());
     let (feature, _) = check::local_repository(&worktree, &Cancel::default());
@@ -211,7 +216,7 @@ fn failed_writes_persist_the_execution_error_and_a_successful_check_clears_it() 
             ..Config::default()
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let service = Service::new(store, manager);
     write(f.repo.join("tracked"), "second\n");
     git(&f.repo, &["add", "tracked"]);

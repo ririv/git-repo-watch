@@ -16,7 +16,7 @@ fn service(path: std::path::PathBuf) -> (tempfile::TempDir, Service) {
         ..Config::default()
     };
     store.save_config(&config).unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     (home, Service::new(store, manager))
 }
 #[test]

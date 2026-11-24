@@ -4,7 +4,7 @@ use ratatui::style::{Color, Modifier};
 
 #[test]
 fn light_terminal_selection_keeps_menu_and_repository_text_colors() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     s.paste("/com");
     let draw = |screen: &mut Screen| {
         let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();
@@ -62,7 +62,7 @@ fn light_terminal_selection_keeps_menu_and_repository_text_colors() {
 #[test]
 fn input_parameters_and_option_current_values_deepen_together_on_light_terminals() {
     for query in ["/search filter", "/repos filter all"] {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         s.paste(query);
         let draw = |screen: &mut Screen| {
             let mut terminal = Terminal::new(TestBackend::new(80, 24)).unwrap();

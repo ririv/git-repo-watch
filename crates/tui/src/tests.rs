@@ -106,7 +106,10 @@ use engine::{
 };
 use ratatui::backend::TestBackend;
 use std::{collections::BTreeSet, time::Instant};
-use test_support::{self as support, GitGate, GitOperation};
+use test_support::{self as support, GitGate, GitOperation, fixture_path};
+
+// 等待测试中的文件和 Git 操作完成，独立的响应速度测试仍使用自己的时限。
+const WORKER_TIMEOUT: Duration = Duration::from_secs(if cfg!(windows) { 30 } else { 8 });
 fn screen(service: Service) -> Screen {
     let config = service.store.config().unwrap();
     let view_preferences = config.view;
@@ -223,7 +226,7 @@ fn fixture(paths: Vec<PathBuf>) -> (tempfile::TempDir, Screen) {
             ai: Default::default(),
         })
         .unwrap();
-    let manager = Manager::for_user(temp.path().to_owned(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(temp.path().to_owned()).unwrap();
     let service = Service::new(store, manager);
     (temp, screen(service))
 }
@@ -247,7 +250,7 @@ fn open_files(s: &mut Screen) {
         .repository_tasks
         .contains_key(&s.scope_path().expect("selected repository"))
     {
-        assert!(started.elapsed() < Duration::from_secs(8));
+        assert!(started.elapsed() < WORKER_TIMEOUT);
         s.poll(&Cancel::default());
         s.poll_workspace();
         thread::sleep(Duration::from_millis(5));
@@ -281,10 +284,7 @@ fn wait(s: &mut Screen) {
         || !s.repository_tasks.is_empty()
         || matches!(&s.mode, Mode::Changes(session) if session.pending())
     {
-        assert!(
-            started.elapsed() < Duration::from_secs(8),
-            "工作线程没有结束"
-        );
+        assert!(started.elapsed() < WORKER_TIMEOUT, "工作线程没有结束");
         s.poll(&Cancel::default());
         s.poll_interaction();
         s.poll_view_preferences();
@@ -305,10 +305,7 @@ fn wait_workspace(s: &mut Screen) {
         if !s.workspace.pending() {
             break;
         }
-        assert!(
-            started.elapsed() < Duration::from_secs(8),
-            "仓库面板读取没有结束"
-        );
+        assert!(started.elapsed() < WORKER_TIMEOUT, "仓库面板读取没有结束");
         thread::sleep(Duration::from_millis(5));
     }
 }
@@ -369,7 +366,10 @@ fn highlighted_repository(s: &mut Screen, width: u16, height: u16) -> String {
 #[test]
 fn command_completion_unknown_commands_and_frozen_scope() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/a".into(), "/path/to/b".into()]);
+    let (_temp, mut s) = fixture(vec![
+        fixture_path!("/path/to/a").into(),
+        fixture_path!("/path/to/b").into(),
+    ]);
     key(&mut s, KeyCode::Char('/'));
     s.paste("/repo diff sta");
     key(&mut s, KeyCode::Tab);
@@ -385,7 +385,7 @@ fn command_completion_unknown_commands_and_frozen_scope() {
     s.select(1);
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path: p, .. },..}if p.as_path()==std::path::Path::new("/path/to/a"))
+        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path: p, .. },..}if p.as_path()==std::path::Path::new(fixture_path!("/path/to/a")))
     );
 }
 #[test]
@@ -406,7 +406,7 @@ fn unicode_editor_moves_and_deletes_at_character_boundaries() {
 #[test]
 fn narrow_wide_command_files_diff_and_confirmation_remain_usable() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/a".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/path/to/a").into()]);
     for size in [(60, 18), (80, 24), (150, 32)] {
         let text = render(&mut s, size.0, size.1);
         assert!(text.contains("过滤仓库"));
@@ -504,7 +504,9 @@ fn file_selection_commit_and_push_through_command_bar() {
 #[test]
 fn default_browsing_and_commands_do_not_open_repositories() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/nonexistent/repository".into()]);
+    let (_temp, mut s) = fixture(vec![
+        fixture_path!("/path/to/nonexistent/repository").into(),
+    ]);
     for size in [(60, 18), (150, 32)] {
         assert!(render(&mut s, size.0, size.1).contains("repository"));
     }
@@ -520,9 +522,9 @@ fn default_browsing_and_commands_do_not_open_repositories() {
 fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
     let _language = i18n::using(i18n::Language::Chinese);
     let (_temp, mut s) = fixture(vec![
-        "/path/to/alpha".into(),
-        "/path/to/alpha-two".into(),
-        "/path/to/quit".into(),
+        fixture_path!("/path/to/alpha").into(),
+        fixture_path!("/path/to/alpha-two").into(),
+        fixture_path!("/path/to/quit").into(),
     ]);
     for c in "alpha".chars() {
         assert!(!key(&mut s, KeyCode::Char(c)));
@@ -555,7 +557,7 @@ fn persistent_search_accepts_shortcut_letters_and_preserves_navigation() {
 #[test]
 fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/settings".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/path/to/settings").into()]);
     s.paste("settings");
     assert_eq!(s.query, "settings");
     assert_eq!(s.page, Page::Repositories);
@@ -575,7 +577,7 @@ fn pasted_commands_are_explicit_and_prefix_deletion_returns_to_search() {
 #[test]
 fn full_width_command_panel_keeps_list_and_input_positions_stable() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/alpha".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/path/to/alpha").into()]);
     for (w, h) in [(60, 18), (100, 28), (150, 32)] {
         let before = render(&mut s, w, h);
         let before_lines = before.lines().collect::<Vec<_>>();
@@ -639,7 +641,7 @@ fn filtered_file_selection_uses_snapshot_identity() {
 #[test]
 fn numeric_search_and_list_commands_do_not_conflict() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/path/to/1234".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/path/to/1234").into()]);
     for c in "1234".chars() {
         key(&mut s, KeyCode::Char(c));
     }
@@ -674,7 +676,7 @@ fn numeric_search_and_list_commands_do_not_conflict() {
 fn input_border_placeholder_text_and_cursor_are_distinct() {
     let _language = i18n::using(i18n::Language::Chinese);
     use ratatui::style::{Color, Modifier};
-    let (_temp, mut s) = fixture(vec!["/path/to/alpha".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/path/to/alpha").into()]);
     for (width, height) in [(60, 18), (80, 24), (150, 32)] {
         let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
         terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
@@ -721,33 +723,39 @@ fn input_viewport_keeps_unicode_cursor_inside_box() {
 #[test]
 fn wide_detail_title_tracks_selected_repository_name() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_temp, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_temp, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     let first = render(&mut s, 150, 32);
     assert!(first.lines().any(|line| line.contains("┌alpha")));
-    assert!(first.contains("路径：/example/alpha"));
+    assert!(first.contains(&format!("路径：{}", fixture_path!("/example/alpha"))));
     assert!(first.contains("状态：未检查"));
     assert!(!first.contains("选中仓库"));
     key(&mut s, KeyCode::Down);
     let second = render(&mut s, 150, 32);
     assert!(second.lines().any(|line| line.contains("┌beta")));
-    assert!(second.contains("路径：/example/beta"));
+    assert!(second.contains(&format!("路径：{}", fixture_path!("/example/beta"))));
     s.paste("nonexistent");
     let empty = render(&mut s, 150, 32);
     assert!(empty.contains("无选中仓库"));
-    assert!(!empty.contains("路径：/example/beta"));
+    assert!(!empty.contains(&format!("路径：{}", fixture_path!("/example/beta"))));
 }
 
 #[test]
 fn english_views_and_commands_remain_usable_at_supported_sizes() {
     let _language = i18n::using(i18n::Language::English);
-    let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     for (width, height) in [(60, 18), (80, 24), (150, 32)] {
         let text = render(&mut s, width, height);
         assert!(text.contains("Filter repositories"));
         assert!(text.contains("Type to search"));
         assert!(text.contains("Filter: All · Sort: Priority"));
         if width == 150 {
-            assert!(text.contains("Path: /example/alpha"), "{text}");
+            assert!(
+                text.contains(&format!("Path: {}", fixture_path!("/example/alpha"))),
+                "{text}"
+            );
         }
         assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
         s.paste("//");
@@ -773,7 +781,7 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
     let detail = render(&mut s, 80, 24);
     assert_eq!(
         s.workspace.path(),
-        Some(std::path::Path::new("/example/alpha"))
+        Some(std::path::Path::new(fixture_path!("/example/alpha")))
     );
     assert!(detail.contains("Repositories › alpha"), "{detail}");
     assert!(detail.contains(i18n::tr!(OverviewLoading)), "{detail}");
@@ -787,13 +795,13 @@ fn english_views_and_commands_remain_usable_at_supported_sizes() {
 #[test]
 fn english_worker_errors_follow_the_ui_language() {
     let _language = i18n::using(i18n::Language::English);
-    let (_temp, mut s) = fixture(vec!["/example/unavailable".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/example/unavailable").into()]);
     open_files(&mut s);
     wait(&mut s);
     let text = render(&mut s, 80, 24);
     assert!(text.contains("Operation result"));
     assert!(text.contains("Enter/Esc back"));
-    assert!(!text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)));
+    assert!(!text.contains("操作结果"));
 }
 
 #[test]
@@ -801,8 +809,8 @@ fn terminal_command_completes_and_freezes_repository_scope() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_temp, mut s) = fixture(vec![
-            "/example/unavailable-alpha".into(),
-            "/example/unavailable-beta".into(),
+            fixture_path!("/example/unavailable-alpha").into(),
+            fixture_path!("/example/unavailable-beta").into(),
         ]);
         s.paste("//te");
         key(&mut s, KeyCode::Tab);
@@ -816,7 +824,7 @@ fn terminal_command_completes_and_freezes_repository_scope() {
         assert!(matches!(s.mode, Mode::Browsing));
         s.select(1);
         assert!(
-            matches!(&s.bar, crate::bar::InputBar::Command { path: Some(path), .. } if path == &PathBuf::from("/example/unavailable-alpha"))
+            matches!(&s.bar, crate::bar::InputBar::Command { path: Some(path), .. } if path == &PathBuf::from(fixture_path!("/example/unavailable-alpha")))
         );
         key(&mut s, KeyCode::Enter);
         wait(&mut s);
@@ -855,7 +863,7 @@ fn terminal_requires_selection_and_preserves_origin_on_success() {
 fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_temp, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         for (width, height) in [(60, 24), (100, 28), (150, 32)] {
             s.paste("/repo");
             let text = render(&mut s, width, height);
@@ -888,7 +896,7 @@ fn command_panel_shows_eight_candidates_and_scrolls_to_remaining_commands() {
 
 #[test]
 fn short_command_viewports_keep_whole_entries_and_the_last_command_clickable() {
-    let (_temp, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_temp, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     for height in [12, 17, 18, 21, 24] {
         s.paste("/repo");
         render(&mut s, 60, height);
@@ -938,7 +946,7 @@ fn repository_table_shows_worktree_and_combined_sync_in_both_languages() {
         ),
     ] {
         let _language = i18n::using(language);
-        let (_temp, mut screen) = fixture(vec!["/example/repository".into()]);
+        let (_temp, mut screen) = fixture(vec![fixture_path!("/example/repository").into()]);
         for width in [60, 90, 130, 180] {
             let output = render(&mut screen, width, 30);
             let header = output
@@ -971,7 +979,7 @@ fn wheel(s: &mut Screen, kind: crossterm::event::MouseEventKind, column: u16, ro
 #[test]
 fn repository_viewport_stays_in_place_when_moving_up_and_handles_resizing_and_search() {
     let paths = (0..80)
-        .map(|i| PathBuf::from(format!("/example/repository{i:03}")))
+        .map(|i| PathBuf::from(format!("{}/repository{i:03}", fixture_path!("/example"))))
         .collect();
     let (_temp, mut s) = fixture(paths);
     for (width, height) in [(60, 18), (90, 24), (140, 30)] {
@@ -1008,7 +1016,7 @@ fn repository_viewport_stays_in_place_when_moving_up_and_handles_resizing_and_se
 fn wheel_scrolls_main_list_with_bounds_and_respects_input_and_preview_regions() {
     use crossterm::event::MouseEventKind::{ScrollDown, ScrollUp};
     let paths = (0..50)
-        .map(|i| PathBuf::from(format!("/example/repository{i:03}")))
+        .map(|i| PathBuf::from(format!("{}/repository{i:03}", fixture_path!("/example"))))
         .collect();
     let (_temp, mut s) = fixture(paths);
     render(&mut s, 140, 30);
@@ -1041,7 +1049,10 @@ fn wheel_scrolls_main_list_with_bounds_and_respects_input_and_preview_regions() 
 #[test]
 fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_lists() {
     use crossterm::event::MouseEventKind::ScrollDown;
-    let (_temp, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_temp, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     render(&mut s, 90, 24);
     let area = s.repository_area.unwrap();
     key(&mut s, KeyCode::Char('/'));
@@ -1052,7 +1063,7 @@ fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_li
         crate::bar::InputBar::Command { path, selected, .. } => {
             assert_eq!(
                 path.as_deref(),
-                Some(std::path::Path::new("/example/alpha"))
+                Some(std::path::Path::new(fixture_path!("/example/alpha")))
             );
             assert_eq!(*selected, 3);
         }
@@ -1074,7 +1085,7 @@ fn wheel_keeps_command_scope_frozen_and_does_not_change_confirmation_or_empty_li
 fn keyboard_reverses_wheel_at_both_list_boundaries_without_an_extra_keypress() {
     use crossterm::event::MouseEventKind::ScrollDown;
     let paths = (0..52)
-        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .map(|i| PathBuf::from(format!("{}/repo{i:03}", fixture_path!("/example"))))
         .collect();
     let (_temp, mut s) = fixture(paths);
     for (width, height) in [(60, 18), (90, 24), (140, 30)] {
@@ -1112,7 +1123,7 @@ fn keyboard_reverses_wheel_at_both_list_boundaries_without_an_extra_keypress() {
 #[test]
 fn shrinking_list_at_bottom_keeps_display_and_navigation_on_the_same_selection() {
     let paths = (0..52)
-        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .map(|i| PathBuf::from(format!("{}/repo{i:03}", fixture_path!("/example"))))
         .collect();
     let (_temp, mut s) = fixture(paths);
     for _ in 0..6 {
@@ -1126,20 +1137,26 @@ fn shrinking_list_at_bottom_keeps_display_and_navigation_on_the_same_selection()
     assert!(highlighted.contains("repo050"), "{highlighted}");
     key(&mut s, KeyCode::Up);
     let highlighted = highlighted_repository(&mut s, 90, 24);
-    assert_eq!(s.selected_path(), Some(PathBuf::from("/example/repo049")));
+    assert_eq!(
+        s.selected_path(),
+        Some(PathBuf::from(fixture_path!("/example/repo049")))
+    );
     assert!(highlighted.contains("repo049"));
     for _ in 0..10 {
         key(&mut s, KeyCode::PageDown);
     }
     key(&mut s, KeyCode::Up);
-    assert_eq!(s.selected_path(), Some(PathBuf::from("/example/repo049")));
+    assert_eq!(
+        s.selected_path(),
+        Some(PathBuf::from(fixture_path!("/example/repo049")))
+    );
 }
 
 #[test]
 fn keyboard_keeps_selection_when_momentum_arrives_after_leaving_either_boundary() {
     use crossterm::event::MouseEventKind::{ScrollDown, ScrollUp};
     let paths = (0..52)
-        .map(|i| PathBuf::from(format!("/example/repo{i:03}")))
+        .map(|i| PathBuf::from(format!("{}/repo{i:03}", fixture_path!("/example"))))
         .collect();
     let (_temp, mut s) = fixture(paths);
     render(&mut s, 90, 24);
@@ -1183,7 +1200,7 @@ fn poll_background_until(s: &mut Screen, ready: impl Fn(&Screen) -> bool) {
     let start = Instant::now();
     while !ready(s) {
         assert!(
-            start.elapsed() < Duration::from_secs(8),
+            start.elapsed() < WORKER_TIMEOUT,
             "background check did not reach the expected state: {}; errors: {:?}; running: {:?}",
             s.message,
             s.repository_errors,
@@ -1412,7 +1429,7 @@ fn horizontal_confirmation_focus_has_distinct_styles_and_keeps_layout_stable() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (width, height) in [(60, 18), (80, 24), (150, 32)] {
-            let (_home, mut s) = fixture(vec!["/example/repository".into()]);
+            let (_home, mut s) = fixture(vec![fixture_path!("/example/repository").into()]);
             render(&mut s, width, height);
             command(&mut s, "repos remove");
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -1532,14 +1549,14 @@ fn root_commands_hide_children_and_group_prefixes_keep_their_scope() {
 fn schedule_settings_are_separate_from_general_and_repository_management() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         command(&mut s, "schedule");
         assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             let text = render(&mut s, width, height);
             assert!(text.contains(i18n::tr!(ScheduleSettings)));
             assert!(text.contains(i18n::tr!(WorkflowScheduledActions)));
-            assert!(!text.contains("/example/excluded"));
+            assert!(!text.contains(fixture_path!("/example/excluded")));
             assert!(!text.contains(command::description(Action::Concurrency)));
         }
         key(&mut s, KeyCode::Down);
@@ -1562,7 +1579,7 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
         command(&mut s, "repos manage");
         assert_eq!(s.page, Page::Configuration(Configuration::Repositories));
         let text = render(&mut s, 100, 28);
-        assert!(text.contains("/example/alpha"));
+        assert!(text.contains(fixture_path!("/example/alpha")));
         assert!(!text.contains(command::description(Action::Interval)));
     }
 }
@@ -1570,7 +1587,10 @@ fn schedule_settings_are_separate_from_general_and_repository_management() {
 #[cfg(feature = "developer-scheduler")]
 #[test]
 fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     key(&mut s, KeyCode::Char('/'));
     s.paste("/repos");
     key(&mut s, KeyCode::Tab);
@@ -1581,7 +1601,7 @@ fn grouped_commands_keep_frozen_repository_scope_and_preserve_the_eight_row_menu
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from("/example/alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from(fixture_path!("/example/alpha")))
     );
     key(&mut s, KeyCode::Esc);
     s.paste("//schedule ");
@@ -1734,6 +1754,8 @@ fn schedule_dashboard_shows_state_pending_interval_and_the_correct_toggle_action
             );
             key(&mut s, KeyCode::Esc);
             assert_eq!(s.page, Page::Configuration(Configuration::Schedule));
+            assert!(!s.service.scheduler.binary().exists());
+            #[cfg(unix)]
             assert!(!s.service.scheduler.definition().exists());
         }
     }

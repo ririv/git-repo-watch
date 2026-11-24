@@ -60,7 +60,9 @@ impl Fixture {
     }
     fn command(&self) -> Command {
         let mut command = Command::new(env!("CARGO_BIN_EXE_rvgit"));
-        command.env("APP_LANG", "en").env("HOME", &self.user_home);
+        command
+            .env("APP_LANG", "en")
+            .env(test_support::HOME_VARIABLE, &self.user_home);
         command
     }
     fn run(&self, args: &[&str]) -> Output {
@@ -142,10 +144,10 @@ fn bare_home_selects_the_user_home_and_invalid_home_forms_do_not_mutate_configur
         let mut command = f.command();
         match home {
             None => {
-                command.env_remove("HOME");
+                command.env_remove(test_support::HOME_VARIABLE);
             }
             Some(home) => {
-                command.env("HOME", home);
+                command.env(test_support::HOME_VARIABLE, home);
             }
         }
         let output = command

@@ -8,7 +8,10 @@ pub use macos::plist;
 #[cfg(feature = "developer-scheduler")]
 mod calendar;
 pub mod duration;
-#[cfg(all(feature = "developer-scheduler", any(target_os = "linux", test)))]
+#[cfg(all(
+    feature = "developer-scheduler",
+    any(target_os = "linux", all(unix, test))
+))]
 mod linux;
 pub mod timing;
 #[cfg(all(test, feature = "developer-scheduler"))]
@@ -154,13 +157,18 @@ impl Manager {
             user_home.is_absolute(),
             i18n::tr!(UserHomeDirectoryIsNotAnAbsolute)
         );
+        let mut manager = Self::for_current_user_in(user_home)?;
+        manager.directories = UserDirectories::from_environment(&manager.user_home)?;
+        Ok(manager)
+    }
+
+    /// Use the current user with an explicit home and default platform directories.
+    pub fn for_current_user_in(user_home: PathBuf) -> Result<Self> {
         #[cfg(all(feature = "developer-scheduler", target_os = "macos"))]
         let uid = unsafe { libc::getuid() };
         #[cfg(not(all(feature = "developer-scheduler", target_os = "macos")))]
         let uid = 0;
-        let mut manager = Self::for_user(user_home, uid)?;
-        manager.directories = UserDirectories::from_environment(&manager.user_home)?;
-        Ok(manager)
+        Self::for_user(user_home, uid)
     }
     /// Construct an isolated installation using default directories for a user.
     pub fn for_user(user_home: PathBuf, _uid: u32) -> Result<Self> {

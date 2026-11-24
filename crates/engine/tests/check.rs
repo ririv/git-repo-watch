@@ -8,6 +8,7 @@ use engine::{
     transport::Git,
 };
 use std::{fs, path::PathBuf};
+use test_support::fixture_path;
 use test_support::*;
 #[test]
 fn clean_dirty_untracked_and_experimental_branches() {
@@ -111,7 +112,13 @@ fn linked_worktrees_share_one_scheduling_group() {
     let linked = f.temp.path().join("linked");
     git(
         &f.repo,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     let groups = group(&[f.repo.clone(), fs::canonicalize(linked).unwrap()]);
     assert!(groups.failures.is_empty());
@@ -125,7 +132,7 @@ fn report_order_failure_isolation_and_cancellation_preserve_history() {
     let second = Fixture::create();
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().to_owned());
-    let missing = PathBuf::from("/path/to/unavailable/repository");
+    let missing = PathBuf::from(fixture_path!("/path/to/unavailable/repository"));
     let paths = vec![second.repo.clone(), missing.clone(), first.repo.clone()];
     store
         .save_config(&Config {
@@ -174,7 +181,12 @@ fn git_transport_failures_do_not_become_clean() {
     let f = Fixture::create();
     git(
         &f.repo,
-        &["remote", "set-url", "origin", "/path/to/missing/remote.git"],
+        &[
+            "remote",
+            "set-url",
+            "origin",
+            fixture_path!("/path/to/missing/remote.git"),
+        ],
     );
     let (result, _) = check::repository(
         &Git::default(),
@@ -187,12 +199,11 @@ fn git_transport_failures_do_not_become_clean() {
 #[test]
 fn failed_pre_push_hook_is_preserved() {
     let _language = i18n::using(i18n::Language::Chinese);
-    use std::os::unix::fs::PermissionsExt;
     let f = Fixture::create();
     f.commit("ahead", "ahead");
     let hook = f.repo.join(".git/hooks/pre-push");
-    write(&hook, "#!/bin/sh\nprintf rejected >&2\nexit 1\n");
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\nprintf rejected >&2\nexit 1\n");
+
     let before = git(&f.remote, &["rev-parse", "main"]);
     let (result, _) = check::repository(
         &Git::default(),
@@ -204,6 +215,7 @@ fn failed_pre_push_hook_is_preserved() {
     assert_eq!(before, git(&f.remote, &["rev-parse", "main"]));
 }
 
+#[cfg(unix)]
 #[test]
 fn independent_repositories_overlap_real_fetches() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -336,7 +348,7 @@ fn manual_checks_never_push_and_scheduled_checks_apply_configured_policy() {
     assert!(
         service
             .check_repository(
-                std::path::Path::new("/unregistered/repository"),
+                std::path::Path::new(fixture_path!("/unregistered/repository")),
                 &Cancel::default(),
                 |_| {}
             )

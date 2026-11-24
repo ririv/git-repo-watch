@@ -28,7 +28,7 @@ fn setup() -> (support::Fixture, tempfile::TempDir, Screen) {
 fn wait_generation(s: &mut Screen) {
     let start = Instant::now();
     while s.commit_generator.running() || !s.repository_tasks.is_empty() {
-        assert!(start.elapsed() < Duration::from_secs(8));
+        assert!(start.elapsed() < WORKER_TIMEOUT);
         s.poll(&Cancel::default());
         thread::sleep(Duration::from_millis(3));
     }

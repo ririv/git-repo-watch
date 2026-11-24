@@ -5,7 +5,7 @@ fn command_and_option_menus_keep_the_viewport_until_selection_crosses_its_edge()
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (entry, height) in [("repo", 18), ("repos filter", 12)] {
-            let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+            let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
             if entry == "repo" {
                 s.paste("/repo");
             } else {
@@ -49,7 +49,7 @@ fn command_and_option_menus_keep_the_viewport_until_selection_crosses_its_edge()
 
 #[test]
 fn menu_viewport_keeps_selection_visible_on_resize_and_resets_for_new_candidates() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     s.paste("/repo");
     for _ in 0..command::COMMANDS.len() {
         key(&mut s, KeyCode::Down);
@@ -212,7 +212,10 @@ fn description_selection_completes_real_commands_and_returns_parameter_drafts() 
 #[test]
 fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     let configuration = std::fs::read(s.service.store.config_path()).unwrap();
     let description =
         i18n::Message::UnregisterRepositoryKeepFilesOnDisk.in_language(i18n::Language::Chinese);
@@ -232,7 +235,7 @@ fn clicking_description_results_uses_the_same_selection_and_keeps_frozen_scope()
     )
     .unwrap();
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from("/example/alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == &PathBuf::from(fixture_path!("/example/alpha")))
     );
     key(&mut s, KeyCode::Esc);
     assert_eq!(

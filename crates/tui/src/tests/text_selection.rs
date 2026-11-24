@@ -13,7 +13,10 @@ fn toggle(s: &mut Screen) {
 fn text_selection_preserves_drafts_and_keyboard_operation_but_releases_pointer() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/example/alpha").into(),
+            fixture_path!("/example/beta").into(),
+        ]);
         s.config.mouse.scroll = false;
         s.config.mouse.select_pane = false;
         s.service.store.save_config(&s.config).unwrap();
@@ -139,7 +142,10 @@ fn preference_persists_and_settings_and_commands_select_current_mode() {
 }
 #[test]
 fn config_lock_never_blocks_keyboard_and_rapid_changes_save_last_requested_mode() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     let lock = s.service.store.lock().unwrap();
     toggle(&mut s);
     assert!(s.interaction_save.pending());
@@ -175,7 +181,7 @@ fn failed_save_keeps_applied_mode_and_reports_error() {
 fn switching_back_to_interactive_restores_real_item_clicks_and_wheel_navigation() {
     for (width, height) in [(60, 18), (160, 32)] {
         let paths = (0..30)
-            .map(|i| PathBuf::from(format!("/example/repository-{i:02}")))
+            .map(|i| PathBuf::from(format!("{}/repository-{i:02}", fixture_path!("/example"))))
             .collect();
         let (_home, mut s) = fixture(paths);
         command(&mut s, "settings interaction text");
@@ -220,6 +226,8 @@ fn switching_back_to_interactive_restores_real_item_clicks_and_wheel_navigation(
     }
 }
 
+// 无控制台的 Windows 进程无法通过字节缓冲验证终端鼠标模式。
+#[cfg(unix)]
 #[test]
 fn capture_transitions_disable_and_restore_actual_terminal_reporting() {
     let mut output = Vec::new();

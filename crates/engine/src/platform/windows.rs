@@ -175,21 +175,36 @@ pub(crate) fn powershell(
     cancel: &crate::cancel::Cancel,
 ) -> anyhow::Result<crate::process::Output> {
     use anyhow::Context;
+    use base64::{Engine as _, engine::general_purpose::STANDARD};
     let root = std::env::var_os("SystemRoot")
         .map(std::path::PathBuf::from)
         .filter(|path| path.is_absolute())
         .context("SystemRoot is missing or is not absolute")?;
     let program = root.join("System32/WindowsPowerShell/v1.0/powershell.exe");
+    // 已处理的 COM 异常可能让 PowerShell 的隐式退出码仍为失败。
     let script = format!(
-        "$ErrorActionPreference = 'Stop'; [Console]::OutputEncoding = [Text.UTF8Encoding]::new(); {script}"
+        r#"$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
+[Console]::OutputEncoding = [Text.UTF8Encoding]::new()
+try {{
+{script}
+    exit 0
+}} catch {{
+    [Console]::Error.WriteLine($_.Exception.GetBaseException().Message)
+    exit 1
+}}"#
     );
+    let utf16 = script
+        .encode_utf16()
+        .flat_map(u16::to_le_bytes)
+        .collect::<Vec<_>>();
     crate::process::run_with_environment(
         &program,
         &[
             "-NoProfile".into(),
             "-NonInteractive".into(),
-            "-Command".into(),
-            script.into(),
+            "-EncodedCommand".into(),
+            STANDARD.encode(utf16).into(),
         ],
         None,
         cancel,

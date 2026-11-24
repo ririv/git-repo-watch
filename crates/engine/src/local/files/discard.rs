@@ -217,7 +217,10 @@ impl Replacement {
             meta.is_file() && !platform_files::is_link(&meta),
             i18n::tr!(DiscardFileUnsupported)
         );
-        fs::File::open(&source)?.sync_all()?;
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&source)?
+            .sync_all()?;
         Ok(Self::File(source))
     }
 

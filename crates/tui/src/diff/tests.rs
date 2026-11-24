@@ -164,7 +164,10 @@ fn file_information_is_separate_from_patch_rows_and_the_complete_export() {
 fn binary_notices_use_readable_paths_and_keep_original_exports_for_each_change_kind() {
     let f = Fixture::create();
     std::fs::create_dir(f.repo.join("元信息")).unwrap();
+    #[cfg(unix)]
     let modified = r#"元信息/中文 空格 "引号" \345.dat"#;
+    #[cfg(windows)]
+    let modified = "元信息/中文 空格 '引号' [345].dat";
     let deleted = "元信息/删除.dat";
     let added = "元信息/新增.dat";
     f.commit(modified, "before\0bytes");
@@ -198,6 +201,7 @@ fn binary_notices_use_readable_paths_and_keep_original_exports_for_each_change_k
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn binary_path_control_characters_cannot_create_extra_rows_or_terminal_commands() {
     let f = Fixture::create();

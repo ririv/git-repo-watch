@@ -135,7 +135,12 @@ fn refresh_rereads_local_files_and_preserves_branch_details_without_fetching() {
     f.commit("file.ts", "before\n");
     support::git(
         &f.repo,
-        &["remote", "set-url", "origin", "/missing/offline-remote"],
+        &[
+            "remote",
+            "set-url",
+            "origin",
+            fixture_path!("/missing/offline-remote"),
+        ],
     );
     support::write(
         f.repo.join(".git/FETCH_HEAD"),

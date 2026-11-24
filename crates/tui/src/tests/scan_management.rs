@@ -255,7 +255,10 @@ fn registration_refresh_preserves_checked_new_entries_and_reflects_external_remo
 fn management_uses_the_normal_command_popup_without_a_separate_menu_focus() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/first".into(), "/example/second".into()]);
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/example/first").into(),
+            fixture_path!("/example/second").into(),
+        ]);
         let before = s.service.store.config().unwrap().repositories;
         command(&mut s, "repos manage");
         for code in [KeyCode::Tab, KeyCode::BackTab, KeyCode::Enter] {

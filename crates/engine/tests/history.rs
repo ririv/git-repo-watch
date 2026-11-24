@@ -157,7 +157,7 @@ fn pagination_keeps_frozen_tips_without_duplicates_when_branches_move() {
 #[test]
 fn historical_diff_uses_blobs_and_literal_paths_without_touching_the_index_or_worktree() {
     let f = support::Fixture::create();
-    let filename = "中文 [literal]* file.ts";
+    let filename = "中文 [literal] file.ts";
     f.commit(filename, "export const value = \"old\";\n");
     f.commit(filename, "export const value = \"history\";\n");
     let repo = Repository::open(&f.repo).unwrap();

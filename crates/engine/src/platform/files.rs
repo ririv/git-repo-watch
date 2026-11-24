@@ -142,6 +142,12 @@ pub(crate) fn find_program(
             Ok(metadata) if executable_file(&metadata) => return Ok(Some(candidate)),
             Ok(_) => {}
             Err(error) if error.kind() == ErrorKind::NotFound => {}
+            // Windows 拒绝遍历此挂载点，其中的路径不能作为可执行程序候选。
+            #[cfg(windows)]
+            Err(error)
+                if error.raw_os_error()
+                    == Some(windows_sys::Win32::Foundation::ERROR_UNTRUSTED_MOUNT_POINT as i32) => {
+            }
             Err(error) => return Err(error),
         }
     }

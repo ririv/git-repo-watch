@@ -103,9 +103,10 @@ pub fn xdg_directory(name: &str, value: Option<OsString>, default: PathBuf) -> R
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_support::fixture_path;
     #[test]
     fn platform_defaults_and_xdg_overrides_resolve_configuration_state_and_logs() {
-        let home = Path::new("/example/用户 空格");
+        let home = Path::new(fixture_path!("/example/用户 空格"));
         let mac = UserDirectories::macos(home).store();
         assert_eq!(
             mac.config_path(),
@@ -138,18 +139,18 @@ mod tests {
         );
         let custom = UserDirectories::linux(
             home,
-            Some("/example/配置 空格".into()),
-            Some("/example/状态 空格".into()),
+            Some(fixture_path!("/example/配置 空格").into()),
+            Some(fixture_path!("/example/状态 空格").into()),
         )
         .unwrap()
         .store();
         assert_eq!(
             custom.config_dir(),
-            Path::new("/example/配置 空格").join(identity::DATA_DIRECTORY)
+            Path::new(fixture_path!("/example/配置 空格")).join(identity::DATA_DIRECTORY)
         );
         assert_eq!(
             custom.state_dir(),
-            Path::new("/example/状态 空格").join(identity::DATA_DIRECTORY)
+            Path::new(fixture_path!("/example/状态 空格")).join(identity::DATA_DIRECTORY)
         );
         assert!(UserDirectories::linux(home, None, Some("relative".into())).is_err());
     }

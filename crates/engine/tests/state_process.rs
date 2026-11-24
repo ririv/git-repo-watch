@@ -1,12 +1,13 @@
+#[cfg(unix)]
+use engine::{cancel::Cancel, process};
 use engine::{
-    cancel::Cancel,
     domain::PushPolicy,
-    process,
     state::{self, Config, Store},
 };
+use std::fs;
+#[cfg(unix)]
 use std::{
     ffi::OsString,
-    fs,
     os::unix::fs::PermissionsExt,
     path::Path,
     thread,
@@ -26,11 +27,13 @@ fn missing_optional_preferences_and_explicit_values_survive_toml_roundtrips() {
     config.max_concurrency = 2;
     store.save_config(&config).unwrap();
     assert_eq!(store.config().unwrap().max_concurrency, 2);
+    #[cfg(unix)]
     let permissions = fs::metadata(store.config_path())
         .unwrap()
         .permissions()
         .mode()
         & 0o777;
+    #[cfg(unix)]
     assert_eq!(permissions, 0o600);
     for value in [0, 33] {
         config.max_concurrency = value;
@@ -50,6 +53,7 @@ fn process_lock_is_shared_and_automatically_released() {
     drop(lock);
     assert!(!store.running().unwrap());
 }
+#[cfg(unix)]
 #[test]
 fn cancellation_and_timeout_kill_descendants() {
     let _language = i18n::using(i18n::Language::Chinese);

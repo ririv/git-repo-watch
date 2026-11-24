@@ -111,7 +111,7 @@ fn selected_file_hints_keep_the_leaf_name_in_narrow_command_menus() {
 fn repository_row_shows_the_frozen_branch_and_subcommands_keep_their_own_annotations() {
     let f = support::Fixture::create();
     support::git(&f.repo, &["branch", "-m", "feature/中文"]);
-    let (_home, mut s) = fixture(vec![f.repo.clone(), "/example/other".into()]);
+    let (_home, mut s) = fixture(vec![f.repo.clone(), fixture_path!("/example/other").into()]);
     let index = std::fs::read(f.repo.join(".git/index")).unwrap();
     s.focus(Some(f.repo.clone()));
     s.paste("//repo");
@@ -123,7 +123,7 @@ fn repository_row_shows_the_frozen_branch_and_subcommands_keep_their_own_annotat
         _ => panic!("command"),
     };
     support::git(&f.repo, &["branch", "-m", "changed-after-menu"]);
-    s.focus(Some("/example/other".into()));
+    s.focus(Some(fixture_path!("/example/other").into()));
     s.poll_command_repository();
     let text = render(&mut s, 150, 32);
     assert!(text.contains("feature/中文"), "{text}");

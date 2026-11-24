@@ -130,7 +130,10 @@ fn worktree_plans_preserve_the_source_and_refuse_unreviewed_files() {
             .unwrap(),
         "topic"
     );
-    git(source, &["worktree", "lock", elsewhere.to_str().unwrap()]);
+    git(
+        source,
+        &["worktree", "lock", &test_support::shell_path(&elsewhere)],
+    );
     let snapshot = worktrees::read(source, &cancel).unwrap();
     assert!(matches!(snapshot.entries[1].kind, Kind::Locked(_)));
     assert!(

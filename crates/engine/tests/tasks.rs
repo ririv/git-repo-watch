@@ -188,7 +188,7 @@ fn checks_share_the_journal_and_dirty_repositories_are_successful_tasks() {
         .unwrap();
     let service = Service::new(
         store.clone(),
-        Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap(),
+        Manager::for_current_user_in(store.config_dir()).unwrap(),
     );
     service
         .check_repository(&repository.repo, &Cancel::default(), |_| {})

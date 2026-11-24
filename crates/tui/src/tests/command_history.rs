@@ -21,7 +21,10 @@ fn open(s: &mut Screen) {
 
 #[test]
 fn history_entry_preserves_plain_list_navigation_and_only_opens_at_the_empty_command_first_row() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     key(&mut s, KeyCode::Down);
     let selected = s.repository_viewport.selected();
     key(&mut s, KeyCode::Up);

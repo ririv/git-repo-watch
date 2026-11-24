@@ -137,17 +137,17 @@ fn task_filter_keeps_the_underlying_draft_and_limits_navigation_to_visible_recor
     for (title, path, outcome) in [
         (
             "refresh alpha",
-            "/example/alpha",
+            fixture_path!("/example/alpha"),
             Completion::failure("alpha error"),
         ),
         (
             "check beta",
-            "/example/beta",
+            fixture_path!("/example/beta"),
             Completion::failure("beta error"),
         ),
         (
             "successful task",
-            "/example/beta",
+            fixture_path!("/example/beta"),
             Completion::Succeeded {
                 detail: String::new(),
             },
@@ -218,17 +218,17 @@ fn task_status_filter_uses_the_option_menu_and_combines_with_repository_search()
     for (title, path, outcome) in [
         (
             "failed alpha",
-            "/example/alpha",
+            fixture_path!("/example/alpha"),
             Completion::failure("alpha failure"),
         ),
         (
             "failed beta",
-            "/example/beta",
+            fixture_path!("/example/beta"),
             Completion::failure("beta failure"),
         ),
         (
             "successful alpha",
-            "/example/alpha",
+            fixture_path!("/example/alpha"),
             Completion::Succeeded {
                 detail: String::new(),
             },
@@ -575,7 +575,7 @@ fn presentation_record(id: usize, pending: bool) -> engine::tasks::Record {
         spec: Spec {
             title: "Fetch remote".into(),
             scope: Scope::Repository {
-                path: format!("/example/中文-repo-{id}").into(),
+                path: format!("{}/中文-repo-{id}", fixture_path!("/example")).into(),
             },
             source: Source::Interactive,
             retry: Retry::Unavailable,
@@ -749,15 +749,16 @@ fn batch_failure_details_group_repository_errors_and_keep_the_execution_log() {
     let mut record = presentation_record(0, true);
     record.spec.scope = Scope::All;
     record.spec.source = Source::Scheduled;
+    let example = fixture_path!("/example");
     let plan = "获取远程 → 推送提交 → 读取本地状态";
     record.spec.title = format!("定时任务 · {plan}");
     record.state = State::Finished {
         at: record.started_at.clone(),
         outcome: Completion::failure(format!(
-            "/example/AtomNote: Fetch failed\nfatal: could not connect\n\n\n\n\
-             /example/Gift: Fetch failed\nfatal: timeout\n\n\
-             /example/AtomNote: Push failed\n\nadditional stderr context\n\n{plan}\n\
-             /example/Gift\n– Read local state · skipped"
+            "{example}/AtomNote: Fetch failed\nfatal: could not connect\n\n\n\n\
+             {example}/Gift: Fetch failed\nfatal: timeout\n\n\
+             {example}/AtomNote: Push failed\n\nadditional stderr context\n\n{plan}\n\
+             {example}/Gift\n– Read local state · skipped"
         )),
     };
     let id = record.id.clone();
@@ -792,8 +793,8 @@ fn batch_failure_details_group_repository_errors_and_keep_the_execution_log() {
     s.tasks.records[0].state = State::Finished {
         at: s.tasks.records[0].started_at.clone(),
         outcome: Completion::failure(format!(
-            "/example/AtomNote: Fetch failed\n\n{manual_plan}\n/example/Healthy\n\
-             ✓ 01:02:03 Fetch remotes · origin\n/example/AtomNote\n✗ 01:02:04 Fetch remotes"
+            "{example}/AtomNote: Fetch failed\n\n{manual_plan}\n{example}/Healthy\n\
+             ✓ 01:02:03 Fetch remotes · origin\n{example}/AtomNote\n✗ 01:02:04 Fetch remotes"
         )),
     };
     s.tasks.session = crate::task_center::Session::List;
@@ -801,7 +802,7 @@ fn batch_failure_details_group_repository_errors_and_keep_the_execution_log() {
     let text = render(&mut s, 160, 34);
     assert!(text.contains("失败仓库 · 1"));
     assert!(text.contains("执行记录"));
-    assert!(!text.contains("/example/Healthy"));
+    assert!(!text.contains(fixture_path!("/example/Healthy")));
     assert!(text.contains("01:02:04 Fetch remotes"));
     s.shutdown();
 }
@@ -813,6 +814,7 @@ fn legacy_scheduled_detail_keeps_one_copy_of_a_failed_push_and_a_step_timeline()
     let mut record = presentation_record(0, true);
     record.spec.scope = Scope::All;
     record.spec.source = Source::Scheduled;
+    let example = fixture_path!("/example");
     let plan = "获取远程 → 推送提交 → 读取本地状态";
     record.spec.title = format!("定时任务 · {plan}");
     let hook = "Git rejected the branch\n\nPython environment lacks pyright";
@@ -820,10 +822,10 @@ fn legacy_scheduled_detail_keeps_one_copy_of_a_failed_push_and_a_step_timeline()
     record.state = State::Finished {
         at: record.started_at.clone(),
         outcome: Completion::failure(format!(
-            "/example/rivetoo: {step}\n\n\n/example/rivetoo: {hook}\n\n\
-             /example/Gift: Fetch failed\n\n{plan}\n/example/rivetoo\n\
+            "{example}/rivetoo: {step}\n\n\n{example}/rivetoo: {hook}\n\n\
+             {example}/Gift: Fetch failed\n\n{plan}\n{example}/rivetoo\n\
              ✓ 02:44:41 获取远程 · origin\n✗ 02:45:41 推送提交\n  {step}\n\
-             – 读取本地状态 · 未执行\n/example/Gift\n✗ 02:45:42 获取远程\n  Fetch failed"
+             – 读取本地状态 · 未执行\n{example}/Gift\n✗ 02:45:42 获取远程\n  Fetch failed"
         )),
     };
     s.tasks.session = crate::task_center::Session::Detail {

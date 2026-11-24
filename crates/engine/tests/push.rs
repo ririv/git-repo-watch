@@ -4,7 +4,7 @@ use engine::{
     operations::push::{self, Preparation, PushPlan, TargetRequest},
     transport::Git,
 };
-use std::{fs, os::unix::fs::PermissionsExt};
+use std::fs;
 use test_support::{Fixture, git, write};
 
 fn prepare(f: &Fixture) -> Preparation {
@@ -29,8 +29,14 @@ fn execute(plan: &PushPlan) -> Publication {
 }
 fn hook(f: &Fixture, text: &str) {
     let path = f.repo.join(".git/hooks/pre-push");
-    write(&path, text);
-    fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&path, text);
+}
+fn update_reference_in_hook(f: &Fixture, branch: &str, oid: &str) {
+    let remote = test_support::shell_path(&f.remote).replace('\'', "'\"'\"'");
+    hook(
+        f,
+        &format!("#!/bin/sh\ngit -C '{remote}' update-ref refs/heads/{branch} {oid}\n"),
+    );
 }
 fn target(request: &TargetRequest, remote: &str, branch: &str) -> PushPlan {
     push::prepare_target(&Git::default(), request, remote, branch, &Cancel::default()).unwrap()
@@ -132,14 +138,7 @@ fn exact_force_lease_rejects_a_remote_race_after_the_last_preflight() {
     );
     git(&peer, &["push", "origin", "HEAD:refs/heads/raced"]);
     let raced = git(&f.remote, &["rev-parse", "raced"]);
-    hook(
-        &f,
-        &format!(
-            "#!/bin/sh\n/usr/bin/git -C '{}' update-ref refs/heads/main '{}'\n",
-            f.remote.display(),
-            raced
-        ),
-    );
+    update_reference_in_hook(&f, "main", &raced);
     assert!(matches!(
         execute(&plan),
         Publication::Failed {
@@ -216,14 +215,7 @@ fn creating_a_branch_uses_an_absence_lease_and_never_overwrites_a_racing_publica
     f.advance();
     let raced = git(&f.remote, &["rev-parse", "main"]);
     let plan = target(&request, "origin", "new");
-    hook(
-        &f,
-        &format!(
-            "#!/bin/sh\n/usr/bin/git -C '{}' update-ref refs/heads/new '{}'\n",
-            f.remote.display(),
-            raced
-        ),
-    );
+    update_reference_in_hook(&f, "new", &raced);
     assert!(matches!(
         execute(&plan),
         Publication::Failed {
@@ -379,7 +371,7 @@ fn new_upstream_uses_custom_fetch_mappings_and_preserves_external_configuration_
     let plan = target(&request, "origin", "another");
     hook(
         &f,
-        "#!/bin/sh\n/usr/bin/git config branch.main.remote .\n/usr/bin/git config branch.main.merge refs/heads/main\n",
+        "#!/bin/sh\ngit config branch.main.remote .\ngit config branch.main.merge refs/heads/main\n",
     );
     assert!(matches!(
         execute(&plan),

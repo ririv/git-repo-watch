@@ -21,7 +21,7 @@ fn click(s: &mut Screen, x: u16, y: u16) -> bool {
 #[test]
 fn repository_clicks_use_visible_offsets_and_ignore_headers_blanks_and_disabled_input() {
     let paths = (0..30)
-        .map(|i| PathBuf::from(format!("/example/repository-{i:02}")))
+        .map(|i| PathBuf::from(format!("{}/repository-{i:02}", fixture_path!("/example"))))
         .collect();
     let (_home, mut s) = fixture(paths);
     for (width, height) in [(60, 18), (160, 32)] {
@@ -64,7 +64,7 @@ fn repository_options_resize_without_covering_headers_clicks_or_scroll_tracks() 
     let _language = i18n::using(i18n::Language::English);
     let (_home, mut s) = fixture(
         (0..30)
-            .map(|i| PathBuf::from(format!("/example/repository-{i:02}")))
+            .map(|i| PathBuf::from(format!("{}/repository-{i:02}", fixture_path!("/example"))))
             .collect(),
     );
     s.filter = Filter::Unchecked;
@@ -133,7 +133,10 @@ fn repository_filter_and_sort_labels_open_current_options_and_clicks_apply_only_
     use unicode_width::UnicodeWidthStr;
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/z/repo".into(), "/a/repo".into()]);
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/z/repo").into(),
+            fixture_path!("/a/repo").into(),
+        ]);
         let mut original = s.service.store.config().unwrap();
         s.paste("repo");
         for width in if language == i18n::Language::Chinese {
@@ -157,7 +160,7 @@ fn repository_filter_and_sort_labels_open_current_options_and_clicks_apply_only_
             ] {
                 s.filter = Filter::Unchecked;
                 s.order = Order::Updated;
-                s.focus(Some("/z/repo".into()));
+                s.focus(Some(fixture_path!("/z/repo").into()));
                 let selected = s.selected_path();
                 let text = render(&mut s, width, 26);
                 let (x, y) = text
@@ -254,7 +257,7 @@ fn hidden_repository_controls_leave_no_click_regions_after_resize_or_navigation(
         pointer::{Action, Hit},
         repository_list::Menu,
     };
-    let (_home, mut s) = fixture(vec!["/example/repo".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/repo").into()]);
     for (width, height, visible) in [(160, 30, true), (12, 8, false), (80, 24, true)] {
         render(&mut s, width, height);
         for menu in [Menu::Filter, Menu::Sort] {
@@ -737,7 +740,7 @@ fn file_checkboxes_toggle_filtered_staged_and_unstaged_rows_without_entering_or_
 fn dragging_repository_scrollbar_survives_redraw_reverses_and_ends_on_release_or_key() {
     let (_home, mut s) = fixture(
         (0..80)
-            .map(|n| PathBuf::from(format!("/example/repo-{n:03}")))
+            .map(|n| PathBuf::from(format!("{}/repo-{n:03}", fixture_path!("/example"))))
             .collect(),
     );
     render(&mut s, 100, 24);

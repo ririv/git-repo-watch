@@ -22,7 +22,7 @@ pub(super) fn choices(s: &Screen) -> &command::options::Candidates {
 fn fixed_options_have_one_command_and_automatic_localized_parameter_candidates() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/a".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/a").into()]);
         for (name, kind, count, argument) in [
             (
                 "repos filter",
@@ -108,7 +108,7 @@ fn command_rows_omit_parameters_and_inline_hints_keep_whole_choices_and_current_
     const FULL: &str = "[all|problems|clean|failed|unchecked|no-upstream|pushes]";
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/a".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/a").into()]);
         let configuration = std::fs::read(s.service.store.config_path()).unwrap();
         let selection = s.selected_path();
         s.paste("//repos filter");
@@ -165,7 +165,10 @@ fn command_rows_omit_parameters_and_inline_hints_keep_whole_choices_and_current_
 
 #[test]
 fn value_completion_preserves_plain_search_and_the_selected_repository_until_execution() {
-    let (_home, mut s) = fixture(vec!["/example/中文-a".into(), "/example/中文-b".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/中文-a").into(),
+        fixture_path!("/example/中文-b").into(),
+    ]);
     s.paste("中文");
     let selected = s.selected_path();
     let config = std::fs::read(s.service.store.config_path()).unwrap();

@@ -8,13 +8,18 @@ mod transfer;
 use super::{Lock, Store};
 use crate::{cancel::Cancel, platform::files};
 use anyhow::{Context, Result, ensure};
-use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior};
+use rusqlite::{Connection, OpenFlags, Transaction, TransactionBehavior, config::DbConfig};
 use std::{
     fs,
     path::Path,
     time::{Duration, Instant},
 };
 pub use transfer::Transfer;
+
+enum DatabaseFile {
+    Published,
+    Staged,
+}
 
 pub(super) struct Database {
     connection: Connection,
@@ -45,7 +50,7 @@ impl Database {
         }
         Self::checked(store)
     }
-    fn connect(path: &Path) -> Result<Connection> {
+    fn connect(path: &Path, file: DatabaseFile) -> Result<Connection> {
         ensure!(
             fs::symlink_metadata(path)?.file_type().is_file(),
             i18n::tr!(InvalidStateDatabase)
@@ -56,12 +61,17 @@ impl Database {
             OpenFlags::SQLITE_OPEN_READ_WRITE | OpenFlags::SQLITE_OPEN_NO_MUTEX,
         )
         .context(i18n::tr!(InvalidStateDatabase))?;
+        // 状态库连接频繁开关，使用 SQLite 的写入检查点，避免最后一个连接关闭时独占 WAL。
+        connection.set_db_config(
+            DbConfig::SQLITE_DBCONFIG_NO_CKPT_ON_CLOSE,
+            matches!(file, DatabaseFile::Published),
+        )?;
         connection.busy_timeout(Duration::from_millis(20))?;
         connection.execute_batch("PRAGMA foreign_keys=ON; PRAGMA synchronous=FULL;")?;
         Ok(connection)
     }
     fn checked(store: &Store) -> Result<Self> {
-        let connection = Self::connect(&store.database_path())?;
+        let connection = Self::connect(&store.database_path(), DatabaseFile::Published)?;
         let id: i64 = connection.pragma_query_value(None, "application_id", |row| row.get(0))?;
         let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0))?;
         ensure!(
@@ -119,7 +129,7 @@ impl Database {
         // 完成结构初始化并关闭 SQLite 连接后才发布数据库，避免并发打开半成品。
         let staged = tempfile::NamedTempFile::new_in(&directory)?;
         let mut database = Self {
-            connection: Self::connect(staged.path())?,
+            connection: Self::connect(staged.path(), DatabaseFile::Staged)?,
         };
         database.transaction(cancel, |transaction| {
             transaction.execute_batch(schema::CREATE)?;

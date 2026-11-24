@@ -21,7 +21,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
             "submodule",
             "add",
             "--",
-            child.remote.to_str().unwrap(),
+            &test_support::shell_path(&child.remote),
             "deps/内层",
         ],
     );
@@ -59,7 +59,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
         screen.message
     );
     let review = render(&mut screen, 180, 32);
-    assert!(review.contains(path) && review.contains(".gitmodules"));
+    assert!(review.replace('\\', "/").contains(path) && review.contains(".gitmodules"));
     assert!(!parent.repo.join(path).exists());
     assert!(!parent.repo.join(".gitmodules").exists());
 
@@ -141,7 +141,7 @@ fn adds_submodule_after_confirmation_and_reads_nested_tree() {
     command(&mut screen, "refresh");
     wait(&mut screen);
     let tree = render(&mut screen, 160, 26);
-    assert!(tree.contains("   └─ deps/内层"));
+    assert!(tree.replace('\\', "/").contains("   └─ deps/内层"));
     assert!(!tree.contains(i18n::tr!(SubmoduleUninitialized)));
     screen.shutdown();
 }
@@ -184,10 +184,10 @@ fn allow_local_git(screen: &Screen, path: &Path) {
     screen.service.configure(ConfigEdit::RepositoryEnvironment {
         path: path.to_owned(),
         edit: Edit::Launcher(Some(Launcher {
-            program: "/bin/sh".into(),
+            program: test_support::git_shell().to_owned(),
             args: vec![
                 "-c".into(),
-                "git=$1; shift; GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL=/dev/null exec \"$git\" -c protocol.file.allow=always \"$@\"".into(),
+                format!("git=$1; shift; GIT_CONFIG_NOSYSTEM=1 GIT_CONFIG_GLOBAL={} exec \"$git\" -c protocol.file.allow=always \"$@\"", test_support::NULL_DEVICE),
                 "submodule-fixture".into(),
             ],
         })),
@@ -207,7 +207,7 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
             "protocol.file.allow=always",
             "submodule",
             "add",
-            nested.remote.to_str().unwrap(),
+            &test_support::shell_path(&nested.remote),
             "deps/nested",
         ],
     );
@@ -222,7 +222,7 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
             "protocol.file.allow=always",
             "submodule",
             "add",
-            module.remote.to_str().unwrap(),
+            &test_support::shell_path(&module.remote),
             path,
         ],
     );
@@ -233,7 +233,7 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
         &[
             "clone",
             "--no-recurse-submodules",
-            parent.repo.to_str().unwrap(),
+            &test_support::shell_path(&parent.repo),
             repo.to_str().unwrap(),
         ],
     );
@@ -255,7 +255,7 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
     assert_checkout_preview(&screen, Checkout::Initialize);
     assert!(!checkout.join(".git").exists());
     let review = render(&mut screen, 180, 26);
-    assert!(review.contains(path) && review.contains(&old[..12]));
+    assert!(review.replace('\\', "/").contains(path) && review.contains(&old[..12]));
     key(&mut screen, KeyCode::Left);
     key(&mut screen, KeyCode::Enter);
     wait(&mut screen);
@@ -266,7 +266,7 @@ fn initializes_nested_submodules_and_updates_a_selected_checkout_to_the_index() 
     assert_eq!(support::git(&checkout, &["rev-parse", "HEAD"]), old);
     assert!(checkout.join("deps/nested/.git").is_file());
     let tree = render(&mut screen, 160, 26);
-    assert!(tree.contains("   └─ deps/nested"));
+    assert!(tree.replace('\\', "/").contains("   └─ deps/nested"));
     assert!(!tree.contains(i18n::tr!(SubmoduleUninitialized)));
 
     module.commit("tracked", "new\n");

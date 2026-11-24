@@ -70,16 +70,15 @@ def create(root: Path) -> Seed:
     repo.commit("启用可撤销的实验功能")
     repo.run("tag", "example/revert")
     remote = root / "remote.git"
-    remote.mkdir()
-    remote_repo = Git(remote, clock)
-    remote_repo.run("init", "--bare", "-b", "main")
-    remote_repo.configure()
-    repo.run("remote", "add", "origin", str(remote))
-    repo.run("push", "--all", "origin")
-    repo.run("push", "--tags", "origin")
+    # 直接复制本地对象，远程从相同的分支和标签开始，后续场景再产生推送和拉取。
+    git = Git(root, clock)
+    git.run("clone", "--local", "--no-hardlinks", "--bare", repo.path.as_posix(), remote.as_posix())
+    Git(remote, clock).configure()
+    repo.run("remote", "add", "origin", remote.as_posix())
+    repo.run("fetch", "--no-tags", "origin")
     repo.run("branch", "--set-upstream-to=origin/main", "main")
     peer_path = root / "peer"
-    Git(root, clock).run("clone", str(remote), str(peer_path))
+    git.run("clone", remote.as_posix(), peer_path.as_posix())
     peer = Git(peer_path, clock)
     peer.configure()
     return Seed(repo, peer, remote)

@@ -1,15 +1,19 @@
+#[cfg(unix)]
+use engine::operations::mutation::Change;
 use engine::{
     cancel::Cancel,
     domain::{IssueKind, Publication, RepositoryResult},
     operations::{
-        mutation::{Change, Plan, Request},
+        mutation::{Plan, Request},
         sync::{self, Unavailable},
     },
     scheduler::Manager,
     service::Service,
     state::{Completion, Config, Operation, Store},
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::PathBuf};
 use test_support::{Fixture, git, write};
 
 fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
@@ -21,7 +25,7 @@ fn service(paths: Vec<PathBuf>) -> (tempfile::TempDir, Service) {
             ..Config::default()
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     (home, Service::new(store, manager))
 }
 fn prepare(service: &Service, fixture: &Fixture) -> Plan {
@@ -29,6 +33,7 @@ fn prepare(service: &Service, fixture: &Fixture) -> Plan {
         .prepare_mutation(&fixture.repo, Request::Sync, &Cancel::default())
         .unwrap()
 }
+#[cfg(unix)]
 fn upload_log(f: &Fixture) -> PathBuf {
     let wrapper = f.temp.path().join("upload-pack");
     write(
@@ -46,10 +51,12 @@ fn upload_log(f: &Fixture) -> PathBuf {
     );
     wrapper.with_extension("log")
 }
+#[cfg(unix)]
 fn requests(log: &PathBuf) -> usize {
     fs::read_to_string(log).unwrap().lines().count()
 }
 
+#[cfg(unix)]
 #[test]
 fn sync_reviews_a_fast_forward_after_one_fetch_and_updates_only_its_repository() {
     let f = Fixture::create();
@@ -90,6 +97,7 @@ fn sync_reviews_a_fast_forward_after_one_fetch_and_updates_only_its_repository()
     assert_eq!(requests(&log), 2);
 }
 
+#[cfg(unix)]
 #[test]
 fn sync_push_keeps_uncommitted_work_and_verifies_the_remote_without_refetching() {
     let f = Fixture::create();
@@ -160,8 +168,8 @@ fn sync_failed_push_retains_publication_failure_and_refreshes_actual_state() {
     let (_home, s) = service(vec![f.repo.clone()]);
     let plan = prepare(&s, &f);
     let hook = f.remote.join("hooks/pre-receive");
-    write(&hook, "#!/bin/sh\necho rejected-sync >&2\nexit 1\n");
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\necho rejected-sync >&2\nexit 1\n");
+
     let error = s.mutate(&plan, &Cancel::default()).unwrap_err();
     assert!(format!("{error:#}").contains("rejected-sync"));
     let report = s.store.repository_report(&f.repo).unwrap().unwrap();

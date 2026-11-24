@@ -106,8 +106,15 @@ fn explicit_copy_path_uses_the_same_file_before_and_after_opening() {
 fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let path = format!("/example/{} 中文 项目", "long-name-".repeat(25));
-        let (_home, mut s) = fixture(vec![path.clone().into(), "/other/repo".into()]);
+        let path = format!(
+            "{}/{} 中文 项目",
+            fixture_path!("/example"),
+            "long-name-".repeat(25)
+        );
+        let (_home, mut s) = fixture(vec![
+            path.clone().into(),
+            fixture_path!("/other/repo").into(),
+        ]);
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         s.focus(Some(path.clone().into()));
         let rx = capture(&mut s);
@@ -121,7 +128,7 @@ fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views
                 .collect::<Vec<_>>(),
             ["copy"]
         );
-        s.focus(Some("/other/repo".into()));
+        s.focus(Some(fixture_path!("/other/repo").into()));
         for (w, h) in [(60, 18), (100, 28), (180, 36)] {
             let text = render(&mut s, w, h);
             assert!(
@@ -131,7 +138,7 @@ fn repository_copy_freezes_the_selected_path_and_global_search_hides_other_views
         }
         key(&mut s, KeyCode::Enter);
         assert_eq!(copied(&mut s, &rx), path);
-        assert_eq!(s.selected_path(), Some("/other/repo".into()));
+        assert_eq!(s.selected_path(), Some(fixture_path!("/other/repo").into()));
         assert_eq!(
             std::fs::read(s.service.store.config_path()).unwrap(),
             config
@@ -291,7 +298,7 @@ fn history_and_branch_copy_follow_the_selected_object_and_historical_file() {
 fn errors_have_their_own_context_and_copy_complete_details_without_git_or_config_actions() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/repo".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/repo").into()]);
         let rx = capture(&mut s);
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         let detail = format!("first line\n{}\nlast line", "中文 error ".repeat(100));
@@ -331,7 +338,10 @@ fn errors_have_their_own_context_and_copy_complete_details_without_git_or_config
 
 #[test]
 fn clipboard_worker_keeps_navigation_responsive_and_reports_failures_without_overwriting_drafts() {
-    let (_home, mut s) = fixture(vec!["/example/a".into(), "/example/b".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/a").into(),
+        fixture_path!("/example/b").into(),
+    ]);
     let (started, rx) = mpsc::channel();
     let (release, gate) = mpsc::channel();
     s.clipboard = Writer::with_sink(move |text| {
@@ -342,10 +352,10 @@ fn clipboard_worker_keeps_navigation_responsive_and_reports_failures_without_ove
     command(&mut s, "copy");
     assert_eq!(
         rx.recv_timeout(Duration::from_secs(8)).unwrap(),
-        "/example/a"
+        fixture_path!("/example/a")
     );
     key(&mut s, KeyCode::Down);
-    assert_eq!(s.selected_path(), Some("/example/b".into()));
+    assert_eq!(s.selected_path(), Some(fixture_path!("/example/b").into()));
     command(&mut s, "copy");
     assert!(s.message.contains(i18n::tr!(ClipboardBusy)));
     s.paste("//open terminal");

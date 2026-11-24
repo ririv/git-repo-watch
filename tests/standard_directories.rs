@@ -7,10 +7,12 @@ use std::{
 
 fn cli(home: &Path, cwd: &Path, args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_rvgit"))
-        .env("HOME", home)
+        .env(test_support::HOME_VARIABLE, home)
         .env("APP_LANG", "en")
         .env_remove("XDG_CONFIG_HOME")
         .env_remove("XDG_STATE_HOME")
+        .env_remove("APPDATA")
+        .env_remove("LOCALAPPDATA")
         .current_dir(cwd)
         .args(args)
         .output()
@@ -103,7 +105,7 @@ fn linux_xdg_overrides_are_explicit_and_relative_values_fail_without_writes() {
     let state = home.join("状态 空格");
     let run = |value: &Path, args: &[&str]| {
         Command::new(env!("CARGO_BIN_EXE_rvgit"))
-            .env("HOME", home)
+            .env(test_support::HOME_VARIABLE, home)
             .env("APP_LANG", "en")
             .env("XDG_CONFIG_HOME", value)
             .env("XDG_STATE_HOME", &state)

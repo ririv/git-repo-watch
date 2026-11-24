@@ -106,7 +106,7 @@ fn public_endpoints_do_not_expose_embedded_credentials_or_query_tokens() {
 fn local_repositories_and_local_remote_paths_are_distinct() {
     let f = Fixture::create();
     let endpoints = remotes::read(&f.repo, &Cancel::default()).unwrap();
-    assert_eq!(endpoints[0].url, f.remote.to_string_lossy());
+    assert_eq!(endpoints[0].url, test_support::shell_path(&f.remote));
     git(&f.repo, &["remote", "remove", "origin"]);
     assert!(
         remotes::read(&f.repo, &Cancel::default())

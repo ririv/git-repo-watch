@@ -21,11 +21,17 @@ fn warn(s: &mut Screen) {
 fn three_presses_clear_all_command_input_warn_then_exit_without_writes() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/example/alpha").into(),
+            fixture_path!("/example/beta").into(),
+        ]);
         let config = std::fs::read(s.service.store.config_path()).unwrap();
         let selected = s.selected_path();
         s.paste("beta");
-        assert_eq!(s.selected_path(), Some(PathBuf::from("/example/beta")));
+        assert_eq!(
+            s.selected_path(),
+            Some(PathBuf::from(fixture_path!("/example/beta")))
+        );
         s.paste("//settings concurrency ");
         assert!(matches!(s.bar, bar::InputBar::Command { .. }));
         assert!(!interrupt(&mut s));
@@ -85,7 +91,10 @@ fn empty_input_warns_immediately_and_command_prefixes_are_cleared_first() {
 #[test]
 fn keyboard_paste_click_and_wheel_reset_the_exit_sequence() {
     for action in 0..5 {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/example/alpha").into(),
+            fixture_path!("/example/beta").into(),
+        ]);
         warn(&mut s);
         render(&mut s, 120, 32);
         match action {

@@ -13,12 +13,12 @@ fn conflict() -> support::Fixture {
     let source = support::git(&f.repo, &["rev-parse", "HEAD"]);
     support::git(&f.repo, &["checkout", "main"]);
     f.commit("conflict.txt", "current\n");
-    let result = std::process::Command::new("/usr/bin/git")
+    let result = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["cherry-pick", &source])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .output()
         .unwrap();
     assert_eq!(result.status.code(), Some(1));

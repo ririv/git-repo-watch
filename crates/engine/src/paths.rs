@@ -20,10 +20,11 @@ pub fn expand_home(value: &str, user_home: &Path) -> Result<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use test_support::fixture_path;
 
     #[test]
     fn home_prefix_expands_without_evaluating_other_path_characters() {
-        let home = Path::new("/example/用户 目录");
+        let home = Path::new(fixture_path!("/example/用户 目录"));
         for value in ["~", "~/", "~//"] {
             assert_eq!(expand_home(value, home).unwrap(), home);
         }
@@ -41,15 +42,15 @@ mod tests {
             assert_eq!(expand_home(value, home).unwrap(), Path::new(value));
         }
         assert_eq!(
-            expand_home("~/Proj", Path::new("/")).unwrap(),
-            Path::new("/Proj")
+            expand_home("~/Proj", Path::new(fixture_path!("/"))).unwrap(),
+            Path::new(fixture_path!("/Proj"))
         );
     }
 
     #[test]
     fn named_users_and_invalid_home_are_explicit_errors() {
         for value in ["~someone", "~someone/Proj", "~\\Proj"] {
-            assert!(expand_home(value, Path::new("/example/home")).is_err());
+            assert!(expand_home(value, Path::new(fixture_path!("/example/home"))).is_err());
         }
         for home in [Path::new(""), Path::new("relative")] {
             assert!(expand_home("~/Proj", home).is_err());

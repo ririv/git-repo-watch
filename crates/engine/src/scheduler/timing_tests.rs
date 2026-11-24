@@ -128,19 +128,6 @@ fn native_candidates_align_to_the_basis_and_bound_the_number_of_wakeups() {
 
 #[test]
 fn daylight_saving_transitions_skip_missing_and_repeated_local_occurrences() {
-    const CHILD: &str = "APP_TIMING_DST_CHILD";
-    if std::env::var_os(CHILD).is_none() {
-        let output = std::process::Command::new(std::env::current_exe().unwrap())
-            .args(["--exact", "scheduler::timing_tests::daylight_saving_transitions_skip_missing_and_repeated_local_occurrences", "--nocapture"])
-            .env("TZ", "America/New_York").env(CHILD, "1").output().unwrap();
-        assert!(
-            output.status.success(),
-            "{}{}",
-            String::from_utf8_lossy(&output.stdout),
-            String::from_utf8_lossy(&output.stderr)
-        );
-        return;
-    }
     for (basis, now, expected) in [
         (
             "2026-03-08 00:30:00",
@@ -163,7 +150,7 @@ fn daylight_saving_transitions_skip_missing_and_repeated_local_occurrences() {
         .unwrap();
         let now = chrono::DateTime::parse_from_rfc3339(now)
             .unwrap()
-            .with_timezone(&chrono::Local);
+            .with_timezone(&chrono_tz::America::New_York);
         assert_eq!(
             plan.next_after(now).unwrap(),
             chrono::DateTime::parse_from_rfc3339(expected).unwrap()

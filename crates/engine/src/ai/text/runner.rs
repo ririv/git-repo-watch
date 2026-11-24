@@ -46,7 +46,7 @@ fn resolve_in(command: &str, path: &std::ffi::OsStr, cwd: &Path) -> Result<PathB
         .with_context(|| format!("{}: {command}", i18n::tr!(AgentNotFound)))
 }
 
-#[cfg(test)]
+#[cfg(all(test, unix))]
 mod tests {
     use super::*;
     use std::{fs, os::unix::fs::PermissionsExt};

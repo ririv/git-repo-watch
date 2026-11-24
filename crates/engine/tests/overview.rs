@@ -129,12 +129,12 @@ fn merge_conflicts_are_visible_instead_of_rejecting_the_overview() {
     f.commit("conflict", "feature\n");
     git(&f.repo, &["checkout", "main"]);
     f.commit("conflict", "main\n");
-    let merge = std::process::Command::new("/usr/bin/git")
+    let merge = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["merge", "feature"])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .output()
         .unwrap();
     assert_eq!(merge.status.code(), Some(1));

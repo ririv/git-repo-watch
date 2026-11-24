@@ -6,11 +6,9 @@ use engine::{
         patch::Source,
     },
 };
-use std::{
-    fs,
-    os::unix::fs::{PermissionsExt, symlink},
-    process::Command,
-};
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::{PermissionsExt, symlink};
 use test_support::{Fixture, git};
 
 const PATH: &str = "src/中文 空格.ts";
@@ -25,7 +23,7 @@ fn fixture(source: &str) -> Fixture {
     git(&f.repo, &["checkout", "main"]);
     f.commit(PATH, "current\n");
     assert_eq!(
-        Command::new("/usr/bin/git")
+        test_support::git_command()
             .arg("-C")
             .arg(&f.repo)
             .args(["cherry-pick", &incoming])
@@ -66,6 +64,7 @@ fn each_choice_changes_only_the_selected_block_and_preserves_permissions_and_git
         (Choice::Both, "left one\nright one\n"),
     ] {
         let f = fixture(TWO);
+        #[cfg(unix)]
         fs::set_permissions(f.repo.join(PATH), fs::Permissions::from_mode(0o755)).unwrap();
         let before = immutable(&f);
         let snapshot = capture(&f).unwrap();
@@ -78,6 +77,7 @@ fn each_choice_changes_only_the_selected_block_and_preserves_permissions_and_git
             1,
         );
         assert_eq!(fs::read_to_string(f.repo.join(PATH)).unwrap(), expected);
+        #[cfg(unix)]
         assert_eq!(
             fs::metadata(f.repo.join(PATH))
                 .unwrap()
@@ -143,6 +143,7 @@ fn guarded_undo_restores_one_resolution_and_refuses_changed_content_or_index() {
     assert!(resolve::execute(&plan, &Cancel::default()).is_err());
     assert_eq!(fs::read_to_string(f.repo.join(PATH)).unwrap(), TWO);
 }
+#[cfg(unix)]
 #[test]
 fn stale_views_locks_cancellation_and_symlink_replacements_never_overwrite_files() {
     let f = fixture(TWO);
@@ -212,7 +213,7 @@ fn reset_fixture(attributes: Option<&str>) -> Fixture {
         &source("local header", "left one", "left two", "base tail"),
     );
     assert_eq!(
-        Command::new("/usr/bin/git")
+        test_support::git_command()
             .arg("-C")
             .arg(&f.repo)
             .args(["cherry-pick", &incoming])
@@ -229,6 +230,7 @@ fn reset_fixture(attributes: Option<&str>) -> Fixture {
 fn reset_recreates_every_conflict_from_index_and_preserves_nonconflicting_changes_and_git_state() {
     let f = reset_fixture(None);
     let before = immutable(&f);
+    #[cfg(unix)]
     fs::set_permissions(f.repo.join(PATH), fs::Permissions::from_mode(0o755)).unwrap();
     for choice in [Choice::Left, Choice::Right] {
         resolve::execute(
@@ -252,6 +254,7 @@ fn reset_recreates_every_conflict_from_index_and_preserves_nonconflicting_change
             && text.contains("left two\n=======\nright two")
     );
     assert_eq!(capture(&f).unwrap().blocks().len(), 2);
+    #[cfg(unix)]
     assert_eq!(
         fs::metadata(f.repo.join(PATH))
             .unwrap()

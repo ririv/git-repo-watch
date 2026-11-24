@@ -1,5 +1,5 @@
 //! Open repository directories with the user's system-selected terminal application.
-#[cfg(any(target_os = "linux", test))]
+#[cfg(any(target_os = "linux", all(unix, test)))]
 mod linux;
 #[cfg(target_os = "macos")]
 mod macos;

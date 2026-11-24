@@ -2,7 +2,10 @@ use super::*;
 
 #[test]
 fn empty_input_arrows_open_details_and_return_without_losing_selection_or_history() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     key(&mut s, KeyCode::Down);
     key(&mut s, KeyCode::Right);
     assert_eq!(s.page, Page::Detail);
@@ -52,7 +55,7 @@ fn empty_input_file_arrows_open_diff_and_return_through_the_same_file_session() 
 
 #[test]
 fn text_and_modified_arrows_stay_in_the_editor_instead_of_navigating() {
-    let (_home, mut s) = fixture(vec!["/example/中文 alpha".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/中文 alpha").into()]);
     s.paste("中文");
     let end = s.bar.editor().cursor;
     key(&mut s, KeyCode::Left);

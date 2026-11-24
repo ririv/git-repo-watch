@@ -15,7 +15,7 @@ fn service(f: &Fixture) -> (tempfile::TempDir, Service) {
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().into());
     store.initialize().unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let service = Service::new(store, manager);
     service.add(std::slice::from_ref(&f.repo)).unwrap();
     (home, service)
@@ -129,12 +129,11 @@ fn conflict_files_are_visible_can_be_staged_and_continue_survives_service_restar
     assert!(git(&f.repo, &["ls-files", "-u"]).is_empty());
     git(&f.repo, &["config", "core.editor", "/usr/bin/false"]);
     let hook = f.repo.join(".git/hooks/prepare-commit-msg");
-    write(
+    test_support::write_git_hook(
         &hook,
         "#!/bin/sh\nprintf '%s' \"$GIT_EDITOR\" > .git/replay-editor\n",
     );
-    use std::os::unix::fs::PermissionsExt;
-    fs::set_permissions(&hook, fs::Permissions::from_mode(0o755)).unwrap();
+
     let restarted = Service::new(s.store.clone(), s.scheduler.clone());
     control(&restarted, &f, Control::Continue);
     assert_eq!(git(&f.repo, &["show", "HEAD:conflict.txt"]), "resolved");
@@ -283,7 +282,13 @@ fn linked_worktree_replay_state_is_independent_and_abort_restores_its_head() {
     let linked = f.temp.path().join("linked");
     git(
         &f.repo,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     let linked = fs::canonicalize(linked).unwrap();
     let (_home, s) = service(&f);

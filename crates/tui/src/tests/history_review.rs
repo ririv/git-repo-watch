@@ -275,6 +275,7 @@ fn changing_merge_parent_replaces_every_preview_with_the_selected_comparison() {
     s.shutdown();
 }
 
+#[cfg(unix)]
 #[test]
 fn continuous_review_keeps_permission_rename_and_binary_metadata() {
     use std::os::unix::fs::PermissionsExt;

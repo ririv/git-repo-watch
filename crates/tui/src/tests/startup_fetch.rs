@@ -133,7 +133,12 @@ fn failed_fetches_preserve_failed_state_and_task_details_in_both_entry_points() 
         let missing = f.repo.join("missing-remote.git");
         support::git(
             &f.repo,
-            &["remote", "set-url", "origin", missing.to_str().unwrap()],
+            &[
+                "remote",
+                "set-url",
+                "origin",
+                &test_support::shell_path(&missing),
+            ],
         );
         let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
         let index = std::fs::read(f.repo.join(".git/index")).unwrap();

@@ -6,7 +6,7 @@ use engine::{
 use std::{fs, sync::Barrier};
 
 fn service(store: &Store) -> Service {
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     Service::new(store.clone(), manager)
 }
 

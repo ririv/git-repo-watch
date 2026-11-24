@@ -22,7 +22,7 @@ fn candidate_menus_page_by_visible_rows_and_stop_at_both_ends() {
         let _language = i18n::using(language);
         for height in [12, 28] {
             for entry in ["repo", "repos filter ", "repos add ~/目"] {
-                let (home, mut s) = fixture(vec!["/example/alpha".into()]);
+                let (home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
                 for index in 0..15 {
                     std::fs::create_dir(home.path().join(format!("目录 {index:02}"))).unwrap();
                 }
@@ -114,7 +114,7 @@ fn paging_keeps_prefix_selection_and_accepts_an_empty_candidate_list() {
 fn empty_option_values_reopen_after_escape_without_applying_a_choice() {
     for language in [i18n::Language::Chinese, i18n::Language::English] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         let before = std::fs::read(s.service.store.config_path()).unwrap();
         for name in [
             "repos sort",
@@ -244,7 +244,8 @@ fn path_punctuation_in_repository_search_agrees_for_typing_and_chunked_paste() {
         let _language = i18n::using(language);
         for enabled in [false, true] {
             for paste in [false, true] {
-                let (_home, mut s) = fixture(vec!["/example/目录/中文、名字".into()]);
+                let (_home, mut s) =
+                    fixture(vec![fixture_path!("/example/目录/中文、名字").into()]);
                 s.config.chinese_command_trigger = enabled;
                 for chunk in ["example", "/目录", "/中文", "、名字"] {
                     if paste {

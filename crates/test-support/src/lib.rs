@@ -38,7 +38,7 @@ impl GitGate {
             GitOperation::Commit => "commit",
         };
         (
-            "/bin/sh".into(),
+            git_shell().to_owned(),
             vec![
                 "-c".into(),
                 r#"
@@ -55,8 +55,8 @@ exec "$@"
                 .into(),
                 "git-gate".into(),
                 operation.into(),
-                self.started.to_str().unwrap().into(),
-                self.release.to_str().unwrap().into(),
+                shell_path(&self.started),
+                shell_path(&self.release),
             ],
         )
     }
@@ -70,13 +70,93 @@ impl Drop for GitGate {
         let _ = fs::write(&self.release, b"release");
     }
 }
+/// An absolute fixture path with a drive prefix on Windows.
+#[macro_export]
+macro_rules! fixture_path {
+    ($path:literal) => {
+        if cfg!(windows) {
+            concat!("C:", $path)
+        } else {
+            $path
+        }
+    };
+}
+
+/// Use the same Git installation as the application and isolate its configuration.
+pub fn git_command() -> Command {
+    let mut command = Command::new(if cfg!(windows) {
+        "git.exe"
+    } else {
+        "/usr/bin/git"
+    });
+    command
+        .env("GIT_CONFIG_NOSYSTEM", "1")
+        .env("GIT_CONFIG_GLOBAL", NULL_DEVICE)
+        .env("GIT_TERMINAL_PROMPT", "0");
+    command
+}
+
+pub const NULL_DEVICE: &str = if cfg!(windows) { "NUL" } else { "/dev/null" };
+
+pub const HOME_VARIABLE: &str = if cfg!(windows) { "USERPROFILE" } else { "HOME" };
+
+/// Return the shell shipped alongside Git for Windows, or the Unix system shell.
+pub fn git_shell() -> &'static Path {
+    #[cfg(unix)]
+    return Path::new("/bin/sh");
+    #[cfg(windows)]
+    {
+        use std::sync::OnceLock;
+        static SHELL: OnceLock<PathBuf> = OnceLock::new();
+        SHELL.get_or_init(|| {
+            let output = git_command()
+                .arg("--exec-path")
+                .output()
+                .expect("Git for Windows");
+            assert!(output.status.success());
+            let path = String::from_utf8(output.stdout).expect("Git for Windows exec path");
+            let installation = Path::new(path.trim())
+                .ancestors()
+                .nth(3)
+                .expect("Git for Windows installation");
+            let shell = installation.join("usr/bin/sh.exe");
+            assert!(
+                shell.is_file(),
+                "Git for Windows shell: {}",
+                shell.display()
+            );
+            shell
+        })
+    }
+}
+
+pub fn shell_path(path: &Path) -> String {
+    let value = path.to_str().expect("fixture path");
+    #[cfg(windows)]
+    return value
+        .strip_prefix(r"\\?\")
+        .unwrap_or(value)
+        .replace('\\', "/");
+    #[cfg(unix)]
+    return value.into();
+}
+
+/// Write a Git hook in the format expected by the local Git installation.
+pub fn write_git_hook(path: impl AsRef<Path>, script: &str) {
+    let path = path.as_ref();
+    fs::write(path, script).unwrap();
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        fs::set_permissions(path, fs::Permissions::from_mode(0o700)).unwrap();
+    }
+}
+
 pub fn git(path: &Path, args: &[&str]) -> String {
-    let out = Command::new("/usr/bin/git")
+    let out = git_command()
         .arg("-C")
         .arg(path)
         .args(args)
-        .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
         .output()
         .unwrap();
     assert!(
@@ -86,7 +166,7 @@ pub fn git(path: &Path, args: &[&str]) -> String {
     );
     String::from_utf8(out.stdout)
         .unwrap()
-        .trim_end_matches('\n')
+        .trim_end_matches(['\r', '\n'])
         .to_owned()
 }
 pub fn write(path: impl AsRef<Path>, text: &str) {
@@ -99,16 +179,22 @@ pub fn init(path: &Path) {
         ("user.name", "测试"),
         ("user.email", "test@example.invalid"),
         ("commit.gpgsign", "false"),
-        ("core.excludesFile", "/dev/null"),
+        ("core.autocrlf", "false"),
     ] {
         git(path, &["config", key, value]);
     }
+    let excludes = path.join(".git/fixture-excludes");
+    fs::write(&excludes, []).unwrap();
+    git(
+        path,
+        &["config", "core.excludesFile", &shell_path(&excludes)],
+    );
     git(
         path,
         &[
             "config",
             "core.hooksPath",
-            path.join(".git/hooks").to_str().unwrap(),
+            &shell_path(&path.join(".git/hooks")),
         ],
     );
 }
@@ -122,10 +208,7 @@ impl Fixture {
         git(&repo, &["commit", "--allow-empty", "-m", "initial"]);
         fs::create_dir(&remote).unwrap();
         git(&remote, &["init", "--bare", "-b", "main"]);
-        git(
-            &repo,
-            &["remote", "add", "origin", remote.to_str().unwrap()],
-        );
+        git(&repo, &["remote", "add", "origin", &shell_path(&remote)]);
         git(&repo, &["push", "-u", "origin", "main"]);
         Self { temp, repo, remote }
     }
@@ -138,11 +221,7 @@ impl Fixture {
         let peer = self.temp.path().join("peer");
         git(
             self.temp.path(),
-            &[
-                "clone",
-                self.remote.to_str().unwrap(),
-                peer.to_str().unwrap(),
-            ],
+            &["clone", &shell_path(&self.remote), &shell_path(&peer)],
         );
         git(
             &peer,

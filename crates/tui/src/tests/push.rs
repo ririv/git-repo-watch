@@ -215,7 +215,7 @@ fn remote_selection_keeps_offscreen_choices_visible_in_small_windows() {
                 "remote",
                 "add",
                 &format!("z{index:02}"),
-                f.remote.to_str().unwrap(),
+                &test_support::shell_path(&f.remote),
             ],
         );
     }

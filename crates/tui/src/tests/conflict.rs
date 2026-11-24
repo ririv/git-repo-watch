@@ -18,12 +18,12 @@ pub(super) fn automatic_setup() -> (support::Fixture, tempfile::TempDir, Screen)
     let incoming = support::git(&f.repo, &["rev-parse", "HEAD"]);
     support::git(&f.repo, &["checkout", "main"]);
     f.commit(path, &format!("{base}export const value = \"CURRENT\";\n"));
-    let output = std::process::Command::new("/usr/bin/git")
+    let output = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["cherry-pick", &incoming])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .output()
         .unwrap();
     assert_eq!(output.status.code(), Some(1));
@@ -382,12 +382,12 @@ fn copy_follows_the_focused_source_result_or_visible_input_versions() {
 fn missing_final_newline_is_an_unnumbered_annotation_and_is_not_copied_as_source() {
     let (f, _home, mut s) = setup();
     // 通过合法的冲突阶段更新制造仅换行不同的版本，工作区仍保留原始结果。
-    let mut child = std::process::Command::new("/usr/bin/git")
+    let mut child = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["hash-object", "-w", "--stdin"])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .spawn()
@@ -402,12 +402,12 @@ fn missing_final_newline_is_an_unnumbered_annotation_and_is_not_copied_as_source
     let output = child.wait_with_output().unwrap();
     assert!(output.status.success());
     let oid = String::from_utf8(output.stdout).unwrap();
-    let mut child = std::process::Command::new("/usr/bin/git")
+    let mut child = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["update-index", "--index-info"])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .stdin(std::process::Stdio::piped())
         .spawn()
         .unwrap();
@@ -453,12 +453,12 @@ fn empty_and_binary_versions_never_copy_placeholder_messages_as_file_content() {
         let oid = support::git(&f.repo, &["rev-parse", "HEAD"]);
         support::git(&f.repo, &["checkout", "main"]);
         f.commit(name, current);
-        let output = std::process::Command::new("/usr/bin/git")
+        let output = test_support::git_command()
             .arg("-C")
             .arg(&f.repo)
             .args(["cherry-pick", &oid])
             .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
             .output()
             .unwrap();
         assert_eq!(output.status.code(), Some(1));
@@ -861,12 +861,12 @@ fn unavailable_base_does_not_disable_text_comparison_between_the_other_versions(
     let binary = f.temp.path().join("binary-base.dat");
     std::fs::write(&binary, b"binary base\0").unwrap();
     let oid = support::git(&f.repo, &["hash-object", "-w", binary.to_str().unwrap()]);
-    let mut child = std::process::Command::new("/usr/bin/git")
+    let mut child = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["update-index", "--index-info"])
         .env("GIT_CONFIG_NOSYSTEM", "1")
-        .env("GIT_CONFIG_GLOBAL", "/dev/null")
+        .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
         .stdin(std::process::Stdio::piped())
         .spawn()
         .unwrap();
@@ -1673,7 +1673,7 @@ fn keyboard_resolution_finishes_multiple_files_and_continues_the_original_pick()
     support::git(&f.repo, &["add", "."]);
     support::git(&f.repo, &["commit", "-m", "current side"]);
     let head = support::git(&f.repo, &["rev-parse", "HEAD"]);
-    let picked = std::process::Command::new("/usr/bin/git")
+    let picked = test_support::git_command()
         .arg("-C")
         .arg(&f.repo)
         .args(["cherry-pick", &incoming])

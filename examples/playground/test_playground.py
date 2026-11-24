@@ -61,7 +61,7 @@ class PlaygroundTests(unittest.TestCase):
                     elif case == Case.SUBMODULE:
                         module = Git(repo.path / MODULE_PATH, Clock())
                         self.assertTrue((module.path / ".git").is_file())
-                        self.assertEqual(module.run("rev-parse", "--show-superproject-working-tree"), str(repo.path))
+                        self.assertEqual(Path(module.run("rev-parse", "--show-superproject-working-tree")), repo.path)
                         mode, recorded = repo.run("ls-files", "--stage", "--", MODULE_PATH).split()[:2]
                         self.assertEqual(mode, "160000")
                         self.assertEqual(recorded, manifest["submodules"][0]["recorded_head"])
@@ -121,7 +121,7 @@ class PlaygroundTests(unittest.TestCase):
                         self.assertEqual(repo.run("status", "--porcelain=v1"), "")
                     self.assertEqual(Git(root / "remote.git", Clock()).run("config", "core.hooksPath"), os.devnull)
                     if case != Case.NO_REMOTE:
-                        self.assertEqual(repo.run("remote", "get-url", "origin"), str(root / "remote.git"))
+                        self.assertEqual(Path(repo.run("remote", "get-url", "origin")), root / "remote.git")
                     profile = (root / "home/config.toml").read_text(encoding="utf-8")
                     self.assertNotIn("check_on_startup", profile)
                     self.assertNotIn("startup_actions", profile)

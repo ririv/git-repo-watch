@@ -41,6 +41,14 @@ pub(crate) fn program() -> Result<PathBuf> {
     }
 }
 
+// Git for Windows 的命令参数和钩子不接受 Win32 的扩展路径前缀。
+fn git_path(path: &Path) -> OsString {
+    #[cfg(windows)]
+    return crate::platform::windows::shell_path(path);
+    #[cfg(unix)]
+    return path.as_os_str().to_owned();
+}
+
 impl Git {
     /// Resolve the editor through system Git, including repository-specific configuration.
     pub fn editor(&self, path: &Path, cancel: &Cancel) -> Result<String> {
@@ -83,7 +91,7 @@ impl Git {
                 environment = profile.variables_for(path)?;
                 if let Some(launcher) = &profile.launcher {
                     let mut wrapped: Vec<_> = launcher.args.iter().map(OsString::from).collect();
-                    wrapped.push(program.into_os_string());
+                    wrapped.push(git_path(&program));
                     wrapped.append(&mut args);
                     args = wrapped;
                     program = if launcher.program.components().count() == 1
@@ -113,7 +121,13 @@ impl Git {
         path: &Path,
         cancel: &Cancel,
     ) -> Result<()> {
-        let mut args = strings(&["submodule", "add", "--", source]);
+        let mut args = strings(&["submodule", "add", "--"]);
+        let source_path = Path::new(source);
+        args.push(if source_path.is_absolute() {
+            git_path(source_path)
+        } else {
+            source.into()
+        });
         args.push(path.as_os_str().to_owned());
         self.run(root, args, cancel)?;
         Ok(())
@@ -160,7 +174,7 @@ impl Git {
             args.extend(strings(&["-b", branch]));
         }
         args.push("--".into());
-        args.push(destination.as_os_str().to_owned());
+        args.push(git_path(destination));
         args.push(
             new_at
                 .map_or_else(|| branch.to_owned(), |oid| oid.to_string())
@@ -172,7 +186,7 @@ impl Git {
 
     pub(crate) fn remove_worktree(&self, root: &Path, path: &Path, cancel: &Cancel) -> Result<()> {
         let mut args = strings(&["worktree", "remove", "--"]);
-        args.push(path.as_os_str().to_owned());
+        args.push(git_path(path));
         self.run(root, args, cancel)?;
         Ok(())
     }
@@ -367,19 +381,13 @@ impl Git {
             .context(i18n::tr!(StashInvalidPath))?;
         // 显式绑定仓库、对象库和索引，避免启动环境中的 Git 上下文改变写入目标。
         let mut environment = vec![
-            (
-                OsString::from("GIT_DIR"),
-                repo.path().as_os_str().to_owned(),
-            ),
-            (
-                "GIT_COMMON_DIR".into(),
-                repo.commondir().as_os_str().to_owned(),
-            ),
-            ("GIT_WORK_TREE".into(), worktree.as_os_str().to_owned()),
-            ("GIT_INDEX_FILE".into(), index.as_os_str().to_owned()),
+            (OsString::from("GIT_DIR"), git_path(repo.path())),
+            ("GIT_COMMON_DIR".into(), git_path(repo.commondir())),
+            ("GIT_WORK_TREE".into(), git_path(worktree)),
+            ("GIT_INDEX_FILE".into(), git_path(index)),
             (
                 "GIT_OBJECT_DIRECTORY".into(),
-                repo.commondir().join("objects").into_os_string(),
+                git_path(&repo.commondir().join("objects")),
             ),
             ("GIT_NAMESPACE".into(), "".into()),
         ];
@@ -410,9 +418,9 @@ impl Git {
         let index_path = index.path().context(i18n::tr!(MutationChanged))?;
         let mut args = vec![
             "--git-dir".into(),
-            repo.path().as_os_str().to_owned(),
+            git_path(repo.path()),
             "--work-tree".into(),
-            path.as_os_str().to_owned(),
+            git_path(path),
         ];
         args.extend(strings(&[
             "reset",
@@ -426,11 +434,11 @@ impl Git {
             args,
             cancel,
             &[
-                ("GIT_INDEX_FILE".into(), index_path.as_os_str().into()),
-                ("GIT_COMMON_DIR".into(), repo.commondir().as_os_str().into()),
+                ("GIT_INDEX_FILE".into(), git_path(index_path)),
+                ("GIT_COMMON_DIR".into(), git_path(repo.commondir())),
                 (
                     "GIT_OBJECT_DIRECTORY".into(),
-                    repo.commondir().join("objects").into_os_string(),
+                    git_path(&repo.commondir().join("objects")),
                 ),
                 ("GIT_NAMESPACE".into(), "".into()),
             ],
@@ -449,7 +457,7 @@ impl Git {
             path,
             strings(&["commit", "-m", message]),
             cancel,
-            &[("GIT_INDEX_FILE".into(), index.as_os_str().into())],
+            &[("GIT_INDEX_FILE".into(), git_path(index))],
         )?
         .success("git commit")?;
         Ok(())

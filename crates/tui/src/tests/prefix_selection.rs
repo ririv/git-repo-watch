@@ -21,7 +21,7 @@ fn selected_prefix_is_replaced_by_typing_including_shift_and_unicode() {
         ("Settings", KeyModifiers::SHIFT),
         ("终端", KeyModifiers::NONE),
     ] {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         select_prefix(&mut s);
         for c in text.chars() {
             s.key(
@@ -54,7 +54,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
         ("repos add \"~/中文 空格\"", "/repos add \"~/中文 空格\""),
         ("\n/终端\r", "/终端"),
     ] {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         select_prefix(&mut s);
         s.paste(text);
         assert_eq!(s.bar.text(), expected);
@@ -82,7 +82,7 @@ fn paste_replaces_the_selected_prefix_and_preserves_literal_parameters() {
 #[test]
 fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() {
     for restore in [KeyCode::Enter, KeyCode::Right] {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         s.paste("alpha");
         select_prefix(&mut s);
         key(&mut s, restore);
@@ -101,7 +101,10 @@ fn accidental_selection_can_be_restored_or_closed_without_running_a_candidate() 
         key(&mut s, KeyCode::Esc);
         assert!(s.bar.editor().text.is_empty());
         assert!(matches!(s.bar, bar::InputBar::CommandsOnly));
-        assert_eq!(s.selected_path(), Some("/example/alpha".into()));
+        assert_eq!(
+            s.selected_path(),
+            Some(fixture_path!("/example/alpha").into())
+        );
     }
 }
 #[test]
@@ -129,7 +132,10 @@ fn typing_slash_over_a_selected_prefix_opens_the_global_menu() {
 }
 #[test]
 fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into(), "/example/beta".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/alpha").into(),
+        fixture_path!("/example/beta").into(),
+    ]);
     s.open_management();
     key(&mut s, KeyCode::Char('/'));
     key(&mut s, KeyCode::Backspace);
@@ -142,10 +148,13 @@ fn replacing_the_prefix_keeps_the_original_frozen_repository_target() {
     assert_eq!(s.bar.text(), "/repos remove");
     key(&mut s, KeyCode::Enter);
     assert!(
-        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path, .. },..} if path==std::path::Path::new("/example/alpha"))
+        matches!(&s.mode,Mode::Confirm{operation:Confirmation::Remove { path, .. },..} if path==std::path::Path::new(fixture_path!("/example/alpha")))
     );
     key(&mut s, KeyCode::Esc);
-    assert_eq!(s.command_repository(), Some("/example/beta".into()));
+    assert_eq!(
+        s.command_repository(),
+        Some(fixture_path!("/example/beta").into())
+    );
 }
 #[test]
 fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_slash() {
@@ -153,7 +162,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         for (width, height) in [(60, 18), (100, 28), (180, 36)] {
-            let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+            let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
             s.page = Page::Configuration(Configuration::Repositories);
             key(&mut s, KeyCode::Char('/'));
             let mut terminal = Terminal::new(TestBackend::new(width, height)).unwrap();
@@ -231,7 +240,7 @@ fn selected_prefix_keeps_the_original_style_and_shows_the_same_menu_as_global_sl
 #[cfg(feature = "developer-scheduler")]
 #[test]
 fn global_candidates_can_be_navigated_and_completed_while_the_prefix_is_selected() {
-    let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     select_prefix(&mut s);
     let index = s
         .search_commands()
@@ -290,7 +299,7 @@ fn clicking_a_global_candidate_replaces_the_selected_prefix_before_opening_the_v
 #[test]
 fn deleting_a_selected_prefix_closes_commands_and_restores_search() {
     for query in ["", "alpha"] {
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         s.paste(query);
         let path = s.selected_path();
         select_prefix(&mut s);

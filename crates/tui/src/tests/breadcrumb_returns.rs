@@ -98,7 +98,10 @@ fn prompt_error_distinguishes_the_editor_from_its_settings_parent() {
 
 #[test]
 fn confirmation_parents_cancel_the_dialog_and_preserve_the_selected_repository() {
-    let (_home, mut s) = fixture(vec!["/example/first".into(), "/example/second".into()]);
+    let (_home, mut s) = fixture(vec![
+        fixture_path!("/example/first").into(),
+        fixture_path!("/example/second").into(),
+    ]);
     let before = s.service.store.config().unwrap().repositories;
     command(&mut s, "repos manage");
     key(&mut s, KeyCode::Down);

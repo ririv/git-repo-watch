@@ -8,8 +8,6 @@ use engine::{
     state::{Config, Store},
 };
 use std::{
-    fs,
-    os::unix::fs::PermissionsExt,
     path::PathBuf,
     sync::mpsc,
     thread,
@@ -41,7 +39,7 @@ fn service(paths: Vec<PathBuf>, concurrency: usize) -> (tempfile::TempDir, Servi
             ai: Default::default(),
         })
         .unwrap();
-    let manager = Manager::for_user(home.path().to_owned(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().to_owned()).unwrap();
     let service = Service::new(store, manager);
     (home, service)
 }
@@ -124,7 +122,7 @@ fn shared_worktrees_wait_for_the_same_lock_and_waiting_is_cancellable() {
             "add",
             "-b",
             "linked",
-            worktree.to_str().unwrap(),
+            &test_support::shell_path(&worktree),
         ],
     );
     let second = Fixture::create();
@@ -174,8 +172,8 @@ fn a_failed_hook_still_refreshes_repository_state_and_does_not_overwrite_other_r
         .unwrap();
     let before = service.store.repository_reports().unwrap();
     let hook = first.repo.join(".git/hooks/pre-commit");
-    write(&hook, "#!/bin/sh\nprintf changed > hook-created\nexit 1\n");
-    fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+    test_support::write_git_hook(&hook, "#!/bin/sh\nprintf changed > hook-created\nexit 1\n");
+
     assert!(service.commit(&plan, "failed", &Cancel::default()).is_err());
     let after = service.store.repository_reports().unwrap();
     assert!(
@@ -196,6 +194,7 @@ fn concurrency_slots_are_shared_across_services_and_do_not_hold_the_state_transa
     let first = Fixture::create();
     let second = Fixture::create();
     let (_home, service) = service(vec![first.repo.clone(), second.repo.clone()], 1);
+    service.run(&Cancel::default(), |_| {}).unwrap();
     let slot = service.store.operation_slot(1, &Cancel::default()).unwrap();
     let (started, ready) = mpsc::channel();
     let worker_service = service.clone();
@@ -224,8 +223,7 @@ fn push_result_and_local_state_are_saved_together_for_success_and_failure() {
         let plan = service.prepare_push(&f.repo, &Cancel::default()).unwrap();
         if !succeed {
             let hook = f.repo.join(".git/hooks/pre-push");
-            write(&hook, "#!/bin/sh\nexit 1\n");
-            fs::set_permissions(hook, fs::Permissions::from_mode(0o700)).unwrap();
+            test_support::write_git_hook(&hook, "#!/bin/sh\nexit 1\n");
         }
         let result = service.push(&plan, &Cancel::default()).unwrap();
         assert_eq!(

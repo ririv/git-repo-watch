@@ -5,11 +5,9 @@ use engine::{
         discard::{Action, Plan},
     },
 };
-use std::{
-    fs,
-    os::unix::fs::{PermissionsExt, symlink},
-    path::Path,
-};
+#[cfg(unix)]
+use std::os::unix::fs::{PermissionsExt, symlink};
+use std::{fs, path::Path};
 use test_support::*;
 
 fn plan(f: &Fixture, name: &str, area: Area) -> Plan {
@@ -32,9 +30,11 @@ fn whole_file_restore_keeps_index_and_other_files_and_supports_binary_and_delete
     let file = f.repo.join(name);
     let index_file = f.repo.join(".git/index");
     fs::write(&file, b"\0index\xff").unwrap();
+    #[cfg(unix)]
     fs::set_permissions(&file, fs::Permissions::from_mode(0o755)).unwrap();
     git(&f.repo, &["add", "--", name]);
     fs::write(&file, b"\0worktree\x80").unwrap();
+    #[cfg(unix)]
     fs::set_permissions(&file, fs::Permissions::from_mode(0o644)).unwrap();
     write(f.repo.join("unrelated.txt"), "keep");
     let index = fs::read(&index_file).unwrap();
@@ -45,6 +45,7 @@ fn whole_file_restore_keeps_index_and_other_files_and_supports_binary_and_delete
     );
     restore.execute(&Cancel::default()).unwrap();
     assert_eq!(fs::read(&file).unwrap(), b"\0index\xff");
+    #[cfg(unix)]
     assert_ne!(fs::metadata(&file).unwrap().permissions().mode() & 0o100, 0);
     assert_eq!(fs::read(&index_file).unwrap(), index);
 
@@ -61,6 +62,7 @@ fn whole_file_restore_keeps_index_and_other_files_and_supports_binary_and_delete
     );
 }
 
+#[cfg(unix)]
 #[test]
 fn whole_file_discard_rejects_edits_and_removes_only_a_reviewed_untracked_symlink() {
     let f = Fixture::create();

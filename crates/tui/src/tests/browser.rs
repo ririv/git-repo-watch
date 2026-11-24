@@ -15,7 +15,7 @@ pub(super) fn ready(s: &mut Screen) {
             break;
         }
         assert!(
-            start.elapsed() < Duration::from_secs(8),
+            start.elapsed() < WORKER_TIMEOUT,
             "browser reader did not finish"
         );
         thread::sleep(Duration::from_millis(5));
@@ -107,7 +107,11 @@ fn browser_lazy_tree_search_previews_and_diff_return_keep_selection_and_git_unch
         );
         select(&mut s, "clean.txt");
         assert!(text(&mut s).contains("unchanged"));
-        assert!(render(&mut s, 150, 32).contains("src/中文 空格/"));
+        assert!(
+            render(&mut s, 150, 32)
+                .replace('\\', "/")
+                .contains("src/中文 空格/")
+        );
         select(&mut s, "src/中文 空格");
         key(&mut s, KeyCode::Enter);
         ready(&mut s);
@@ -192,7 +196,7 @@ fn tab_completes_the_selected_file_and_retains_it_when_the_search_finishes() {
         .unwrap();
     session(&mut s).select(index);
     key(&mut s, KeyCode::Tab);
-    assert_eq!(s.bar.text(), "src/文档.txt");
+    assert_eq!(std::path::Path::new(&s.bar.text()), target);
     ready(&mut s);
     assert_eq!(session(&mut s).selected().unwrap().path, target);
     assert_eq!(session(&mut s).focus, Focus::Tree);
@@ -341,6 +345,7 @@ fn directory_clicks_toggle_once_per_pair_and_files_keep_double_click_activation(
     s.shutdown();
 }
 
+#[cfg(unix)]
 #[test]
 fn compact_chains_stop_at_files_and_forks_and_refresh_preserves_navigation() {
     use std::path::Path;

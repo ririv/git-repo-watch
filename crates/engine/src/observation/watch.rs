@@ -779,7 +779,13 @@ mod tests {
         let linked = f.repo.parent().unwrap().join("linked");
         git(
             &f.repo,
-            &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+            &[
+                "worktree",
+                "add",
+                "-b",
+                "linked",
+                &test_support::shell_path(&linked),
+            ],
         );
         let mut inbox = Inbox {
             roots: vec![

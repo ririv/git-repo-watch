@@ -2,6 +2,11 @@ use super::*;
 
 #[test]
 fn help_resources_wrap_without_markup_and_reach_the_last_section_after_resizing() {
+    let text_without_wrap = |text: &str| {
+        text.chars()
+            .filter(|character| !character.is_whitespace() && !matches!(character, '│' | '┃'))
+            .collect::<String>()
+    };
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
         let (_home, mut s) = fixture(vec![]);
@@ -10,6 +15,14 @@ fn help_resources_wrap_without_markup_and_reach_the_last_section_after_resizing(
             i18n::Language::English => "Quick navigation",
             i18n::Language::Chinese => "快速导航",
         };
+        #[cfg(feature = "developer-scheduler")]
+        let last = match language {
+            i18n::Language::English => "Manual checks still fetch and read local status only.",
+            i18n::Language::Chinese => "本地读取。",
+        };
+        #[cfg(not(feature = "developer-scheduler"))]
+        let last = "APP_LANG=zh";
+        let last = text_without_wrap(last);
         for (width, height) in [(60, 18), (100, 28), (150, 32)] {
             s.scroll = 0;
             let top = render(&mut s, width, height);
@@ -19,16 +32,17 @@ fn help_resources_wrap_without_markup_and_reach_the_last_section_after_resizing(
             assert!(!top.contains("## "));
             s.scroll = usize::MAX;
             let bottom = render(&mut s, width, height);
+            assert!(text_without_wrap(&bottom).contains(&last), "{bottom}");
+            #[cfg(not(feature = "developer-scheduler"))]
             assert!(bottom.contains("APP_LANG=en"), "{bottom}");
-            assert!(bottom.contains("APP_LANG=zh"), "{bottom}");
             assert!(s.scroll > 0 && s.scroll < usize::MAX);
             key(&mut s, KeyCode::PageUp);
-            assert!(!render(&mut s, width, height).contains("APP_LANG=zh"));
+            assert!(!text_without_wrap(&render(&mut s, width, height)).contains(&last));
         }
         s.scroll = usize::MAX;
         render(&mut s, 60, 18);
         let narrow_scroll = s.scroll;
-        assert!(render(&mut s, 150, 32).contains("APP_LANG=zh"));
+        assert!(text_without_wrap(&render(&mut s, 150, 32)).contains(&last));
         assert!(s.scroll < narrow_scroll);
         key(&mut s, KeyCode::Left);
         assert_eq!(s.page, Page::Repositories);

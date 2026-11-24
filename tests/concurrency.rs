@@ -76,7 +76,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
         Process(
             Command::new(env!("CARGO_BIN_EXE_rvgit"))
                 .env("APP_LANG", "en")
-                .env("HOME", home.path())
+                .env(test_support::HOME_VARIABLE, home.path())
                 .arg("--home")
                 .arg(home.path())
                 .arg("fetch")
@@ -109,7 +109,7 @@ fn simultaneous_cli_checks_merge_results_and_continue_revision_numbers_across_pr
     }
     let configured = Command::new(env!("CARGO_BIN_EXE_rvgit"))
         .env("APP_LANG", "en")
-        .env("HOME", home.path())
+        .env(test_support::HOME_VARIABLE, home.path())
         .arg("--home")
         .arg(home.path())
         .args(["startup-fetch", "true"])

@@ -2,7 +2,10 @@ use engine::{
     cancel::Cancel,
     state::{Config, ConfigurationMigration, Store},
 };
-use std::{fs, os::unix::fs::PermissionsExt, path::PathBuf};
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+use std::{fs, path::PathBuf};
+use test_support::fixture_path;
 fn fixture() -> (tempfile::TempDir, Store) {
     let temp = tempfile::tempdir().unwrap();
     let store = Store::custom(temp.path().to_owned());
@@ -24,7 +27,7 @@ fn agent_preferences_preserve_comments_and_independent_models_without_paths() {
     assert_eq!(config.ai.agent, Agent::Codex);
     store.save_config(&config).unwrap();
     assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     let service = Service::new(store.clone(), manager);
     service
         .configure(ConfigEdit::AiModel {
@@ -99,7 +102,7 @@ fn legacy_ai_table_keeps_preferences_and_comments_when_saved_under_its_new_name(
         )
     );
     assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     let service = Service::new(store.clone(), manager);
     service.configure(ConfigEdit::AiEnabled(false)).unwrap();
     let saved = store.config().unwrap();
@@ -128,6 +131,7 @@ fn template_and_initial_configuration_have_all_explicit_defaults_and_private_per
     assert!(text.contains("max_concurrency = 4"));
     assert!(text.contains("fetch_on_startup = false"));
     assert!(!text.contains("check_on_startup") && !text.contains("startup_actions"));
+    #[cfg(unix)]
     assert_eq!(
         fs::metadata(store.config_path())
             .unwrap()
@@ -194,19 +198,22 @@ fn legacy_json_startup_settings_are_retired_without_enabling_scheduled_steps() {
 #[test]
 fn scalar_changes_keep_comments_literal_paths_and_unchanged_field_formatting() {
     let (_temp, store) = fixture();
-    let text = r#"# 用户配置
+    let root = fixture_path!("/example");
+    let text = format!(
+        r#"# 用户配置
 interval_seconds = 21_600 # 原间隔
 repositories = [
-    '/example/中文 空格/one', # 仓库一
-    '/example/a \\ path',
+    '{root}/中文 空格/one', # 仓库一
+    '{root}/a \\ path',
 ]
 excluded_roots = []
 scheduled_actions = ['fetch', 'inspect']
 max_concurrency = 4
 text_wrap = false # 自动换行
 chinese_command_trigger = true # 中文输入
-"#;
-    fs::write(store.config_path(), text).unwrap();
+"#
+    );
+    fs::write(store.config_path(), &text).unwrap();
     let mut config = store.config().unwrap();
     config.text_wrap = true;
     store.save_config(&config).unwrap();
@@ -219,7 +226,7 @@ chinese_command_trigger = true # 中文输入
     assert_eq!(store.config().unwrap(), config);
     config
         .repositories
-        .push(PathBuf::from("/example/new \"quoted\" 仓库"));
+        .push(PathBuf::from(fixture_path!("/example/new \"quoted\" 仓库")));
     store.save_config(&config).unwrap();
     let next = fs::read_to_string(store.config_path()).unwrap();
     assert!(
@@ -273,7 +280,7 @@ fn invalid_or_unknown_toml_is_reported_without_replacing_the_file() {
 fn json_requires_explicit_conversion_and_values_survive_without_a_backup() {
     let (_temp, store) = fixture();
     let config = Config {
-        repositories: vec!["/example/中文 空格".into()],
+        repositories: vec![fixture_path!("/example/中文 空格").into()],
         max_concurrency: 8,
         fetch_on_startup: false,
         auto_fetch: Default::default(),
@@ -421,7 +428,7 @@ fn interaction_mode_defaults_without_rewriting_legacy_and_preserves_pointer_pref
     assert_eq!(config.interaction_mode, InteractionMode::Application);
     store.save_config(&config).unwrap();
     assert_eq!(fs::read_to_string(store.config_path()).unwrap(), text);
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     let service = Service::new(store.clone(), manager);
     for mode in [InteractionMode::TextSelection, InteractionMode::Application] {
         service.configure(ConfigEdit::Interaction(mode)).unwrap();
@@ -497,7 +504,7 @@ fn text_wrap_defaults_off_and_updates_only_its_preference_with_comments_retained
     fs::write(store.config_path(), &text).unwrap();
     let original = store.config().unwrap();
     assert!(!original.text_wrap);
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     let service = Service::new(store.clone(), manager);
     service.configure(ConfigEdit::TextWrap(true)).unwrap();
     let mut saved = store.config().unwrap();
@@ -526,7 +533,7 @@ fn file_icons_default_on_and_only_explicit_changes_extend_older_configuration() 
         .replace("file_icons = true\n", "");
     fs::write(store.config_path(), &original).unwrap();
     assert!(store.config().unwrap().file_icons);
-    let manager = Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(store.config_dir()).unwrap();
     let service = Service::new(store.clone(), manager);
     service.configure(ConfigEdit::Concurrency(7)).unwrap();
     assert!(
@@ -551,7 +558,7 @@ fn retiring_exclusions_preserves_registered_paths_comments_and_other_preferences
     let (_temp, store) = fixture();
     store.initialize().unwrap();
     let mut config = store.config().unwrap();
-    config.repositories = vec!["/example/keep".into()];
+    config.repositories = vec![fixture_path!("/example/keep").into()];
     config.text_wrap = true;
     store.save_config(&config).unwrap();
     let current = fs::read_to_string(store.config_path()).unwrap();
@@ -590,7 +597,7 @@ fn experimental_features_default_on_preserve_legacy_files_and_persist_explicit_c
     assert_eq!(fs::read_to_string(store.config_path()).unwrap(), legacy);
     let service = Service::new(
         store.clone(),
-        Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap(),
+        Manager::for_current_user_in(store.config_dir()).unwrap(),
     );
     service
         .configure(ConfigEdit::ExperimentalFeatures(false))

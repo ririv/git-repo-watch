@@ -100,7 +100,9 @@ fn editor_commands_open_captured_targets_without_leaving_the_current_view() {
 #[test]
 fn editor_setting_is_one_parameter_command_with_detected_candidates_and_persistence() {
     let _language = i18n::using(i18n::Language::Chinese);
-    let (_home, mut s) = fixture(vec![]);
+    let (home, mut s) = fixture(vec![]);
+    support::init(home.path());
+    support::git(home.path(), &["config", "core.editor", "vi"]);
     command(&mut s, "settings");
     command(&mut s, "settings editor");
     assert!(matches!(
@@ -118,7 +120,9 @@ fn editor_setting_is_one_parameter_command_with_detected_candidates_and_persiste
     }
     s.poll_command_completion();
     assert!(
-        matches!(&s.bar, bar::InputBar::Command { menu: Menu::Values(values), .. } if values.entries().any(|entry| entry.token == "git"))
+        matches!(&s.bar, bar::InputBar::Command { menu: Menu::Values(values), .. } if values.entries().any(|entry| entry.token == "git")),
+        "{:?}",
+        s.message
     );
     assert!(render(&mut s, 120, 36).contains(i18n::tr!(CommandEnterFillValue)));
     for (w, h) in [(120, 36), (44, 18), (1, 1)] {

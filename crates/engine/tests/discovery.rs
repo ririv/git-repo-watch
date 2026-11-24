@@ -2,7 +2,9 @@ use engine::{
     cancel::Cancel,
     discovery::{self, Record},
 };
-use std::{fs, os::unix::fs::symlink};
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 use test_support::*;
 #[test]
 fn repository_ignores_stop_traversal_and_tracked_paths_remain_visible() {
@@ -35,6 +37,7 @@ fn repository_ignores_stop_traversal_and_tracked_paths_remain_visible() {
     let report = discovery::discover(&ignored, &[], &Cancel::default()).unwrap();
     assert_eq!(report.repositories.len(), 1);
 }
+#[cfg(unix)]
 #[test]
 fn linked_submodule_exclusion_markers_and_symlinks() {
     let _language = i18n::using(i18n::Language::Chinese);
@@ -46,7 +49,13 @@ fn linked_submodule_exclusion_markers_and_symlinks() {
     let linked = root.join("linked");
     git(
         &parent,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     let ignored = root.join("excluded/repo");
     init(&ignored);
@@ -77,7 +86,7 @@ fn submodules_are_discovered_using_index_gitlinks() {
             "protocol.file.allow=always",
             "submodule",
             "add",
-            sub.remote.to_str().unwrap(),
+            &test_support::shell_path(&sub.remote),
             "sub",
         ],
     );
@@ -144,15 +153,18 @@ fn nested_negation_global_exclusion_and_nested_repository_rules() {
 #[test]
 fn scan_request_accepts_many_exclusions_after_one_flag_and_expands_only_home() {
     let args = ["~/Proj", "--exclude", "backup", "归档 目录", "~/Proj/other"].map(str::to_owned);
-    let request =
-        discovery::Request::from_args(&args, std::path::Path::new("/users/test")).unwrap();
-    assert_eq!(request.root, std::path::Path::new("/users/test/Proj"));
+    let home = std::path::Path::new(fixture_path!("/users/test"));
+    let request = discovery::Request::from_args(&args, home).unwrap();
+    assert_eq!(
+        request.root,
+        std::path::Path::new(fixture_path!("/users/test/Proj"))
+    );
     assert_eq!(
         request.excluded,
         [
             std::path::PathBuf::from("backup"),
             "归档 目录".into(),
-            "/users/test/Proj/other".into()
+            fixture_path!("/users/test/Proj/other").into()
         ]
     );
     for args in [
@@ -160,7 +172,7 @@ fn scan_request_accepts_many_exclusions_after_one_flag_and_expands_only_home() {
         vec!["/tmp".into(), "--exclude".into()],
         vec!["/tmp".into(), "--unknown".into(), "a".into()],
     ] {
-        assert!(discovery::Request::from_args(&args, std::path::Path::new("/users/test")).is_err());
+        assert!(discovery::Request::from_args(&args, home).is_err());
     }
 }
 
@@ -177,7 +189,7 @@ fn service_scan_exclusions_are_temporary_and_do_not_save_reports_or_restrict_reg
     store.initialize().unwrap();
     let service = Service::new(
         store.clone(),
-        Manager::for_user(store.config_dir(), unsafe { libc::getuid() }).unwrap(),
+        Manager::for_current_user_in(store.config_dir()).unwrap(),
     );
     let before = fs::read(store.config_path()).unwrap();
     let request = discovery::Request {

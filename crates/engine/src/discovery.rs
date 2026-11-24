@@ -47,6 +47,7 @@ fn include(tree: &mut Tree, path: &Path, directory: bool) {
 }
 struct RepositoryScope {
     repo: git2::Repository,
+    worktree: PathBuf,
     tracked: Tree,
 }
 impl RepositoryScope {
@@ -60,14 +61,16 @@ impl RepositoryScope {
             );
             include(&mut tracked, path, entry.mode == 0o160000);
         }
-        Ok(Self { repo, tracked })
+        let worktree =
+            fs::canonicalize(repo.workdir().context(i18n::tr!(RepositoryHasNoWorktree))?)?;
+        Ok(Self {
+            repo,
+            worktree,
+            tracked,
+        })
     }
     fn allows(&self, dir: &Path) -> Result<bool> {
-        let root = self
-            .repo
-            .workdir()
-            .context(i18n::tr!(RepositoryHasNoWorktree))?;
-        let relative = dir.strip_prefix(root)?;
+        let relative = dir.strip_prefix(&self.worktree)?;
         let mut tracked = &self.tracked;
         let mut included = true;
         for part in relative.components() {

@@ -189,7 +189,7 @@ fn occupied_branches(repo: &Repository, cancel: &Cancel) -> Result<BTreeMap<Stri
         {
             occupied
                 .entry(name.to_owned())
-                .or_insert_with(|| path.to_owned());
+                .or_insert(fs::canonicalize(path)?);
         }
         Ok(())
     };

@@ -5,9 +5,12 @@ use engine::{
     service::Service,
     state::Store,
 };
-use std::{fs, os::unix::fs::symlink};
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::symlink;
 use test_support::{Fixture, git, init, write};
 
+#[cfg(unix)]
 #[test]
 fn containing_repository_resolves_nested_directories_symlinks_and_linked_worktrees() {
     let f = Fixture::create();
@@ -29,7 +32,13 @@ fn containing_repository_resolves_nested_directories_symlinks_and_linked_worktre
     let linked = f.temp.path().join("独立 工作树");
     git(
         &f.repo,
-        &["worktree", "add", "-b", "linked", linked.to_str().unwrap()],
+        &[
+            "worktree",
+            "add",
+            "-b",
+            "linked",
+            &test_support::shell_path(&linked),
+        ],
     );
     let linked_nested = linked.join("src/deep");
     fs::create_dir_all(&linked_nested).unwrap();
@@ -65,7 +74,7 @@ fn session_repository_access_keeps_registration_and_batch_scope_unchanged() {
     let unrelated = Fixture::create();
     let home = tempfile::tempdir().unwrap();
     let store = Store::custom(home.path().into());
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let plain = Service::new(store, manager);
     plain.store.initialize().unwrap();
     plain.add(std::slice::from_ref(&registered.repo)).unwrap();
@@ -100,7 +109,7 @@ fn explicitly_staging_in_a_session_repository_uses_existing_locks_and_operation_
     let store = Store::custom(home.path().into());
     store.initialize().unwrap();
     let config = fs::read(store.config_path()).unwrap();
-    let manager = Manager::for_user(home.path().into(), unsafe { libc::getuid() }).unwrap();
+    let manager = Manager::for_current_user_in(home.path().into()).unwrap();
     let cancel = Cancel::default();
     let service = Service::new(store, manager)
         .with_session_repository(f.repo.clone(), &cancel)

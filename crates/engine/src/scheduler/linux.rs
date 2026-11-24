@@ -1,7 +1,7 @@
 //! systemd user service and monotonic timer integration.
 use super::*;
 fn quoted(value: &Path, exec: bool) -> Result<String> {
-    let value = value.to_str().context(i18n::tr!(InstallationPathNotUtf8))?;
+    let value = path_text(value)?;
     let mut out = String::from("\"");
     for c in value.chars() {
         match c {
@@ -18,6 +18,27 @@ fn quoted(value: &Path, exec: bool) -> Result<String> {
     }
     out.push('"');
     Ok(out)
+}
+
+fn path_text(path: &Path) -> Result<&str> {
+    path.to_str().context(i18n::tr!(InstallationPathNotUtf8))
+}
+
+#[cfg(target_os = "linux")]
+fn unit_name(path: &Path) -> &str {
+    path.file_name()
+        .and_then(|name| name.to_str())
+        .expect("systemd unit name")
+}
+
+// WorkingDirectory 是单个路径值，systemd 不会去掉参数引号。
+fn working_directory(path: &Path) -> Result<String> {
+    let path = path_text(path)?;
+    ensure!(
+        !path.chars().any(char::is_control),
+        i18n::tr!(SystemdPathControlUnsupported)
+    );
+    Ok(path.replace('%', "%%"))
 }
 
 fn service(store: &Store, binary: &Path, home: &Path) -> Result<String> {
@@ -72,7 +93,7 @@ fn service(store: &Store, binary: &Path, home: &Path) -> Result<String> {
     Ok(format!(
         "# {}\n[Unit]\nDescription=Git repository status check\n\n[Service]\nType=oneshot\nTimeoutStartSec=infinity\nSuccessExitStatus=1\nWorkingDirectory={}\n{}ExecStart={}{} scheduled-tick\n",
         task_marker(store, binary),
-        quoted(&store.state_dir(), false)?,
+        working_directory(&store.state_dir())?,
         environment,
         quoted(binary, true)?,
         arguments
@@ -139,8 +160,32 @@ impl Manager {
     pub fn timer(&self) -> PathBuf {
         self.units().join(format!("{LABEL}.timer"))
     }
+    fn registered(&self, expected: &Path, cancel: &Cancel) -> Result<bool> {
+        let output = process::system(
+            "systemctl",
+            &[
+                "--user",
+                "show",
+                "--property=FragmentPath",
+                "--value",
+                unit_name(expected),
+            ],
+            cancel,
+        )?
+        .success(i18n::tr!(QuerySystemSchedule))?;
+        let path = std::str::from_utf8(&output)?.trim_end_matches('\n');
+        if path.is_empty() {
+            return Ok(false);
+        }
+        ensure!(
+            expected.try_exists()? && fs::canonicalize(expected)? == fs::canonicalize(path)?,
+            i18n::tr!(ScheduleOwnedByAnotherInstallation)
+        );
+        Ok(true)
+    }
     pub fn registration(&self, cancel: &Cancel) -> Result<Registration> {
-        if !self.timer().try_exists()? {
+        let timer = self.timer();
+        if !timer.try_exists()? || !self.registered(&timer, cancel)? {
             return Ok(Registration::NotLoaded);
         }
         let out = process::system(
@@ -195,11 +240,14 @@ impl Manager {
         cancel: &Cancel,
     ) -> Result<()> {
         self.verify_install_target(store)?;
+        let timer = self.timer();
+        let service_path = self.service();
+        // 应用的 XDG 目录可以和用户服务管理器不同，写入前核对已加载单元的来源。
+        self.registered(&timer, cancel)?;
+        self.registered(&service_path, cancel)?;
         let data = fs::read(source)?;
         let payload = service(store, &self.binary(), &self.user_home)?;
-        // 在任何写入之前确认用户服务管理器可连接。
-        self.control(&["show-environment"], cancel)?;
-        for path in [self.binary(), self.timer()] {
+        for path in [self.binary(), timer.clone()] {
             fs::create_dir_all(
                 path.parent()
                     .context(i18n::tr!(InstallationPathHasNoParentDirectory))?,
@@ -207,16 +255,17 @@ impl Manager {
         }
         state::atomic(&self.binary(), &data, 0o755)?;
         Self::prepare_storage(store)?;
-        state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
+        state::atomic(&service_path, payload.as_bytes(), 0o600)?;
         state::atomic(
-            &self.timer(),
+            &timer,
             anchored_timer(store, &self.binary(), plan)?.as_bytes(),
             0o600,
         )?;
-        self.control(&["daemon-reload"], cancel)?;
-        let name = format!("{LABEL}.timer");
-        self.control(&["enable", &name], cancel)?;
-        self.control(&["restart", &name], cancel)
+        self.control(
+            &["enable", path_text(&service_path)?, path_text(&timer)?],
+            cancel,
+        )?;
+        self.control(&["restart", unit_name(&timer)], cancel)
     }
     pub fn disable(&self, store: &Store, cancel: &Cancel) -> Result<()> {
         self.verify_owner(store)?;
@@ -224,7 +273,16 @@ impl Manager {
             self.timer().try_exists()? && self.service().try_exists()?,
             i18n::tr!(ScheduleDefinitionMissing)
         );
-        self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)
+        let timer = self.timer();
+        if self.registered(&timer, cancel)? {
+            self.stop_and_disable(&timer, cancel)?;
+        }
+        Ok(())
+    }
+    fn stop_and_disable(&self, path: &Path, cancel: &Cancel) -> Result<()> {
+        let name = unit_name(path);
+        self.control(&["stop", name], cancel)?;
+        self.control(&["disable", name], cancel)
     }
     pub fn apply(&self, store: &Store, plan: &timing::Plan, cancel: &Cancel) -> Result<()> {
         self.verify_owner(store)?;
@@ -233,6 +291,7 @@ impl Manager {
             i18n::tr!(ScheduleDefinitionMissing)
         );
         let previous = self.registration(cancel)?;
+        self.registered(&self.service(), cancel)?;
         let payload = service(store, &self.binary(), &self.user_home)?;
         self.control(&["show-environment"], cancel)?;
         state::atomic(&self.service(), payload.as_bytes(), 0o600)?;
@@ -249,10 +308,19 @@ impl Manager {
     }
     pub fn uninstall(&self, store: &Store, cancel: &Cancel) -> Result<()> {
         self.verify_owner(store)?;
-        self.control(&["disable", "--now", &format!("{LABEL}.timer")], cancel)?;
-        self.control(&["stop", &format!("{LABEL}.service")], cancel)?;
-        fs::remove_file(self.timer())?;
-        fs::remove_file(self.service())?;
+        let timer = self.timer();
+        let service_path = self.service();
+        let timer_registered = self.registered(&timer, cancel)?;
+        let service_registered = self.registered(&service_path, cancel)?;
+        for (path, registered) in [
+            (&timer, timer_registered),
+            (&service_path, service_registered),
+        ] {
+            if registered {
+                self.stop_and_disable(path, cancel)?;
+            }
+            fs::remove_file(path)?;
+        }
         self.control(&["daemon-reload"], cancel)
     }
 }
@@ -286,12 +354,12 @@ mod tests {
     #[test]
     fn service_paths_are_quoted_and_specifiers_cannot_expand() {
         let payload = service(
-            &Store::custom("/example/中文 $USER %h \"\nfolder".into()),
+            &Store::custom("/example/中文 $USER %h \"folder".into()),
             Path::new("/example/a b"),
             Path::new("/example/user"),
         )
         .unwrap();
-        assert!(payload.contains("WorkingDirectory=\"/example/中文 $USER %%h \\\"\\nfolder/var\""));
+        assert!(payload.contains("WorkingDirectory=/example/中文 $USER %%h \"folder/var\n"));
         assert!(payload.contains("ExecStart=\"/example/a b\" --home \"/example/中文 $$USER %%h"));
         assert!(
             payload
@@ -320,7 +388,7 @@ mod tests {
         assert!(!payload.contains(" --home "));
         assert!(payload.contains("Environment=\"XDG_CONFIG_HOME=/example/配置 %%h $USER\" \"XDG_STATE_HOME=/example/状态 空格\""));
         assert!(payload.contains("Environment=\"HOME=/example/用户 空格\""));
-        assert!(payload.contains("WorkingDirectory=\"/example/状态 空格/"));
+        assert!(payload.contains("WorkingDirectory=/example/状态 空格/"));
         assert!(
             payload
                 .lines()

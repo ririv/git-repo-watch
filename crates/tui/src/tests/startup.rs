@@ -60,7 +60,7 @@ fn explicit_repository_list_start_skips_directory_discovery_and_outside_git_open
         (crate::Start::Repositories, f.repo.as_path()),
         (
             crate::Start::Repositories,
-            std::path::Path::new("/missing/directory"),
+            std::path::Path::new(fixture_path!("/missing/directory")),
         ),
         (crate::Start::CurrentDirectory, outside.path()),
     ] {

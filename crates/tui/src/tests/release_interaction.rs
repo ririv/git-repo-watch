@@ -288,7 +288,8 @@ fn fetching_a_repository_without_remotes_is_informational_not_an_error() {
 fn one_current_error_wins_over_long_local_refresh_errors_and_failure_counts() {
     use unicode_width::UnicodeWidthStr;
     let path = PathBuf::from(format!(
-        "/example/infinity/third-party/ghostty/vendor/{}/repo",
+        "{}/infinity/third-party/ghostty/vendor/{}/repo",
+        fixture_path!("/example"),
         "very-long-component/".repeat(12)
     ));
     let (_home, mut s) = fixture(vec![path.clone()]);

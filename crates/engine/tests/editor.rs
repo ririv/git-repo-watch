@@ -1,22 +1,32 @@
+#[cfg(unix)]
 use engine::{
     cancel::Cancel,
-    editor::{self, Command, Environment, Interface, Known, Preference},
-    state::{Config, Store},
+    editor::{self, Command, Environment, Interface, Known},
     transport::Git,
 };
+use engine::{
+    editor::Preference,
+    state::{Config, Store},
+};
+use std::fs;
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
+#[cfg(unix)]
 use std::{
-    fs,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
     process::Command as Process,
 };
-use test_support::{Fixture, git, write};
+use test_support::write;
+#[cfg(unix)]
+use test_support::{Fixture, git};
+#[cfg(unix)]
 fn environment(path: &Path) -> Environment {
     Environment {
         path: path.as_os_str().to_owned(),
         home: path.to_owned(),
     }
 }
+#[cfg(unix)]
 fn executable(path: &Path, contents: &str) {
     write(path, contents);
     fs::set_permissions(path, fs::Permissions::from_mode(0o755)).unwrap();
@@ -54,6 +64,7 @@ fn editor_preferences_preserve_old_configuration_and_explicit_commands() {
         "git"
     );
 }
+#[cfg(unix)]
 #[test]
 fn shell_editor_receives_literal_unicode_space_and_shell_syntax_paths() {
     let f = Fixture::create();
@@ -100,6 +111,7 @@ fn shell_editor_receives_literal_unicode_space_and_shell_syntax_paths() {
         assert_eq!(fs::read_to_string(file).unwrap(), "content\n");
     }
 }
+#[cfg(unix)]
 #[test]
 fn shell_expands_editor_variables_only_when_the_open_is_explicitly_launched() {
     let f = Fixture::create();
@@ -130,6 +142,7 @@ fn shell_expands_editor_variables_only_when_the_open_is_explicitly_launched() {
     assert!(output.status.success());
     assert_eq!(fs::read_to_string(marker).unwrap(), file.to_string_lossy());
 }
+#[cfg(unix)]
 #[test]
 fn configured_desktop_editor_launches_without_waiting_for_the_application_lifetime() {
     let f = Fixture::create();
@@ -169,6 +182,7 @@ fn configured_desktop_editor_launches_without_waiting_for_the_application_lifeti
         file.to_string_lossy()
     );
 }
+#[cfg(unix)]
 #[test]
 fn git_editor_protocol_child() {
     let Some(file) = std::env::var_os("GW_EDITOR_TEST_RESULT") else {
@@ -178,6 +192,7 @@ fn git_editor_protocol_child() {
     let value = Git::default().editor(&root, &Cancel::default()).unwrap();
     fs::write(file, value).unwrap();
 }
+#[cfg(unix)]
 #[test]
 fn automatic_editor_uses_git_precedence_and_repository_configuration() {
     let f = Fixture::create();
@@ -227,7 +242,7 @@ fn automatic_editor_uses_git_precedence_and_repository_configuration() {
             .env("GW_EDITOR_TEST_RESULT", &result)
             .env("TERM", "xterm-256color")
             .env("GIT_CONFIG_NOSYSTEM", "1")
-            .env("GIT_CONFIG_GLOBAL", "/dev/null")
+            .env("GIT_CONFIG_GLOBAL", test_support::NULL_DEVICE)
             .env_remove("GIT_EDITOR")
             .env_remove("VISUAL")
             .env_remove("EDITOR");
@@ -255,9 +270,11 @@ fn automatic_editor_uses_git_precedence_and_repository_configuration() {
     }
 }
 
+#[cfg(unix)]
 #[test]
 fn detects_common_editors_without_launching_them() {
     let f = Fixture::create();
+    git(&f.repo, &["config", "core.editor", "vi"]);
     let environment = Environment::capture(f.temp.path());
     let editors =
         editor::detect(&Git::default(), &f.repo, &environment, &Cancel::default()).unwrap();

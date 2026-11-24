@@ -94,7 +94,11 @@ fn historical_image_sources_are_git_objects_even_when_index_and_worktree_differ(
 }
 #[test]
 fn encoded_images_have_an_independent_size_limit_and_symlinks_are_not_followed() {
-    use std::{io::Write, os::unix::fs::symlink};
+    use std::io::Write;
+    #[cfg(unix)]
+    use std::os::unix::fs::symlink as symlink_file;
+    #[cfg(windows)]
+    use std::os::windows::fs::symlink_file;
     let f = Fixture::create();
     let path = f.repo.join("large.png");
     let mut file = fs::File::create(&path).unwrap();
@@ -113,10 +117,11 @@ fn encoded_images_have_an_independent_size_limit_and_symlinks_are_not_followed()
         .find(|change| change.location.name() == Path::new("large.png"))
         .unwrap();
     assert!(files::document(&snapshot, change, &Cancel::default()).is_err());
+    drop(file);
     fs::remove_file(path).unwrap();
     let outside = f.temp.path().join("outside.png");
     fs::write(&outside, bytes(2)).unwrap();
-    symlink(outside, f.repo.join("link.png")).unwrap();
+    symlink_file(outside, f.repo.join("link.png")).unwrap();
     assert!(matches!(
         document(&f, "link.png", Area::Untracked),
         Document::Notice(_)

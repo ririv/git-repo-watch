@@ -198,16 +198,16 @@ fn directory_candidates_refine_without_another_read_and_tab_fills_the_selected_p
 
 #[test]
 fn pending_reads_filter_the_latest_query_and_cancelled_directory_results_do_not_replace_edits() {
-    let (home, mut s) = fixture(vec!["/example/alpha".into()]);
+    let (home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
     let request = Request::Values {
         kind: Kind::Branch,
-        path: "/example/alpha".into(),
+        path: fixture_path!("/example/alpha").into(),
     };
     s.bar = bar::InputBar::Command {
         input: command::Input::global(Editor::new("/repo branch switch ".into())),
         selected: 0,
         menu: Menu::Loading(request.clone()),
-        path: Some("/example/alpha".into()),
+        path: Some(fixture_path!("/example/alpha").into()),
         selection: Default::default(),
         repository: Default::default(),
     };

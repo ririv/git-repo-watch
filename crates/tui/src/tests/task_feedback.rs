@@ -68,7 +68,7 @@ fn fast_ai_toggle_retains_input_presentation_and_applies_without_waiting_for_fee
 fn long_task_reveals_status_only_on_the_last_line_and_keeps_input_stable() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/example/alpha".into()]);
+        let (_home, mut s) = fixture(vec![fixture_path!("/example/alpha").into()]);
         s.paste("alpha");
         let before = footer(&mut s, 100, 32);
         let release = controlled(&mut s);

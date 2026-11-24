@@ -47,7 +47,7 @@ fn paths(s: &Screen) -> Vec<PathBuf> {
 
 #[test]
 fn filters_distinguish_missing_results_failures_and_independent_upstream_push_records() {
-    let mut no_upstream = clean("/example/clean");
+    let mut no_upstream = clean(fixture_path!("/example/clean"));
     let RepositoryResult::Clean {
         branches_without_upstream,
         pushes,
@@ -71,9 +71,9 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
             ahead_commits: 1,
         },
     });
-    let clean = clean("/example/other");
-    let attention = attention("/example/dirty");
-    let failed = failed("/example/failed");
+    let clean = clean(fixture_path!("/example/other"));
+    let attention = attention(fixture_path!("/example/dirty"));
+    let failed = failed(fixture_path!("/example/failed"));
     let results = [
         None,
         Some(&clean),
@@ -105,10 +105,10 @@ fn filters_distinguish_missing_results_failures_and_independent_upstream_push_re
 
 #[test]
 fn sorting_uses_status_name_full_path_or_per_repository_time_with_stable_ties() {
-    let a = "/z/Alpha";
-    let b = "/a/beta";
-    let c = "/b/alpha";
-    let d = "/a/中文";
+    let a = fixture_path!("/z/Alpha");
+    let b = fixture_path!("/a/beta");
+    let c = fixture_path!("/b/alpha");
+    let d = fixture_path!("/a/中文");
     let (_home, mut s) = fixture([a, b, c, d].map(PathBuf::from).to_vec());
     update(&mut s, clean(a), "2026-10-23T10:00:00+08:00", 1);
     update(&mut s, failed(b), "2026-10-23T01:00:00Z", 2);
@@ -129,9 +129,9 @@ fn sorting_uses_status_name_full_path_or_per_repository_time_with_stable_ties() 
 
 #[test]
 fn updated_sort_includes_batch_results_and_prefers_newer_repository_observations() {
-    let a = "/example/a";
-    let b = "/example/b";
-    let c = "/example/c";
+    let a = fixture_path!("/example/a");
+    let b = fixture_path!("/example/b");
+    let c = fixture_path!("/example/c");
     let (_home, mut s) = fixture([a, b, c].map(PathBuf::from).to_vec());
     s.snapshot.report = CachedReport::Available {
         scope: service::Scope::Current,
@@ -159,8 +159,11 @@ fn updated_sort_includes_batch_results_and_prefers_newer_repository_observations
 fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_lists() {
     for language in [i18n::Language::English, i18n::Language::Chinese] {
         let _language = i18n::using(language);
-        let (_home, mut s) = fixture(vec!["/z/beta".into(), "/a/alpha".into()]);
-        s.focus(Some("/z/beta".into()));
+        let (_home, mut s) = fixture(vec![
+            fixture_path!("/z/beta").into(),
+            fixture_path!("/a/alpha").into(),
+        ]);
+        s.focus(Some(fixture_path!("/z/beta").into()));
         let selected = s.selected_path();
         let mut configuration = s.service.store.config().unwrap();
         command(&mut s, "repos sort");
@@ -203,7 +206,7 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
         }
         key(&mut s, KeyCode::Enter);
         assert_eq!(s.filter, Filter::All);
-        assert_eq!(s.selected_path(), Some("/a/alpha".into()));
+        assert_eq!(s.selected_path(), Some(fixture_path!("/a/alpha").into()));
         wait(&mut s);
         configuration.view.repository_order = engine::state::view::RepositoryOrder::Name;
         assert_eq!(s.service.store.config().unwrap(), configuration);
@@ -216,13 +219,18 @@ fn list_menus_focus_current_options_cancel_without_changes_and_apply_from_empty_
 #[test]
 fn list_commands_combine_with_search_and_keep_repo_scope_after_reordering() {
     let (_home, mut s) = fixture(vec![
-        "/z/中文 beta".into(),
-        "/a/中文 alpha".into(),
-        "/b/other".into(),
+        fixture_path!("/z/中文 beta").into(),
+        fixture_path!("/a/中文 alpha").into(),
+        fixture_path!("/b/other").into(),
     ]);
-    update(&mut s, clean("/z/中文 beta"), "2026-10-23T00:00:00Z", 1);
+    update(
+        &mut s,
+        clean(fixture_path!("/z/中文 beta")),
+        "2026-10-23T00:00:00Z",
+        1,
+    );
     s.paste("中文");
-    s.focus(Some("/z/中文 beta".into()));
+    s.focus(Some(fixture_path!("/z/中文 beta").into()));
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Char('/'));
     s.paste("repos filter");
@@ -233,36 +241,42 @@ fn list_commands_combine_with_search_and_keep_repo_scope_after_reordering() {
     assert_eq!(s.query, "中文");
     assert_eq!(s.bar.editor().text, "中文");
     assert_eq!(s.filter, Filter::All);
-    assert_eq!(s.selected_path(), Some("/z/中文 beta".into()));
+    assert_eq!(
+        s.selected_path(),
+        Some(fixture_path!("/z/中文 beta").into())
+    );
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Char('/'));
     s.paste("repos sort name");
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.query, "中文");
     assert_eq!(s.bar.editor().text, "中文");
-    assert_eq!(s.selected_path(), Some("/z/中文 beta".into()));
+    assert_eq!(
+        s.selected_path(),
+        Some(fixture_path!("/z/中文 beta").into())
+    );
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Char('/'));
     s.paste("repos filter clean");
     key(&mut s, KeyCode::Enter);
     assert_eq!(s.query, "中文");
     assert_eq!(s.bar.editor().text, "中文");
-    assert_eq!(paths(&s), [PathBuf::from("/z/中文 beta")]);
+    assert_eq!(paths(&s), [PathBuf::from(fixture_path!("/z/中文 beta"))]);
     key(&mut s, KeyCode::Home);
     key(&mut s, KeyCode::Char('/'));
     s.paste("repos filter unchecked");
     key(&mut s, KeyCode::Enter);
-    assert_eq!(paths(&s), [PathBuf::from("/a/中文 alpha")]);
+    assert_eq!(paths(&s), [PathBuf::from(fixture_path!("/a/中文 alpha"))]);
     command(&mut s, "repos remove");
     assert!(
-        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == Path::new("/a/中文 alpha"))
+        matches!(&s.mode, Mode::Confirm { operation: Confirmation::Remove { path, .. }, .. } if path == Path::new(fixture_path!("/a/中文 alpha")))
     );
 }
 
 #[test]
 fn list_menus_support_mouse_and_do_not_take_over_other_views() {
     use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
-    let (_home, mut s) = fixture(vec!["/example/a".into()]);
+    let (_home, mut s) = fixture(vec![fixture_path!("/example/a").into()]);
     command(&mut s, "repos filter");
     render(&mut s, 140, 30);
     let (area, _) = s
@@ -515,7 +529,7 @@ fn home_colors_distinguish_unknown_data_and_failed_checks_from_independent_opera
         assert_eq!(buffer[(point.0 + 2, point.1)].fg, Color::Reset);
     }
     let _language = i18n::using(i18n::Language::Chinese);
-    let path = "/example/repo";
+    let path = fixture_path!("/example/repo");
     let (_home, mut s) = fixture(vec![path.into()]);
     update(&mut s, clean(path), "2026-10-28T04:00:00Z", 1);
     colors(

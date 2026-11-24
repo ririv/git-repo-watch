@@ -1,11 +1,8 @@
 use engine::{
     cancel::Cancel,
-    local::{
-        history::Kind,
-        stash::{
-            self,
-            preview::{self, Scope},
-        },
+    local::stash::{
+        self,
+        preview::{self, Scope},
     },
 };
 use std::{fs, path::Path};
@@ -110,6 +107,10 @@ fn native_stash_layers_include_untracked_and_intermediate_staged_content_without
     assert_eq!(patch(&retained, "tracked.ts"), patch(&all, "tracked.ts"));
 }
 
+#[cfg(unix)]
+use engine::local::history::Kind;
+
+#[cfg(unix)]
 #[test]
 fn tracked_stash_previews_preserve_renames_deletions_modes_and_empty_scopes() {
     use std::os::unix::fs::PermissionsExt;

@@ -121,6 +121,7 @@ fn unstaged_rename_keeps_a_real_rename_patch_without_changing_the_index() {
     assert_eq!(std::fs::read(f.repo.join(".git/index")).unwrap(), index);
 }
 
+#[cfg(unix)]
 #[test]
 fn permission_only_changes_remain_visible_without_hunks_or_raw_headers() {
     use std::os::unix::fs::PermissionsExt;
