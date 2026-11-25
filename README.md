@@ -31,13 +31,15 @@ rvgit repos
 
 The npm package includes prebuilt executables for macOS (Apple silicon and Intel), Linux (x64), and Windows (x64).
 
+Prebuilt binaries are also available from [GitHub Releases](https://github.com/ririv/rvgit/releases/latest).
+
 ## Install from source
 
 Install Git and the Rust toolchain with Rustup. Then open a terminal and clone this repository.
 
 ```sh
-git clone https://github.com/ririv/git-repo-watch.git
-cd git-repo-watch
+git clone https://github.com/ririv/rvgit.git
+cd rvgit
 ```
 
 ### macOS and Linux

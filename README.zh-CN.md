@@ -31,13 +31,15 @@ rvgit repos
 
 npm 包提供 macOS（Apple 芯片和 Intel）、Linux（x64）、Windows（x64）的预编译程序。
 
+也可以从 [GitHub Releases](https://github.com/ririv/rvgit/releases/latest) 下载预编译程序。
+
 ## 从源码安装
 
 先安装 Git，并通过 Rustup 安装 Rust 工具链。在终端中克隆本项目。
 
 ```sh
-git clone https://github.com/ririv/git-repo-watch.git
-cd git-repo-watch
+git clone https://github.com/ririv/rvgit.git
+cd rvgit
 ```
 
 ### macOS 和 Linux
