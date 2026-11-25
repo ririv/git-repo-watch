@@ -37,6 +37,10 @@ Press `/` to see commands for the current view. Type part of a command or search
 
 Start with `//` to search all command groups or enter a full command from any view. The examples below use `//` so you can enter them from either the dashboard or a repository view.
 
+Type part of a repository name in the dashboard and press `Tab` to complete the selected name. Then press `/` and run `/repo diff` for that repository. When you return to the dashboard, your filter is still there.
+
+![Filter the repository list and run a command on the selected repository](docs/media/filter-and-command.gif)
+
 ### Review and stage a file
 
 1. With a repository selected, run `//repo diff` to open the worktree.
@@ -57,9 +61,11 @@ For part of a file, press `Enter` on the file to focus its preview, then run `//
 
 ![Commit preview listing one staged file and the commit message](docs/media/commit.png)
 
-### Watch the workflow
+## Browse repository files
 
-![Continuous Rivet Git recording showing command entry, diff review, staging, and a successful commit](docs/media/first-commit.gif)
+Run `//repo files` to open the file tree. Use `↑` and `↓` to move through the tree, and press `Enter` on a directory to expand or collapse it. Selecting a file previews its contents. Press `Enter` on the file to focus the preview and `Esc` to return to the tree.
+
+![Expand nested folders and preview a Markdown guide and a TypeScript file](docs/media/file-browser.gif)
 
 ## Everyday commands
 

@@ -37,6 +37,10 @@ rvgit repos
 
 用 `//` 开头可以跨界面搜索，或直接输入完整命令。下面的示例都用 `//`，可以从总览或仓库界面直接输入。
 
+在仓库总览输入部分仓库名，按 `Tab` 补全选中的名称。接着按 `/`，运行 `/repo diff` 查看该仓库的改动。返回总览时，筛选条件仍然保留。
+
+![筛选仓库后打开命令菜单并查看选中仓库的改动](docs/media/filter-and-command.gif)
+
 ### 查看和暂存改动
 
 1. 选中仓库，运行 `//repo diff` 打开工作区。
@@ -57,9 +61,11 @@ rvgit repos
 
 ![提交预览中列出一个已暂存文件并显示提交说明](docs/media/commit.png)
 
-### 动图演示
+## 浏览仓库文件
 
-![Rivet Git 从逐字输入命令到查看差异、暂存并成功提交的连续终端录制](docs/media/first-commit.gif)
+运行 `//repo files` 打开文件树。用 `↑` 和 `↓` 移动，选中目录后按 `Enter` 展开或折叠。选中文件即可预览内容，再按 `Enter` 聚焦预览，按 `Esc` 回到文件树。
+
+![逐层展开目录并预览 Markdown 和 TypeScript 文件](docs/media/file-browser.gif)
 
 ## 常用命令
 
