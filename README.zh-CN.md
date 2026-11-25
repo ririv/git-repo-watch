@@ -59,7 +59,7 @@ rvgit repos
 
 ### 动图演示
 
-![Rivet Git 从仓库总览搜索命令、查看差异、暂存再提交的动图](docs/media/first-commit.gif)
+![Rivet Git 从逐字输入命令到查看差异、暂存并成功提交的连续终端录制](docs/media/first-commit.gif)
 
 ## 常用命令
 

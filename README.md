@@ -59,7 +59,7 @@ For part of a file, press `Enter` on the file to focus its preview, then run `//
 
 ### Watch the workflow
 
-![Animated Rivet Git walkthrough showing the dashboard, command completion, file diff, staging, and commit](docs/media/first-commit.gif)
+![Continuous Rivet Git recording showing command entry, diff review, staging, and a successful commit](docs/media/first-commit.gif)
 
 ## Everyday commands
 
