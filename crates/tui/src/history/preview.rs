@@ -40,6 +40,7 @@ pub(crate) struct Preview {
     pub area: Option<Rect>,
     pub offset: usize,
     pub maximum: usize,
+    pub file_paths: crate::horizontal::Viewport,
     pub feedback: Feedback<()>,
     reader: Worker<Key, Vec<Change>>,
 }
@@ -53,6 +54,7 @@ impl Preview {
         self.content = Content::Loading(key);
         self.offset = 0;
         self.maximum = 0;
+        self.file_paths.constrain(0);
         self.feedback.begin(None, Instant::now());
     }
     pub fn hide(&mut self) {
@@ -61,6 +63,7 @@ impl Preview {
         self.area = None;
         self.offset = 0;
         self.maximum = 0;
+        self.file_paths.constrain(0);
         self.feedback.finish();
     }
     pub fn scroll(&mut self, delta: isize) {

@@ -1,7 +1,10 @@
 //! All visible file sections share one clipped, styled viewport and scrollbar.
 use super::*;
-use crate::{diff::VisualRow, inspection::review::Rows};
-use engine::local::{files::Location, history::Kind};
+use crate::horizontal::Columns;
+use crate::{
+    diff::VisualRow,
+    inspection::review::{Rows, TITLE_STATUS_WIDTH, TitleRows},
+};
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -14,6 +17,7 @@ pub(super) fn render(
     let inner = border.inner(area);
     frame.render_widget(border, area);
     if inner.is_empty() {
+        commit.review.horizontal.constrain(0);
         return;
     }
     let indices = commit.indices();
@@ -22,6 +26,7 @@ pub(super) fn render(
         .review
         .arrange(&indices, selected, inner, options, &hits.links.paths);
     if indices.is_empty() {
+        commit.review.horizontal.constrain(0);
         frame.render_widget(
             Paragraph::new(commit.detail.empty_message(&commit.query))
                 .style(Style::default().fg(MUTED)),
@@ -29,65 +34,83 @@ pub(super) fn render(
         );
         return;
     }
-    let review = &commit.review;
+    let review = &mut commit.review;
+    let titles = Columns::new(inner, 0, TITLE_STATUS_WIDTH);
+    let title_overflow = if options.wrap {
+        0
+    } else {
+        let widest = indices
+            .iter()
+            .map(|&file| review.title(file).width)
+            .max()
+            .unwrap_or(0);
+        titles.overflow(widest)
+    };
+    let body_overflow = review.layout.horizontal_maximum();
+    review
+        .horizontal
+        .constrain(title_overflow.max(body_overflow));
+    let body_offset = review.horizontal.offset().min(body_overflow);
     let offset = review.layout.offset;
     let end = offset + inner.height as usize;
-    let horizontal = review.horizontal.offset();
     let loading = review.symbol();
     for section in &review.layout.sections {
         if section.start + section.height() <= offset || section.start >= end {
             continue;
         }
-        let change = commit.detail.change(section.file);
-        if section.start >= offset {
-            let y = inner.y + (section.start - offset) as u16;
-            let path = match &change.location {
-                Location::Path(path) => path.display().to_string(),
-                Location::Rename { before, after } | Location::Copy { before, after } => {
-                    format!("{} → {}", before.display(), after.display())
-                }
+        let title_start = section.start.max(offset);
+        let title_end = section.body_start().min(end);
+        if title_start < title_end {
+            let title = review.title(section.file);
+            let change = commit.detail.change(section.file);
+            let title_style = Style::default().fg(ACCENT).bold();
+            let row_style = if selected == Some(section.file) {
+                selected_style()
+            } else {
+                Style::default()
             };
-            let color = match change.kind {
-                Kind::Added => GOOD,
-                Kind::Deleted => BAD,
-                Kind::Modified | Kind::Typechange => WARN,
-                Kind::Renamed | Kind::Copied => ACCENT,
-            };
-            let line = crate::view::files::marked_line(
-                &Line::styled(safe(&path), Style::default().fg(ACCENT).bold()),
-                change.kind.symbol(),
-                color,
-                inner.width.into(),
-            );
-            let header = Rect::new(inner.x, y, inner.width, 1);
-            frame.render_widget(
-                line.style(if selected == Some(section.file) {
-                    selected_style()
-                } else {
-                    Style::default()
-                }),
-                header,
-            );
+            for row in title_start..title_end {
+                let first_line = row == section.start;
+                let (text, horizontal) = match &section.title {
+                    TitleRows::Single => (
+                        Line::styled(title.text.as_str(), title_style),
+                        review.horizontal.offset().min(titles.overflow(title.width)),
+                    ),
+                    TitleRows::Wrapped(lines) => {
+                        (lines[row - section.start].clone().style(title_style), 0)
+                    }
+                };
+                let status = first_line.then(|| crate::view::files::history_status(change.kind));
+                let line = titles.with_offset(horizontal).line(&text, status);
+                let area = Rect::new(inner.x, inner.y + (row - offset) as u16, inner.width, 1);
+                frame.render_widget(line.style(row_style), area);
+            }
             let index = indices
-                .iter()
-                .position(|file| *file == section.file)
+                .binary_search(&section.file)
                 .expect("displayed file");
-            hits.item(header, crate::pointer::Target::InspectionFiles, index);
+            hits.item(
+                Rect::new(
+                    inner.x,
+                    inner.y + (title_start - offset) as u16,
+                    inner.width,
+                    (title_end - title_start) as u16,
+                ),
+                crate::pointer::Target::InspectionFiles,
+                index,
+            );
         }
-        let first = offset.saturating_sub(section.start + 1);
-        let last = section
-            .rows
-            .len()
-            .min(end.saturating_sub(section.start + 1));
+        let body_start = section.body_start();
+        let first = offset.saturating_sub(body_start);
+        let last = section.rows.len().min(end.saturating_sub(body_start));
         for row in first..last {
-            let y = inner.y + (section.start + 1 + row - offset) as u16;
+            let y = inner.y + (body_start + row - offset) as u16;
             let area = Rect::new(inner.x, y, inner.width, 1);
             match &section.rows {
                 Rows::Ready(cache) => {
                     if let Some(line) = cache.rows.get(row) {
                         match line {
                             VisualRow::Full { line, fixed, .. } => {
-                                hits.links.line(frame, area, line, *fixed, horizontal)
+                                hits.links.line(frame, area, line, *fixed, body_offset)
                             }
                             VisualRow::Columns { .. } => {
                                 unreachable!("continuous review uses unified rows")
@@ -132,11 +155,16 @@ pub(super) fn render(
         offset,
         crate::pointer::ScrollTarget::InspectionReview,
     );
+    let track_start = if title_overflow > 0 {
+        inner.x
+    } else {
+        inner.x + review.layout.gutter_width().min(inner.width.into()) as u16
+    };
     review.horizontal.render_on_border(
         frame,
         area,
-        inner.x + review.layout.gutter_width().min(inner.width.into()) as u16..inner.right(),
+        track_start..inner.right(),
         hits,
-        crate::pointer::ScrollTarget::InspectionReviewHorizontal,
+        crate::horizontal::Pane::InspectionDiff,
     );
 }

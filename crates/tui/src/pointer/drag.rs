@@ -103,7 +103,7 @@ mod tests {
             Axis::Horizontal,
             100,
             40,
-            ScrollTarget::DiffHorizontal,
+            ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
         );
         let range = thumb(30, 40, 100);
         for cell in range {
@@ -111,15 +111,24 @@ mod tests {
             let grab = map.grab(origin).unwrap();
             assert_eq!(
                 grab.action(origin),
-                Some(Action::Scroll(ScrollTarget::DiffHorizontal, 40))
+                Some(Action::Scroll(
+                    ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
+                    40
+                ))
             );
             assert_eq!(
                 grab.action(Position::new(0, 0)),
-                Some(Action::Scroll(ScrollTarget::DiffHorizontal, 0))
+                Some(Action::Scroll(
+                    ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
+                    0
+                ))
             );
             assert_eq!(
                 grab.action(Position::new(200, 50)),
-                Some(Action::Scroll(ScrollTarget::DiffHorizontal, 100))
+                Some(Action::Scroll(
+                    ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
+                    100
+                ))
             );
             assert!(grab.valid(&map));
             map.clear();
@@ -128,7 +137,7 @@ mod tests {
                 Axis::Horizontal,
                 100,
                 90,
-                ScrollTarget::DiffHorizontal,
+                ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
             );
             assert!(grab.valid(&map));
             map.clear();
@@ -137,7 +146,7 @@ mod tests {
                 Axis::Horizontal,
                 100,
                 40,
-                ScrollTarget::DiffHorizontal,
+                ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
             );
         }
         assert!(map.grab(Position::new(10, 8)).is_none());
@@ -148,7 +157,7 @@ mod tests {
             Axis::Horizontal,
             100,
             40,
-            ScrollTarget::DiffHorizontal,
+            ScrollTarget::Horizontal(crate::horizontal::Pane::Diff),
         );
         assert!(!grab.valid(&map));
     }

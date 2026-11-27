@@ -3,17 +3,45 @@ mod layout;
 mod load;
 use super::Source;
 use crate::Service;
-pub(crate) use layout::{Layout, Rows};
+pub(crate) use layout::{Layout, Rows, TitleRows};
 use std::sync::{Arc, Mutex};
+use unicode_width::UnicodeWidthStr;
 
 #[derive(Debug, Clone, Copy, Default)]
 struct Anchor {
     file: usize,
-    row: usize,
+    row: AnchorRow,
 }
+#[derive(Debug, Clone, Copy)]
+enum AnchorRow {
+    Title(usize),
+    Body(usize),
+    Divider,
+}
+
+impl Default for AnchorRow {
+    fn default() -> Self {
+        Self::Title(0)
+    }
+}
+
+pub(crate) const TITLE_STATUS_WIDTH: usize = 2;
+
+#[derive(Debug)]
+pub(crate) struct SectionTitle {
+    pub text: String,
+    pub width: usize,
+}
+
+#[derive(Debug)]
+struct Shared {
+    bundle: Mutex<load::Bundle>,
+    titles: Box<[SectionTitle]>,
+}
+
 #[derive(Debug, Clone)]
 pub(crate) struct Review {
-    bundle: Arc<Mutex<load::Bundle>>,
+    shared: Arc<Shared>,
     pub layout: Layout,
     pub horizontal: crate::horizontal::Viewport,
     anchor: Anchor,
@@ -21,26 +49,53 @@ pub(crate) struct Review {
 }
 impl Review {
     pub fn new(detail: Source) -> Self {
+        let titles = detail
+            .changes()
+            .into_iter()
+            .map(|change| {
+                let text = crate::view::safe(&change.location.display());
+                SectionTitle {
+                    width: text.width(),
+                    text,
+                }
+            })
+            .collect();
         Self {
-            bundle: Arc::new(Mutex::new(load::Bundle::new(detail))),
+            shared: Arc::new(Shared {
+                bundle: Mutex::new(load::Bundle::new(detail)),
+                titles,
+            }),
             layout: Layout::default(),
             horizontal: Default::default(),
             anchor: Anchor::default(),
             followed: None,
         }
     }
+    pub fn title(&self, file: usize) -> &SectionTitle {
+        &self.shared.titles[file]
+    }
+
     pub fn poll(&self, service: &Arc<Service>, theme: highlight::Theme) -> bool {
-        self.bundle
+        self.shared
+            .bundle
             .lock()
             .expect("history review state")
             .poll(service, theme)
     }
     #[cfg(test)]
     pub fn loaded(&self) -> bool {
-        self.bundle.lock().expect("history review state").loaded()
+        self.shared
+            .bundle
+            .lock()
+            .expect("history review state")
+            .loaded()
     }
     pub fn symbol(&self) -> Option<&'static str> {
-        self.bundle.lock().expect("history review state").symbol()
+        self.shared
+            .bundle
+            .lock()
+            .expect("history review state")
+            .symbol()
     }
     pub fn arrange(
         &mut self,
@@ -52,19 +107,31 @@ impl Review {
     ) {
         if self.followed != selected {
             if let Some(file) = selected {
-                self.anchor = Anchor { file, row: 0 };
+                self.anchor = Anchor {
+                    file,
+                    row: AnchorRow::default(),
+                };
             }
             self.followed = selected;
         }
         let entries = self
+            .shared
             .bundle
             .lock()
             .expect("history review state")
             .entries
             .clone();
-        self.layout
-            .arrange(&entries, files, area, options, paths, &mut self.anchor);
-        self.horizontal.constrain(self.layout.horizontal_maximum());
+        self.layout.arrange(
+            layout::Content {
+                entries: &entries,
+                titles: &self.shared.titles,
+            },
+            files,
+            area,
+            options,
+            paths,
+            &mut self.anchor,
+        );
     }
     pub fn seek(&mut self, offset: usize) {
         self.layout.offset = offset.min(self.layout.maximum());

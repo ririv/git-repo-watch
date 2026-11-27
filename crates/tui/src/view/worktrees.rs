@@ -29,13 +29,11 @@ pub(super) fn render(
             parts[1],
         );
     }
-    let selection = row_selection(session.state.selected(), session.snapshot.entries.len());
-    let items = session
+    let lines = session
         .snapshot
         .entries
         .iter()
-        .enumerate()
-        .map(|(index, entry)| {
+        .map(|entry| {
             let (branch, status, color) = match &entry.state {
                 State::Available {
                     revision, status, ..
@@ -76,9 +74,16 @@ pub(super) fn render(
                 format!("  {}", safe(&entry.path.to_string_lossy())),
                 Style::default().fg(MUTED),
             ));
-            ListItem::new(Line::from(title)).style(row_style(selection == Some(index)))
-        });
-    frame.render_stateful_widget(List::new(items), parts[0], &mut session.state);
+            Line::from(title)
+        })
+        .collect::<Vec<_>>();
+    list_window::Scrolling {
+        panel: area,
+        inner: parts[0],
+        pane: crate::horizontal::Pane::Worktrees,
+        viewport: &mut session.horizontal,
+    }
+    .render(frame, hits, &mut session.state, &lines, None);
     let count = session.snapshot.entries.len();
     crate::scrollbar::vertical(frame, area, parts[0], count, session.state.offset());
     hits.list(

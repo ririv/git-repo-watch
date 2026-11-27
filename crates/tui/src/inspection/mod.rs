@@ -24,6 +24,7 @@ pub(crate) enum Focus {
 pub(crate) struct Session {
     pub detail: Source,
     pub files: ListState,
+    pub file_paths: crate::horizontal::Viewport,
     pub scroll: usize,
     pub query: String,
     pub search_mode: crate::search::Mode,
@@ -100,6 +101,7 @@ impl Session {
         Self {
             detail,
             files: ListState::default().with_selected(selected),
+            file_paths: Default::default(),
             scroll: 0,
             query: String::new(),
             search_mode: Default::default(),
@@ -118,6 +120,7 @@ impl Session {
         next.focus = self.focus;
         next.arrangement = self.arrangement;
         next.search(self.query.clone());
+        next.file_paths = self.file_paths.clone();
         if let Some(index) = selected.and_then(|location| {
             next.rows()
                 .iter()

@@ -54,6 +54,8 @@ pub(crate) struct Session {
     pub state: State,
     pub commits: ListState,
     pub units: ListState,
+    pub commits_horizontal: crate::horizontal::Viewport,
+    pub units_horizontal: crate::horizontal::Viewport,
     pub scroll: usize,
     pub message_scroll: usize,
 }
@@ -67,6 +69,8 @@ impl Session {
             state: State::Browsing,
             commits: ListState::default(),
             units: ListState::default(),
+            commits_horizontal: Default::default(),
+            units_horizontal: Default::default(),
             scroll: 0,
             message_scroll: 0,
         }

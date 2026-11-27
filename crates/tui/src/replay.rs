@@ -113,6 +113,7 @@ impl Screen {
                 selected: 0,
                 origin: Box::new(origin),
                 draft,
+                horizontal: Default::default(),
             },
         };
         self.mode = Mode::Confirm {

@@ -1,5 +1,5 @@
 //! Wheel frame batching and keyboard ownership of scroll sequences.
-use crossterm::event::{Event, MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use std::{
     io,
     time::{Duration, Instant},
@@ -7,6 +7,16 @@ use std::{
 
 const WHEEL_FRAME_BUDGET: Duration = Duration::from_millis(8);
 const MAX_WHEEL_EVENTS_PER_FRAME: usize = 64;
+
+pub(super) fn horizontal_wheel(event: MouseEvent) -> Option<isize> {
+    match event.kind {
+        MouseEventKind::ScrollLeft => Some(-4),
+        MouseEventKind::ScrollRight => Some(4),
+        MouseEventKind::ScrollUp if event.modifiers.contains(KeyModifiers::SHIFT) => Some(-4),
+        MouseEventKind::ScrollDown if event.modifiers.contains(KeyModifiers::SHIFT) => Some(4),
+        _ => None,
+    }
+}
 
 pub(super) fn is_wheel(kind: MouseEventKind) -> bool {
     matches!(

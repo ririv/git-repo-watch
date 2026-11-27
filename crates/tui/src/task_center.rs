@@ -135,6 +135,7 @@ pub(crate) struct Center {
     pub filter: Filter,
     pub bar: crate::bar::InputBar,
     pub viewport: ratatui::widgets::ListState,
+    pub horizontal: crate::horizontal::Viewport,
     pub rows: Vec<(ratatui::layout::Rect, String)>,
     pub footer: ratatui::layout::Rect,
     pub content: ratatui::layout::Rect,
@@ -512,6 +513,9 @@ impl Screen {
     ) -> Result<bool> {
         use crossterm::event::{KeyCode as K, KeyModifiers as M};
         self.tasks.clicks.reset();
+        if self.horizontal_key(key) {
+            return Ok(false);
+        }
         let action = match (key.code, key.modifiers) {
             (K::Char('x'), M::CONTROL) => Some(Action::TaskCancel),
             (K::Char('r'), M::CONTROL) => Some(Action::TaskRetry),

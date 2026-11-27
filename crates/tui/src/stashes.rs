@@ -7,6 +7,7 @@ use std::sync::Arc;
 pub(super) struct Session {
     pub snapshot: Arc<Snapshot>,
     pub state: ListState,
+    pub horizontal: crate::horizontal::Viewport,
     pub query: String,
     pub search_mode: crate::search::Mode,
 }
@@ -16,6 +17,7 @@ impl Session {
         Self {
             snapshot: Arc::new(snapshot),
             state: ListState::default().with_selected(selected),
+            horizontal: Default::default(),
             query: String::new(),
             search_mode: Default::default(),
         }
@@ -82,6 +84,7 @@ impl Session {
         let current = self.selected().map(|entry| entry.oid);
         let mut next = Self::new(snapshot);
         next.state = self.state;
+        next.horizontal = self.horizontal.clone();
         next.query = self.query.clone();
         next.search_mode = self.search_mode;
         let selected = next
@@ -103,7 +106,7 @@ pub(super) enum View {
     List(Session),
     Detail {
         session: Session,
-        inspect: crate::inspection::Session,
+        inspect: Box<crate::inspection::Session>,
     },
     Diff {
         session: Session,
@@ -181,7 +184,7 @@ impl crate::Screen {
                 KeyCode::Esc => {
                     *view = View::Detail {
                         session: session.clone(),
-                        inspect: (**inspect).clone(),
+                        inspect: inspect.clone(),
                     }
                 }
                 _ => crate::input::scroll_key(scroll, key),
@@ -235,7 +238,7 @@ impl crate::Screen {
                 };
                 Ok(crate::Outcome::StashView(Box::new(View::Detail {
                     session,
-                    inspect,
+                    inspect: Box::new(inspect),
                 })))
             },
         );
@@ -260,7 +263,7 @@ impl crate::Screen {
                 let content = inspect.prepare_file(&service, index, theme, &cancel)?;
                 Ok(crate::Outcome::StashView(Box::new(View::Diff {
                     session,
-                    inspect: Box::new(inspect),
+                    inspect,
                     content,
                     scroll: 0,
                 })))

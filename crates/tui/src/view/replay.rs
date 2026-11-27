@@ -7,6 +7,7 @@ pub(super) fn parents(
     area: Rect,
     candidate: &Candidate,
     selected: usize,
+    viewport: &mut crate::horizontal::Viewport,
     hits: &mut crate::pointer::Map,
 ) {
     let border = block(i18n::tr!(ReplayParentsTitle));
@@ -30,25 +31,27 @@ pub(super) fn parents(
         Paragraph::new(introduction).wrap(Wrap { trim: false }),
         parts[0],
     );
-    let items = candidate
+    let lines = candidate
         .parents
         .iter()
         .map(|parent| {
-            ListItem::new(Line::from(vec![
+            Line::from(vec![
                 Span::styled(
                     format!("{}  {}  ", parent.number, &parent.oid.to_string()[..12]),
                     Style::default().fg(ACCENT),
                 ),
                 Span::raw(safe(&parent.summary)),
-            ]))
+            ])
         })
         .collect::<Vec<_>>();
     let mut state = ListState::default().with_selected(Some(selected));
-    frame.render_stateful_widget(
-        List::new(items).highlight_style(selected_style()),
-        parts[1],
-        &mut state,
-    );
+    list_window::Scrolling {
+        panel: area,
+        inner: parts[1],
+        pane: crate::horizontal::Pane::ReplayParents,
+        viewport,
+    }
+    .render(frame, hits, &mut state, &lines, None);
     hits.list(
         area,
         parts[1],

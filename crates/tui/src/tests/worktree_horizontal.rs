@@ -100,7 +100,7 @@ fn worktree_paths_scroll_in_both_layouts_and_repository_panes_without_moving_sel
                 s.pointer.hit(point),
                 Some(crate::pointer::Hit::Scrollbar(
                     crate::pointer::Action::Scroll(
-                        crate::pointer::ScrollTarget::WorktreeHorizontal,
+                        crate::pointer::ScrollTarget::Horizontal(crate::horizontal::Pane::Worktree),
                         _
                     )
                 ))

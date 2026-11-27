@@ -29,23 +29,17 @@ pub(crate) enum Target {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum ScrollTarget {
     Files,
-    WorktreeHorizontal,
-    BrowserTreeHorizontal,
+    Horizontal(crate::horizontal::Pane),
     HistoryActions,
     BrowserPreview(crate::browser::opening::TextMode),
-    BrowserHorizontal(crate::browser::opening::TextMode),
     Text,
     CommitMessage,
     Overview,
     Diff,
     Conflict(crate::conflict::Focus),
-    ConflictHorizontal(crate::conflict::Focus),
     InspectionMessage,
     InspectionReview,
-    InspectionReviewHorizontal,
-    HistoryHorizontal,
     HistoryFiles,
-    DiffHorizontal,
 }
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Action {
@@ -116,6 +110,7 @@ enum Values {
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Map {
     regions: Vec<Region>,
+    horizontal_panes: Vec<(Rect, crate::horizontal::Pane)>,
     pub links: crate::links::Map,
 }
 impl Map {
@@ -131,6 +126,7 @@ impl Map {
     }
     pub fn clear(&mut self) {
         self.regions.clear();
+        self.horizontal_panes.clear();
     }
     pub fn item(&mut self, area: Rect, target: Target, index: usize) {
         if !area.is_empty() {
@@ -224,6 +220,38 @@ impl Map {
                 offset,
             });
         }
+    }
+    pub fn horizontal(
+        &mut self,
+        panel: Rect,
+        track: Rect,
+        maximum: usize,
+        offset: usize,
+        pane: crate::horizontal::Pane,
+    ) {
+        if maximum > 0 && !track.is_empty() {
+            self.horizontal_panes.push((panel, pane));
+            self.track(
+                track,
+                crate::scrollbar::Axis::Horizontal,
+                maximum,
+                offset,
+                ScrollTarget::Horizontal(pane),
+            );
+        }
+    }
+
+    pub fn has_horizontal_track(&self, pane: crate::horizontal::Pane) -> bool {
+        self.horizontal_panes
+            .iter()
+            .any(|(_, target)| *target == pane)
+    }
+
+    pub fn horizontal_pane_at(&self, point: Position) -> Option<crate::horizontal::Pane> {
+        self.horizontal_panes
+            .iter()
+            .rev()
+            .find_map(|(area, pane)| area.contains(point).then_some(*pane))
     }
     pub fn hit(&self, point: Position) -> Option<Hit> {
         self.regions.iter().rev().find_map(|region| match region {

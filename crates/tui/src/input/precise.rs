@@ -11,7 +11,8 @@ impl Screen {
             && matches!(
                 action,
                 Action::Scroll(
-                    ScrollTarget::Conflict(_) | ScrollTarget::ConflictHorizontal(_),
+                    ScrollTarget::Conflict(_)
+                        | ScrollTarget::Horizontal(crate::horizontal::Pane::Conflict(_)),
                     _
                 )
             );
@@ -396,16 +397,7 @@ impl Screen {
                 _ => return false,
             },
             Action::Scroll(target, offset) => match target {
-                ScrollTarget::WorktreeHorizontal => {
-                    let files = match &mut self.mode {
-                        Mode::Files(files) => files,
-                        Mode::Changes(session) if session.focus == changes::Focus::Files => {
-                            &mut session.files
-                        }
-                        _ => return false,
-                    };
-                    files.horizontal.seek(offset);
-                }
+                ScrollTarget::Horizontal(pane) => return self.seek_horizontal(pane, offset),
                 ScrollTarget::Files => {
                     let files = match &mut self.mode {
                         Mode::Files(files) => files,
@@ -417,52 +409,25 @@ impl Screen {
                         self.poll_changes();
                     }
                 }
-                ScrollTarget::BrowserTreeHorizontal => {
+                ScrollTarget::BrowserPreview(mode) => {
                     let Mode::Browser(session) = &mut self.mode else {
                         return false;
                     };
-                    session.horizontal.seek(offset);
-                }
-                ScrollTarget::BrowserPreview(mode) | ScrollTarget::BrowserHorizontal(mode) => {
-                    if let Mode::Browser(session) = &mut self.mode {
-                        match target {
-                            ScrollTarget::BrowserPreview(_) => {
-                                session.panes.get_mut(mode).position.scroll = offset
-                            }
-                            ScrollTarget::BrowserHorizontal(_) => {
-                                session.panes.get_mut(mode).position.horizontal.seek(offset)
-                            }
-                            _ => unreachable!(),
-                        }
-                    } else {
-                        return false;
-                    }
+                    session.panes.get_mut(mode).position.scroll = offset;
                 }
                 ScrollTarget::HistoryActions => return self.seek_history_action(offset),
                 ScrollTarget::Overview if self.page == Page::Detail => self.scroll = offset,
-                ScrollTarget::InspectionMessage
-                | ScrollTarget::InspectionReview
-                | ScrollTarget::InspectionReviewHorizontal => {
+                ScrollTarget::InspectionMessage | ScrollTarget::InspectionReview => {
                     let Some(inspect) = self.mode.inspection_mut() else {
                         return false;
                     };
-                    match target {
-                        ScrollTarget::InspectionMessage => inspect.scroll = offset,
-                        ScrollTarget::InspectionReview => inspect.review.seek(offset),
-                        ScrollTarget::InspectionReviewHorizontal => {
-                            inspect.review.horizontal.seek(offset)
-                        }
-                        _ => unreachable!(),
+                    if target == ScrollTarget::InspectionMessage {
+                        inspect.scroll = offset;
+                    } else {
+                        inspect.review.seek(offset);
                     }
                 }
-                ScrollTarget::HistoryHorizontal => match &mut self.mode {
-                    Mode::History(view) => match view.as_mut() {
-                        history::View::Graph(session) => session.horizontal.seek(offset),
-                        _ => return false,
-                    },
-                    _ => return false,
-                },
-                ScrollTarget::Conflict(focus) | ScrollTarget::ConflictHorizontal(focus) => {
+                ScrollTarget::Conflict(focus) => {
                     let Mode::Changes(session) = &mut self.mode else {
                         return false;
                     };
@@ -482,46 +447,25 @@ impl Screen {
                     }
                     session.focus = changes::Focus::Preview;
                     view.select(focus, scroll);
-                    match target {
-                        ScrollTarget::Conflict(_) => *scroll = offset,
-                        ScrollTarget::ConflictHorizontal(_) => {
-                            if let Some(horizontal) = content.horizontal() {
-                                horizontal.seek(offset);
-                            }
-                        }
-                        _ => unreachable!(),
-                    }
+                    *scroll = offset;
                 }
-                ScrollTarget::Diff | ScrollTarget::DiffHorizontal => {
-                    let (content, scroll) = match &mut self.mode {
+                ScrollTarget::Diff => {
+                    let scroll = match &mut self.mode {
                         Mode::Changes(session) => match &mut session.preview {
-                            changes::Preview::Ready {
-                                content, scroll, ..
-                            } => (content, scroll),
+                            changes::Preview::Ready { scroll, .. } => scroll,
                             _ => return false,
                         },
                         Mode::Stashes(view) => match view.as_mut() {
-                            stashes::View::Diff {
-                                content, scroll, ..
-                            } => (content, scroll),
+                            stashes::View::Diff { scroll, .. } => scroll,
                             _ => return false,
                         },
                         Mode::History(view) => match view.as_mut() {
-                            history::View::Diff {
-                                content, scroll, ..
-                            } => (content, scroll),
+                            history::View::Diff { scroll, .. } => scroll,
                             _ => return false,
                         },
                         _ => return false,
                     };
-                    match target {
-                        ScrollTarget::Diff => *scroll = offset,
-                        ScrollTarget::DiffHorizontal => match content.horizontal() {
-                            Some(view) => view.seek(offset),
-                            None => return false,
-                        },
-                        _ => unreachable!(),
-                    }
+                    *scroll = offset;
                 }
                 ScrollTarget::CommitMessage => match &mut self.mode {
                     Mode::CommitMessage { editor, .. } => editor.display().scroll = offset,

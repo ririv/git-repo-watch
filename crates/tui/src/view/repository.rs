@@ -60,16 +60,27 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         area,
         &mut screen.pointer,
     );
-    let columns = match content.width {
-        41.. => vec![
-            Constraint::Min(12),
-            Constraint::Length(9),
-            Constraint::Length(18),
-        ],
-        25.. => vec![Constraint::Min(12), Constraint::Length(9)],
-        _ => vec![Constraint::Min(1)],
+    let widths = match content.width {
+        41.. => vec![content.width - 29, 9, 18],
+        25.. => vec![content.width - 10, 9],
+        _ => vec![content.width],
     };
-    let column_count = columns.len();
+    let column_count = widths.len();
+    let names = rows.iter().map(|row| name(&row.path)).collect::<Vec<_>>();
+    let widest = names
+        .iter()
+        .map(|name| unicode_width::UnicodeWidthStr::width(name.as_str()))
+        .max()
+        .unwrap_or(0);
+    let name_column = Rect::new(content.x, content.y, widths[0], content.height);
+    let names_window = crate::horizontal::Columns::new(name_column, 2, 0).scroll(
+        frame,
+        area,
+        &mut screen.pointer,
+        crate::horizontal::Pane::Repositories,
+        &mut screen.repository_horizontal,
+        widest,
+    );
     let data = rows
         .iter()
         .enumerate()
@@ -103,25 +114,30 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
             };
             let mut data = TableRow::new(
                 [
-                    Cell::from(Line::from(
-                        std::iter::once(Span::styled(
-                            format!("{} ", running.unwrap_or(execution.symbol())),
-                            Style::default().fg(if running.is_some() {
-                                ACCENT
-                            } else {
-                                status::color(execution)
-                            }),
-                        ))
-                        .chain(
-                            highlight::line(
-                                Line::from(Span::styled(name(&row.path), name_style)),
-                                &screen.query,
-                                Emphasis::at(index, selection),
-                            )
-                            .spans,
-                        )
-                        .collect::<Vec<_>>(),
-                    )),
+                    Cell::from(
+                        names_window.line(
+                            &Line::from(
+                                std::iter::once(Span::styled(
+                                    format!("{} ", running.unwrap_or(execution.symbol())),
+                                    Style::default().fg(if running.is_some() {
+                                        ACCENT
+                                    } else {
+                                        status::color(execution)
+                                    }),
+                                ))
+                                .chain(
+                                    highlight::line(
+                                        Line::from(Span::styled(names[index].clone(), name_style)),
+                                        &screen.query,
+                                        Emphasis::at(index, selection),
+                                    )
+                                    .spans,
+                                )
+                                .collect::<Vec<_>>(),
+                            ),
+                            None,
+                        ),
+                    ),
                     workspace,
                     sync,
                 ]
@@ -148,7 +164,7 @@ fn repository_table(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         i18n::tr!(SyncColumn),
     ];
     let heading = u16::from(content.height > 1);
-    let mut table = Table::new(data, columns).column_spacing(1);
+    let mut table = Table::new(data, widths.into_iter().map(Constraint::Length)).column_spacing(1);
     if heading > 0 {
         table = table.header(
             TableRow::new(headings.into_iter().take(column_count))

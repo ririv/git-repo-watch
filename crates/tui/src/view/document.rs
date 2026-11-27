@@ -28,7 +28,15 @@ pub(super) fn render(
         View::Conflict(view) => {
             super::conflict::render(frame, area, view, scroll, preference, graphics, hits)
         }
-        View::Text(text) => diff::render(frame, area, text, scroll, preference, hits),
+        View::Text(text) => diff::render(
+            frame,
+            area,
+            text,
+            scroll,
+            preference,
+            hits,
+            crate::horizontal::Pane::Diff,
+        ),
         View::Images(images) => {
             let border = block(i18n::tr!(ImagePreview));
             let inner = border.inner(area);

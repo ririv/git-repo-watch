@@ -80,13 +80,14 @@ fn tree(
             parts[0],
         );
     }
+    let mut horizontal = std::mem::take(&mut session.horizontal);
     let rows = session.rows();
     let count = rows.len();
     let mut state = session.state;
     let visible = list_window::visible(parts[1], count, &mut state);
     let selection = row_selection(state.selected(), count);
     let width = usize::from(parts[1].width);
-    let name_width = if width >= 3 { width - 3 } else { width };
+    let status_width = if width >= 3 { 3 } else { 0 };
     let path = |row: crate::browser::Row<'_>| -> String {
         let entry = row.entry;
         let path = if session.query.is_empty() {
@@ -115,14 +116,20 @@ fn tree(
         label
     };
     // 文件浏览的图标栏始终占两列，隐藏图标时也保留宽度。
-    let overflow = rows
+    let widest = rows
         .iter()
         .copied()
         .map(|row| row.depth * 2 + 2 + path(row).width())
         .max()
-        .unwrap_or(0)
-        .saturating_sub(name_width);
-    let horizontal = session.horizontal.offset().min(overflow);
+        .unwrap_or(0);
+    let paths = crate::horizontal::Columns::new(parts[1], 0, status_width).scroll(
+        frame,
+        area,
+        hits,
+        crate::horizontal::Pane::Browser,
+        &mut horizontal,
+        widest,
+    );
     list_window::render(frame, parts[1], visible.clone(), |index| {
         let row = rows[index];
         let entry = row.entry;
@@ -154,19 +161,17 @@ fn tree(
             )
             .spans,
         );
-        let mut line = crate::horizontal::clip(&Line::from(spans), horizontal, name_width);
-        if width >= 3 {
-            line.spans
-                .push(Span::raw(" ".repeat(width - 2 - line.width())));
-            line.spans.push(Span::styled(
+        let status = (status_width > 0).then(|| {
+            Span::styled(
                 status.map_or_else(|| "  ".into(), |status| status.label()),
                 Style::default().fg(color),
-            ));
-        }
-        ListItem::new(line).style(row_style(selection == Some(index)))
+            )
+        });
+        ListItem::new(paths.line(&Line::from(spans), status))
+            .style(row_style(selection == Some(index)))
     });
     session.state = state;
-    session.horizontal.constrain(overflow);
+    session.horizontal = horizontal;
     if count == 0 && session.notice().is_none() {
         frame.render_widget(
             Paragraph::new(i18n::tr!(BrowserEmpty)).style(Style::default().fg(MUTED)),
@@ -175,13 +180,6 @@ fn tree(
     }
     crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
     hits.sequential_list(area, parts[1], count, visible, Target::Browser);
-    session.horizontal.render_on_border(
-        frame,
-        area,
-        parts[1].x..parts[1].x + name_width as u16,
-        hits,
-        crate::pointer::ScrollTarget::BrowserTreeHorizontal,
-    );
 }
 fn preview(
     frame: &mut Frame,

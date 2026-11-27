@@ -244,7 +244,7 @@ fn graph(
         parts[0],
         scroll_start..scroll_end,
         hits,
-        crate::pointer::ScrollTarget::HistoryHorizontal,
+        crate::horizontal::Pane::HistoryGraph,
     );
     let count = session.records.len();
     let visible = list_window::visible(content_area, count, &mut session.state);

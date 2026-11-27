@@ -209,9 +209,17 @@ pub(crate) fn render_body(frame: &mut Frame, screen: &mut Screen, area: Rect) {
                 Confirmation::ReplayParents {
                     candidate,
                     selected,
+                    horizontal,
                     ..
                 } => {
-                    super::replay::parents(frame, area, candidate, *selected, &mut screen.pointer);
+                    super::replay::parents(
+                        frame,
+                        area,
+                        candidate,
+                        *selected,
+                        horizontal,
+                        &mut screen.pointer,
+                    );
                     return;
                 }
                 Confirmation::Mutation { plan, scroll, .. } => {

@@ -297,19 +297,13 @@ fn comparison(
         };
         let start = panel.x + view.gutter(n).min(panel.width as usize) as u16;
         let horizontal = Rect::new(start, y, panel.right().saturating_sub(start), 1);
-        crate::scrollbar::render(
+        view.horizontal.render_track(
             frame,
+            area,
             horizontal,
-            crate::scrollbar::Axis::Horizontal,
-            view.horizontal.offset().min(cache.maxima[n]),
+            hits,
+            crate::horizontal::Pane::Conflict(Focus::Compare),
             cache.maxima[n],
-        );
-        hits.track(
-            horizontal,
-            crate::scrollbar::Axis::Horizontal,
-            cache.maxima[n],
-            view.horizontal.offset().min(cache.maxima[n]),
-            ScrollTarget::ConflictHorizontal(Focus::Compare),
         );
     }
 }

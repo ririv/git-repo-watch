@@ -2,8 +2,6 @@
 use super::*;
 use crate::management::{Selection, Session, Source, Status};
 use crate::pointer::{Action as PointerAction, Target};
-use ratatui::widgets::{List, ListItem};
-use unicode_width::UnicodeWidthStr;
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -64,10 +62,9 @@ pub(super) fn render(
         );
     }
     let rows = session.rows();
-    let items = rows
+    let lines = rows
         .iter()
-        .enumerate()
-        .map(|(visible, &index)| {
+        .map(|&index| {
             let entry = &session.entries[index];
             let (prefix, label, color) = match &entry.status {
                 Status::New(Selection::Included) => ("[✓] ", i18n::tr!(ScanNew), Color::Reset),
@@ -78,7 +75,6 @@ pub(super) fn render(
                 },
                 Status::Failed(_) => (" ×  ", i18n::tr!(ScanFailed), BAD),
             };
-            let selected = session.state.selected() == Some(visible);
             let display = match &session.source {
                 Source::Managed => safe(&entry.path.to_string_lossy()),
                 Source::Scan { root, .. } => {
@@ -93,11 +89,6 @@ pub(super) fn render(
                     }
                 }
             };
-            let width = usize::from(parts[2].width).saturating_sub(
-                prefix.width() + label.width() + if label.is_empty() { 0 } else { 2 },
-            );
-            let display = super::breadcrumbs::shorten(&display, width);
-            let padding = " ".repeat(width.saturating_sub(display.width()));
             let mut spans = match entry.status {
                 Status::New(selection) => {
                     let mut spans = super::checkbox::spans(match selection {
@@ -109,25 +100,50 @@ pub(super) fn render(
                 }
                 _ => vec![Span::styled(prefix, Style::default().fg(color))],
             };
-            spans.extend([
-                Span::styled(display, Style::default().fg(color)),
-                Span::raw(padding),
+            spans.push(Span::styled(display, Style::default().fg(color)));
+            let status = (!label.is_empty()).then(|| {
                 Span::styled(
-                    if label.is_empty() {
-                        String::new()
-                    } else {
-                        format!("  {label}")
-                    },
+                    format!("  {label}"),
                     Style::default().fg(if matches!(entry.status, Status::Failed(_)) {
                         BAD
                     } else {
                         MUTED
                     }),
-                ),
-            ]);
-            ListItem::new(Line::from(spans)).style(row_style(selected))
+                )
+            });
+            (Line::from(spans), status)
         })
         .collect::<Vec<_>>();
+    let leading = if matches!(session.source, Source::Scan { .. }) {
+        4
+    } else {
+        0
+    };
+    let trailing = lines
+        .iter()
+        .filter_map(|(_, status)| status.as_ref().map(Span::width))
+        .max()
+        .unwrap_or(0);
+    let widest = lines
+        .iter()
+        .map(|(line, _)| line.width().saturating_sub(leading))
+        .max()
+        .unwrap_or(0);
+    let columns = crate::horizontal::Columns::new(parts[2], leading, trailing).scroll(
+        frame,
+        area,
+        hits,
+        crate::horizontal::Pane::Management,
+        &mut session.horizontal,
+        widest,
+    );
+    let selection = row_selection(session.state.selected(), lines.len());
+    let items = lines
+        .into_iter()
+        .enumerate()
+        .map(|(index, (label, status))| {
+            ListItem::new(columns.line(&label, status)).style(row_style(selection == Some(index)))
+        });
     frame.render_stateful_widget(List::new(items), parts[2], &mut session.state);
     hits.list(
         area,

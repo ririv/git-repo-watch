@@ -4,8 +4,8 @@ use crate::history::{
     GraphFocus,
     preview::{Content, Key, Preview},
 };
+use crate::horizontal::Pane;
 use crate::view::metadata::{field, time};
-use engine::local::history::Kind;
 
 pub(super) fn render(
     frame: &mut Frame,
@@ -77,34 +77,31 @@ pub(super) fn render(
             );
         }
         Content::Ready { changes, .. } => {
-            let rows: Vec<_> = changes
+            let labels: Vec<_> = changes
                 .iter()
-                .map(|change| {
-                    let color = match change.kind {
-                        Kind::Added => GOOD,
-                        Kind::Deleted => BAD,
-                        Kind::Modified | Kind::Typechange => WARN,
-                        Kind::Renamed | Kind::Copied => ACCENT,
-                    };
-                    let mut spans = icons.file(change.location.name());
-                    spans.extend(
-                        crate::view::files::path_line(&change.location, &change.location.display())
-                            .spans,
-                    );
-                    crate::view::files::marked_line(
-                        &Line::from(spans),
-                        change.kind.symbol(),
-                        color,
-                        inner.width as usize,
-                    )
+                .map(|change| crate::view::files::history_label(change, icons))
+                .collect();
+            let widest = labels.iter().map(Line::width).max().unwrap_or(0);
+            let paths = crate::horizontal::Columns::new(inner, 0, 2).scroll(
+                frame,
+                parts[1],
+                hits,
+                Pane::HistoryPreview,
+                &mut preview.file_paths,
+                widest,
+            );
+            preview.maximum = labels.len().saturating_sub(usize::from(inner.height));
+            preview.offset = preview.offset.min(preview.maximum);
+            let rows: Vec<_> = labels
+                .iter()
+                .zip(changes)
+                .skip(preview.offset)
+                .take(usize::from(inner.height))
+                .map(|(label, change)| {
+                    paths.line(label, Some(crate::view::files::history_status(change.kind)))
                 })
                 .collect();
-            preview.maximum = rows.len().saturating_sub(inner.height as usize);
-            preview.offset = preview.offset.min(preview.maximum);
-            frame.render_widget(
-                Paragraph::new(rows.into_iter().skip(preview.offset).collect::<Vec<_>>()),
-                inner,
-            );
+            frame.render_widget(Paragraph::new(rows), inner);
             crate::scrollbar::vertical(frame, parts[1], inner, changes.len(), preview.offset);
             hits.vertical(
                 parts[1],

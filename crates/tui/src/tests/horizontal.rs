@@ -257,7 +257,7 @@ fn history_arrows_scroll_wide_graphs_without_hiding_short_text_and_share_the_scr
     assert!(matches!(
         hit,
         crate::pointer::Hit::Scrollbar(crate::pointer::Action::Scroll(
-            crate::pointer::ScrollTarget::HistoryHorizontal,
+            crate::pointer::ScrollTarget::Horizontal(crate::horizontal::Pane::HistoryGraph),
             _
         ))
     ));
@@ -309,4 +309,92 @@ fn unified_history_scroll_reaches_long_text_and_ignores_graph_overflow_without_p
     assert_eq!(graph(&s).horizontal.offset(), 0);
     assert!(!graph(&s).horizontal.overflowing());
     s.shutdown();
+}
+
+#[test]
+fn horizontal_input_tracks_each_focused_view_in_a_split_workspace() {
+    use crate::{
+        changes::Focus,
+        horizontal::Pane,
+        pointer::{Action, Hit, ScrollTarget},
+    };
+    use ratatui::layout::Position;
+
+    let f = support::Fixture::create();
+    let name = format!("{}-end.rs", "filename".repeat(12));
+    support::write(
+        f.repo.join(&name),
+        &format!("// {}body-end\n", "x".repeat(180)),
+    );
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo diff");
+    wait(&mut s);
+    let before = render(&mut s, 120, 32);
+    let Mode::Changes(session) = &s.mode else {
+        panic!("expected split workspace")
+    };
+    let areas = crate::view::changes::areas(s.body_area.unwrap(), session);
+    let files = areas
+        .iter()
+        .find(|(_, focus)| *focus == Focus::Files)
+        .unwrap()
+        .0;
+    let preview = areas
+        .iter()
+        .find(|(_, focus)| *focus == Focus::Preview)
+        .unwrap()
+        .0;
+    let body_point = |area: ratatui::layout::Rect| Position::new(area.x + 3, area.y + 3);
+    assert_eq!(
+        s.pointer.horizontal_pane_at(body_point(files)),
+        Some(Pane::Worktree),
+        "{before}"
+    );
+    assert_eq!(
+        s.pointer.horizontal_pane_at(body_point(preview)),
+        Some(Pane::Diff),
+        "{before}"
+    );
+
+    let gesture = |s: &mut Screen, point: Position, kind| {
+        s.mouse(
+            MouseEvent {
+                kind,
+                modifiers: KeyModifiers::NONE,
+                column: point.x,
+                row: point.y,
+            },
+            &Cancel::default(),
+        )
+        .unwrap()
+    };
+    let wheel = MouseEventKind::ScrollRight;
+    assert!(gesture(&mut s, body_point(files), wheel));
+    assert_eq!(s.mode.file_session().unwrap().horizontal.offset(), 4);
+    assert_eq!(diff(&s).horizontal.offset(), 0);
+    assert!(gesture(&mut s, body_point(preview), wheel));
+    key(&mut s, KeyCode::Right);
+    assert_eq!(diff(&s).horizontal.offset(), 8);
+    assert_eq!(s.mode.file_session().unwrap().horizontal.offset(), 4);
+
+    render(&mut s, 120, 32);
+    let point = (preview.x + 1..preview.right() - 1)
+        .rev()
+        .find_map(|x| {
+            let point = Position::new(x, preview.bottom() - 1);
+            matches!(
+                s.pointer.hit(point),
+                Some(Hit::Scrollbar(Action::Scroll(
+                    ScrollTarget::Horizontal(Pane::Diff),
+                    _
+                )))
+            )
+            .then_some(point)
+        })
+        .expect("diff scrollbar");
+    let button = crossterm::event::MouseButton::Left;
+    assert!(gesture(&mut s, point, MouseEventKind::Down(button)));
+    gesture(&mut s, point, MouseEventKind::Up(button));
+    assert!(diff(&s).horizontal.offset() > 8);
+    assert_eq!(s.mode.file_session().unwrap().horizontal.offset(), 4);
 }

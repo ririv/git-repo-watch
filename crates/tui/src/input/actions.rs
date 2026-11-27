@@ -101,6 +101,7 @@ impl Screen {
                 selected,
                 origin,
                 draft,
+                ..
             } => self.choose_replay_parent(*candidate, selected, *origin, draft),
             Confirmation::Mutation { plan, origin, .. } => self.execute_mutation(*plan, *origin),
             #[cfg(feature = "developer-scheduler")]

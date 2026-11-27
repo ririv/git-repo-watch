@@ -41,7 +41,7 @@ fn track(s: &Screen, area: Rect) -> Vec<Position> {
             matches!(
                 s.pointer.hit(point),
                 Some(Hit::Scrollbar(PointerAction::Scroll(
-                    ScrollTarget::BrowserTreeHorizontal,
+                    ScrollTarget::Horizontal(crate::horizontal::Pane::Browser),
                     _
                 )))
             )

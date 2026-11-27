@@ -91,7 +91,7 @@ pub(super) fn list(
             .style(Style::default().fg(MUTED)),
         parts[0],
     );
-    let items = rows
+    let lines = rows
         .iter()
         .enumerate()
         .map(|(index, entry)| {
@@ -119,16 +119,23 @@ pub(super) fn list(
             if let Kind::Local(tracking) = &entry.kind {
                 append_comparison(&mut spans, tracking);
             }
-            ListItem::new(Line::from(spans)).style(row_style(selection == Some(index)))
+            Line::from(spans)
         })
         .collect::<Vec<_>>();
-    let count = items.len();
-    let items = if items.is_empty() {
-        vec![ListItem::new(i18n::tr!(BranchEmpty))]
-    } else {
-        items
-    };
-    frame.render_stateful_widget(List::new(items), parts[1], &mut session.state);
+    let count = lines.len();
+    list_window::Scrolling {
+        panel: area,
+        inner: parts[1],
+        pane: crate::horizontal::Pane::Branches,
+        viewport: &mut session.horizontal,
+    }
+    .render(
+        frame,
+        hits,
+        &mut session.state,
+        &lines,
+        Some(i18n::tr!(BranchEmpty)),
+    );
     crate::scrollbar::vertical(frame, area, parts[1], count, session.state.offset());
     hits.list(
         area,

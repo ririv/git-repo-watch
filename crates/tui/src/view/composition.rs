@@ -105,7 +105,7 @@ pub(super) fn render(
         .iter()
         .enumerate()
         .map(|(index, step)| {
-            ListItem::new(Line::from(vec![
+            Line::from(vec![
                 Span::styled(
                     format!("{} ", index + 1 + session.prepared.completed.len()),
                     Style::default().fg(MUTED),
@@ -115,16 +115,17 @@ pub(super) fn render(
                     format!(" · {}", step.units.len()),
                     Style::default().fg(ACCENT),
                 ),
-            ]))
+            ])
         })
         .collect::<Vec<_>>();
-    frame.render_stateful_widget(
-        List::new(rows)
-            .block(step_panel)
-            .highlight_style(selected_style()),
-        steps,
-        &mut session.commits,
-    );
+    frame.render_widget(step_panel, steps);
+    list_window::Scrolling {
+        panel: steps,
+        inner: step_inner,
+        pane: crate::horizontal::Pane::CompositionCommits,
+        viewport: &mut session.commits_horizontal,
+    }
+    .render(frame, hits, &mut session.commits, &rows, None);
     if session.focus == Focus::Commits && !matches!(session.state, State::Editing(_)) {
         highlight_border(frame, steps);
     } else {
@@ -186,7 +187,7 @@ pub(super) fn render(
                 .find(|unit| unit.id == *id)
         })
         .map(|unit| {
-            ListItem::new(Line::from(vec![
+            Line::from(vec![
                 Span::styled(format!("{} ", unit.id), Style::default().fg(ACCENT)),
                 Span::raw(safe(&unit.path.to_string_lossy())),
                 Span::styled(
@@ -199,19 +200,20 @@ pub(super) fn render(
                     ),
                     Style::default().fg(MUTED),
                 ),
-            ]))
+            ])
         })
         .collect::<Vec<_>>();
     let unit_panel = block(i18n::tr!(ComposeUnits));
     let unit_inner = unit_panel.inner(units);
     session.units.select(Some(session.unit));
-    frame.render_stateful_widget(
-        List::new(rows)
-            .block(unit_panel)
-            .highlight_style(selected_style()),
-        units,
-        &mut session.units,
-    );
+    frame.render_widget(unit_panel, units);
+    list_window::Scrolling {
+        panel: units,
+        inner: unit_inner,
+        pane: crate::horizontal::Pane::CompositionUnits,
+        viewport: &mut session.units_horizontal,
+    }
+    .render(frame, hits, &mut session.units, &rows, None);
     if session.focus == Focus::Units && !matches!(session.state, State::Editing(_)) {
         highlight_border(frame, units);
     } else {

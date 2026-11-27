@@ -39,13 +39,17 @@ pub(super) fn render(
     } else {
         0
     };
-    let path_width = usize::from(inner.width).saturating_sub(pinned + 2);
     let widest = list.widest(options.icons, |row| {
         label_width(session, row, options.icons)
     });
-    session
-        .horizontal
-        .constrain(widest.saturating_sub(path_width));
+    let paths = crate::horizontal::Columns::new(inner, pinned, 2).scroll(
+        frame,
+        area,
+        hits,
+        crate::horizontal::Pane::Worktree,
+        &mut session.horizontal,
+        widest,
+    );
 
     let selected = list.position(&session.cursor);
     let mut offset = session
@@ -76,15 +80,8 @@ pub(super) fn render(
                 options.icons,
                 selected == Some(index),
             );
-            let mut shown = crate::horizontal::clip(&line, 0, pinned);
-            shown.spans.extend(
-                crate::horizontal::clip(&line, pinned + session.horizontal.offset(), path_width)
-                    .spans,
-            );
-            if let Some((marker, color)) = marker {
-                shown = marked_line(&shown, marker, color, usize::from(inner.width));
-            }
-            ListItem::new(shown).style(row_style(selected == Some(index)))
+            let status = marker.map(|(mark, color)| status_span(mark, color));
+            ListItem::new(paths.line(&line, status)).style(row_style(selected == Some(index)))
         }
     });
     session.offset = state.offset();
@@ -95,13 +92,6 @@ pub(super) fn render(
         rows.len().saturating_sub(usize::from(inner.height)),
         session.offset,
         crate::pointer::ScrollTarget::Files,
-    );
-    session.horizontal.render_on_border(
-        frame,
-        area,
-        inner.x + pinned as u16..inner.right().saturating_sub(2),
-        hits,
-        crate::pointer::ScrollTarget::WorktreeHorizontal,
     );
     for (visible, row) in rows[visible].iter().enumerate() {
         let Row::Entry { index, .. } = row else {
@@ -213,22 +203,8 @@ fn label(
     (Line::from(spans), marker)
 }
 
-/// Keep a file status marker pinned to the last column, clipping only the label.
-pub(super) fn marked_line(
-    label: &Line<'_>,
-    marker: char,
-    color: Color,
-    width: usize,
-) -> Line<'static> {
-    let mut line = crate::horizontal::clip(label, 0, width.saturating_sub(2));
-    if width > 0 {
-        line.spans.push(Span::raw(
-            " ".repeat(width.saturating_sub(line.width() + 1)),
-        ));
-        line.spans
-            .push(Span::styled(marker.to_string(), Style::default().fg(color)));
-    }
-    line
+pub(super) fn status_span(mark: char, color: Color) -> Span<'static> {
+    Span::styled(mark.to_string(), Style::default().fg(color))
 }
 
 /// Render rename separators as structure, without styling arrows inside real filenames.
@@ -242,6 +218,26 @@ pub(super) fn path_line(location: &engine::local::files::Location, label: &str) 
             Span::raw(safe(&after.to_string_lossy())),
         ]),
     }
+}
+
+pub(super) fn history_label(
+    change: &engine::local::history::Change,
+    icons: crate::file_icons::Display,
+) -> Line<'static> {
+    let mut spans = icons.file(change.location.name());
+    spans.extend(path_line(&change.location, &change.location.display()).spans);
+    Line::from(spans)
+}
+
+pub(super) fn history_status(kind: engine::local::history::Kind) -> Span<'static> {
+    use engine::local::history::Kind;
+    let color = match kind {
+        Kind::Added => GOOD,
+        Kind::Deleted => BAD,
+        Kind::Modified | Kind::Typechange => WARN,
+        Kind::Renamed | Kind::Copied => ACCENT,
+    };
+    status_span(kind.symbol(), color)
 }
 
 #[cfg(test)]

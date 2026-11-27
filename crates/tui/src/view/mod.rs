@@ -271,10 +271,10 @@ fn render_content(frame: &mut Frame, screen: &mut Screen) -> input::Surface {
     frame.render_widget(Paragraph::new(header), layout[0]);
     let body = layout[1];
     screen.body_area = Some(body);
-    let surface = footer.render(frame, screen, layout[2]);
     if !body.is_empty() {
         render_body(frame, screen, body);
     }
+    let surface = footer.render(frame, screen, layout[2]);
     commands::render(frame, screen, body);
     history::menu::render(frame, screen, body);
     surface

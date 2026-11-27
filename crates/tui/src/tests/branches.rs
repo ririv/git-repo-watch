@@ -157,3 +157,43 @@ fn branch_filter_options_complete_without_saving_and_apply_only_on_enter() {
     }
     s.shutdown();
 }
+
+#[test]
+fn long_branch_names_scroll_without_moving_the_selection_or_stealing_the_filter_cursor() {
+    let f = support::Fixture::create();
+    let name = format!("feature/{}长分支末尾", "long-directory/".repeat(6));
+    support::git(&f.repo, &["branch", &name]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo branch");
+    wait(&mut s);
+    key(&mut s, KeyCode::Down);
+
+    let start = render(&mut s, 64, 22);
+    assert!(!start.contains("长分支末尾"), "{start}");
+    assert!(start.contains(i18n::tr!(HorizontalScrollHint)), "{start}");
+    assert!(
+        s.pointer
+            .has_horizontal_track(crate::horizontal::Pane::Branches)
+    );
+    for _ in 0..30 {
+        key(&mut s, KeyCode::Right);
+    }
+    assert!(render(&mut s, 64, 22).contains("长分支末尾"));
+    assert!(matches!(&s.mode, Mode::Branches(view)
+        if view.session().selected().is_some_and(|entry| entry.name == name)));
+
+    s.paste("feature");
+    let cursor = s.bar.editor().cursor;
+    let before = match &s.mode {
+        Mode::Branches(view) => view.session().horizontal.offset(),
+        _ => panic!("branch list expected"),
+    };
+    key(&mut s, KeyCode::Left);
+    assert_eq!(s.bar.editor().cursor, cursor - 1);
+    assert!(matches!(&s.mode, Mode::Branches(view)
+        if view.session().horizontal.offset() == before));
+    key(&mut s, KeyCode::Enter);
+    assert!(
+        matches!(&s.mode, Mode::Branches(view) if matches!(view.as_ref(), View::Detail { .. }))
+    );
+}

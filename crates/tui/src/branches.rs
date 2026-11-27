@@ -23,6 +23,7 @@ impl Filter {
 pub(super) struct Session {
     pub snapshot: Arc<Snapshot>,
     pub state: ListState,
+    pub horizontal: crate::horizontal::Viewport,
     pub query: String,
     pub search_mode: crate::search::Mode,
     pub filter: Filter,
@@ -33,6 +34,7 @@ impl Session {
         Self {
             snapshot: Arc::new(snapshot),
             state: ListState::default().with_selected(selected),
+            horizontal: Default::default(),
             query: String::new(),
             search_mode: Default::default(),
             filter: Filter::All,
@@ -107,6 +109,7 @@ impl Session {
         let selected = self.selected().map(|entry| entry.reference.clone());
         let mut next = Self::new(snapshot);
         next.state = self.state;
+        next.horizontal = self.horizontal.clone();
         next.filter = self.filter;
         next.query = self.query.clone();
         next.search_mode = self.search_mode;

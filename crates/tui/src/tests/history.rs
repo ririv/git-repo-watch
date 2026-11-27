@@ -555,3 +555,121 @@ fn maximized_repository_history_focuses_file_preview_and_keeps_repository_naviga
     assert!(matches!(s.mode, Mode::Files(_)));
     assert_eq!(s.page, Page::Detail);
 }
+
+#[test]
+fn overflowing_history_file_paths_share_scrollbar_keys_and_wheel_without_changing_selection() {
+    use crate::{
+        horizontal::Pane,
+        pointer::{Action as PointerAction, Hit, ScrollTarget},
+        scrollbar::THUMB_COLOR,
+    };
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Position;
+
+    let f = support::Fixture::create();
+    let long = "packages/深层目录/terminal/components/chat/input/composer/unique-long-name.ts";
+    let path = f.repo.join(long);
+    std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+    support::write(path, "export const draft = true;\n");
+    support::write(f.repo.join("short.txt"), "short\n");
+    support::git(&f.repo, &["add", "."]);
+    support::git(&f.repo, &["commit", "-m", "Change two files"]);
+    let (_home, mut s) = fixture(vec![f.repo.clone()]);
+    command(&mut s, "repo log");
+    wait(&mut s);
+
+    let mouse = |s: &mut Screen, point: Position, kind, modifiers| {
+        s.mouse(
+            MouseEvent {
+                column: point.x,
+                row: point.y,
+                kind,
+                modifiers,
+            },
+            &Cancel::default(),
+        )
+        .unwrap();
+    };
+    let seek_end = |s: &mut Screen, point: Position, list| {
+        assert!(matches!(
+            s.pointer.hit(point),
+            Some(Hit::Scrollbar(PointerAction::Scroll(ScrollTarget::Horizontal(target), _)))
+                if target == list
+        ));
+        mouse(
+            s,
+            point,
+            MouseEventKind::Down(MouseButton::Left),
+            KeyModifiers::NONE,
+        );
+        mouse(
+            s,
+            point,
+            MouseEventKind::Up(MouseButton::Left),
+            KeyModifiers::NONE,
+        );
+    };
+
+    preview(&mut s, 160, 36);
+    let area = s.history_preview.area.unwrap();
+    let selected = graph(&s).state.selected();
+    let track_end = Position::new(area.right() - 4, area.bottom() - 1);
+    seek_end(&mut s, track_end, Pane::HistoryPreview);
+    assert_eq!(graph(&s).focus, crate::history::GraphFocus::Files);
+    assert!(s.history_preview.file_paths.offset() > 4);
+    assert_eq!(graph(&s).state.selected(), selected);
+
+    let previous = s.history_preview.file_paths.offset();
+    key(&mut s, KeyCode::Left);
+    assert_eq!(s.history_preview.file_paths.offset(), previous - 4);
+    mouse(
+        &mut s,
+        Position::new(area.x + 2, area.y + 1),
+        MouseEventKind::ScrollDown,
+        KeyModifiers::SHIFT,
+    );
+    assert_eq!(s.history_preview.file_paths.offset(), previous);
+    assert_eq!(s.history_preview.offset, 0);
+
+    key(&mut s, KeyCode::Enter);
+    wait(&mut s);
+    let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let area = crate::view::inspection::areas(s.body_area.unwrap(), detail(&s))
+        .into_iter()
+        .find(|(_, focus)| *focus == crate::inspection::Focus::Files)
+        .unwrap()
+        .0;
+    let column = area.x + 1;
+    let row = area.y + 1;
+    let bottom = area.bottom() - 1;
+    let buffer = terminal.backend().buffer();
+    assert_eq!(buffer[(column, bottom)].fg, THUMB_COLOR);
+    assert_eq!(buffer[(area.right() - 2, row)].symbol(), "A");
+    let selected = detail(&s).selected_index();
+    key(&mut s, KeyCode::Right);
+    assert_eq!(detail(&s).file_paths.offset(), 4);
+    key(&mut s, KeyCode::Left);
+    assert_eq!(detail(&s).file_paths.offset(), 0);
+    assert_eq!(detail(&s).selected_index(), selected);
+
+    seek_end(
+        &mut s,
+        Position::new(area.right() - 4, bottom),
+        Pane::Inspection,
+    );
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let buffer = terminal.backend().buffer();
+    let path = (column..area.right() - 1)
+        .map(|x| buffer[(x, row)].symbol())
+        .collect::<String>();
+    assert!(path.contains("unique-long-name.ts"), "{path}");
+    assert_eq!(buffer[(area.right() - 2, row)].symbol(), "A");
+    assert_eq!(detail(&s).selected_index(), selected);
+
+    s.paste("short.txt");
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    assert!(!detail(&s).file_paths.overflowing());
+    assert_eq!(detail(&s).file_paths.offset(), 0);
+    assert!(!s.pointer.has_horizontal_track(Pane::Inspection));
+}

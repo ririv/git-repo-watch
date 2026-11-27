@@ -48,7 +48,7 @@ pub(super) fn render(
             };
             let rows = session.rows();
             let selection = row_selection(session.state.selected(), rows.len());
-            let items = rows
+            let lines = rows
                 .iter()
                 .enumerate()
                 .map(|(row, entry)| {
@@ -71,31 +71,31 @@ pub(super) fn render(
                         )
                         .spans,
                     );
-                    ListItem::new(Line::from(spans)).style(row_style(selection == Some(row)))
+                    Line::from(spans)
                 })
                 .collect::<Vec<_>>();
-            let count = items.len();
-            let items = if items.is_empty() {
-                vec![ListItem::new(i18n::tr!(StashEmpty))]
-            } else {
-                items
-            };
+            let count = lines.len();
             let preview = session.selected().map(|entry| details(session, entry));
-            frame.render_stateful_widget(
-                List::new(items).block(block(i18n::tr!(StashTitle))),
-                areas[0],
-                &mut session.state,
-            );
-            crate::scrollbar::vertical(
+            let panel = block(i18n::tr!(StashTitle));
+            let inner = panel.inner(areas[0]);
+            frame.render_widget(panel, areas[0]);
+            list_window::Scrolling {
+                panel: areas[0],
+                inner,
+                pane: crate::horizontal::Pane::Stashes,
+                viewport: &mut session.horizontal,
+            }
+            .render(
                 frame,
-                areas[0],
-                block("").inner(areas[0]),
-                count,
-                session.state.offset(),
+                hits,
+                &mut session.state,
+                &lines,
+                Some(i18n::tr!(StashEmpty)),
             );
+            crate::scrollbar::vertical(frame, areas[0], inner, count, session.state.offset());
             hits.list(
                 areas[0],
-                block("").inner(areas[0]),
+                inner,
                 &(0..count).collect::<Vec<_>>(),
                 session.state.offset(),
                 crate::pointer::Target::Stashes,

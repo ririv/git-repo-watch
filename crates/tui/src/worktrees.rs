@@ -11,6 +11,7 @@ use ratatui::widgets::ListState;
 pub(crate) struct Session {
     pub snapshot: Snapshot,
     pub state: ListState,
+    pub horizontal: crate::horizontal::Viewport,
 }
 impl Session {
     pub fn new(snapshot: Snapshot) -> Self {
@@ -22,6 +23,7 @@ impl Session {
         Self {
             snapshot,
             state: ListState::default().with_selected(selected),
+            horizontal: Default::default(),
         }
     }
     pub fn selected(&self) -> Option<&Entry> {

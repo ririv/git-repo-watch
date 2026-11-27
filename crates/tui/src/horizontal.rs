@@ -1,4 +1,4 @@
-//! Cell-based horizontal viewports shared by styled text views.
+//! Cell-based horizontal viewports shared by scrollable content panes.
 use ratatui::{
     Frame,
     layout::Rect,
@@ -6,6 +6,28 @@ use ratatui::{
     text::{Line, Span},
 };
 use unicode_width::UnicodeWidthStr;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Pane {
+    Worktree,
+    Browser,
+    Inspection,
+    HistoryPreview,
+    Branches,
+    Stashes,
+    Worktrees,
+    Management,
+    Repositories,
+    Tasks,
+    ReplayParents,
+    CompositionCommits,
+    CompositionUnits,
+    BrowserText(crate::browser::opening::TextMode),
+    HistoryGraph,
+    InspectionDiff,
+    Diff,
+    Conflict(crate::conflict::Focus),
+}
 
 #[derive(Debug, Default, Clone)]
 pub(crate) struct Viewport {
@@ -36,32 +58,107 @@ impl Viewport {
         panel: Rect,
         columns: std::ops::Range<u16>,
         hits: &mut crate::pointer::Map,
-        target: crate::pointer::ScrollTarget,
+        pane: Pane,
     ) {
         if panel.width > 2 && panel.height > 1 {
             let start = columns.start.max(panel.x + 1);
             let end = columns.end.min(panel.right() - 1);
-            hits.track(
-                Rect::new(start, panel.bottom() - 1, end.saturating_sub(start), 1),
-                crate::scrollbar::Axis::Horizontal,
-                self.maximum,
-                self.offset,
-                target,
-            );
-            self.render(
+            self.render_track(
                 frame,
+                panel,
                 Rect::new(start, panel.bottom() - 1, end.saturating_sub(start), 1),
+                hits,
+                pane,
+                self.maximum,
             );
         }
     }
-    fn render(&self, frame: &mut Frame, area: Rect) {
+    /// Draw a track within a split pane, with a visible range bounded by that column.
+    pub fn render_track(
+        &self,
+        frame: &mut Frame,
+        panel: Rect,
+        track: Rect,
+        hits: &mut crate::pointer::Map,
+        pane: Pane,
+        maximum: usize,
+    ) {
+        let offset = self.offset.min(maximum);
+        hits.horizontal(panel, track, maximum, offset, pane);
         crate::scrollbar::render(
             frame,
-            area,
+            track,
             crate::scrollbar::Axis::Horizontal,
-            self.offset,
-            self.maximum,
+            offset,
+            maximum,
         );
+    }
+}
+
+/// Horizontal clipping geometry for rows with pinned fields.
+#[derive(Clone, Copy)]
+pub(crate) struct Columns {
+    inner: Rect,
+    leading: usize,
+    trailing: usize,
+    offset: usize,
+}
+
+impl Columns {
+    pub fn new(inner: Rect, leading: usize, trailing: usize) -> Self {
+        Self {
+            inner,
+            leading: leading.min(usize::from(inner.width)),
+            trailing,
+            offset: 0,
+        }
+    }
+
+    pub fn scroll(
+        mut self,
+        frame: &mut Frame,
+        panel: Rect,
+        hits: &mut crate::pointer::Map,
+        target: Pane,
+        viewport: &mut Viewport,
+        widest: usize,
+    ) -> Self {
+        let visible = self.label_width();
+        viewport.constrain(self.overflow(widest));
+        self.offset = viewport.offset();
+        let start = self.inner.x + self.leading as u16;
+        viewport.render_on_border(frame, panel, start..start + visible as u16, hits, target);
+        self
+    }
+
+    pub fn overflow(&self, widest: usize) -> usize {
+        let visible = self.label_width();
+        if visible == 0 {
+            0
+        } else {
+            widest.saturating_sub(visible)
+        }
+    }
+
+    pub fn with_offset(mut self, offset: usize) -> Self {
+        self.offset = offset;
+        self
+    }
+
+    fn label_width(&self) -> usize {
+        usize::from(self.inner.width).saturating_sub(self.leading + self.trailing)
+    }
+
+    pub fn line(&self, label: &Line<'_>, status: Option<Span<'static>>) -> Line<'static> {
+        let visible = self.label_width();
+        let mut line = pinned(label, self.leading, self.offset, self.leading + visible);
+        if let Some(status) = status.filter(|span| span.width() <= usize::from(self.inner.width)) {
+            line.spans.push(Span::raw(" ".repeat(
+                usize::from(self.inner.width).saturating_sub(line.width() + status.width()),
+            )));
+            line.spans.push(status);
+        }
+        line
     }
 }
 
@@ -160,15 +257,26 @@ mod tests {
         let mut terminal = Terminal::new(TestBackend::new(30, 1)).unwrap();
         let mut viewport = Viewport::default();
         viewport.constrain(200);
-        terminal
-            .draw(|frame| viewport.render(frame, frame.area()))
-            .unwrap();
+        let draw = |terminal: &mut Terminal<TestBackend>, viewport: &Viewport| {
+            terminal
+                .draw(|frame| {
+                    let area = frame.area();
+                    viewport.render_track(
+                        frame,
+                        area,
+                        area,
+                        &mut crate::pointer::Map::default(),
+                        Pane::Diff,
+                        200,
+                    );
+                })
+                .unwrap();
+        };
+        draw(&mut terminal, &viewport);
         assert_eq!(terminal.backend().buffer()[(0, 0)].symbol(), "━");
         assert_ne!(terminal.backend().buffer()[(29, 0)].symbol(), "━");
         viewport.advance(200);
-        terminal
-            .draw(|frame| viewport.render(frame, frame.area()))
-            .unwrap();
+        draw(&mut terminal, &viewport);
         assert_eq!(terminal.backend().buffer()[(29, 0)].symbol(), "━");
         assert_ne!(terminal.backend().buffer()[(0, 0)].symbol(), "━");
     }

@@ -30,6 +30,7 @@ pub enum Message {
     ReadCommandHistoryFailed,
     SaveCommandHistoryFailed,
     WorktreeHorizontalHint,
+    HorizontalScrollHint,
     WorktreeSelectionHint,
     ConflictControlsTitle,
     ConflictControlsHint,
@@ -863,6 +864,7 @@ pub enum Message {
     HistorySearchHint,
     HistoryInputHint,
     HistoryCommitInputHint,
+    HistoryFilePreviewInputHint,
     HistoryReviewInputHint,
     HistoryDiffHint,
     HistoryNoMatch,
@@ -1708,6 +1710,8 @@ impl Message {
             (Self::SaveCommandHistoryFailed, Language::English) => {
                 "Could not save command history: {0}"
             }
+            (Self::HorizontalScrollHint, Language::Chinese) => "←→ 横向滚动",
+            (Self::HorizontalScrollHint, Language::English) => "←→ scroll horizontally",
             (Self::WorktreeHorizontalHint, Language::Chinese) => {
                 "↑↓选择 · ←→ 横向滚动 · Enter 差异 · Esc 返回 · Space 勾选"
             }
@@ -3685,8 +3689,8 @@ impl Message {
             (Self::RepositoryListOnly, Language::Chinese) => {
                 "请在仓库首页使用 /repos filter 和 /repos sort"
             }
-            (Self::RepositoryListHint, Language::English) => "↑↓ select · →/Enter open",
-            (Self::RepositoryListHint, Language::Chinese) => "↑↓选择 · →/Enter 打开",
+            (Self::RepositoryListHint, Language::English) => "↑↓ select · Enter open",
+            (Self::RepositoryListHint, Language::Chinese) => "↑↓选择 · Enter 打开",
             (Self::RepositoryListNoMatches, Language::English) => {
                 "No matches; edit search or /repos filter"
             }
@@ -4128,6 +4132,12 @@ impl Message {
             (Self::HistoryInputHint, Language::Chinese) => {
                 "↑↓选择 · ←→ 横向滚动 · Enter详情 · Esc返回"
             }
+            (Self::HistoryFilePreviewInputHint, Language::English) => {
+                "↑↓ scroll · Enter details · /focus panes · Esc back"
+            }
+            (Self::HistoryFilePreviewInputHint, Language::Chinese) => {
+                "↑↓ 滚动 · Enter 详情 · /focus 面板 · Esc 返回"
+            }
             (Self::HistoryCommitInputHint, Language::English) => {
                 "↑↓ files · Enter diff · /repo log parent · /focus panes · Esc back"
             }
@@ -4135,10 +4145,10 @@ impl Message {
                 "↑↓文件 · Enter 差异 · /repo log parent · /focus 面板 · Esc 返回"
             }
             (Self::HistoryReviewInputHint, Language::English) => {
-                "↑↓ scroll · ←→ pan · Enter file diff · /focus panes · Esc back"
+                "↑↓ scroll · Enter file diff · /focus panes · Esc back"
             }
             (Self::HistoryReviewInputHint, Language::Chinese) => {
-                "↑↓滚动 · ←→平移 · Enter 文件差异 · /focus 面板 · Esc 返回"
+                "↑↓滚动 · Enter 文件差异 · /focus 面板 · Esc 返回"
             }
             (Self::HistoryDiffHint, Language::English) => {
                 "↑↓ scroll · ←→ pan · Esc commit · /repo diff layout"

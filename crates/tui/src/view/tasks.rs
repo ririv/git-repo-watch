@@ -87,7 +87,6 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) -> inpu
     if !parts[2].is_empty() {
         screen.input_area = Some(parts[2]);
     }
-    let surface = input::render_task_input(frame, screen, parts[2], parts[3], hint);
     let notice = screen
         .exit_sequence
         .notice()
@@ -128,7 +127,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) -> inpu
         }
         Session::Detail { id, scroll } => {
             let Some(record) = screen.tasks.records.iter().find(|record| record.id == *id) else {
-                return surface;
+                return input::render_task_input(frame, screen, parts[2], parts[3], hint);
             };
             let rendered = detail::render(frame, record, body, Some(scroll));
             screen.tasks.maximum = rendered.maximum;
@@ -138,6 +137,17 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) -> inpu
             }
         }
     }
+    let hint = if screen
+        .pointer
+        .has_horizontal_track(crate::horizontal::Pane::Tasks)
+        && screen.active_bar().is_plain()
+        && screen.active_bar().editor().text.is_empty()
+    {
+        format!("{} · {hint}", i18n::tr!(HorizontalScrollHint))
+    } else {
+        hint.to_owned()
+    };
+    let surface = input::render_task_input(frame, screen, parts[2], parts[3], &hint);
     commands::render(frame, screen, body);
     surface
 }

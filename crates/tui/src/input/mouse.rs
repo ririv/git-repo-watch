@@ -55,11 +55,6 @@ impl Screen {
             )?;
             return Ok(true);
         }
-        if self.tasks_mouse(event) {
-            self.clicks.reset();
-            self.drag = None;
-            return Ok(true);
-        }
         if matches!(event.kind, MouseEventKind::Up(_)) {
             return Ok(self.drag.take().is_some());
         }
@@ -68,7 +63,7 @@ impl Screen {
             MouseEventKind::Drag(crossterm::event::MouseButton::Left)
         ) {
             self.clicks.reset();
-            if !self.config.mouse.precise_click || !self.bar.is_plain() {
+            if !self.config.mouse.precise_click || !self.active_bar().is_plain() {
                 self.drag = None;
                 return Ok(false);
             }
@@ -83,6 +78,42 @@ impl Screen {
             self.scroll_input.keyboard(std::time::Instant::now());
             self.view_revision += 1;
             return Ok(action.is_some_and(|action| self.precise_action(action)));
+        }
+        if self.tasks.session.open()
+            && self.config.mouse.precise_click
+            && self.active_bar().is_plain()
+            && event.kind == MouseEventKind::Down(crossterm::event::MouseButton::Left)
+        {
+            let point = Position::new(event.column, event.row);
+            if let Some(crate::pointer::Hit::Scrollbar(action)) = self.pointer.hit(point) {
+                return Ok(self.press_scrollbar(point, action));
+            }
+        }
+        if let Some(delta) = super::scroll::horizontal_wheel(event) {
+            self.drag = None;
+            self.clicks.reset();
+            let point = Position::new(event.column, event.row);
+            if !self.config.mouse.scroll || !self.active_bar().is_plain() {
+                return Ok(false);
+            }
+            let Some(pane) = self.pointer.horizontal_pane_at(point) else {
+                return Ok(false);
+            };
+            if !self.tasks.session.open() {
+                if self.history_actions().is_some() || !self.pointer_focus(event) {
+                    return Ok(false);
+                }
+                if self.focused_conflict_control().is_none() {
+                    self.dismiss_input_actions();
+                }
+            }
+            self.view_revision += 1;
+            return Ok(self.pan_horizontal(pane, delta));
+        }
+        if self.tasks_mouse(event) {
+            self.clicks.reset();
+            self.drag = None;
+            return Ok(true);
         }
         let wheel = super::scroll::is_wheel(event.kind);
         if wheel || matches!(event.kind, MouseEventKind::Down(_)) {
@@ -120,7 +151,10 @@ impl Screen {
         if let Some(changed) = self.stash_save_mouse(event, root)? {
             return Ok(changed);
         }
-        if wheel
+        if matches!(
+            event.kind,
+            MouseEventKind::ScrollUp | MouseEventKind::ScrollDown
+        ) && !event.modifiers.contains(KeyModifiers::SHIFT)
             && self.bar.is_plain()
             && self
                 .history_preview
@@ -363,12 +397,8 @@ impl Screen {
                     return Ok(true);
                 }
                 self.scroll_input.keyboard(std::time::Instant::now());
-                if matches!(hit, crate::pointer::Hit::Scrollbar(_)) {
-                    self.drag = self.pointer.grab(Position::new(event.column, event.row));
-                    if self.drag.is_some() {
-                        self.clicks.reset();
-                        return Ok(true);
-                    }
+                if let crate::pointer::Hit::Scrollbar(action) = hit {
+                    return Ok(self.press_scrollbar(Position::new(event.column, event.row), action));
                 }
                 let applied = self.precise_action(hit.action());
                 if applied
@@ -529,30 +559,6 @@ impl Screen {
                 _ => {}
             }
         }
-        let horizontal = match event.kind {
-            MouseEventKind::ScrollLeft => Some(KeyCode::Left),
-            MouseEventKind::ScrollRight => Some(KeyCode::Right),
-            MouseEventKind::ScrollUp if event.modifiers.contains(KeyModifiers::SHIFT) => {
-                Some(KeyCode::Left)
-            }
-            MouseEventKind::ScrollDown if event.modifiers.contains(KeyModifiers::SHIFT) => {
-                Some(KeyCode::Right)
-            }
-            _ => None,
-        };
-        if let Some(code) = horizontal {
-            if !self.bar.is_plain()
-                || !self
-                    .body_area
-                    .is_some_and(|area| area.contains(Position::new(event.column, event.row)))
-            {
-                return Ok(false);
-            }
-            if !self.pointer_focus(event) {
-                return Ok(false);
-            }
-            return Ok(self.horizontal_scroll(if code == KeyCode::Left { -4 } else { 4 }));
-        }
         let code = match event.kind {
             MouseEventKind::ScrollUp => KeyCode::Up,
             MouseEventKind::ScrollDown => KeyCode::Down,
@@ -625,6 +631,11 @@ impl Screen {
             self.dispatch_key(KeyEvent::new(code, KeyModifiers::NONE), root)?;
         }
         Ok(true)
+    }
+    fn press_scrollbar(&mut self, point: Position, action: crate::pointer::Action) -> bool {
+        self.clicks.reset();
+        self.drag = self.pointer.grab(point);
+        self.drag.is_some() || self.precise_action(action)
     }
     fn pointer_focus(&mut self, event: MouseEvent) -> bool {
         let point = Position::new(event.column, event.row);

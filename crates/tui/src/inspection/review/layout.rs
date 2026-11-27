@@ -1,7 +1,7 @@
 //! Cache shared styled layouts for continuous historical file sections.
-use super::{Anchor, load::Entry};
+use super::{Anchor, AnchorRow, SectionTitle, TITLE_STATUS_WIDTH, load::Entry};
 use crate::diff::{Cache, HeaderVisibility, Options, Preference};
-use ratatui::layout::Rect;
+use ratatui::{layout::Rect, text::Line};
 use std::{path::PathBuf, sync::Arc};
 
 #[derive(Debug, Clone)]
@@ -25,16 +25,36 @@ enum Boundary {
     End,
 }
 #[derive(Debug, Clone)]
+pub(crate) enum TitleRows {
+    Single,
+    Wrapped(Arc<[Line<'static>]>),
+}
+
+impl TitleRows {
+    fn len(&self) -> usize {
+        match self {
+            Self::Single => 1,
+            Self::Wrapped(lines) => lines.len(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
 pub(crate) struct Section {
     pub file: usize,
     pub start: usize,
     pub rows: Rows,
+    pub title: TitleRows,
     boundary: Boundary,
 }
 impl Section {
+    pub fn body_start(&self) -> usize {
+        self.start + self.title.len()
+    }
+
     pub fn height(&self) -> usize {
         self.rows.len()
-            + 1
+            + self.title.len()
             + match self.boundary {
                 Boundary::Divider => 1,
                 Boundary::End => 0,
@@ -53,13 +73,30 @@ pub(crate) struct Layout {
     pub offset: usize,
     pub height: usize,
     page: usize,
-    caches: Vec<Option<Cached>>,
+    caches: Vec<FileCache>,
 }
+#[derive(Debug, Clone, Default)]
+struct FileCache {
+    body: Option<Cached>,
+    title: Option<WrappedTitle>,
+}
+
+#[derive(Debug, Clone)]
+struct WrappedTitle {
+    width: usize,
+    lines: Arc<[Line<'static>]>,
+}
+
 #[derive(Debug, Clone)]
 struct Cached {
     header: HeaderVisibility,
     layout: Arc<Cache>,
 }
+pub(super) struct Content<'a> {
+    pub entries: &'a [Entry],
+    pub titles: &'a [SectionTitle],
+}
+
 impl Layout {
     pub fn maximum(&self) -> usize {
         self.height.saturating_sub(self.page)
@@ -99,15 +136,17 @@ impl Layout {
     }
     pub(super) fn arrange(
         &mut self,
-        entries: &[Entry],
+        content: Content<'_>,
         files: &[usize],
         area: Rect,
         options: Options,
         paths: &[PathBuf],
         anchor: &mut Anchor,
     ) {
+        let Content { entries, titles } = content;
         let wrap = options.wrap;
-        self.caches.resize_with(entries.len(), || None);
+        let width = usize::from(area.width).saturating_sub(TITLE_STATUS_WIDTH);
+        self.caches.resize_with(entries.len(), FileCache::default);
         self.sections.clear();
         self.height = 0;
         self.page = area.height.into();
@@ -116,7 +155,7 @@ impl Layout {
                 Entry::Pending => Rows::Pending,
                 Entry::Failed(error) => Rows::Failed(error.clone()),
                 Entry::Ready(view) => {
-                    let cache = &mut self.caches[file];
+                    let cache = &mut self.caches[file].body;
                     let header_changed = cache
                         .as_ref()
                         .is_some_and(|cache| cache.header != options.header);
@@ -127,26 +166,22 @@ impl Layout {
                             || cache.layout.context != options.context
                             || !cache.layout.matches_paths(paths)
                     }) {
+                        let body_anchor = match anchor.row {
+                            AnchorRow::Body(row) if file == anchor.file => Some(row),
+                            _ => None,
+                        };
                         let source_position = cache
                             .as_ref()
-                            .filter(|cache| {
-                                file == anchor.file
-                                    && anchor.row > 0
-                                    && cache.layout.context != options.context
-                            })
-                            .and_then(|cache| {
-                                cache
-                                    .layout
-                                    .source_position(anchor.row.saturating_sub(1), 0)
-                            });
-                        let mut source_anchor = (file == anchor.file && anchor.row > 0)
-                            .then(|| {
-                                cache
-                                    .as_ref()
-                                    .and_then(|cache| cache.layout.rows.get(anchor.row - 1))
-                                    .map(|row| row.anchors().preferred())
-                            })
-                            .flatten();
+                            .filter(|cache| cache.layout.context != options.context)
+                            .and_then(|cache| cache.layout.source_position(body_anchor?, 0));
+                        let mut source_anchor = body_anchor.and_then(|row| {
+                            cache
+                                .as_ref()?
+                                .layout
+                                .rows
+                                .get(row)
+                                .map(|row| row.anchors().preferred())
+                        });
                         if header_changed && let Some(source) = &mut source_anchor {
                             source.row = match options.header {
                                 HeaderVisibility::Expanded if source.row >= view.header_start() => {
@@ -172,16 +207,17 @@ impl Layout {
                             options.context,
                         ));
                         if let Some(position) = source_position {
-                            anchor.row = next.locate_position(&position).unwrap_or(0) + 1;
+                            anchor.row =
+                                AnchorRow::Body(next.locate_position(&position).unwrap_or(0));
                         } else if cache
                             .as_ref()
                             .is_some_and(|cache| cache.layout.context != options.context)
                         {
                             if file == anchor.file {
-                                anchor.row = 0;
+                                anchor.row = AnchorRow::default();
                             }
                         } else if let Some(source_anchor) = source_anchor {
-                            anchor.row = next.locate(source_anchor) + 1;
+                            anchor.row = AnchorRow::Body(next.locate(source_anchor));
                         }
                         *cache = Some(Cached {
                             header: options.header,
@@ -197,10 +233,29 @@ impl Layout {
                     )
                 }
             };
+            let title = &titles[file];
+            let title = if wrap && width > 0 && title.width > width {
+                let cache = &mut self.caches[file].title;
+                let wrapped = match cache {
+                    Some(cached) if cached.width == width => cached,
+                    _ => cache.insert(WrappedTitle {
+                        width,
+                        lines: crate::links::Line::from(Line::raw(title.text.clone()))
+                            .wrap(width, false)
+                            .into_iter()
+                            .map(|line| line.text)
+                            .collect(),
+                    }),
+                };
+                TitleRows::Wrapped(wrapped.lines.clone())
+            } else {
+                TitleRows::Single
+            };
             let section = Section {
                 file,
                 start: self.height,
                 rows,
+                title,
                 boundary: if index + 1 < files.len() {
                     Boundary::Divider
                 } else {
@@ -214,7 +269,13 @@ impl Layout {
             .sections
             .iter()
             .find(|section| section.file == anchor.file)
-            .map(|section| section.start + anchor.row.min(section.height().saturating_sub(1)))
+            .map(|section| match anchor.row {
+                AnchorRow::Title(row) => section.start + row.min(section.title.len() - 1),
+                AnchorRow::Body(row) => section.body_start() + row.min(section.rows.len() - 1),
+                AnchorRow::Divider => section
+                    .separator()
+                    .unwrap_or(section.start + section.height() - 1),
+            })
             .unwrap_or(0)
             .min(self.maximum());
         // 布局裁剪不覆盖逻辑锚点；后续文件加载或窗口变高后仍定位原文件。
@@ -226,7 +287,13 @@ impl Layout {
             .find(|section| section.start <= offset)
             .map(|section| Anchor {
                 file: section.file,
-                row: offset - section.start,
+                row: if offset < section.body_start() {
+                    AnchorRow::Title(offset - section.start)
+                } else if section.separator() == Some(offset) {
+                    AnchorRow::Divider
+                } else {
+                    AnchorRow::Body(offset - section.body_start())
+                },
             })
             .unwrap_or_default()
     }
@@ -263,10 +330,22 @@ mod tests {
     fn pending_predecessors_and_resizing_retain_the_requested_file_anchor() {
         let mut layout = Layout::default();
         let mut entries = vec![Entry::Pending; 3];
-        let mut anchor = Anchor { file: 2, row: 0 };
+        let mut anchor = Anchor {
+            file: 2,
+            row: AnchorRow::default(),
+        };
+        let titles = (0..3)
+            .map(|_| SectionTitle {
+                text: "file".into(),
+                width: 4,
+            })
+            .collect::<Vec<_>>();
         let area = Rect::new(0, 0, 60, 20);
         layout.arrange(
-            &entries,
+            Content {
+                entries: &entries,
+                titles: &titles,
+            },
             &[0, 1, 2],
             area,
             Options {
@@ -278,10 +357,14 @@ mod tests {
             &[],
             &mut anchor,
         );
+
         assert_eq!(anchor.file, 2);
         entries[0] = ready(50);
         layout.arrange(
-            &entries,
+            Content {
+                entries: &entries,
+                titles: &titles,
+            },
             &[0, 1, 2],
             area,
             Options {
@@ -293,12 +376,16 @@ mod tests {
             &[],
             &mut anchor,
         );
+
         assert_eq!(anchor.file, 2);
         assert!(layout.offset > 0);
         entries[1] = ready(60);
         for width in [60, 30, 80] {
             layout.arrange(
-                &entries,
+                Content {
+                    entries: &entries,
+                    titles: &titles,
+                },
                 &[0, 1, 2],
                 Rect { width, ..area },
                 Options {
@@ -310,6 +397,7 @@ mod tests {
                 &[],
                 &mut anchor,
             );
+
             assert_eq!(anchor.file, 2);
             let target = &layout.sections[2];
             assert!((layout.offset..layout.offset + area.height as usize).contains(&target.start));

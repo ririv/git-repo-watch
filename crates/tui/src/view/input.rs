@@ -488,7 +488,7 @@ fn browsing_hint(screen: &Screen) -> &'static str {
             crate::history::View::Graph(session)
                 if session.focus == crate::history::GraphFocus::Files =>
             {
-                i18n::tr!(PgdnScrollEscBackCommands)
+                i18n::tr!(HistoryFilePreviewInputHint)
             }
             crate::history::View::Graph(session) if session.selection.active() => {
                 i18n::tr!(HistorySelectionHint)
@@ -918,6 +918,19 @@ fn render(frame: &mut Frame, screen: &mut Screen, area: Rect, hint_area: Rect) -
         format!("{} · {hint}", i18n::tr!(ReplayControlsEntryHint))
     } else {
         hint.to_owned()
+    };
+    let hint = if task_hint.is_none()
+        && bar.is_plain()
+        && bar.editor().text.is_empty()
+        && screen.focus_mode == crate::focus::State::Inactive
+        && !hint.contains("←→")
+        && screen
+            .focused_horizontal_pane()
+            .is_some_and(|pane| screen.pointer.has_horizontal_track(pane))
+    {
+        format!("{} · {hint}", i18n::tr!(HorizontalScrollHint))
+    } else {
+        hint
     };
     let show_cursor = !matches!(&content, Content::Actions(_))
         && task_hint.is_none()

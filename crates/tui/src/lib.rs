@@ -188,6 +188,7 @@ enum Confirmation {
         selected: usize,
         origin: Box<Mode>,
         draft: bar::CommandDraft,
+        horizontal: horizontal::Viewport,
     },
     Mutation {
         plan: Box<engine::operations::mutation::Plan>,
@@ -304,6 +305,7 @@ struct Screen {
     commit_generator: commit_message::Generator,
     commit_draft_id: u64,
     repository_viewport: ratatui::widgets::TableState,
+    repository_horizontal: horizontal::Viewport,
     scroll_input: input::scroll::ScrollInput,
     repository_area: Option<ratatui::layout::Rect>,
     body_area: Option<ratatui::layout::Rect>,
@@ -382,6 +384,7 @@ impl Screen {
             commit_generator: Default::default(),
             commit_draft_id: 0,
             repository_viewport,
+            repository_horizontal: Default::default(),
             scroll_input: input::scroll::ScrollInput::default(),
             repository_area: None,
             body_area: None,

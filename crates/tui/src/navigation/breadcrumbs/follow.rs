@@ -77,7 +77,7 @@ impl Screen {
                 {
                     self.mode = Mode::Stashes(Box::new(crate::stashes::View::Detail {
                         session: session.clone(),
-                        inspect: (**inspect).clone(),
+                        inspect: inspect.clone(),
                     }));
                 }
             }

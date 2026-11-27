@@ -14,6 +14,7 @@ pub(super) fn render(
     scroll: &mut usize,
     options: crate::diff::Options,
     hits: &mut crate::pointer::Map,
+    pane: crate::horizontal::Pane,
 ) {
     content.set_header(options.header, scroll);
     let preference = options.layout;
@@ -57,27 +58,23 @@ pub(super) fn render(
     let horizontal = content.horizontal.clone();
     let gutter = content.gutter_width(mode);
     match mode {
-        DiffLayout::Unified => horizontal.render_on_border(
-            frame,
-            area,
-            body.x + gutter..body.right(),
-            hits,
-            crate::pointer::ScrollTarget::DiffHorizontal,
-        ),
+        DiffLayout::Unified => {
+            horizontal.render_on_border(frame, area, body.x + gutter..body.right(), hits, pane)
+        }
         DiffLayout::Split => {
             horizontal.render_on_border(
                 frame,
                 area,
                 body.x + gutter..body.x + left_width,
                 hits,
-                crate::pointer::ScrollTarget::DiffHorizontal,
+                pane,
             );
             horizontal.render_on_border(
                 frame,
                 area,
                 body.x + left_width + 1 + gutter..body.right(),
                 hits,
-                crate::pointer::ScrollTarget::DiffHorizontal,
+                pane,
             );
         }
     }

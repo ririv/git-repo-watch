@@ -2,7 +2,12 @@
 use super::*;
 use unicode_width::UnicodeWidthStr;
 
-fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'static>> {
+fn heading(
+    record: &Record,
+    columns: &crate::horizontal::Columns,
+    width: usize,
+    animation: &'static str,
+) -> Vec<Line<'static>> {
     let (icon, _, color) = status(record);
     let symbol = match icon {
         Icon::Spinner => animation,
@@ -12,31 +17,25 @@ fn heading(record: &Record, width: usize, animation: &'static str) -> Vec<Line<'
         Span::styled(symbol, Style::default().fg(color).bold()),
         Span::raw(" "),
     ]);
-    let content_width = width.saturating_sub(line.width());
+    line.spans.push(Span::raw(title(record)));
+    let time = local_time(&record.started_at);
+    if width < 42 {
+        return vec![
+            columns.line(&line, None),
+            Line::styled(truncate(&time, width), Style::default().fg(MUTED)).right_aligned(),
+        ];
+    }
+    vec![columns.line(&line, Some(Span::styled(time, Style::default().fg(MUTED))))]
+}
+
+fn title(record: &Record) -> String {
     let progress = match &record.state {
         State::Running { progress } | State::Cancelling { progress } if !progress.is_empty() => {
             format!(" · {progress}")
         }
         _ => String::new(),
     };
-    let title = format!("{} · {}{progress}", scope(record), safe(&record.spec.title));
-    let time = local_time(&record.started_at);
-    if width < 42 {
-        line.spans.push(Span::raw(truncate(&title, content_width)));
-        return vec![
-            line,
-            Line::styled(truncate(&time, width), Style::default().fg(MUTED)).right_aligned(),
-        ];
-    }
-    let title_width = content_width.saturating_sub(time.width() + 1);
-    let title = truncate(&title, title_width);
-    let padding = " ".repeat(title_width.saturating_sub(title.width()) + 1);
-    line.spans.extend([
-        Span::raw(title),
-        Span::raw(padding),
-        Span::styled(time, Style::default().fg(MUTED)),
-    ]);
-    vec![line]
+    format!("{} · {}{progress}", scope(record), safe(&record.spec.title))
 }
 fn reason(record: &Record, width: usize) -> Vec<Line<'static>> {
     let State::Finished {
@@ -102,6 +101,29 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .as_ref()
         .and_then(|id| visible.iter().position(|&index| records[index].id == *id));
     screen.tasks.viewport.select(index);
+    let width = usize::from(inner.width);
+    let trailing = if width < 42 {
+        0
+    } else {
+        visible
+            .iter()
+            .map(|&index| local_time(&records[index].started_at).width() + 1)
+            .max()
+            .unwrap_or(0)
+    };
+    let widest = visible
+        .iter()
+        .map(|&index| title(&records[index]).width())
+        .max()
+        .unwrap_or(0);
+    let columns = crate::horizontal::Columns::new(inner, 2, trailing).scroll(
+        frame,
+        area,
+        &mut screen.pointer,
+        crate::horizontal::Pane::Tasks,
+        &mut screen.tasks.horizontal,
+        widest,
+    );
     if inner.is_empty() {
         return;
     }
@@ -121,7 +143,7 @@ pub(super) fn render(frame: &mut Frame, screen: &mut Screen, area: Rect) {
         .iter()
         .map(|&index| {
             let record = &records[index];
-            let mut lines = heading(record, inner.width.into(), screen.tasks.animation.symbol());
+            let mut lines = heading(record, &columns, width, screen.tasks.animation.symbol());
             lines.extend(reason(record, inner.width.into()));
             lines.truncate(inner.height.into());
             lines

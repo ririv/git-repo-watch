@@ -162,6 +162,7 @@ fn screen(service: Service) -> Screen {
         commit_generator: Default::default(),
         commit_draft_id: 0,
         repository_viewport,
+        repository_horizontal: Default::default(),
         scroll_input: input::scroll::ScrollInput::default(),
         repository_area: None,
         body_area: None,

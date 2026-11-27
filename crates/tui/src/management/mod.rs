@@ -59,6 +59,7 @@ pub(crate) struct Session {
     pub source: Source,
     pub entries: Vec<Entry>,
     pub state: ListState,
+    pub horizontal: crate::horizontal::Viewport,
     pub query: String,
     pub focus: Focus,
 }
@@ -108,6 +109,7 @@ impl Session {
             source,
             entries,
             state,
+            horizontal: Default::default(),
             query: String::new(),
             focus: Focus::new(crate::input_pages::Availability::InputOnly),
         }

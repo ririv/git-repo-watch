@@ -24,7 +24,20 @@ pub(super) fn render(
         resolution,
     } = review;
     if let Content::Document(document) = &mut view.content {
-        super::super::document::render(frame, area, document, scroll, options, graphics, hits);
+        match document.as_mut() {
+            crate::document::View::Text(text) => super::super::diff::render(
+                frame,
+                area,
+                text,
+                scroll,
+                options,
+                hits,
+                crate::horizontal::Pane::Conflict(Focus::Result),
+            ),
+            _ => super::super::document::render(
+                frame, area, document, scroll, options, graphics, hits,
+            ),
+        }
         return;
     }
     let border = block(format!("{} · {}", i18n::tr!(ConflictResult), label));
@@ -112,6 +125,6 @@ pub(super) fn render(
         area,
         body.x + gutter.min(body.width as usize) as u16..body.right(),
         hits,
-        ScrollTarget::ConflictHorizontal(Focus::Result),
+        crate::horizontal::Pane::Conflict(Focus::Result),
     );
 }

@@ -312,3 +312,127 @@ fn continuous_review_keeps_permission_rename_and_binary_metadata() {
     assert!(text.contains("b/01-中文 二进制.dat"), "{text}");
     s.shutdown();
 }
+
+#[test]
+fn long_diff_titles_wrap_with_the_body_and_preserve_the_reading_position() {
+    use crate::{
+        horizontal::Pane,
+        pointer::{Action, Hit, ScrollTarget, Target},
+    };
+    use crossterm::event::{MouseButton, MouseEvent, MouseEventKind};
+    use ratatui::layout::Position;
+
+    let f = support::Fixture::create();
+    let path = format!("packages/{}preview-path-end.ts", "nested/".repeat(13));
+    let file = f.repo.join(&path);
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    f.commit(
+        &path,
+        &format!(
+            "// code-start {} code-end\n{}",
+            "body ".repeat(30),
+            "next line\n".repeat(40)
+        ),
+    );
+    let (_home, mut s) = open(&f);
+    s.config.text_wrap = true;
+    loaded(&mut s);
+
+    let mut terminal = Terminal::new(TestBackend::new(120, 32)).unwrap();
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let preview = view::inspection::areas(s.body_area.unwrap(), detail(&s))
+        .into_iter()
+        .find(|(_, focus)| *focus == Focus::Preview)
+        .unwrap()
+        .0;
+    let header_row = preview.y + 1;
+    let contents = |terminal: &Terminal<TestBackend>, rows: std::ops::Range<u16>| {
+        let buffer = terminal.backend().buffer();
+        rows.map(|y| {
+            (preview.x + 1..preview.right() - 1)
+                .map(|x| buffer[(x, y)].symbol())
+                .collect::<String>()
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+    };
+    let body_start = detail(&s).review.layout.sections[0].body_start();
+    assert_eq!(body_start, 2);
+    let wrapped = contents(&terminal, header_row..header_row + body_start as u16);
+    let (first, continuation) = wrapped.split_once('\n').unwrap();
+    assert!(first.ends_with('A'), "{wrapped}");
+    assert_eq!(
+        &format!(
+            "{}{}",
+            first.trim_end_matches('A').trim_end(),
+            continuation.trim_end()
+        ),
+        &path
+    );
+    let code = contents(
+        &terminal,
+        header_row + body_start as u16..preview.bottom() - 1,
+    );
+    assert!(
+        code.contains("code-start") && code.contains("code-end"),
+        "{code}"
+    );
+    assert!(!s.pointer.has_horizontal_track(Pane::InspectionDiff));
+
+    let continuation = Position::new(preview.x + 2, header_row + 1);
+    assert!(matches!(
+        s.pointer.hit(continuation),
+        Some(Hit::Item(Target::InspectionFiles, 0))
+    ));
+    let click = |s: &mut Screen, point: Position| {
+        for kind in [
+            MouseEventKind::Down(MouseButton::Left),
+            MouseEventKind::Up(MouseButton::Left),
+        ] {
+            s.mouse(
+                MouseEvent {
+                    column: point.x,
+                    row: point.y,
+                    kind,
+                    modifiers: KeyModifiers::NONE,
+                },
+                &Cancel::default(),
+            )
+            .unwrap();
+        }
+    };
+    click(&mut s, continuation);
+    assert_eq!(detail(&s).focus, Focus::Preview);
+    detail_mut(&mut s).review.seek(body_start);
+
+    s.config.text_wrap = false;
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    assert_eq!(detail(&s).review.layout.sections[0].body_start(), 1);
+    assert_eq!(detail(&s).review.layout.offset, 1);
+    detail_mut(&mut s).review.seek(0);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let before = contents(&terminal, header_row..header_row + 1);
+    assert!(!before.contains("preview-path-end.ts"), "{before}");
+    let point = Position::new(preview.right() - 2, preview.bottom() - 1);
+    assert!(matches!(
+        s.pointer.hit(point),
+        Some(Hit::Scrollbar(Action::Scroll(
+            ScrollTarget::Horizontal(Pane::InspectionDiff),
+            _
+        )))
+    ));
+    click(&mut s, point);
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    let after = contents(&terminal, header_row..header_row + 1);
+    assert!(after.contains("preview-path-end.ts"), "{after}");
+    assert!(after.ends_with('A'), "{after}");
+
+    s.config.text_wrap = true;
+    terminal.draw(|frame| view::render(frame, &mut s)).unwrap();
+    assert_eq!(detail(&s).review.horizontal.offset(), 0);
+    assert!(!s.pointer.has_horizontal_track(Pane::InspectionDiff));
+    assert_eq!(
+        contents(&terminal, header_row..header_row + body_start as u16),
+        wrapped
+    );
+}

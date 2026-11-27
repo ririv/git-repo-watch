@@ -130,7 +130,7 @@ pub(super) fn render(
                     area,
                     inner.x + (*gutter as u16).min(inner.width)..inner.right(),
                     hits,
-                    ScrollTarget::BrowserHorizontal(mode),
+                    crate::horizontal::Pane::BrowserText(mode),
                 );
             }
             Document::Image(image) => {
